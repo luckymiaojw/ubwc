@@ -1,0 +1,1654 @@
+#!/usr/bin/perl
+require 5.004;
+
+# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
+# 
+# Copyright 2001 - 2020 Synopsys, INC.
+# 
+# This Synopsys IP and all associated documentation are proprietary to
+# Synopsys, Inc. and may only be used pursuant to the terms and conditions of a
+# written license agreement with Synopsys, Inc. All other use, reproduction,
+# modification, or distribution of the Synopsys IP or the associated
+# documentation is strictly prohibited.
+# 
+# Component Name   : DW_axi
+# Component Version: 4.04a
+# Release Type     : GA
+# -------------------------------------------------------------------------------
+
+# 
+# Release version :  4.04a
+# File Version     :        $Revision: #5 $ 
+# Revision         : $Id: //dwh/DW_ocb/DW_axi/amba_dev/sim/perl/sim_svte/runtest#5 $ 
+#
+# Abstract         : User interface script to coreKit simulation system
+#                    This script is used by all Amba DesignWare macrocells to
+#                    simulations on unpacked coreKits.
+# -------------------------------------------------------------------------------
+
+use 5.004;            # -- Insist on Perl version 5.004 or newer for safety
+use strict;           # -- Follow rigid variable/subroutine declarations
+use File::Basename;   # -- Compute the containing directory of this script
+use lib (dirname $0); # -- and use it as the search path for any .pm modules
+use Getopt::Long;     # -- Command-line Options decoder with long options
+$| = 1;               # -- Flush output stream continuously for readability
+
+my $Pgm = (basename $0);                # -- store program name
+my $Invoke = join(' ',($Pgm,@ARGV));    # -- store program arguments
+my $Version = ' $Revision: #5 $ ';    # -- set program revision number
+my $platform = `uname`; chop $platform; # -- store the host platform
+
+# -- Extract the name of the top level module
+my $ModName;
+&fetch_module_name();
+
+
+#
+# Convert new RCE supported arguments to runtest into the expected args.
+# This must be replaced but works for testing the new code. This section
+# will be skipped if old style arguments are detected.
+#
+my $argIndex;
+my $newDumpEnabled = 0;
+my $newClockDefault = 1;
+my $newTimeoutDefault = 1;
+my $newView = "RTL";
+my $newNetlistDir = "";
+my $newTechLib = "";
+my @newARGV = ();
+for ($argIndex = 0; $argIndex <= $#ARGV; $argIndex += 2) {
+  $_ = $ARGV[$argIndex];
+  SWITCH: {
+    /^--simulator$/ && do { @newARGV = (); last SWITCH; };
+
+    /^--AllTests$/ && do {
+      last SWITCH;
+    };
+    /^--test$/ && do {
+      push @newARGV, $ARGV[$argIndex];
+      push @newARGV, $ARGV[$argIndex + 1];
+      last SWITCH;
+    };
+    /^--SimChoice$/ && do {
+      push @newARGV, "--simulator";
+      my $simulator = $ARGV[$argIndex + 1];
+      $simulator =~ tr/A-Z/a-z/;
+      push @newARGV, $simulator;
+      last SWITCH;
+    };
+    /^--DumpEnabled$/ && do {
+      $newDumpEnabled = $ARGV[$argIndex + 1];
+      last SWITCH;
+    };
+    /^--DumpDepth$/ && do {
+      if ($newDumpEnabled) {
+        push @newARGV, "--dump_depth";
+        push @newARGV, $ARGV[$argIndex + 1];
+      }
+      last SWITCH;
+    };
+    /^--ClockDefault$/ && do {
+      $newClockDefault = $ARGV[$argIndex + 1];
+      last SWITCH;
+    };
+    /^--ClockPeriod$/ && do {
+      if (!$newClockDefault) {
+        push @newARGV, "--period";
+        push @newARGV, $ARGV[$argIndex + 1];
+      }
+      last SWITCH;
+    };
+    /^--Clock2Period$/ && do {
+      push @newARGV, "--period2";
+      push @newARGV, $ARGV[$argIndex + 1];
+      last SWITCH;
+    };
+    /^--TimeoutDefault$/ && do {
+      $newTimeoutDefault = $ARGV[$argIndex + 1];
+      last SWITCH;
+    };
+    /^--TimeoutCycles$/ && do {
+      if (!$newTimeoutDefault) {
+        push @newARGV, "--timeout";
+        push @newARGV, $ARGV[$argIndex + 1];
+      }
+      last SWITCH;
+    };
+    /^--ClockRatio$/ && do {
+      push @newARGV, "--clock_ratio";
+      push @newARGV, $ARGV[$argIndex + 1];
+      last SWITCH;
+    };
+    /^--axi_verif_env_type$/ && do {
+      last SWITCH;
+    };
+    /^--DesignView$/ && do {
+      $newView = $ARGV[$argIndex + 1];
+      if ($newView eq "RTL") {
+        push @newARGV, "--rtl"
+      }
+      last SWITCH;
+    };
+    /^--TechLib$/ && do {
+      $newTechLib = $ARGV[$argIndex + 1];
+      last SWITCH;
+    };
+    /^--TechFile$/ && do {
+      if ($newView eq "GateLevel") {
+        push @newARGV, "--lib_dir";
+        push @newARGV, $newTechLib;
+        push @newARGV, "--lib_file";
+        push @newARGV, "$newTechLib/$ARGV[$argIndex + 1]";
+      }
+      last SWITCH;
+    };
+    /^--NetlistDir$/ && do {
+      $newNetlistDir = $ARGV[$argIndex + 1];
+      last SWITCH;
+    };
+    /^--NetlistFile$/ && do {
+      if ($newView eq "RTL") {
+        push @newARGV, "--rtl_dir";
+        push @newARGV, $newNetlistDir;
+      } else {
+        push @newARGV, "--netlist";
+        push @newARGV, "$newNetlistDir/$ARGV[$argIndex + 1]";
+      }
+      last SWITCH;
+    };
+    /^--coverage$/ && do {
+      push @newARGV, "--coverage";
+      last SWITCH;
+    };
+    /^--MTIIncludePath$/ && do {
+      last SWITCH;
+    };
+    # Unknown argument.
+    push @newARGV, $ARGV[$argIndex];
+    $argIndex--;
+  }
+}
+
+if ($#newARGV >= 0) {
+  # Found arguments to convert. This is a new-style invocation.
+  ###print STDERR "** Replacing: @ARGV\n";
+  @ARGV = @newARGV;
+  ###print STDERR "** With: @ARGV\n";
+}
+
+
+# -- Options decoding - first define Globals and useful defaults
+# -- Whenever <coreKit> appears in these variables, the relative
+# -- path to the coreKit install directory  will be substituted
+
+# -- Options: Global
+
+my $Pretend;
+my $ShowHelp;
+my $ShowVersion;
+my $Verbose;
+
+# -- Options: What design to simulate
+
+my $DesignName       = $ModName;
+my $RtlSim;                             # Simulate netlist by default
+my $Netlist          = "<coreKit>/gtech/qmap/db/$DesignName.v";
+my $SdfFile;                            # No SDF by default
+my $SdfLevel         = "max";
+my $RtlDir           = "<coreKit>/src";
+my $LibDir           = "";
+my $LibFile;
+
+# -- Options: How to simulate:
+
+my $Simulator        = "vcs";
+my $use64bitSimulator;
+my $SystemVerilogCompile = 0;
+my $sixtyfourbitswitch = "";
+my $LogFile          = "test.log";      # in test subdirectory
+my $ResultFile       = "test.result";   # in test subdirectory
+my $ErrorFile        = "test.error";   # in test subdirectory
+my $DumpDepth;
+my $MisSamples;
+my $DumpFile         = "test.vcd";      # in test subdirectory
+my $XpropEn;
+my $Coverage;
+my $BCM_coverage;
+my $VeraDebugLevel   = 0;
+
+my $uvm_src_dir;
+
+# -- Options: What stimulus to provide:
+
+my $Test;
+my $TestbenchDir     = "<coreKit>/sim/testbench";
+my $MTIWorkDir       = "<coreKit>/scratch";
+my $VeraDir          = "<coreKit>/sim/vera";
+my $Period           = 100;
+my $Period2          = 100;
+my $Timeout;
+my $EnCovMon         = 0;
+my $designware_home = "";
+my $GenerateMCDFile  = 0;
+
+# -- Options: Additional simulation parameters
+
+my $ApbClockRatio    = 1;
+
+# -- Options: Vera Compilation 
+
+my $VeraForceCompile     = 0;  # Do not force Vera recompilation by default
+my $VeraForceCompileMain = 1;  # Force Vera recompilation of the main program by default
+
+# -- Usage help text
+
+my $Usage = <<EndOfUsage;
+
+Usage:   $Pgm [ options ]
+Purpose: Run coreKit simulations.
+
+Options: Global:
+
+  --help                    Print  this  usage  message
+
+  --version                 Print  program  version  number
+
+  --verbose                 Be  verbose
+
+  --pretend                 Build  scripts  only,  don\'t  run
+
+
+Options: What design to simulate:
+
+
+  --DesignView <view>       Choose input to simulator.  Choices
+                            are:  RTL, GTECH or GateLevel 
+
+  --NetlistDir <netlist_dir> 
+                            Run netlist simulations using 
+                            directory <netlist_dir>
+
+  --NetlistFile <netlist_file> 
+                            Run simulations using netlist
+                            <netlist_file>.  Only needed for
+                            non-RTL simulations
+ 
+
+  --lib_dir <dir1>[,...]    Comma-separated list of directories
+                            containing  libraries  for  netlist
+                            ( including  gtech )    simulations
+                            Default is
+                            \"$LibDir\"
+
+  --lib_file <file1>[,...]  Comma-separated   list  of   files
+                            containing libraries  for  netlist
+                            ( including  gtech )   simulations
+
+
+Options: How to simulate:
+
+
+  --SimChoice <sim>         Run with  chosen  simulator. <sim>
+                            can be one of:  < VCS | Verilog_XL 
+                            |   MTI_Verilog  |   NC_Verilog  >
+
+  --log_file <logfile>      Direct   simulation   stdout    to
+                            <logfile>, default  is \"$LogFile\"
+
+  --result_file <resfile>   Record   simulation   result    to
+                            <resfile>, default is \"$ResultFile\"
+
+  --DumpDepth <depth>       Enable  creation  of  value-change
+                            dump  ( VCD+ )  file  to  a  depth
+                            of  < depth > ( 0 = all  signals )
+
+  --dump_file <filename>    Name    of   VCD+   output    file
+                            ( default : $DumpFile )
+
+  --coverage                Turn on coverage recording options
+
+
+Options: What stimulus to provide:
+
+
+  --test <test-obj-file>    Select  which  directory to obtain
+                            test   stimulus   files   from
+
+  --testbench <tbdir>       Select     directory    to    load
+                            testbench     from,   default   is
+                            \"$TestbenchDir\"
+
+  --vera_dir <veradir>      Look for VERA objects in <veradir>,
+                            default is \"$VeraDir\"
+
+  --ClockPeriod <period>    Simulation   clock  period (in ns).
+                            ( default: specified in testbench )
+
+  --Clock2Period <period2>  Simulation   clock  period (in ns).
+                            ( default: specified in testbench )
+
+  --TimeoutCycles <cycles>  Number  of clock cycles   until   a
+                            runaway  simulation  is  terminated
+                            Default    is    something   large,
+                            specified   in    the    individual
+                            testbench
+
+  --enable_covmon <0, 1>    Select if the AHB  and APB coverage
+                            monitors  are   enabled   for   the
+                            simulation run.
+
+
+Options: Additional simulation parameters:
+
+
+  --ClockRatio N            Specify    the     APB CLOCK_RATIO
+                            parameter value (default $ApbClockRatio)
+
+EndOfUsage
+
+
+# Options decoding - call GetOptions here
+
+GetOptions (  'help|h'                   => \$ShowHelp
+            , 'version|v'                => \$ShowVersion
+            , 'verbose|V'                => \$Verbose
+            , 'pretend|n'                => \$Pretend
+
+            , 'rtl'                      => \$RtlSim
+            , 'netlist|g=s'              => \$Netlist
+            , 'sdf=s'                    => \$SdfFile
+            , 'sdf_level=s'              => \$SdfLevel
+            , 'rtl_dir=s'                => \$RtlDir
+            , 'lib_dir=s'                => \$LibDir
+            , 'lib_file=s'               => \$LibFile
+
+            , 'simulator|s=s'            => \$Simulator
+            , 'AutoreadEnabled'          => \$main::AutoreadEnabled             
+            , 'log_file|logfile=s'       => \$LogFile
+            , 'result_file|resultfile=s' => \$ResultFile
+            , 'dump_depth|depth|waves=i' => \$DumpDepth
+            , 'dump_file|dumpfile=s'     => \$DumpFile
+            , 'coverage'                 => \$Coverage
+            , 'vera_debug_level=i'       => \$VeraDebugLevel
+       	    , 'test_sv=i'                => \$SystemVerilogCompile
+      	    , '64bit|64'                 => \$use64bitSimulator
+            , 'test=s'                   => \$Test
+            , 'testbench=s'              => \$TestbenchDir
+            , 'vera_dir=s'               => \$VeraDir
+            , 'period=f'                 => \$Period
+            , 'period2=f'                => \$Period2
+            , 'timeout=i'                => \$Timeout
+            , 'enable_covmon=i'          => \$EnCovMon
+            , 'GenerateMCDFile=i'        => \$GenerateMCDFile	    
+            , 'clock_ratio=i'            => \$ApbClockRatio
+            , 'VeraForceCompile=i'       => \$VeraForceCompile
+            , 'VeraForceCompileMain=i'   => \$VeraForceCompileMain
+            , 'missamples'               => \$MisSamples
+            , 'bcm_assertions_en'        => \$BCM_coverage
+            , 'xprop_en'                 => \$main::XpropEn
+           ) or die "$Pgm: $Usage";
+
+if ( $ShowHelp )    { print STDERR $Usage; exit 0; }
+if ( $ShowVersion ) { print STDERR "$Pgm: version $Version\n"; exit 0; }
+
+
+# -/ ==================================================================
+# -/
+# -/                          MAIN PROGRAM
+# -/
+# -/ ==================================================================
+
+# -/ ------------------------------------------------------
+# -/ declare global varables
+# -/ ------------------------------------------------------
+my $Summary;
+my $Cwd;
+my $coreKit;
+my $configDirName;
+my $ccparams_file;
+my %ccparams;
+my $simcommand;
+my $plusargs;
+my $testbench;
+my $bus;
+
+
+# -/ ------------------------------------------------------
+# -/ 1. Sanity Checks and Preparation
+# -/ ------------------------------------------------------
+&run_dw_vip_setup();
+&preparation();
+
+# -/ ------------------------------------------------------
+#RAL specific attribute
+# -/ ------------------------------------------------------
+if ($Test eq "test_ral") {
+   runRalSim();
+   postprocess();
+   exit(0);
+ }
+
+# -/ ------------------------------------------------------
+# -/ 2. Parse cc_constants file and store in hash
+# -/ ------------------------------------------------------
+&parse_cc_constants();
+
+
+# -/ ------------------------------------------------------
+# -/ 2. Manage MCD file 
+# -/ ------------------------------------------------------
+&manageMCDFile();
+
+# -/ ------------------------------------------------------
+# -/ 4. Create the simulation command file
+# -/ ------------------------------------------------------
+&generate_sim_command();
+
+# -/ ------------------------------------------------------
+# -/ 6. Create over-ride cc_constants file
+# -/ ------------------------------------------------------
+
+# -/ ------------------------------------------------------
+# -/ 7. Run simulation
+# -/ ------------------------------------------------------
+&run_sim();
+
+# -/ ------------------------------------------------------
+# -/ 8. Postprocess - generate result logs
+# -/ ------------------------------------------------------
+&postprocess();
+
+
+
+# -/ ==================================================================
+# -/
+# -/                          SUBROUTINES
+# -/
+# -/ ==================================================================
+
+sub preparation() {
+
+  # -/ --------------------------------------------------------------
+  # -/ Function used to prepare for the
+  # -/ simulation run.
+  # -/ --------------------------------------------------------------
+
+  print STDERR "\n\n+------------------------+\n| Testbench Preparation  |".
+               "\n+------------------------+\n\n";
+  print STDERR "(this section of runtest.log supplied by runtest script)\n\n";
+
+  # -- Keep a safe copy of the Invoke command line for a summary later,
+  # -- delete some less useful parts of it
+  $Summary = $Invoke." ...";
+  $Summary =~ s/--rtl-dir\s+\S+\s*//g;
+  $Summary =~ s/--timeout\s+\S+\s*//g;
+  $Summary =~ s/(--test\s+\S+)\s*/sprintf("%-24s",$1) /ge;
+
+  $Invoke =~ s/ --/\\\n            --/g;
+  print STDERR "$Pgm: To recreate the run from this point for debug, do the following\n";
+  print STDERR "$Pgm:    % cd ".`pwd`;
+  print STDERR "$Pgm:    % $Invoke\n\n";
+
+  chdir "./$Test" or die "$Pgm: ERROR - Cannot cd to test subdirectory ./$Test";
+  print STDERR "$Pgm: Changed Directory to ./$Test - look here for detailed logfiles/waves/results\n";
+
+  # -- If it's midnight, wait a moment to avoid licensing problems
+  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+  sleep 120 if ($hour == 23 and $min == 59);
+  sleep 60 if ($hour == 0 and $min == 0);
+
+  # -- Set $Cwd now and we will use that as a reference point
+  $Cwd = `pwd`; chomp $Cwd;
+  $coreKit = (dirname (dirname $Cwd));
+
+  $RtlDir = convertPath($RtlDir);
+#FK  $VeraDir = convertPath($VeraDir);
+  $Netlist = convertPath($Netlist);
+  $SdfFile = convertPath($SdfFile);
+  $DumpFile = convertPath($DumpFile);
+  $TestbenchDir = convertPath($TestbenchDir);
+  $Test = convertPath($Test);
+
+  $configDirName = (basename $coreKit);
+  $ccparams_file = "${coreKit}/../${configDirName}/src/axi_2t1_int_${DesignName}_cc_constants.vh";
+  $ccparams_file = convertPath($ccparams_file);
+
+  print STDERR "\n$Pgm: coreKit in file:".(dirname (dirname $Cwd))."\n";
+  print STDERR "$Pgm: runtest in file:".(dirname $Cwd)."\n";
+  print STDERR "$Pgm: test is in file:$Cwd\n";
+
+  # -- Simulator option should be case-insensitive - force to lower-case
+  $Simulator = lc($Simulator);
+
+  # -- Choose wave format
+  if ( $DumpFile =~ /\.(vcd|vpd)$/ ) {
+    if (($Simulator eq "vcs") or ($Simulator eq "vcsi")) {
+      $DumpFile =~ s/\.vcd$/\.vpd/;
+    } else {
+      $DumpFile =~ s/\.vpd$/\.vcd/;
+    }
+  } else {
+    die "$Pgm: ERROR - Waves file extension not correct - should be XXXX.vcd or XXXX.vpd\n";
+  }
+
+  # -- Simulation Source
+  $testbench = "$TestbenchDir/sim_svte/test_${DesignName}.sv";
+  
+}
+
+
+
+sub parse_cc_constants() {
+
+  # -/ --------------------------------------------------------------
+  # -/ This function parses the cc_constants file of the design
+  # -/ storing the parameter values into a hash
+  # -/ --------------------------------------------------------------
+
+  print STDERR "$Pgm: Using ${DesignName} configuration specified in file:".
+               " \n$Pgm:   file:".(dirname (dirname $Cwd))."/".(basename $RtlDir).
+               "/${DesignName}_cc_constants.vh\n";
+
+  open(CCPARAMS,"< $ccparams_file") || die "$Pgm: ERROR - Can't open $ccparams_file ($!)\n";
+  while (<CCPARAMS>) {
+    if (/^\`define\s+(\S+)\s+(.+)/) {
+      my ($param,$value) = ($1,$2);
+      # -- Got param - convert it from verilog `define format number to a string
+      # -- containing a vera-format number of the same radix e.g. NN`bXXXX -> 0xXXXX
+      $value =~ s/^([0-9]*)\'h([0-9a-fA-F]+)$/0x$2/;
+      $value =~ s/^([0-9]*)\'d[0]*([0-9]+)$/$2/;
+      $value =~ s/^([0-9]*)\'o([0-7]+)$/0$2/;
+      $value =~ s/^([0-9]*)\'b([0-1]+)$/0b$2/;
+      $ccparams{$param} = $value;
+    }
+  }
+  close CCPARAMS || die "$Pgm: ERROR - Failed to close $ccparams_file after read ($!)\n";
+
+}
+
+sub generate_sim_command() {
+
+  # -/ --------------------------------------------------------------
+  # -/ This function is used to generate a simulation command file
+  # -/ "test.sim_command", and a vera plusargs file "config.ini"
+  # -/ --------------------------------------------------------------
+
+  my $bin1;
+  my $bin2;
+  my $file_missing;
+  ($bin1, $bus, $bin2) = split('_', $DesignName);
+  if($bus eq 'amba') {
+    if($ccparams{'ICT_ON_APB'}) {
+      $bus = 'apb';
+    } else {
+      $bus = 'ahb';
+    }
+  }
+
+  # -- Open file for writing
+if (($Simulator eq "vcs") or ($Simulator eq "vcsi") or ($Simulator eq "mti_verilog") or ($Simulator eq "verilog_xl") or ($Simulator eq "nc_verilog")) {
+
+  $simcommand = "test.sim_command";
+  print STDERR "$Pgm: Creating simulation command file: \n$Pgm:   file:$Cwd/$simcommand\n";
+  open(SCF,">$simcommand") or
+    die "$Pgm: ERROR -  couldn't open simulation command file $simcommand for write\n";
+
+  # -- print header to file
+  printf SCF "// -----------------------------------------------------------------------\n";
+  printf SCF "// Simulation Control file produced by %s - do not edit\n",$Pgm;
+  printf SCF "// -----------------------------------------------------------------------\n";
+  printf SCF "\n";
+  
+  # -- VCS command
+  if(($Simulator eq "vcs") or ($Simulator eq "vcsi")) { 
+    printf SCF "-sverilog\n";
+    printf SCF "-assert dve\n";
+    printf SCF "+vcs+lic+wait\n";
+    printf SCF "-notice\n";
+  }
+
+  
+  # -- Misc commands
+  printf SCF "+v2k\n";  
+  printf SCF "+nowarnTFNPC\n";
+  printf SCF "+nowarnLIBNOU\n";
+  printf SCF "+nowarnCUVWSI\n";
+  printf SCF "+nowarnCUVMPW\n";
+  printf SCF "+nowarnBIGWBS\n";
+  printf SCF "+nowarnCSINFI\n";
+  printf SCF "+warn=noPCWM\n";
+  printf SCF "+warn=noPHNE\n";
+  printf SCF "+warn=noIWNF\n";
+  printf SCF "+libext+.v+.V+.sv\n";
+  printf SCF "+sdfverbose\n";
+  printf SCF "+neg_tchk\n";
+  printf SCF "+plusarg_save\n";
+  printf SCF "+enable_coverage=$EnCovMon\n";
+  # -- to avoid x-propagation due to setup-hold violation
+  printf SCF "+notimingcheck\n";
+
+  if ($Period) {
+      printf SCF "+define+PERIOD=$Period\n";
+  }
+  if ($Period2) {
+      printf SCF "+define+PERIOD2=$Period2\n";
+  }
+
+  if ($Timeout) {
+    printf SCF "+define+TIMEOUT=".($Period * $Timeout)."\n";
+  }
+  printf SCF "+define+DEBUG_LEVEL=$VeraDebugLevel\n";
+  if ($Coverage) {
+    printf SCF "+define+CODE_COVERAGE\n";
+  }
+
+  if ($MisSamples) {
+    printf SCF "+define+DW_MODEL_MISSAMPLES=1\n";
+  }
+  if ($BCM_coverage) {
+    printf SCF "+define+DWC_BCM_SNPS_ASSERT_ON=1\n";
+    printf SCF "+define+DWC_BCM_CDC_COVERAGE_REPORT=1\n";
+  }
+
+ 
+  printf SCF "+define+DW_AXI_TB_ENABLE_QOS_INT\n";
+  printf SCF "+define+SVT_AXI_INCLUDE_USER_DEFINES\n";
+  printf SCF "+define+SVT_AXI_DISABLE_SYSTEM_ENV_ACCESS_FROM_AGENT\n";
+
+  # -- RTL or Netlist simulation
+  if ($RtlSim) {
+    printf SCF "+define+RTL\n";
+    # Commenting below, as it is not required in RTL simulations
+    # printf SCF "+delay_mode_zero\n";
+  } else {
+    printf SCF "+define+NETLIST\n";
+  }
+
+  # -- SDF annotation
+  if ($SdfFile) {
+    if(($Simulator eq "vcs") or ($Simulator eq "vcsi")) { 
+      printf SCF "+csdf+precompile\n";
+      printf SCF "+define+SDF_FILE=\\\"\"$SdfFile\\\"\"\n";
+      if($SdfLevel eq 'max') {
+	printf SCF "+define+SDF_LEVEL=\\\"\"MAXIMUM\\\"\"\n";
+      } elsif($SdfLevel eq 'typ') {
+	printf SCF "+define+SDF_LEVEL=\\\"\"TYPICAL\\\"\"\n";
+      } else {
+	printf SCF "+define+SDF_LEVEL=\\\"\"MINIMUM\\\"\"\n";
+      }
+    } else {
+      printf SCF "+define+SDF_FILE=\\\"$SdfFile\\\"\n";
+    }
+  }
+
+  # -- Dump file control
+  if (defined $DumpDepth) {
+    printf SCF "\n// What waves to record\n\n";
+    if((($Simulator eq "vcs") or ($Simulator eq "vcsi")) and ($DumpFile =~ /\.vpd$/)) { 
+      printf SCF "+vpdfile+$DumpFile\n";
+      printf SCF "+vpdports\n"; # Include ports info
+    } elsif (($Simulator eq "vcs") or ($Simulator eq "vcsi")) { 
+      printf SCF "+define+DUMP_FILE=\"\"$DumpFile\"\"\n";
+    } else {
+      printf SCF "+define+DUMP_FILE=\\\"$DumpFile\\\"\n";
+    }
+    printf SCF "+define+DUMP_DEPTH=$DumpDepth\n";
+  } else {
+    printf SCF "\n// Waves recording not enabled - no --dump-depth N specified\n\n";
+  }
+
+  # -- define a macro if it is a netlist
+  if (!($newView eq "RTL")) {
+    printf SCF "\n// Tell the testbench that we have a netlist\n\n";
+    printf SCF "+define+GATE_LEVEL_NETLIST\n";
+  }
+
+  # -- Construct the library switches from $LibDir and $LibFile
+  # -- $LibDir, obtained from --lib-dir, is a space-separated list of directories.
+  # -- We'll make a $libswitches by prepending "-y " to each of the directories.
+  my $file_missing=0;
+
+  my @libdirs = split(",",$LibDir);
+  if ($newView eq "GTECH") {
+    if (exists $ENV{SYNOPSYS}) {
+      if ($ENV{SYNOPSYS} ne "" && (-d "$ENV{SYNOPSYS}/packages/gtech/src_ver")) {
+          push @libdirs,"$ENV{SYNOPSYS}/packages/gtech/src_ver";
+      } else {
+        print STDERR "\n$Pgm: ERROR - Env variable \$SYNOPSYS is not correctly set - ($ENV{SYNOPSYS})";
+        print STDERR "\n              Unable to find required directory - \$SYNOPSYS/packages/gtech/src_ver";
+        print STDERR "\n              If using SYNOPSYS Synthesis Tools, set Env variable \$SYNOPSYS to a valid location.";
+        print STDERR "\n              If NOT using SYNOPSYS Synthesis Tools, unset Env variable \$SYNOPSYS.\n";
+        die "\n$Pgm: FATAL - $file_missing required files/directories missing. $Pgm terminating\n";
+      }
+    } else {
+      print STDERR "\n$Pgm: WARNING - Env variable \$SYNOPSYS is not set for this GTECH simulation";
+      print STDERR "\n                Unable to auto set path to GTECH libs.";
+      print STDERR "\n                If using SYNOPSYS Synthesis Tools, set Env variable \$SYNOPSYS to a valid location.";
+      print STDERR "\n                If NOT using SYNOPSYS Synthesis Tools, pass valid gtech lib path on runtest command line\n";
+    }
+  }
+if (exists $ccparams{'axi_2t1_int_USE_FOUNDATION'}) 
+  {
+if ($ccparams{'axi_2t1_int_USE_FOUNDATION'} eq 1) 
+    {
+      if (exists $ENV{SYNOPSYS}) {
+        if ( $ENV{SYNOPSYS} ne "" && (-d "$ENV{SYNOPSYS}/dw/sim_ver")) {
+          push @libdirs,"$ENV{SYNOPSYS}/dw/sim_ver";
+        } else {
+          print STDERR "\n$Pgm: ERROR - Design parameter USE_FOUNDATION==1 and Env variable \$SYNOPSYS is not correctly set - ($ENV{SYNOPSYS})";
+          print STDERR "\n              Unable to find required directory - \$SYNOPSYS/dw/sim_ver";
+          print STDERR "\n              Set Env variable \$SYNOPSYS to a valid location.";
+          die "\n$Pgm: FATAL - $file_missing required files/directories missing. $Pgm terminating\n";
+        }
+      } else {
+        print STDERR "\n$Pgm: ERROR - Design parameter USE_FOUNDATION==1 and Env variable \$SYNOPSYS is not set";
+        print STDERR "\n              Unable to find required directory - \$SYNOPSYS/dw/sim_ver";
+        print STDERR "\n              Set Env variable \$SYNOPSYS to a valid location.";
+        die "\n$Pgm: FATAL - $file_missing required files/directories missing. $Pgm terminating\n";
+      }
+    }
+  }
+
+  my $libswitch= "";
+  foreach (@libdirs) {
+    $_ = convertPath($_);
+    printf SCF "-y $_\n";
+    unless (-d "$_") {
+      $file_missing++;
+      print STDERR "\n$Pgm: ERROR - directory $_ is required but missing.\n";
+    }
+  }
+
+  printf SCF "\n\n// By default the GTECH models use a unit delay. Depending on the frequency\n";
+  printf SCF "// of the design this can cause problems. Using zero delay instead\n\n";
+  printf SCF "+define+GTECH_default_delay=0\n";
+
+  # -- $LibFile, obtained from --lib-file, is a space-separated list of files.
+  # -- We'll add to $libswitches by appending "-v " to each of the files
+  if ($LibFile) {
+    my @libfiles = split(",",$LibFile);
+    foreach(@libfiles) {
+      $_ = convertPath($_);
+      printf SCF "-v $_\n";
+      unless (-e "$_") {
+	$file_missing++;
+	print STDERR "\n$Pgm: ERROR - file $_ is required but missing.\n";
+      }
+    }
+  }
+
+  # -- The main list of source files is retrieved from the source directory and
+  # -- provided to the simulator command line in correct order.
+  # -- Other verilog is included or instantiated and should not need explicit
+  # -- mention on the command line.
+  #
+  # -- NOTE: The order of the +incdir+ and -y options is important because the
+  # -- local test directory has to be able to override eg DW_ahb_cc_constants.v
+  printf SCF "\n// -----------------------------------------------------------------------\n";
+  printf SCF "// Simulation Source files and include directories\n";
+  printf SCF "// -----------------------------------------------\n\n";
+
+
+# FK - For DW_axi in tb.lst file.
+
+#    printf SCF "$testbench\n\n";
+  
+
+  if (exists $ENV{UVM_HOME}) {
+    $uvm_src_dir = "$ENV{UVM_HOME}/src";
+  } else {
+    if ($Simulator eq "nc_verilog") {
+      $uvm_src_dir = "$ENV{CDS_INST_DIR}/tools.lnx86/methodology/UVM/CDNS-1.1d/sv/src" ;
+    }
+  }
+
+#fk
+  if ($DesignName eq 'DW_axi') {     
+    printf SCF "+define+SYNOPSYS_SV \n";
+    if (($Simulator eq "vcs") or ($Simulator eq "vcsi")) {
+      printf SCF "-timescale=1ns/1ps \n";
+      printf SCF "-ntb_opts uvm \n";
+      printf SCF "-ntb_opts use_sigprop \n";
+    }
+    printf SCF "+incdir+../../scratch/include/sverilog/ \n";
+
+    if (($Simulator eq "vcs") or ($Simulator eq "vcsi")) {
+      printf SCF "+incdir+../../scratch/src/sverilog/vcs/ \n";
+    } elsif ($Simulator eq "nc_verilog") {
+      printf SCF "+incdir+../../scratch/src/sverilog/ncv/ \n";
+      printf SCF "+incdir+../../scratch/src/verilog/ncv/ \n";
+    } elsif ($Simulator eq "mti_verilog") {
+      printf SCF "+incdir+../../scratch/src/sverilog/mti/ \n";
+    }
+
+    if ($Simulator eq "nc_verilog") {
+#      printf SCF "+incdir+$uvm_src_dir \n";
+       printf SCF "-uvm \n";
+       printf SCF "-uvmnoautocompile \n"; ## Mantis #26431
+       printf SCF "-uvmhome $ENV{CDS_INST_DIR}/tools.lnx86/methodology/UVM/CDNS-1.1d/sv/ \n";
+       printf SCF " +define+SVT_UVM_TECHNOLOGY +define+CADENCE \n";
+    }
+
+    printf SCF "+define+UVM_PACKER_MAX_BYTES=1500000 \n";
+    printf SCF "+define+UVM_DISABLE_AUTO_ITEM_RECORDING \n";
+
+    if (($Simulator eq "vcs") or ($Simulator eq "vcsi")) {
+      printf SCF "../../scratch/include/sverilog/svt_uvm_pkg.svi \n";
+    }
+
+    if (($Simulator eq "vcs") or ($Simulator eq "vcsi")) {
+      printf SCF "-file $TestbenchDir/sim_svte/tb.lst \n";    
+    }
+  }
+  
+  
+  if ($RtlSim) {
+    if (($Simulator eq "vcs") or ($Simulator eq "vcsi")) {
+      print SCF "-file $RtlDir/$DesignName.lst\n";
+    } else {
+      print SCF "-f $RtlDir/$DesignName.lst\n";
+    }
+  } else {
+    printf SCF "$Netlist\n\n";
+  }
+
+  printf SCF "+incdir+.\n";
+  printf SCF "-y .\n\n";
+  printf SCF "+incdir+$RtlDir\n";
+  printf SCF "-y $RtlDir\n\n";
+  printf SCF "+incdir+$TestbenchDir\n";
+  printf SCF "-y $TestbenchDir\n\n";
+  printf SCF "+incdir+$TestbenchDir/sim_svte\n";
+  printf SCF "-y $TestbenchDir/sim_svte\n\n";
+  
+  close SCF or die "$Pgm: ERROR - failed to close command file $simcommand after write\n";
+  die "$Pgm: FATAL - $file_missing required files/directories missing. $Pgm terminating\n" if $file_missing;
+ }
+#########################
+# VHDL sim command file #  
+#########################
+  my $vhdlcommandfile = "vera.ini";
+  if (($Simulator eq "mti_vhdl") or ($Simulator eq "nc_vhdl") or ($Simulator eq "scirocco")) {
+    print STDERR "$Pgm: Creating VHDL vera simulation params file: \n:$Pgm: file: $Cwd/$vhdlcommandfile\n";
+    open (DCF,">$vhdlcommandfile") or die "$Pgm: ERROR - couldn't open vhdl vera simulation params file $vhdlcommandfile for write\n";
+
+    printf DCF "// -----------------------------------------------------------------------\n";
+    printf DCF "// VHDL Simulation Control file produced by %s - do not edit\n",$vhdlcommandfile,$Pgm;
+    printf DCF "// -----------------------------------------------------------------------\n";
+    printf DCF "\n";
+    printf DCF "warn=noPCWM\n";
+    printf DCF "libext.v.V\n";
+    printf DCF "sdfverbose\n";
+    printf DCF "neg_tchk\n";
+    printf DCF "plusarg_save\n";
+    printf DCF "vera_pload=./test_${DesignName}.proj\n";
+    if ($Period) {
+      printf DCF "PERIOD=".$Period."\n";
+    }
+    if ($Period2) {
+      printf DCF "PERIOD2=".$Period2."\n";
+    }
+    if ($Timeout) {
+      printf DCF "TIMEOUT=".($Period * $Timeout)."\n";
+    }
+    unless($DesignName eq "DW_ahb") {
+      printf DCF "APB_CLK_RATIO=$ApbClockRatio\n";
+    }
+    printf DCF "netlist=1\n";
+    printf DCF "enable_coverage=0\n";
+    
+    if ($DesignName eq "DW_ahb") {
+      printf DCF "ahb_cc_filename=$ccparams_file\n\n";
+    } elsif ($DesignName eq "DW_apb") {
+      print DCF "apb_cc_filename=$ccparams_file\n";
+      print DCF "ahb_cc_filename=./DW_ahb_cc_constants.v\n";
+      printf DCF "apb_clk_ratio=$ApbClockRatio\n";
+    } elsif ($DesignName eq "DW_ahb_dmac") {
+      printf DCF "cc_filename=$ccparams_file\n\n";
+    } elsif ($bus eq "apb") {
+      printf DCF "apb_periph_cc_filename=$ccparams_file\n\n";
+      printf DCF "apb_cc_filename=./DW_apb_cc_constants.v\n";
+      printf DCF "ahb_cc_filename=../testbench/ahb/src/DW_ahb_cc_constants.v\n\n";
+    } elsif ($bus eq "ahb") {
+      printf DCF "ahb_periph_cc_filename=$ccparams_file\n\n";
+      printf DCF "ahb_cc_filename=./DW_ahb_cc_constants.v\n\n";
+    } 
+    close DCF or die  "$Pgm : ERROR - failed to close command file $vhdlcommandfile after write\n";
+  }
+
+  # VHDL library setup files - simulator specific
+  if ($Simulator eq "nc_vhdl") {
+    # set up cds.lib file for NC_VHDL
+    my $cds_inst = $ENV{CDS_INST_DIR} or die "CDS_INST_DIR environment variable not set!\n";
+    my $nc_cdslib_file = "cds.lib";
+    print STDERR "$Pgm: Creating NC_VHDL library map file: \n$Pgm: file:$Cwd/$nc_cdslib_file\n";
+    open (NCL, ">$nc_cdslib_file") or die "$Pgm: ERROR - couldn't oipen nc_vhdl library map file $nc_cdslib_file for writing\n";
+    printf NCL "DEFINE std $cds_inst/tools/inca/files/STD\n";
+    printf NCL "DEFINE synopsys ../../scratch/ncvhdl_workdir/synopsys\n";
+    printf NCL "DEFINE ieee ../../scratch/ncvhdl_workdir/ieee\n";
+    printf NCL "DEFINE dware ../../scratch/ncvhdl_workdir/dware\n";
+    printf NCL "DEFINE gtech ../../scratch/ncvhdl_workdir/gtech\n";
+    printf NCL "DEFINE ahb_inst ../../scratch/ncvhdl_workdir/ahb_inst\n";
+    printf NCL "DEFINE apb_inst ../../scratch/ncvhdl_workdir/apb_inst\n";
+    printf NCL "DEFINE dut_inst ../../scratch/ncvhdl_workdir/dut_inst\n";
+    printf NCL "DEFINE cmp_source ../../scratch/ncvhdl_workdir/cmp_source\n";
+    close NCL or die "$Pgm: ERROR - failed to close NC_VHDL library map file $nc_cdslib_file after writing\n";
+
+  # Also set up hdl.var
+    my $nc_hdlvar_file = "hdl.var";
+    print STDERR "$Pgm: Creating NC_VHDL Work Library file: \n$Pgm: file:$Cwd/$nc_hdlvar_file\n";
+    open (NCV,">$nc_hdlvar_file") or die "$Pgm: ERROR - couldn't open nc_vhdl Work Library file $nc_hdlvar_file for writing!\n";
+    printf NCV "softinclude $cds_inst/tools/inca/files/hdl.var\n";
+    printf NCV "DEFINE WORK cmp_source\n";
+    close NCV or die "$Pgm: ERROR - failed to close NC_VHDL Work Lib file $nc_hdlvar_file after writing.\n";
+
+    my $nc_tclinp_file = "tcl.inp";
+    print STDERR "$Pgm: Creating NC_VHDL TCL cmd input file: \n$Pgm:   file:$Cwd/$nc_tclinp_file\n";
+    open(NCT,">$nc_tclinp_file") or die "$Pgm: ERROR -  couldn't open nc_vhdl tcl cmd input file $nc_tclinp_file for write\n";
+    if ($newDumpEnabled == 1) {
+      printf NCT "call vcdfile ./$DumpFile -t ns\n";
+      printf NCT "call vcdaddscope : \n";
+    }
+    printf NCT "run\n";
+    close NCT or die "$Pgm: ERROR - failed to close nc_vhdl tcl cmd input file $nc_tclinp_file after write\n";
+  }
+
+  if($Simulator eq "scirocco") {
+    my $int_synopsys_sim = $ENV{SYNOPSYS_SIM};
+    my $int_synopsys = $ENV{SYNOPSYS};
+  
+    my $sro_vsssetup_file = ".synopsys_vss.setup";
+    print STDERR "$Pgm: Creating scirocco setup file: \n$Pgm:   file:$Cwd/$sro_vsssetup_file\n";
+    open(SRV,">$sro_vsssetup_file") or die "$Pgm: ERROR -  couldn't open scirocco setup file $sro_vsssetup_file for write\n";
+    printf SRV "WORK              > $DesignName\n";
+    printf SRV "$DesignName       : ../../scratch/scirocco_workdir\n";
+    printf SRV "SYNOPSYS          : $int_synopsys_sim/packages/synopsys/lib\n";
+    printf SRV "IEEE              : $int_synopsys_sim/packages/IEEE/lib\n";
+    printf SRV "GTECH             : $int_synopsys_sim/packages/gtech/lib\n";
+    printf SRV "DWARE             : $int_synopsys_sim/packages/dware/lib\n";
+    printf SRV "\n";
+    printf SRV "TIMEBASE          = NS\n";
+    close SRV or die "$Pgm: ERROR - failed to close scirocco setup file $sro_vsssetup_file after write\n";
+    die "$Pgm: FATAL - $file_missing required files/directories missing. $Pgm terminating\n" if $file_missing;
+   
+    my $sro_runinc_file = "sro_run.inc";
+    print STDERR "$Pgm: Creating scirocco run include file: \n$Pgm:   file:$Cwd/$sro_runinc_file\n";
+    open(SRR,">$sro_runinc_file") or die "$Pgm: ERROR -  couldn't open scirocco run include $sro_runinc_file for write\n";
+    if ($newDumpEnabled == 1) {
+      if ($DumpFile =~ /\.vpd$/) {
+        printf SRR "dump -vpd -o $DumpFile /test_${DesignName}/U_*/*'PORTS \n";
+      } else {
+        printf SRR "dump -vcd -o $DumpFile /test_${DesignName}/U_*/*'PORTS \n";
+      }
+    }
+    printf SRR "run\n";
+    close SRR or die "$Pgm: ERROR - failed to close scirocco run include $sro_runinc_file after write\n";
+    die "$Pgm: FATAL - $file_missing required files/directories missing. $Pgm terminating\n" if $file_missing;
+  }
+  
+}
+
+sub run_sim() {
+
+  if ($Simulator eq "nc_verilog") {
+    if ($use64bitSimulator) {
+      system ("c++ -Wno-deprecated -fPIC -shared -I $ENV{CDS_INST_DIR}/tools/inca/include -o uvm_dpi.so $uvm_src_dir/dpi/uvm_dpi.cc");
+    }    
+    else {
+      system ("c++ -Wno-deprecated -m32 -fPIC -m32 -shared -I $ENV{CDS_INST_DIR}/tools/inca/include -o uvm_dpi.so $uvm_src_dir/dpi/uvm_dpi.cc");
+    }  
+  } elsif ($Simulator eq "mti_verilog") {
+   system ("c++ -Wno-deprecated -fPIC -shared  -I $ENV{MTI_HOME}/include/ -o uvm_dpi.so $ENV{MTI_HOME}/verilog_src/uvm-1.1/src/dpi/uvm_dpi.cc");
+  }
+
+  # -/ --------------------------------------------------------------
+  # -/ This function generates and run the simulation command line
+  # -/ for the selected simulator.
+  # -/ --------------------------------------------------------------
+
+  # -- Clean old log/wave/result files
+  foreach (($DumpFile,$LogFile,$ResultFile)) {
+    unlink($_) if (-e $_);
+  }
+
+  # -- Generate command script
+  my @Commands;
+
+  if ($Simulator eq "vcs" and $platform eq "HP-UX") { 
+    my $CoverageFlags = ($Coverage) ? "-cm line+cond+fsm+tgl -cm_hier ../cm_hier_config_svte" : ""; 
+    if ($BCM_coverage) {
+       $CoverageFlags = "-lca -cm assert";
+    }
+    my $PlatformFlags = "-Mupdate=1";
+    @Commands = ("vcs -debug_access+nomemcbk+dmptf -debug_region+cell $PlatformFlags $CoverageFlags  -file $simcommand ",
+                 "./simv",
+                 "rm -f simv");
+  } elsif ($Simulator eq "vcs") { 
+    my $CoverageFlags = ($Coverage) ? "-cm line+cond+fsm+tgl -cm_hier ../cm_hier_config_svte" : "";
+    if ($BCM_coverage) {
+       $CoverageFlags = "-lca -cm assert";
+    }
+    my $PlatformFlags = "-R";
+    if ($use64bitSimulator) {
+      $PlatformFlags .= " -full64";
+    }
+    @Commands = ("vcs -debug_access+nomemcbk+dmptf -debug_region+cell $PlatformFlags $CoverageFlags  -file $simcommand ",
+                 "rm -f simv");
+
+  } elsif ($Simulator eq "vcsi") { 
+    my $CoverageFlags = ($Coverage) ? "-cm line+cond+fsm+tgl -cm_hier ../cm_hier_config_svte" : "";
+    if ($BCM_coverage) {
+       $CoverageFlags = "-lca -cm assert";
+    }
+    my $PlatformFlags = "-R";
+    if ($use64bitSimulator) { $PlatformFlags .= " -full64"; }
+    @Commands = ("vcsi -debug_access+nomemcbk+dmptf -debug_region+cell $PlatformFlags $CoverageFlags  -file $simcommand ",
+                 "rm -f simv");
+
+  } elsif ($Simulator eq "mti_verilog") {
+    @Commands = ("/bin/rm -rf ./work_axi",
+                 "vlib ./work_axi",
+                 "vlog -work work_axi -sv -mfcu  +define+SVT_UVM_TECHNOLOGY   +define+QUESTA +define+MODELTECH -suppress 2181,2217,2240,2227,2283 ../../scratch/include/sverilog/svt_uvm_pkg.svi  +incdir+$ENV{MTI_HOME}/verilog_src/uvm-1.1/src +incdir+./../../scratch/include/sverilog/ +incdir+../../scratch/src/sverilog/mti/  -f $simcommand -v $ENV{SYNOPSYS}/packages/gtech/src_ver/gtech_lib.v -f $TestbenchDir/sim_svte/tb.lst",
+                 "vsim -c -pli ../veriuser.so -lib ./work_axi -sv_lib $ENV{DESIGNWARE_HOME}/vip/common/latest/C/lib/${platform}/VipCommonNtb -sv_lib uvm_dpi -do \"set SolveArrayResizeMax 0 ;set IterationLimit 500000;run -all;quit\" +nowarnTFMPC +nowarnPCDPC test_${DesignName}");
+  } elsif ($Simulator eq "verilog_xl") { 
+    @Commands = ("../vera_xl -x -f $simcommand");
+  } elsif ($Simulator eq "nc_verilog") { 
+    if ($use64bitSimulator) {
+       $sixtyfourbitswitch = "-64bit";
+       $platform = "amd64";
+    }
+    @Commands = ("rm -f hdl.var cds.lib ncsim.args libpli.so libpli.sl",
+#                 "ln -s ../libpli.so .",
+#                 "ln -s ../libpli.sl .",
+#                 "ncprep +nclicqueue +overwrite -f $simcommand", 
+                 "sed -i 's*SNAPSHOT worklib.axi_2t1_int_DW_axi_mp_tzone*SNAPSHOT worklib.test_DW_axi*' ncelab.args; sed -i 's*worklib.axi_2t1_int_DW_axi_mp_tzone*worklib.test_DW_axi*' ncsim.args",
+                 "sed -i 's*^axi_2t1_int_DW_axi\$*test_DW_axi*' ncelab.args",
+#                 "ncvlog $sixtyfourbitswitch -sv -nowarn WARIPR ../../scratch/include/sverilog/svt_uvm_pkg.svi -f ncvlog.args -file $TestbenchDir/tb.lst",
+#                 "ncelab $sixtyfourbitswitch -timescale 1ns/1ps -nowarn IGNFMT -nowarn CUVIHR -f ncelab.args -access +rw",
+#                 "ncsim -LICQUEUE $sixtyfourbitswitch -hdlvar hdl.var -cdslib cds.lib -nowarn SYSFMW -sv_lib $ENV{DESIGNWARE_HOME}/vip/common/latest/C/lib/${platform}/VipCommonNtb -sv_lib uvm_dpi -f ncsim.args");
+                  " irun -access rw -messages -sv -nowarn WARIPR ../../scratch/include/sverilog/svt_uvm_pkg.svi -file $TestbenchDir/sim_svte/tb.lst -timescale 1ns/1ps -nowarn IGNFMT -nowarn CUVIHR -licqueue -gcc_vers 4.1 $sixtyfourbitswitch  -nowarn SYSFMW -sv_lib $ENV{DESIGNWARE_HOME}/vip/common/latest/C/lib/${platform}/VipCommonNtb -f $simcommand");
+  } elsif ($Simulator eq "scirocco") { 
+      if (!(-e "../../scratch/scirocco_workdir")) {
+        system("mkdir ../../scratch/scirocco_workdir");
+      }
+      @Commands = ("make -f Makefile_sro_gtech",
+                   "scs test_${DesignName}_conf",
+                   "scsim -include ./sro_run.inc");
+  } else {
+    die "$Pgm: ERROR - Unknown simulator $Simulator not yet supported.\n";
+  }
+  
+ 
+  my $cmd_file = "test.startsim";
+  print STDERR "$Pgm: Creating simulation start script $Test/$cmd_file containing:\n";
+  open(CMD,">$cmd_file") or die "$Pgm: ERROR - can't write startsim script \"$cmd_file\"\n";
+  foreach my $cmd (@Commands) {
+    print CMD "$cmd\n";
+    print STDERR "$Pgm:    % $cmd\n";
+  }
+  close(CMD);
+
+  # -- make command file executable
+  system("chmod ugo+rx $cmd_file");
+
+  # -- exit if you only want the scripts
+  exit(0) if $Pretend;
+
+  # -- print header and start time
+  my $startdate = `date`; chomp $startdate;
+  print STDERR "$Pgm: Running $Test/$cmd_file at $startdate\n";
+
+  print STDERR "\n\n+------------------------+\n| Simulation Execution   |\n+------------------------+\n\n";
+  print STDERR "(this section of runtest.log supplied by $Test/$cmd_file script)\n\n\n";
+
+  # -- run command file
+  my_system("./$cmd_file < /dev/null 2>&1 | tee $LogFile");
+
+  # -- print end time and tail
+  my $enddate = `date`; chomp $enddate;
+  print STDERR "\n\n\n+--------------------+\n| Simulation Results |\n+--------------------+\n\n";
+  print STDERR "$Pgm: Completed simulation at $enddate\n";
+  print STDERR "$Pgm: The above simulation output was also saved to $LogFile : \n$Pgm:   file:$Cwd/$LogFile\n";
+
+}
+
+
+sub postprocess() {
+
+  my $errorConditions = "";
+  my $errorExceptions = "";
+  my $errorFile = "../html_extraction_config_file";
+  my @configFileContents = ();
+  open (CF, "<${errorFile}");
+  @configFileContents = <CF>;
+  close(CF);
+  chomp(@configFileContents);
+  foreach (@configFileContents) {
+    if (/errorConditions:"(.*?)"/) {
+      $errorConditions = $1;
+    }
+    if (/errorExceptions:"(.*?)"/) {
+      $errorExceptions = $1;
+    }
+  }
+  # -/ --------------------------------------------------------------
+  # -/ This function parses the simulation log files and reports a
+  # -/ test pass or fail status
+  # -/ --------------------------------------------------------------
+  `/bin/rm -rf passed failed timeout`;
+  `/bin/rm -fr ../passed/$Test`;
+  `/bin/rm -fr ../timeout/$Test`;
+  `/bin/rm -fr ../failed/$Test`;
+
+  open (RESULT,">$ResultFile") || die "$Pgm: ERROR: can't open result file $ResultFile for write\n";
+  my $result;
+  if(check_completed() & ! check_errors()) {
+    `touch passed`;
+    `touch ../passed/$Test`;
+    $result = "PASSED";
+    if(&check_warnings()) {
+      if (&check_illegal_prog()) {
+        $result .= " (WARNINGS and ILLEGAL PROGRAMMING)";
+      } else {
+        $result .= " (WARNINGS)";
+      }
+    } else {
+      if (&check_illegal_prog()) {
+        $result .= " (ILLEGAL PROGRAMMING)";
+      }
+    }
+  `/bin/rm -rf simv csrc`;
+  } else {
+    $result = "FAILED";
+    if(&check_timeouts()) {
+      $result .= " (TIMEOUT)";
+      `touch timeout`;
+      `touch ../timeout/$Test`;
+      system("grep TIMEOUT $LogFile | grep -v \"+TIMEOUT\" | grep -v REG_TIMEOUT_RST > $ErrorFile");
+    } else {
+      `touch failed`;
+      system("egrep -i  \"$errorConditions\" test.log | egrep -iv \"$errorExceptions\" | head -1 > ../failed/$Test");
+      system("egrep -i  \"$errorConditions\" test.log | egrep -iv \"$errorExceptions\" > $ErrorFile");
+    }
+  }
+  print RESULT "$result \n";
+
+  close RESULT || die "$Pgm: ERROR: can't close result file $ResultFile after write\n";
+  print STDERR "$Pgm: Final result in ${Test}/${ResultFile} - Result is \"$result\"\n\n";
+  printf STDERR "Result:  %-19s  Test: $Summary\n\n","\"$result\"";
+
+}
+
+sub convertPath($ ) {
+
+  # -/ --------------------------------------------------------------
+  # -/ ConvertPath(path) determine the absolute root of the current
+  # -/ and converts the supplied dirpath/filepath to relative to the
+  # -/ test directory where the simulation is being run.
+  # -/ All default file locations are calculated relative to the
+  # -/ test directory, so we need to adjust those provided from the
+  # -/ invoking directory and migrate any absolute ones to relative
+  # -/ if possible.
+  # -/
+  # -/ This script is assumed to be located in $coreKit/sim and we
+  # -/ have now chdir'ed one level further down into a Test
+  # -/ subdirectory so to find the coreKit we go two levels up using
+  # -/ (dirname(dirname $Cwd))
+  # -/
+  # -/ The routine also removes duplicate or trailing slashes to keep
+  # -/ VCS happy Note - the routine also promises to convert <undef>
+  # -/ to <undef>
+  # -/ --------------------------------------------------------------
+
+  my $path = shift;
+  return undef unless defined($path);
+  $path =~ s|^<coreKit>/|$coreKit/|;
+  $path =~ s|^$coreKit/sim/|../|;
+  $path =~ s|^$coreKit/|../../|;
+  $path =~ s|//|/|g;
+  $path =~ s|/$||;
+  return $path;
+}
+
+
+sub check_errors() {
+
+  # -/ --------------------------------------------------------------
+  # -/ look through log files for for lines with the word 'error' or
+  # -/ 'fatal' in their first N characters, ie chances are they are
+  # -/ error messages of some form. This is a strict and safe
+  # -/ catch-all and may match on completely innocent lines.
+  # -/ --------------------------------------------------------------
+
+  my $errorConditions = "";
+  my $errorExceptions = "";
+  #my $errorFile = "../simulation_analysis_config_file";
+  my $errorFile = "../html_extraction_config_file";
+  my @configFileContents = ();
+  open (CF, "<${errorFile}");
+  @configFileContents = <CF>;
+  close(CF);
+  chomp(@configFileContents);
+  foreach (@configFileContents) {
+    if (/errorConditions:"(.*?)"/) {
+      $errorConditions = $1;
+    }
+    if (/errorExceptions:"(.*?)"/) {
+      $errorExceptions = $1;
+    }
+  }
+
+  #Remove "_error" from errorExceptions as it results in masking UVM_ERROR messages
+  $errorExceptions =~ s/\|_error//;
+
+  my $rv = 0;
+  my $errors = 0;
+  my @errors = "";
+
+#  @errors = `egrep -i \"error|fatal\" $LogFile | grep -v Region: | grep -v -i \"errors: 0\" | grep -v -i \"Total error\" | grep -v -i vca_error |  grep -v -i "ErrorStop"  | grep -iv "strerror" | grep -iv "warning" | grep -iv \"m_envStatusError\" | grep -iv \"PROTO_ERROR\" | grep -iv "librterrorinf.so"`;
+  @errors = `egrep -i  \"$errorConditions\" $LogFile | egrep -iv \"$errorExceptions\"`;
+  foreach(@errors) { $errors++; }
+
+  # -/ --------------------------------------------------------------
+  # -/ Catch vcs warnings that should be considered failures.
+  # -/ i.e. could be a failure to a third party tool.
+  # -/ --------------------------------------------------------------
+  my $error_warnings = 0;
+
+ # This is a compile time warning - So code like ( in X2H )
+ #         if (`X2H_AXI_ADDR_WIDTH == 64)
+ #            mhaddr  =  mhaddr_reg;
+ #          else
+ #            mhaddr  = {{(64-`X2H_AXI_ADDR_WIDTH){1'b0}},mhaddr_reg};
+ # will still give a warning when `X2H_AXI_ADDR_WIDTH == 64
+ # as the compiler seems to parse both
+ # branches of the if statement regardless of the X2H_AXI_ADDR_WIDTH
+ # value. This may be new to VCS 2006.06! and is causing sims to fail
+
+ # my @error_warnings = `egrep -i \"ZONMCM\" $LogFile`;
+   my @error_warnings;
+
+  foreach(@error_warnings) { $error_warnings++; }
+
+  if (($errors > 0) || ($error_warnings > 0)) {
+    $rv = 1;
+  }
+
+  return $rv;
+
+}
+
+
+sub check_warnings() {
+
+  # -/ --------------------------------------------------------------
+  # -/ Find warnings other than:
+  # -/ a. runtest warnings
+  # -/ b. inout coercion
+  # -/ --------------------------------------------------------------
+
+  my $warnings = 0;
+  my @warnings = `grep -i warn $LogFile | grep -v runtest | grep -v coercing | grep -v \"WARNING - VERA MEMORY model\" | grep -v \"ACC/CLI capabilities have been enabled\" | grep -v "Total warnings: 0"`;
+  foreach(@warnings) { $warnings++; }
+  return $warnings;
+
+}
+
+sub check_illegal_prog() {
+
+  # -/ --------------------------------------------------------------
+  # -/ Finds illegal programming:
+  # -/ --------------------------------------------------------------
+
+  my $illegal_prog = 0;
+  my @illegal_prog = `grep ILLEGAL_PROG $LogFile`;
+  foreach(@illegal_prog) { $illegal_prog++; }
+  return $illegal_prog;
+
+}
+
+
+sub check_timeouts() {
+
+  # -/ -------------------------------------------------------------- 
+  # -/ Find timeout and return N
+  # -/ --------------------------------------------------------------
+
+  my $timeouts = 0;
+  my @timeouts = `grep TIMEOUT $LogFile | grep -v "+TIMEOUT"`;
+  foreach(@timeouts) { $timeouts++; }
+  return $timeouts;
+
+}
+
+
+sub check_completed() {
+
+  # -/ --------------------------------------------------------------
+  # -/ Find completion message and return true/false
+  # -/ --------------------------------------------------------------
+
+  if ($Test eq "test_ral") {
+    # -/ This testcase will not display the following message
+    return 1;
+  }
+
+  my @completed = `grep "User test stimulus has completed" $LogFile`;
+  if($#completed >= 0) {
+    return 1;
+  } else {
+    return 0;
+  }
+
+}
+
+sub manageMCDFile() {
+#    # This subroutine creates a 'vmt_mcd.cfg' file in the test directory if required.
+#    # First step is to always remove any old vmt_mcd.cfg file
+#    `rm -fr vmt_mcd.cfg`;
+#    # If GenerateMCDFile is 1, create the .cfg file
+#    if ($GenerateMCDFile == 1) {
+#      `touch vmt_mcd.cfg`;
+#    }
+}
+
+sub my_system($) {
+
+  # -/ --------------------------------------------------------------
+  # -/ my_system() - a system call with success/fail check plus
+  # -/ Pretend/Verbose support
+  # -/ --------------------------------------------------------------
+
+  my $cmd = shift;
+
+  if($Pretend or $Verbose) {
+    printf STDERR "$Pgm: running \"$cmd\"\n";
+  }
+  unless ($Pretend) {
+    system($cmd);
+    die "$Pgm: ERROR - command \"$cmd\" failed, exit code $?\n" if($?);
+  }
+
+}
+
+
+sub check_array_param($$) {
+
+  # -/ --------------------------------------------------------------
+  # -/ Check to see if a particular item is a member of a set
+  # -/ Currently supported sets are: Positive Integers. Support could
+  # -/ easily be added for negative integers and collatable character
+  # -/ strings if required. Set syntax consists of a string containing
+  # -/ any combination of comma-separated lists and hyphen separated
+  # -/ ranges, eg "1" or "1,2" or "0-15" or "0-3,5,8,11-15"
+  # -/ The empty set is denoted by a zero-length string ""
+  # -/ --------------------------------------------------------------
+
+  my $item = shift;
+  my $set = shift;
+
+  # -- Remove any surplus whitespace 
+  $set =~ s/\s+//g;
+
+  # -- Split the set into comma-separated chunks first of all
+  my @set = split( /,/, $set);
+
+  # -- Loop on each chunk
+  foreach my $chunk (@set) {
+
+    # -- Is it a range or a single item
+    if ($chunk =~ /([0-9]+)-([0-9]+)/) {
+
+      # -- Range - Check that it is a valid range
+      die "$Pgm: ERROR - Invalid set range \"$chunk\" in set \"$set\"\n" if ($2 < $1);
+
+      # -- Range - return true if item is within range
+      return 1 if (($item >= $1) and ($item <= $2));
+    } elsif ($chunk =~ /[0-9]+/) {
+
+      # -- return true if item matches
+      return 1 if ($chunk == $item);
+    } elsif ($chunk ne '') {
+      die "$Pgm: ERROR - Invalid set argument \"$chunk\" in set \"$set\"\n";
+    }
+  }
+  # -- return false if we got to the end without a match
+  return 0;
+
+}
+
+
+sub convert_define_radix($) {
+  
+  # -/ --------------------------------------------------------------
+  # -/ Convert a string containing a verilog `define format number to
+  # -/ a string containing a vera-format number of the same radix e.g.
+  # -/ NN`bXXXX -> 0xXXXX
+  # -/ Do not do any other checking for validity
+  # -/ --------------------------------------------------------------
+
+  my $value_str = shift;
+  $value_str =~ s/^([0-9]*)\'h([0-9a-fA-F]+)$/0x$2/;
+  $value_str =~ s/^([0-9]*)\'d[0]*([0-9]+)$/$2/;
+  $value_str =~ s/^([0-9]*)\'o([0-7]+)$/0$2/;
+  $value_str =~ s/^([0-9]*)\'b([0-1]+)$/0b$2/;
+  return $value_str;
+
+}
+			 
+sub fetch_module_name() {
+
+  # -/ --------------------------------------------------------------
+  # -/ This function grabs the name of the top level design module.
+  # -/ Since there is more than one file here now we elimate the shell
+  # -/ h2h has named files as _input.v and _strings.v eliminate these
+  # -/ --------------------------------------------------------------
+
+  my $waste;
+
+  $ModName = `echo ./testbench/sim_svte/*.sv`;
+  chomp $ModName;
+  $ModName = (basename $ModName);
+  $ModName =~ s/test_//;
+  $ModName =~ s/_shell//;
+  $ModName =~ s/_input//;
+  $ModName =~ s/_strings//;
+  ($ModName, $waste) = split ('.sv', $ModName);
+
+}
+
+# End
+
+
+# -/ ==================================================================
+# -/
+# -/                          SUBROUTINES
+# -/                        vcs Compilation
+# -/
+# -/ ==================================================================
+
+sub run_dw_vip_setup {
+
+   #
+   # check if dw_vip_setup has been called already
+   #
+
+   system("which vcs > vcs_version.tmp");
+   if(!(-f ".vcs_version_prev"))
+   {
+   system("which vcs > .vcs_version_prev");
+   }
+
+   system("date");
+   my $designware_home = "";
+
+   my $svtFileName = "svt_version";
+   my $svt_version = "";
+   my @svtFileContents;
+
+   if (defined $ENV{'DESIGNWARE_HOME'} ) {
+     $designware_home = $ENV{'DESIGNWARE_HOME'};
+   } else {
+     print "ERROR: DESIGNWARE_HOME is not defined.\n";
+     compile_exit(2);
+   }
+   if (!(-e "${designware_home}/bin/dw_vip_setup")) {
+     print "ERROR:  dw_vip_setup script not found.  Check setting of DESIGNWARE_HOME.\n";
+     compile_exit(2);
+   }
+
+   if (!(-e "$svtFileName")) {
+     print "ERROR: svt_version file missing!\n";
+     compile_exit(2);
+   } else {
+   # open the file
+     open(SVT_VERSION, "<$svtFileName");
+     @svtFileContents = <SVT_VERSION>;
+     close(SVT_VERSION);
+     chomp(@svtFileContents);
+     $svt_version = $svtFileContents[0];
+   }
+
+   printf STDERR "\n - VIP/SVT Version Information\n";
+   printf STDERR "   - svt_version:\n     - $svt_version\n";
+   printf STDERR "   - vip_model_list:\n";
+   my @models = `cat ./svt_model_list`;
+   foreach(@models) { printf STDERR "     - $_"; }
+   printf STDERR "\n";
+   
+   if(-f "../scratch/.dw_vip.cfg")
+   {
+      # filter .dw_vip.cfg to get a model list file
+      system("grep '^%MOD' ../scratch/.dw_vip.cfg | sed 's:%MOD ::' | sed 's:amba:-v:' > svt_model_list.tmp");
+
+      # compare with the actual model list file
+      if(system("diff vcs_version.tmp .vcs_version_prev  > vcs_version.diff"))
+      {
+         printf STDERR "calling dw_vip_setup to refresh headers in ../scratch \n";
+         system("$designware_home/bin/dw_vip_setup -path ../scratch -svt $svt_version -a -m svt_model_list");
+         system("which vcs > .vcs_version_prev");
+      }
+      elsif(system("diff svt_model_list.tmp svt_model_list > svt_model_list.diff"))
+      {
+         printf STDERR "calling dw_vip_setup to refresh headers in ../scratch \n";
+         system("$designware_home/bin/dw_vip_setup -path ../scratch -svt $svt_version -a -m svt_model_list");
+         system("which vcs > .vcs_version_prev");
+      }
+      else
+      {
+         printf STDERR "skipping dw_vip_setup call. Headers already in ../scratch\n";
+      }
+   }
+   else
+   {
+      printf STDERR "calling dw_vip_setup to create headers in ../scratch \n";
+      if (system("$designware_home/bin/dw_vip_setup -path ../scratch -svt $svt_version -a -m svt_model_list"))
+      {
+        system("which vcs > .vcs_version_prev");
+        compile_exit(2);
+      }
+   }
+   system("rm -f svt_model_list.*");
+   system("rm -f vcs_version.tmp");
+   system("rm -f vcs_version.diff");
+   system("date");
+}
+
+
+sub get_file_list_by_ext {
+
+    my ( $file_dir, $file_ext ) = @_;
+
+    my @file_list;
+
+    if ( ! -e $file_dir ) {
+	@file_list = ();
+	return( @file_list );
+    }
+
+    if ( ! opendir( D, $file_dir ) ) {
+        print "ERROR:  Could not open VR file_dir '$file_dir'.\n";
+        compile_exit( 12 );
+    }
+
+    @file_list = grep( /.$file_ext$/, readdir( D ) );
+
+    closedir( D );
+
+    if ( defined @file_list ) {
+        @file_list = map { $file_dir . "/" . $_ } @file_list;
+    }
+    else {
+	@file_list = ();
+    }
+
+    return( @file_list ); 
+
+}
+
+sub compile_exit {
+
+    my ( $code ) = @_;
+
+    if($code == 0) {
+    }
+    else {
+       exit( $code );
+    }
+}
+
+sub runRalSim() {
+
+  # -- Clean old log/wave/result files
+  #foreach (($main::DumpFile,$main::LogFile,$main::ResultFile)) {
+  foreach (($DumpFile,$LogFile,$ResultFile)) {
+    unlink($_) if (-e $_);
+  }
+
+  if (-f "./Makefile") {
+
+    my $cmd_file = "test.startsim";
+    print STDERR "$Pgm: Creating simulation start script $Test/$cmd_file\n";
+    open(CMD,">$cmd_file") or die "$Pgm: ERROR - can't write startsim script \"$cmd_file\"\n";
+
+    my $cmds = "make DESIGN=$DesignName RAW=1";
+    unless ($newDumpEnabled and defined $DumpDepth) { $cmds = $cmds . " WAVES=0"; }
+    unless ($main::SVCoverage) { $cmds = $cmds . " RUN_COVERAGE=0"; }
+
+    print CMD "$cmds\n\n";
+    print CMD "/bin/rm -rf INCA_libs\n";
+    print CMD "/bin/rm -rf csrc\n";
+    unless($main::SVCoverage) { print CMD "/bin/rm -rf simv.daidir\n"; }
+    print CMD "/bin/rm -rf simv\n";
+    print CMD "chmod -R 777 *\n";
+
+    close(CMD);
+
+    # -- make command file executable
+    system("chmod ugo+rx $cmd_file");
+
+    # -- exit if you only want the scripts
+    exit(0) if $main::Pretend;
+
+    # -- print header and start time
+    my $startdate = `date`; chomp $startdate;
+    print STDERR "$Pgm: Running $Test/$cmd_file at $startdate\n";
+
+    print STDERR "\n\n+------------------------+\n| Simulation Execution   |\n+------------------------+\n\n";
+    print STDERR "(this section of runtest.log supplied by $Test/$cmd_file script)\n\n\n";
+
+    # -- run command file
+    my_system("./$cmd_file < /dev/null 2>&1 | tee $LogFile");
+
+    # -- print end time and tail
+    my $enddate = `date`; chomp $enddate;
+    print STDERR "\n\n\n+--------------------+\n| Simulation Results |\n+--------------------+\n\n";
+    print STDERR "$Pgm: Completed simulation at $enddate\n";
+    print STDERR "$Pgm: The above simulation output was also saved to $LogFile : \n$Pgm:   file:${main::Cwd}/$LogFile\n";
+  } else {
+    print "ERROR: No Makefile found in the test_ral directory !";
+    compile_exit( 11 );
+  }
+}
+

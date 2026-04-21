@@ -1,0 +1,45 @@
+/**
+  * The purpose of this file is redefine the MAX limits set by the AXI SVT VIP.
+  * We can always override the defines by redefining them in this file.
+  * AXI SVT VIP will parse this file firstly, to see if any of the MAX values are
+  * defined by the user.  If defined, it won't redefine them internally and use
+  * these maximum values.
+  *
+  * For example to match VIP Max possible address width to that of DW_axi, we simply
+  * redefine it as `define SVT_AXI_MAX_ADDR_WIDTH `AXI_DW
+  */
+`define SVT_AXI_MAX_READ_DATA_INTERLEAVE_SIZE 64
+`define SVT_AXI_MAX_ID_WIDTH `AXI_SIDW
+`define SVT_AXI_MAX_WR_INTERLEAVE_DEPTH 16
+`define SVT_AXI_MAX_ADDR_WIDTH `AXI_AW
+//Due to STAR 9000555553, always program MAX value to 1024
+`define SVT_AXI_MAX_DATA_WIDTH 1024
+`ifdef AXI_HAS_AXI4
+
+
+
+
+  `ifdef AXI_INC_AWSB
+
+
+
+
+    `define SVT_AXI_MAX_ADDR_USER_WIDTH `AXI_AW_SBW
+  `endif  
+  `ifdef AXI_INC_WSB
+
+
+
+
+    `define SVT_AXI_MAX_DATA_USER_WIDTH `AXI_W_SBW
+  `endif
+  `ifdef AXI_INC_BSB
+
+
+
+
+    `define SVT_AXI_MAX_BRESP_USER_WIDTH `AXI_B_SBW
+  `endif
+`endif
+`define SVT_AXI_MAX_NUM_OUTSTANDING_XACT 131072
+`define SVT_AXI_MAX_ADDR_VALID_DELAY 100

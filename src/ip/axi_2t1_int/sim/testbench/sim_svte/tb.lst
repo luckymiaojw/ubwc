@@ -1,0 +1,4 @@
+../testbench/sim_svte/tb_systolcl.sv
+../testbench/sim_svte/tb_busmux.sv
+../testbench/sim_svte/tb_check_lp.sv
+../testbench/sim_svte/test_DW_axi.sv

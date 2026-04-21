@@ -1,0 +1,1 @@
+/App/synopsys/dwip/iip/DW_axi/4.04a/scratch/elab/DW_axi.elab.tcl

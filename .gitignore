@@ -1,0 +1,16 @@
+.DS_Store
+.vscode/
+__pycache__/
+*.pyc
+*.swp
+*.swo
+*.fsdb
+*.vcd
+*.log
+*.gch
+
+/vrf/build/
+/vrf/sim/build/
+/vrf/sim/_case*/
+/vrf/sim/_tb*/
+/vrf/sim/_ffpc*/

@@ -1,0 +1,57 @@
+模块,寄存器地址,寄存器名,访问属性,复位值,位段,字段名,说明,备注
+ubwc_dec_apb_reg_blk,0x0000,REG_VERSION,RO,0x00010000,31:0,version,IP版本号,固定返回32'h0001_0000
+ubwc_dec_apb_reg_blk,0x0004,REG_DATE,RO,0x20260403,31:0,date,RTL日期,固定返回32'h2026_0403
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,0,tile_cfg_lvl1_bank_swizzle_en,一级bank swizzle使能,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,1,tile_cfg_lvl2_bank_swizzle_en,二级bank swizzle使能,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,2,tile_cfg_lvl3_bank_swizzle_en,三级bank swizzle使能,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,8:4,tile_cfg_highest_bank_bit,最高bank bit配置,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,9,tile_cfg_bank_spread_en,bank spread使能,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,10,tile_cfg_4line_format,4-line tile格式使能,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,11,tile_cfg_is_lossy_rgba_2_1_format,RGBA 2:1 lossy格式选择,
+ubwc_dec_apb_reg_blk,0x000c,APB_ADDR_TILE_CFG1,RW,0x00000000,11:0,tile_cfg_pitch,tile pitch配置,
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,0,tile_cfg_ci_input_type,CI输入类型,
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,SB_WIDTH:1,tile_cfg_ci_sb,CI sideband配置,位宽由SB_WIDTH参数决定
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,8,tile_cfg_ci_lossy,CI lossy使能,
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,10:9,tile_cfg_ci_alpha_mode,CI alpha mode配置,
+ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000001,0,vivo_ubwc_en,ubwc_dec_vivo_top使能,复位后默认1
+ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000001,1,vivo_sreset,vivo子模块软复位,可用于单独清空vivo内部状态
+ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,W1P/RW,0x00000000,0,meta_start,启动脉冲位,写1会翻转start toggle并在AXI域产生frame_start_pulse_axi; 读回固定为0; 建议最后写
+ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,RW,0x00000000,8:4,meta_base_format,metadata/base格式配置,通常与start在同一次写操作中一起下发
+ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_META_CFG1,RW,0x00000000,31:0,meta_base_addr_rgba_uv[31:0],RGBA或UV metadata基地址低32位,
+ubwc_dec_apb_reg_blk,0x0020,APB_ADDR_META_CFG2,RW,0x00000000,31:0,meta_base_addr_rgba_uv[63:32],RGBA或UV metadata基地址高32位,AXI_AW=64时完整组成64bit地址
+ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_META_CFG3,RW,0x00000000,31:0,meta_base_addr_y[31:0],Y metadata基地址低32位,
+ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_META_CFG4,RW,0x00000000,31:0,meta_base_addr_y[63:32],Y metadata基地址高32位,AXI_AW=64时完整组成64bit地址
+ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,RW,0x00000000,15:0,meta_tile_x_numbers,metadata横向tile数量,
+ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,RW,0x00000000,31:16,meta_tile_y_numbers,metadata纵向tile数量,
+ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,RW,0x00000000,15:0,otf_cfg_img_width,输出图像有效宽度像素,
+ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,RW,0x00000000,20:16,otf_cfg_format,输出OTF格式,
+ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,RW,0x00000000,15:0,otf_cfg_h_total,OTF H_TOTAL,
+ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,RW,0x00000000,31:16,otf_cfg_h_sync,OTF H_SYNC,
+ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,RW,0x00000000,15:0,otf_cfg_h_bp,OTF H_BP,
+ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,RW,0x00000000,31:16,otf_cfg_h_act,OTF H_ACT,
+ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,RW,0x00000000,15:0,otf_cfg_v_total,OTF V_TOTAL,
+ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,RW,0x00000000,31:16,otf_cfg_v_sync,OTF V_SYNC,
+ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,RW,0x00000000,15:0,otf_cfg_v_bp,OTF V_BP,
+ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,RW,0x00000000,31:16,otf_cfg_v_act,OTF V_ACT,
+ubwc_dec_apb_reg_blk,0x0044,APB_ADDR_TILE_BASE0,RW,0x00000000,31:0,tile_base_addr_rgba_uv[31:0],RGBA或UV tile基地址低32位,
+ubwc_dec_apb_reg_blk,0x0048,APB_ADDR_TILE_BASE1,RW,0x00000000,31:0,tile_base_addr_rgba_uv[63:32],RGBA或UV tile基地址高32位,AXI_AW=64时完整组成64bit地址
+ubwc_dec_apb_reg_blk,0x004c,APB_ADDR_TILE_BASE2,RW,0x00000000,31:0,tile_base_addr_y[31:0],Y tile基地址低32位,
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_TILE_BASE3,RW,0x00000000,31:0,tile_base_addr_y[63:32],Y tile基地址高32位,AXI_AW=64时完整组成64bit地址
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,动态,0,frame_active,当前帧是否处于active状态,启动后置1; 当前帧全部完成后清0
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,动态,1,meta_busy,metadata读取阶段busy,
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,动态,2,tile_busy,tile读取阶段busy,
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,动态,3,vivo_busy,ubwc_dec_vivo_top busy,
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,动态,4,otf_busy,tile_to_otf阶段busy,
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,动态,5,all_stage_idle,当前所有busy输入均为0,启动前和结束后都可能为1
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,动态,6,frame_idle_done,当前无busy且frame_active=0,建议与STATUS1[4]联合判断本帧结束
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,0,meta_done,metadata阶段已完成,新一帧start时清零
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,1,tile_done,tile阶段已完成,新一帧start时清零
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,2,vivo_done,vivo阶段已完成,新一帧start时清零
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,3,otf_done,OTF输出阶段已完成,新一帧start时清零
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,4,frame_done,整帧完成标志,最推荐的软件轮询位
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,5,meta_seen_busy,本帧期间metadata阶段曾经进入busy,用于避免未启动就误判done
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,6,tile_seen_busy,本帧期间tile阶段曾经进入busy,同上
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,7,vivo_seen_busy,本帧期间vivo阶段曾经进入busy,同上
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,8,otf_seen_busy,本帧期间otf阶段曾经进入busy,同上
+ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS2,RO,动态,6:0,vivo_idle_bits,ubwc_dec_vivo_top原始idle位图,按o_idle[6:0]原样透出给软件调试
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_STATUS3,RO,动态,6:0,vivo_error_bits,ubwc_dec_vivo_top原始error位图,按o_error[6:0]原样透出给软件调试
