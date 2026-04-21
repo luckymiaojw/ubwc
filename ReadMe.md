@@ -153,6 +153,50 @@ tcsh -c 'source prj_setup.env; make enc_wrapper_k_outdoor61_4096x600_g016_nonfak
 - `fake`：4 个 vector 都通过
 - `non-fake`：4 个 vector 都能跑到 compare，但当前 `ubwc_enc_vivo_top` 还是 passthrough/fake encoder，所以 `compressed data / metadata` 内容比对不过
 
+## 便捷脚本
+
+如果你不想每次手敲整串 `make`，现在可以直接用这两个脚本：
+
+```bash
+./vrf/sim/run_fake_all.sh
+./vrf/sim/open_wave.sh dec nv12 fake
+```
+
+`run_fake_all.sh`：
+
+```bash
+./vrf/sim/run_fake_all.sh
+./vrf/sim/run_fake_all.sh dec
+./vrf/sim/run_fake_all.sh enc
+./vrf/sim/run_fake_all.sh dec --dry-run
+```
+
+说明：
+
+- `all`：按顺序跑 `DEC fake + ENC fake`
+- `dec`：只跑 decoder fake `_all`
+- `enc`：只跑 encoder fake `_all`
+- `--dry-run`：只打印命令，不真正执行
+
+`open_wave.sh`：
+
+```bash
+./vrf/sim/open_wave.sh dec rgba8888 fake
+./vrf/sim/open_wave.sh dec nv12_otf fake
+./vrf/sim/open_wave.sh enc nv12 fake
+./vrf/sim/open_wave.sh enc g016 nonfake
+./vrf/sim/open_wave.sh encdec nv12
+```
+
+说明：
+
+- `dec` 支持：`rgba8888` / `rgba1010102` / `nv12` / `g016` / `nv12_otf`
+- `enc` 支持：`rgba8888` / `rgba1010102` / `nv12` / `g016`
+- `encdec` 目前只支持：`nv12`
+- `dec` 的模式可选：`fake` / `real`
+- `enc` 的模式可选：`fake` / `nonfake`
+- 脚本内部会自动定位工程根目录，并用 `tcsh/csh` 加载 `prj_setup.env`
+
 # tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12
 
 这组 wrapper testbench 使用下面这些 vector：

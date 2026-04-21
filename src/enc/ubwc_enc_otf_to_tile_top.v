@@ -25,6 +25,7 @@ module ubwc_enc_otf_to_tile
         parameter DATA_FIFO_AF_LEVEL = DATA_FIFO_DEPTH - 1
     )(
         input   wire                    clk,
+        input   wire                    i_otf_clk,
         input   wire                    rst_n,
         
     // static config    
@@ -305,7 +306,8 @@ module ubwc_enc_otf_to_tile
 
     ubwc_enc_otf_data_packer u_otf_data_packer
     (
-        .clk                ( clk						),
+        .i_otf_clk          ( i_otf_clk                 ),
+        .i_clk              ( clk						),
         .rst_n              ( rst_n						),
 
         .cfg_format         ( i_cfg_format				),

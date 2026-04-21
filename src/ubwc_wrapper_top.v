@@ -18,7 +18,7 @@ module ubwc_wrapper_top #(
     parameter ENC_APB_DW             = 32,
     parameter ENC_APB_BLK_NREG       = 64,
     parameter ENC_AXI_AW             = 64,
-    parameter ENC_AXI_DW             = 256,
+    parameter ENC_AXI_DW             = 64,
     parameter ENC_AXI_LENW           = 8,
     parameter ENC_AXI_IDW            = 6,
     parameter ENC_COM_BUF_AW         = 16,
@@ -27,7 +27,7 @@ module ubwc_wrapper_top #(
     parameter DEC_APB_AW             = 16,
     parameter DEC_APB_DW             = 32,
     parameter DEC_AXI_AW             = 64,
-    parameter DEC_AXI_DW             = 256,
+    parameter DEC_AXI_DW             = 64,
     parameter DEC_AXI_IDW            = 6,
     parameter DEC_AXI_LENW           = 8,
     parameter DEC_COM_BUF_AW         = 13,
@@ -52,6 +52,7 @@ module ubwc_wrapper_top #(
     // Encoder clock/reset
     // ---------------------------------------------------------------------
     input  wire                             enc_i_clk,
+    input  wire                             enc_i_otf_clk,
     input  wire                             enc_i_rstn,
 
     // ---------------------------------------------------------------------
@@ -196,6 +197,7 @@ module ubwc_wrapper_top #(
         .PSLVERR        (enc_PSLVERR),
         .PRDATA         (enc_PRDATA),
         .i_clk          (enc_i_clk),
+        .i_otf_clk      (enc_i_otf_clk),
         .i_rstn         (enc_i_rstn),
         .i_otf_vsync    (enc_i_otf_vsync),
         .i_otf_hsync    (enc_i_otf_hsync),

@@ -9,6 +9,7 @@
 ../dec/ubwc_dec_meta_axi_rdata_to_sram.v
 ../dec/ubwc_dec_axi_rd_interconnect.v
 ../dec/ubwc_dec_meta_data_from_sram.v
+../ip/ubwc_axi_rd_256to64.v
 ../ip/ubwc_std_single_port_sram.v
 ../dec/ubwc_dec_meta_pingpong_sram.v
 ../dec/ubwc_dec_rstn_gen.v
@@ -28,6 +29,7 @@
 ../dec/ubwc_dec_wrapper_top.v
 
 ../ip/sync_fifo_af.v
+../ip/ubwc_axi_wr_256to64.v
 ../ip/ubwc_sync_fifo_fwft.sv
 ../ip/ubwc_sram_1rw.v
 ../enc/ubwc_enc_rst_mdl.v

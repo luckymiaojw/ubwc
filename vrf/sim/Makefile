@@ -109,7 +109,7 @@ K_OUTDOOR61_G016_UV_LINEAR_SRC = $(K_OUTDOOR61_G016_VECTOR_DIR)/visual_from_mdss
 K_OUTDOOR61_G016_META_Y_SRC = $(K_OUTDOOR61_G016_VECTOR_DIR)/visual_from_mdss_writeback_50_wb_2_rec_0_verify_ubwc_enc_out2.txt
 K_OUTDOOR61_G016_META_UV_SRC = $(K_OUTDOOR61_G016_VECTOR_DIR)/visual_from_mdss_writeback_50_wb_2_rec_0_verify_ubwc_enc_out3.txt
 
-PYTHON ?= python3
+PYTHON ?= $(shell if command -v python3.11 >/dev/null 2>&1; then echo python3.11; else echo python3; fi)
 OTF_CASE_TOOL = $(PYTHON) $(VRF_SCRIPT_DIR)/otf_case_tool.py
 META_CASE_TOOL = $(PYTHON) $(VRF_SCRIPT_DIR)/gen_expected_meta_fifo.py
 
@@ -1058,13 +1058,7 @@ wrapper_k_outdoor61_4096x600_g016_vivo_verdi:
 	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016 TB_REAL_VIVO_MODE=$(WRAPPER_CASES_TB_REAL_VIVO_MODE) FORCE_FULL_PAYLOAD_CASE=$(WRAPPER_CASES_FORCE_FULL_PAYLOAD_CASE) verdi
 
 wrapper_tajmahal_4096x600_nv12_otf_prepare:
-	@mkdir -p build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12
-	grep -v '^@' $(TAJMAHAL_NV12_META_Y_SRC) > build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/input_meta_plane0.txt
-	grep -v '^@' $(TAJMAHAL_NV12_META_UV_SRC) > build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/input_meta_plane1.txt
-	grep -v '^@' $(WRAPPER_NV12_TILE_Y_SRC) > build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/input_tile_plane0.txt
-	grep -v '^@' $(WRAPPER_NV12_TILE_UV_SRC) > build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/input_tile_plane1.txt
-	grep -v '^@' $(TAJMAHAL_NV12_Y_LINEAR_SRC) > build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/golden_nv12_y_linear.memh
-	grep -v '^@' $(TAJMAHAL_NV12_UV_LINEAR_SRC) > build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/golden_nv12_uv_linear.memh
+	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 CASE_ID=2 TB_REAL_VIVO_MODE=$(WRAPPER_NV12_TB_REAL_VIVO_MODE) wrapper_tajmahal_cases_prepare
 
 wrapper_tajmahal_4096x600_nv12_otf_comp:
 	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 TB_REAL_VIVO_MODE=$(WRAPPER_NV12_TB_REAL_VIVO_MODE) FORCE_FULL_PAYLOAD_CASE=$(WRAPPER_NV12_FORCE_FULL_PAYLOAD_CASE) comp
@@ -1073,16 +1067,19 @@ wrapper_tajmahal_4096x600_nv12_otf_run: wrapper_tajmahal_4096x600_nv12_otf_prepa
 	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 TB_REAL_VIVO_MODE=$(WRAPPER_NV12_TB_REAL_VIVO_MODE) FORCE_FULL_PAYLOAD_CASE=$(WRAPPER_NV12_FORCE_FULL_PAYLOAD_CASE) run
 
 compare_wrapper_tajmahal_4096x600_nv12_otf:
+	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 TB_REAL_VIVO_MODE=$(WRAPPER_NV12_TB_REAL_VIVO_MODE) compare_wrapper_tajmahal_4096x600_nv12_otf_inner
+
+compare_wrapper_tajmahal_4096x600_nv12_otf_inner:
 	$(OTF_CASE_TOOL) compare \
 		--format nv12 \
-		--expected-y build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/golden_nv12_y_linear.memh \
-		--expected-uv build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/golden_nv12_uv_linear.memh \
-		--actual build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/actual_otf_stream.txt \
+		--expected-y $(BUILD_DIR)/golden_nv12_y_linear.memh \
+		--expected-uv $(BUILD_DIR)/golden_nv12_uv_linear.memh \
+		--actual $(BUILD_DIR)/actual_otf_stream.txt \
 		--width 4096 \
 		--active-height 600 \
 		--stored-y-height 640 \
 		--stored-uv-height 320 \
-		--out-dir build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12/compare
+		--out-dir $(BUILD_DIR)/compare
 
 wrapper_tajmahal_4096x600_nv12_otf_all: wrapper_tajmahal_4096x600_nv12_otf_prepare
 	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 TB_REAL_VIVO_MODE=$(WRAPPER_NV12_TB_REAL_VIVO_MODE) FORCE_FULL_PAYLOAD_CASE=$(WRAPPER_NV12_FORCE_FULL_PAYLOAD_CASE) all

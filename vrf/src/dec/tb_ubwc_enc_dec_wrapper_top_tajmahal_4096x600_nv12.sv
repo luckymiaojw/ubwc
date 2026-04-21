@@ -80,6 +80,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
     localparam [AXI_AW-1:0] META_BASE_ADDR_UV = 64'h0000_0000_8028_3000;
 
     reg                       clk;
+    reg                       pclk;
     reg                       i_otf_clk;
 
     reg                       enc_rst_n;
@@ -517,15 +518,15 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         input [APB_AW-1:0] addr;
         input [APB_DW-1:0] data;
         begin
-            @(posedge clk);
+            @(posedge pclk);
             enc_PSEL    <= 1'b1;
             enc_PENABLE <= 1'b0;
             enc_PWRITE  <= 1'b1;
             enc_PADDR   <= addr;
             enc_PWDATA  <= data;
-            @(posedge clk);
+            @(posedge pclk);
             enc_PENABLE <= 1'b1;
-            @(posedge clk);
+            @(posedge pclk);
             enc_PSEL    <= 1'b0;
             enc_PENABLE <= 1'b0;
             enc_PWRITE  <= 1'b0;
@@ -586,15 +587,15 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         input [APB_AW-1:0] addr;
         input [APB_DW-1:0] data;
         begin
-            @(posedge clk);
+            @(posedge pclk);
             dec_PSEL    <= 1'b1;
             dec_PENABLE <= 1'b0;
             dec_PWRITE  <= 1'b1;
             dec_PADDR   <= addr;
             dec_PWDATA  <= data;
-            @(posedge clk);
+            @(posedge pclk);
             dec_PENABLE <= 1'b1;
-            @(posedge clk);
+            @(posedge pclk);
             dec_PSEL    <= 1'b0;
             dec_PENABLE <= 1'b0;
             dec_PWRITE  <= 1'b0;
@@ -648,12 +649,17 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
 
     initial begin
         clk = 1'b0;
-        forever #2 clk = ~clk;
+        forever #1 clk = ~clk;
+    end
+
+    initial begin
+        pclk = 1'b0;
+        forever #5 pclk = ~pclk;
     end
 
     initial begin
         i_otf_clk = 1'b0;
-        forever #3 i_otf_clk = ~i_otf_clk;
+        forever #5 i_otf_clk = ~i_otf_clk;
     end
 
     always @(posedge clk) begin
@@ -673,7 +679,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
     enc_otf_driver #(
         .INPUT_FILE ("input_otf_stream.txt")
     ) u_otf_driver (
-        .clk        (clk),
+        .clk        (i_otf_clk),
         .rst_n      (enc_rst_n),
         .start      (start_enc_otf),
         .done       (enc_otf_done),
@@ -746,7 +752,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         .COM_BUF_AW  (COM_BUF_AW),
         .COM_BUF_DW  (COM_BUF_DW)
     ) enc_dut (
-        .PCLK            (clk),
+        .PCLK            (pclk),
         .PRESETn         (enc_rst_n),
         .PSEL            (enc_PSEL),
         .PENABLE         (enc_PENABLE),
@@ -757,6 +763,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         .PSLVERR         (enc_PSLVERR),
         .PRDATA          (enc_PRDATA),
         .i_clk           (clk),
+        .i_otf_clk       (i_otf_clk),
         .i_rstn          (enc_rst_n),
         .i_otf_vsync     (enc_i_otf_vsync),
         .i_otf_hsync     (enc_i_otf_hsync),
@@ -808,7 +815,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         .SB_WIDTH (DEC_SB_WIDTH),
         .FORCE_FULL_PAYLOAD (0)
     ) dec_dut (
-        .PCLK              (clk),
+        .PCLK              (pclk),
         .PRESETn           (dec_presetn),
         .PSEL              (dec_PSEL),
         .PENABLE           (dec_PENABLE),
@@ -942,7 +949,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         program_enc_wrapper_regs();
         repeat (4) @(posedge clk);
         start_enc_otf = 1'b1;
-        @(posedge clk);
+        repeat (2) @(posedge i_otf_clk);
         start_enc_otf = 1'b0;
 
         timeout_cycles = 0;

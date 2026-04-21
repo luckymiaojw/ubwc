@@ -301,8 +301,12 @@ module ubwc_enc_meta_addr_gen #(
                          frame_pad_tile_y_r,
                          {frame_pad_word_idx_r[24:0], 3'b111}))};
 
+    // Flush synthetic row/frame padding words before consuming more tiles, so
+    // Y-plane tail padding cannot be truncated by the next plane's traffic.
     assign in_fifo_pop_ready =
         in_fifo_pop_valid &&
+        !row_extra_pending_r &&
+        !frame_pad_active_r &&
         (!tile_emit_word_w || out_fifo_push_ready);
 
     assign tile_pop_fire_w = in_fifo_pop_valid && in_fifo_pop_ready;

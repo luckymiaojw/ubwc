@@ -25,7 +25,8 @@
 
 module ubwc_enc_otf_data_packer
     (
-        input  wire         clk,
+        input  wire         i_otf_clk,
+        input  wire         i_clk,
         input  wire         rst_n,
     
         // static config
@@ -80,12 +81,12 @@ module ubwc_enc_otf_data_packer
     reg [15:0] pixel_cnt_in;
     reg [15:0] line_cnt_in;
 
-    wire in_fifo_full, in_fifo_afull;
-    assign otf_ready = ~in_fifo_afull;
+    wire in_fifo_full;
+    assign otf_ready = ~in_fifo_full;
     wire otf_fire    = otf_de && otf_ready;
     wire in_fifo_wr_en = otf_fire;
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge i_otf_clk or negedge rst_n) begin
         if (!rst_n) begin
             otf_vsync_d1 <= 1'b0;
             otf_hsync_d1 <= 1'b0;
@@ -131,7 +132,7 @@ module ubwc_enc_otf_data_packer
     wire otf_last_beat = (effective_pixel_cnt + 16'd4 >= cfg_width);
 
     reg sticky_vsync, sticky_hsync;
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge i_otf_clk or negedge rst_n) begin
         if (!rst_n) begin
             sticky_vsync <= 1'b0;
             sticky_hsync <= 1'b0;
@@ -153,20 +154,23 @@ module ubwc_enc_otf_data_packer
     wire [146:0] in_fifo_din, in_fifo_dout;
     assign in_fifo_din = {otf_last_beat, din_fcnt, din_lcnt, din_vsync, din_hsync, otf_data};
 
-    sync_fifo_af #(
+    async_fifo_fwft_256w #(
         .DATA_WIDTH(147),
-        .DEPTH(16),
-        .AF_LEVEL(12)
+        .ADDR_WIDTH(4),
+        .DEPTH(16)
     ) u_input_fifo (
-        .clk         (clk),
-        .rst_n       (rst_n),
-        .wr_en       (in_fifo_wr_en),
-        .din         (in_fifo_din),
-        .full        (in_fifo_full),
-        .almost_full (in_fifo_afull),
-        .rd_en       (in_fifo_rd),
-        .dout        (in_fifo_dout),
-        .empty       (in_fifo_empty)
+        .wr_clk     (i_otf_clk),
+        .wr_rst_n   (rst_n),
+        .wr_clr     (1'b0),
+        .wr_en      (in_fifo_wr_en),
+        .din        (in_fifo_din),
+        .full       (in_fifo_full),
+        .rd_clk     (i_clk),
+        .rd_rst_n   (rst_n),
+        .rd_clr     (1'b0),
+        .rd_en      (in_fifo_rd),
+        .dout       (in_fifo_dout),
+        .empty      (in_fifo_empty)
     );
 
     wire         inf_last_beat = in_fifo_dout[146];
@@ -185,7 +189,7 @@ module ubwc_enc_otf_data_packer
         .DEPTH(16),
         .AF_LEVEL(12)
     ) u_out_fifo_a (
-        .clk         (clk),
+        .clk         (i_clk),
         .rst_n       (rst_n),
         .wr_en       (out_fifo_a_wr),
         .din         (out_fifo_a_din),
@@ -202,7 +206,7 @@ module ubwc_enc_otf_data_packer
         .DEPTH(16),
         .AF_LEVEL(12)
     ) u_out_fifo_b (
-        .clk         (clk),
+        .clk         (i_clk),
         .rst_n       (rst_n),
         .wr_en       (out_fifo_b_wr),
         .din         (out_fifo_b_din),
@@ -279,7 +283,7 @@ module ubwc_enc_otf_data_packer
     reg         a_pack64_cnt;
     reg [17:0]  a_pack32_sb, a_pack64_sb;
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge i_clk or negedge rst_n) begin
         if (!rst_n) begin
             out_fifo_a_wr   <= 1'b0;
             out_fifo_a_din  <= 163'd0;
@@ -357,7 +361,7 @@ module ubwc_enc_otf_data_packer
     reg         b_pack64_cnt;
     reg [17:0]  b_pack32_sb, b_pack64_sb;
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge i_clk or negedge rst_n) begin
         if (!rst_n) begin
             out_fifo_b_wr   <= 1'b0;
             out_fifo_b_din  <= 163'd0;

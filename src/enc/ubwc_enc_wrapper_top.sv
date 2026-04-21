@@ -21,7 +21,7 @@ module ubwc_enc_wrapper_top
         parameter   APB_DW          = 32    ,
         parameter   APB_BLK_NREG    = 64    ,
         parameter   AXI_AW          = 64    ,
-        parameter   AXI_DW          = 256   ,
+        parameter   AXI_DW          = 64    ,
         parameter   AXI_LENW        = 8     ,
         parameter   AXI_IDW         = 6     ,
         parameter   COM_BUF_AW      = 16    ,
@@ -40,6 +40,7 @@ module ubwc_enc_wrapper_top
 
     // clock/reset
         input   wire                                i_clk	            ,
+        input   wire                                i_otf_clk         ,
         input   wire                                i_rstn              ,
 
     // OTF input
@@ -90,6 +91,8 @@ module ubwc_enc_wrapper_top
         input   wire                                i_m_axi_bvalid      ,
         output  wire                                o_m_axi_bready
     );
+
+    localparam integer                  CORE_AXI_DW                 = 256;
 
     wire                                otf_cfg_vld                 ;
     wire                                otf_cfg_rdy                 ;
@@ -240,6 +243,25 @@ module ubwc_enc_wrapper_top
     wire                                err_fifo_ovf                ;
     wire                                rst                         ;
     wire                                srst                        ;
+    wire    [AXI_IDW      : 0]          core_m_axi_awid             ;
+    wire    [AXI_AW       -1: 0]        core_m_axi_awaddr           ;
+    wire    [AXI_LENW     -1: 0]        core_m_axi_awlen            ;
+    wire    [2            -1: 0]        core_m_axi_awburst          ;
+    wire    [2            -1: 0]        core_m_axi_awlock           ;
+    wire    [4            -1: 0]        core_m_axi_awcache          ;
+    wire    [3            -1: 0]        core_m_axi_awprot           ;
+    wire    [3            -1: 0]        core_m_axi_awsize           ;
+    wire                                core_m_axi_awvalid          ;
+    wire                                core_m_axi_awready          ;
+    wire    [CORE_AXI_DW  -1: 0]        core_m_axi_wdata            ;
+    wire    [CORE_AXI_DW/8-1: 0]        core_m_axi_wstrb            ;
+    wire                                core_m_axi_wlast            ;
+    wire                                core_m_axi_wvalid           ;
+    wire                                core_m_axi_wready           ;
+    wire    [AXI_IDW      : 0]          core_m_axi_bid              ;
+    wire    [2            -1: 0]        core_m_axi_bresp            ;
+    wire                                core_m_axi_bvalid           ;
+    wire                                core_m_axi_bready           ;
 
     wire    [AXI_IDW    -1: 0]          enc_axi_awid                ;
     wire    [AXI_AW     -1: 0]          enc_axi_awaddr              ;
@@ -252,8 +274,8 @@ module ubwc_enc_wrapper_top
     wire                                enc_axi_awvalid             ;
     wire                                enc_axi_awready             ;
     wire    [AXI_IDW    -1: 0]          enc_axi_wid                 ;
-    wire    [AXI_DW     -1: 0]          enc_axi_wdata               ;
-    wire    [AXI_DW/8   -1: 0]          enc_axi_wstrb               ;
+    wire    [CORE_AXI_DW-1: 0]          enc_axi_wdata               ;
+    wire    [CORE_AXI_DW/8-1: 0]        enc_axi_wstrb               ;
     wire                                enc_axi_wlast               ;
     wire                                enc_axi_wvalid              ;
     wire                                enc_axi_wready              ;
@@ -273,8 +295,8 @@ module ubwc_enc_wrapper_top
     wire                                meta_axi_awvalid            ;
     wire                                meta_axi_awready            ;
     wire    [AXI_IDW    -1: 0]          meta_axi_wid                ;
-    wire    [AXI_DW     -1: 0]          meta_axi_wdata              ;
-    wire    [AXI_DW/8   -1: 0]          meta_axi_wstrb              ;
+    wire    [CORE_AXI_DW-1: 0]          meta_axi_wdata              ;
+    wire    [CORE_AXI_DW/8-1: 0]        meta_axi_wstrb              ;
     wire                                meta_axi_wlast              ;
     wire                                meta_axi_wvalid             ;
     wire                                meta_axi_wready             ;
@@ -294,8 +316,8 @@ module ubwc_enc_wrapper_top
     wire                                dbg_awvalid_s0              ;
     wire                                dbg_awready_s0              ;
     wire    [AXI_IDW      :0]           dbg_wid_s0                  ;
-    wire    [AXI_DW     -1:0]           dbg_wdata_s0                ;
-    wire    [AXI_DW/8   -1:0]           dbg_wstrb_s0                ;
+    wire    [CORE_AXI_DW-1:0]           dbg_wdata_s0                ;
+    wire    [CORE_AXI_DW/8-1:0]         dbg_wstrb_s0                ;
     wire                                dbg_wlast_s0                ;
     wire                                dbg_wvalid_s0               ;
     wire                                dbg_wready_s0               ;
@@ -314,7 +336,7 @@ module ubwc_enc_wrapper_top
     wire                                dbg_arvalid_s0              ;
     wire                                dbg_arready_s0              ;
     wire    [AXI_IDW      :0]           dbg_rid_s0                  ;
-    wire    [AXI_DW     -1:0]           dbg_rdata_s0                ;
+    wire    [CORE_AXI_DW-1:0]           dbg_rdata_s0                ;
     wire    [2          -1:0]           dbg_rresp_s0                ;
     wire                                dbg_rvalid_s0               ;
     wire                                dbg_rlast_s0                ;
@@ -443,6 +465,7 @@ module ubwc_enc_wrapper_top
     ubwc_enc_otf_to_tile_inst
     (
         .clk						( i_clk						    ),
+        .i_otf_clk                  ( i_otf_clk                     ),
         .rst_n						( i_rstn						),
 
         .i_cfg_format				( otf_cfg_format				),
@@ -603,7 +626,8 @@ module ubwc_enc_wrapper_top
     ubwc_enc_meta_addr_gen
     #(
         .SB_WIDTH                   ( SB_WIDTH                      ),
-        .META_AW                    ( AXI_AW                        )
+        .META_AW                    ( AXI_AW                        ),
+        .IN_FIFO_DEPTH              ( 256                           )
     )
     ubwc_enc_meta_addr_gen_inst
     (
@@ -641,7 +665,7 @@ module ubwc_enc_wrapper_top
     ubwc_tile_enc_axi_wcmd_gen
     #(
         .AXI_AW                     ( AXI_AW                        ),
-        .AXI_DW                     ( AXI_DW                        ),
+        .AXI_DW                     ( CORE_AXI_DW                   ),
         .AXI_LENW                   ( AXI_LENW                      ),
         .AXI_IDW                    ( AXI_IDW                       )
     )
@@ -686,7 +710,7 @@ module ubwc_enc_wrapper_top
     ubwc_enc_meta_axi_wcmd_gen_v2
     #(
         .AXI_AW                     ( AXI_AW                        ),
-        .AXI_DW                     ( AXI_DW                        ),
+        .AXI_DW                     ( CORE_AXI_DW                   ),
         .AXI_LENW                   ( AXI_LENW                      ),
         .AXI_IDW                    ( AXI_IDW                       )
     )
@@ -727,7 +751,7 @@ module ubwc_enc_wrapper_top
     axi_2t1_int_DW_axi
     #(
         .AXI_AW                     ( AXI_AW                        ),
-        .AXI_DW                     ( AXI_DW                        ),
+        .AXI_DW                     ( CORE_AXI_DW                   ),
         .AXI_LENW                   ( AXI_LENW                      ),
         .AXI_IDW                    ( AXI_IDW                       )
     )
@@ -809,26 +833,26 @@ module ubwc_enc_wrapper_top
         .rlast_m2				    (                               ),
         .rready_m2				    ( 1'b1			                ),
 
-        .awvalid_s1					( o_m_axi_awvalid				),
-        .awaddr_s1					( o_m_axi_awaddr				),
-        .awid_s1					( o_m_axi_awid					),
-        .awlen_s1					( o_m_axi_awlen					),
-        .awsize_s1					( o_m_axi_awsize				),
-        .awburst_s1					( o_m_axi_awburst				),
-        .awlock_s1					( o_m_axi_awlock				),
-        .awcache_s1					( o_m_axi_awcache				),
-        .awprot_s1					( o_m_axi_awprot				),
-        .awready_s1					( i_m_axi_awready				),
-        .wvalid_s1					( o_m_axi_wvalid				),
-        .wdata_s1					( o_m_axi_wdata					),
-        .wstrb_s1					( o_m_axi_wstrb					),
-        .wlast_s1					( o_m_axi_wlast					),
-        .wready_s1					( i_m_axi_wready				),
+        .awvalid_s1					( core_m_axi_awvalid			),
+        .awaddr_s1					( core_m_axi_awaddr				),
+        .awid_s1					( core_m_axi_awid				),
+        .awlen_s1					( core_m_axi_awlen				),
+        .awsize_s1					( core_m_axi_awsize				),
+        .awburst_s1					( core_m_axi_awburst			),
+        .awlock_s1					( core_m_axi_awlock				),
+        .awcache_s1					( core_m_axi_awcache			),
+        .awprot_s1					( core_m_axi_awprot				),
+        .awready_s1					( core_m_axi_awready			),
+        .wvalid_s1					( core_m_axi_wvalid				),
+        .wdata_s1					( core_m_axi_wdata				),
+        .wstrb_s1					( core_m_axi_wstrb				),
+        .wlast_s1					( core_m_axi_wlast				),
+        .wready_s1					( core_m_axi_wready				),
 
-        .bvalid_s1					( i_m_axi_bvalid				),
-        .bid_s1						( i_m_axi_bid					),
-        .bresp_s1					( i_m_axi_bresp					),
-        .bready_s1					( o_m_axi_bready				),
+        .bvalid_s1					( core_m_axi_bvalid				),
+        .bid_s1						( core_m_axi_bid				),
+        .bresp_s1					( core_m_axi_bresp				),
+        .bready_s1					( core_m_axi_bready				),
 
         .arvalid_s1					(                               ),
         .arid_s1					(                               ),
@@ -843,7 +867,7 @@ module ubwc_enc_wrapper_top
 
         .rvalid_s1					( 1'b0                          ),
         .rid_s1						( {(AXI_IDW+1){1'b0}}           ),
-        .rdata_s1					( {AXI_DW{1'b0}}                ),
+        .rdata_s1					( {CORE_AXI_DW{1'b0}}           ),
         .rresp_s1					( 2'd0                          ),
         .rlast_s1					( 1'b0      					),
         .rready_s1					(                               ),
@@ -884,6 +908,55 @@ module ubwc_enc_wrapper_top
         .dbg_rvalid_s0              ( dbg_rvalid_s0                 ),
         .dbg_rlast_s0               ( dbg_rlast_s0                  ),
         .dbg_rready_s0              ( dbg_rready_s0                 )
+    );
+
+    ubwc_axi_wr_256to64 #(
+        .ADDR_WIDTH  (AXI_AW),
+        .ID_WIDTH    (AXI_IDW + 1),
+        .AXI_LENW    (AXI_LENW),
+        .CORE_AXI_DW (CORE_AXI_DW),
+        .M_AXI_DW    (AXI_DW)
+    ) u_axi_wr_256to64 (
+        .clk         (i_clk),
+        .rst_n       (i_rstn),
+        .s_axi_awid  (core_m_axi_awid),
+        .s_axi_awaddr(core_m_axi_awaddr),
+        .s_axi_awlen (core_m_axi_awlen),
+        .s_axi_awsize(core_m_axi_awsize[2:0]),
+        .s_axi_awburst(core_m_axi_awburst),
+        .s_axi_awlock(core_m_axi_awlock),
+        .s_axi_awcache(core_m_axi_awcache),
+        .s_axi_awprot(core_m_axi_awprot[2:0]),
+        .s_axi_awvalid(core_m_axi_awvalid),
+        .s_axi_awready(core_m_axi_awready),
+        .s_axi_wdata (core_m_axi_wdata),
+        .s_axi_wstrb (core_m_axi_wstrb),
+        .s_axi_wlast (core_m_axi_wlast),
+        .s_axi_wvalid(core_m_axi_wvalid),
+        .s_axi_wready(core_m_axi_wready),
+        .s_axi_bid   (core_m_axi_bid),
+        .s_axi_bresp (core_m_axi_bresp),
+        .s_axi_bvalid(core_m_axi_bvalid),
+        .s_axi_bready(core_m_axi_bready),
+        .m_axi_awid  (o_m_axi_awid),
+        .m_axi_awaddr(o_m_axi_awaddr),
+        .m_axi_awlen (o_m_axi_awlen),
+        .m_axi_awsize(o_m_axi_awsize),
+        .m_axi_awburst(o_m_axi_awburst),
+        .m_axi_awlock(o_m_axi_awlock),
+        .m_axi_awcache(o_m_axi_awcache),
+        .m_axi_awprot(o_m_axi_awprot),
+        .m_axi_awvalid(o_m_axi_awvalid),
+        .m_axi_awready(i_m_axi_awready),
+        .m_axi_wdata (o_m_axi_wdata),
+        .m_axi_wstrb (o_m_axi_wstrb),
+        .m_axi_wvalid(o_m_axi_wvalid),
+        .m_axi_wlast (o_m_axi_wlast),
+        .m_axi_wready(i_m_axi_wready),
+        .m_axi_bid   (i_m_axi_bid),
+        .m_axi_bresp (i_m_axi_bresp),
+        .m_axi_bvalid(i_m_axi_bvalid),
+        .m_axi_bready(o_m_axi_bready)
     );
 
 

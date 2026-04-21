@@ -16,7 +16,7 @@ module ubwc_dec_wrapper_top #(
     parameter integer APB_AW     = 16,
     parameter integer APB_DW     = 32,
     parameter integer AXI_AW     = 64,
-    parameter integer AXI_DW     = 256,
+    parameter integer AXI_DW     = 64,
     parameter integer AXI_IDW    = 6,
     parameter integer AXI_LENW   = 8,
     parameter integer SB_WIDTH   = 1,
@@ -89,6 +89,7 @@ module ubwc_dec_wrapper_top #(
     output wire                           o_m_axi_rready
 );
 
+    localparam integer CORE_AXI_DW = 256;
     localparam [AXI_IDW-1:0] AXI_ZERO_ID = {AXI_IDW{1'b0}};
 
     wire                 ctrl_rst_n;
@@ -214,6 +215,18 @@ module ubwc_dec_wrapper_top #(
     wire [31:0] meta_error_cnt_unused;
     wire [31:0] meta_cmd_ok_cnt_unused;
     wire [31:0] meta_cmd_fail_cnt_unused;
+    wire [AXI_IDW:0]          core_m_axi_arid;
+    wire [AXI_AW-1:0]         core_m_axi_araddr;
+    wire [AXI_LENW-1:0]       core_m_axi_arlen;
+    wire [3:0]                core_m_axi_arsize;
+    wire [1:0]                core_m_axi_arburst;
+    wire                      core_m_axi_arvalid;
+    wire                      core_m_axi_arready;
+    wire [CORE_AXI_DW-1:0]    core_m_axi_rdata;
+    wire                      core_m_axi_rvalid;
+    wire [1:0]                core_m_axi_rresp;
+    wire                      core_m_axi_rlast;
+    wire                      core_m_axi_rready;
 
     wire                     meta_m_axi_arvalid;
     wire                     meta_m_axi_arready;
@@ -224,14 +237,14 @@ module ubwc_dec_wrapper_top #(
     wire [AXI_IDW-1:0]       meta_m_axi_arid;
     wire                     meta_m_axi_rvalid;
     wire                     meta_m_axi_rready;
-    wire [AXI_DW-1:0]        meta_m_axi_rdata;
+    wire [CORE_AXI_DW-1:0]   meta_m_axi_rdata;
     wire [1:0]               meta_m_axi_rresp;
     wire                     meta_m_axi_rlast;
 
     ubwc_dec_meta_data_gen #(
         .ADDR_WIDTH     (AXI_AW),
         .ID_WIDTH       (AXI_IDW),
-        .AXI_DATA_WIDTH (AXI_DW)
+        .AXI_DATA_WIDTH (CORE_AXI_DW)
     ) u_meta_data_gen (
         .clk                    (i_axi_clk),
         .rst_n                  (ctrl_rst_n),
@@ -272,7 +285,7 @@ module ubwc_dec_wrapper_top #(
     wire [AXI_IDW-1:0]       tile_m_axi_arid;
     wire                     tile_m_axi_rvalid;
     wire                     tile_m_axi_rready;
-    wire [AXI_DW-1:0]        tile_m_axi_rdata;
+    wire [CORE_AXI_DW-1:0]   tile_m_axi_rdata;
     wire [1:0]               tile_m_axi_rresp;
     wire                     tile_m_axi_rlast;
 
@@ -296,7 +309,7 @@ module ubwc_dec_wrapper_top #(
 
     ubwc_dec_tile_arcmd_gen #(
         .AXI_AW   (AXI_AW),
-        .AXI_DW   (AXI_DW),
+        .AXI_DW   (CORE_AXI_DW),
         .AXI_IDW  (AXI_IDW),
         .SB_WIDTH (SB_WIDTH),
         .FORCE_FULL_PAYLOAD (FORCE_FULL_PAYLOAD)
@@ -359,7 +372,7 @@ module ubwc_dec_wrapper_top #(
     // ---------------------------------------------------------------------
     ubwc_dec_axi_rd_interconnect #(
         .AXI_AW   (AXI_AW),
-        .AXI_DW   (AXI_DW),
+        .AXI_DW   (CORE_AXI_DW),
         .AXI_IDW  (AXI_IDW),
         .AXI_LENW (AXI_LENW)
     ) u_axi_rd_interconnect (
@@ -390,18 +403,53 @@ module ubwc_dec_wrapper_top #(
         .s1_rdata  (tile_m_axi_rdata),
         .s1_rresp  (tile_m_axi_rresp),
         .s1_rlast  (tile_m_axi_rlast),
-        .m_arid    (o_m_axi_arid),
-        .m_araddr  (o_m_axi_araddr),
-        .m_arlen   (o_m_axi_arlen),
-        .m_arsize  (o_m_axi_arsize),
-        .m_arburst (o_m_axi_arburst),
-        .m_arvalid (o_m_axi_arvalid),
-        .m_arready (i_m_axi_arready),
-        .m_rdata   (i_m_axi_rdata),
-        .m_rvalid  (i_m_axi_rvalid),
-        .m_rresp   (i_m_axi_rresp),
-        .m_rlast   (i_m_axi_rlast),
-        .m_rready  (o_m_axi_rready)
+        .m_arid    (core_m_axi_arid),
+        .m_araddr  (core_m_axi_araddr),
+        .m_arlen   (core_m_axi_arlen),
+        .m_arsize  (core_m_axi_arsize),
+        .m_arburst (core_m_axi_arburst),
+        .m_arvalid (core_m_axi_arvalid),
+        .m_arready (core_m_axi_arready),
+        .m_rdata   (core_m_axi_rdata),
+        .m_rvalid  (core_m_axi_rvalid),
+        .m_rresp   (core_m_axi_rresp),
+        .m_rlast   (core_m_axi_rlast),
+        .m_rready  (core_m_axi_rready)
+    );
+
+    ubwc_axi_rd_256to64 #(
+        .ADDR_WIDTH  (AXI_AW),
+        .ID_WIDTH    (AXI_IDW + 1),
+        .AXI_LENW    (AXI_LENW),
+        .CORE_AXI_DW (CORE_AXI_DW),
+        .M_AXI_DW    (AXI_DW)
+    ) u_axi_rd_256to64 (
+        .clk         (i_axi_clk),
+        .rst_n       (ctrl_rst_n),
+        .s_axi_arid  (core_m_axi_arid),
+        .s_axi_araddr(core_m_axi_araddr),
+        .s_axi_arlen (core_m_axi_arlen),
+        .s_axi_arsize(core_m_axi_arsize),
+        .s_axi_arburst(core_m_axi_arburst),
+        .s_axi_arvalid(core_m_axi_arvalid),
+        .s_axi_arready(core_m_axi_arready),
+        .s_axi_rdata (core_m_axi_rdata),
+        .s_axi_rresp (core_m_axi_rresp),
+        .s_axi_rlast (core_m_axi_rlast),
+        .s_axi_rvalid(core_m_axi_rvalid),
+        .s_axi_rready(core_m_axi_rready),
+        .m_axi_arid  (o_m_axi_arid),
+        .m_axi_araddr(o_m_axi_araddr),
+        .m_axi_arlen (o_m_axi_arlen),
+        .m_axi_arsize(o_m_axi_arsize),
+        .m_axi_arburst(o_m_axi_arburst),
+        .m_axi_arvalid(o_m_axi_arvalid),
+        .m_axi_arready(i_m_axi_arready),
+        .m_axi_rdata (i_m_axi_rdata),
+        .m_axi_rresp (i_m_axi_rresp),
+        .m_axi_rlast (i_m_axi_rlast),
+        .m_axi_rvalid(i_m_axi_rvalid),
+        .m_axi_rready(o_m_axi_rready)
     );
 
     assign o_m_axi_arlock  = 1'b0;
@@ -409,6 +457,8 @@ module ubwc_dec_wrapper_top #(
     assign o_m_axi_arprot  = 3'b000;
     assign rd_interconnect_busy_int = u_axi_rd_interconnect.inflight |
                                       u_axi_rd_interconnect.rbuf_valid |
+                                      core_m_axi_arvalid |
+                                      core_m_axi_rvalid |
                                       o_m_axi_arvalid |
                                       i_m_axi_rvalid;
     assign meta_stage_busy_int = meta_stage_busy_core_int | rd_interconnect_busy_int;

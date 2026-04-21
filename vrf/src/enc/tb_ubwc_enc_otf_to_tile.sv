@@ -47,7 +47,8 @@ module tb_ubwc_enc_otf_to_tile #(
     parameter integer FRAME_W             = 4096,
     parameter integer FRAME_H             = 608
 ) ();
-    localparam integer CLK_PERIOD_NS      = 10;
+    localparam integer PROC_CLK_PERIOD_NS = 2;
+    localparam integer OTF_CLK_PERIOD_NS  = 10;
     localparam integer BEATS_PER_LINE     = FRAME_W / 4;
     localparam integer TILE_COLS          = FRAME_W / 16;
 
@@ -67,6 +68,7 @@ module tb_ubwc_enc_otf_to_tile #(
     localparam integer YUV_EXPECT_FMT9    = YUV_EXPECT_BEATS / 2;
 
     logic               clk;
+    logic               otf_clk;
     logic               rst_n;
 
     logic [2:0]         cfg_format;
@@ -136,6 +138,7 @@ module tb_ubwc_enc_otf_to_tile #(
         .ADDR_W(ADDR_W)
     ) dut (
         .clk            (clk),
+        .i_otf_clk      (otf_clk),
         .rst_n          (rst_n),
         .i_cfg_format   (cfg_format),
         .i_cfg_width    (cfg_width),
@@ -209,7 +212,10 @@ module tb_ubwc_enc_otf_to_tile #(
     );
 
     initial clk = 1'b0;
-    always #(CLK_PERIOD_NS/2) clk = ~clk;
+    always #(PROC_CLK_PERIOD_NS/2) clk = ~clk;
+
+    initial otf_clk = 1'b0;
+    always #(OTF_CLK_PERIOD_NS/2) otf_clk = ~otf_clk;
 
     initial begin
         if ($test$plusargs("dump_vcd")) begin
@@ -328,6 +334,7 @@ module tb_ubwc_enc_otf_to_tile #(
             repeat (8) @(posedge clk);
             rst_n = 1'b1;
             repeat (8) @(posedge clk);
+            repeat (4) @(posedge otf_clk);
         end
     endtask
 
@@ -366,7 +373,7 @@ module tb_ubwc_enc_otf_to_tile #(
         input [11:0]      beat_lcnt;
         begin
             while (otf_ready !== 1'b1)
-                @(posedge clk);
+                @(posedge otf_clk);
 
             otf_vsync = beat_vsync;
             otf_hsync = beat_hsync;
@@ -374,7 +381,7 @@ module tb_ubwc_enc_otf_to_tile #(
             otf_data  = beat_data;
             otf_fcnt  = beat_fcnt;
             otf_lcnt  = beat_lcnt;
-            @(posedge clk);
+            @(posedge otf_clk);
 
             otf_vsync = 1'b0;
             otf_hsync = 1'b0;

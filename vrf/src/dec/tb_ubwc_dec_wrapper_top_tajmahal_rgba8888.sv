@@ -5,7 +5,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
     localparam integer APB_AW            = 16;
     localparam integer APB_DW            = 32;
     localparam integer AXI_AW            = 64;
-    localparam integer AXI_DW            = 256;
+    localparam integer AXI_DW            = 64;
     localparam integer AXI_IDW           = 6;
     localparam integer AXI_LENW          = 8;
     localparam integer SB_WIDTH          = 3;
@@ -123,25 +123,22 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
         input [AXI_AW-1:0] addr;
         input integer beat_idx;
         integer word64_base;
-        reg [63:0] w0;
-        reg [63:0] w1;
-        reg [63:0] w2;
-        reg [63:0] w3;
+        integer lane_idx;
         begin
+            pack_axi_word = {AXI_DW{1'b0}};
             if (is_meta != 0) begin
-                word64_base = ((addr - META_BASE_ADDR) >> 3) + beat_idx * 4;
-                w0 = (word64_base + 0 < META_WORDS64) ? meta_words[word64_base + 0] : 64'd0;
-                w1 = (word64_base + 1 < META_WORDS64) ? meta_words[word64_base + 1] : 64'd0;
-                w2 = (word64_base + 2 < META_WORDS64) ? meta_words[word64_base + 2] : 64'd0;
-                w3 = (word64_base + 3 < META_WORDS64) ? meta_words[word64_base + 3] : 64'd0;
+                word64_base = ((addr - META_BASE_ADDR) >> 3) + beat_idx * (AXI_DW / 64);
+                for (lane_idx = 0; lane_idx < (AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word64_base + lane_idx) < META_WORDS64)
+                        pack_axi_word[lane_idx*64 +: 64] = meta_words[word64_base + lane_idx];
+                end
             end else begin
-                word64_base = (addr >> 3) + beat_idx * 4;
-                w0 = (word64_base + 0 < TILE_WORDS64) ? tile_words[word64_base + 0] : 64'd0;
-                w1 = (word64_base + 1 < TILE_WORDS64) ? tile_words[word64_base + 1] : 64'd0;
-                w2 = (word64_base + 2 < TILE_WORDS64) ? tile_words[word64_base + 2] : 64'd0;
-                w3 = (word64_base + 3 < TILE_WORDS64) ? tile_words[word64_base + 3] : 64'd0;
+                word64_base = (addr >> 3) + beat_idx * (AXI_DW / 64);
+                for (lane_idx = 0; lane_idx < (AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word64_base + lane_idx) < TILE_WORDS64)
+                        pack_axi_word[lane_idx*64 +: 64] = tile_words[word64_base + lane_idx];
+                end
             end
-            pack_axi_word = {w3, w2, w1, w0};
         end
     endfunction
 
@@ -285,12 +282,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
 
     initial begin
         i_axi_clk = 1'b0;
-        forever #2 i_axi_clk = ~i_axi_clk;
+        forever #1 i_axi_clk = ~i_axi_clk;
     end
 
     initial begin
         i_otf_clk = 1'b0;
-        forever #3 i_otf_clk = ~i_otf_clk;
+        forever #5 i_otf_clk = ~i_otf_clk;
     end
 
     always @(posedge i_axi_clk) begin

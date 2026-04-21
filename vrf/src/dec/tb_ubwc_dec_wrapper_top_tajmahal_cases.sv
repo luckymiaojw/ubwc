@@ -27,6 +27,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     localparam integer APB_DW   = 32;
     localparam integer AXI_AW   = 64;
     localparam integer AXI_DW   = 256;
+    localparam integer M_AXI_DW = 64;
     localparam integer AXI_IDW  = 6;
     localparam integer AXI_LENW = 8;
     localparam integer SB_WIDTH = 3;
@@ -117,7 +118,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                                (CASE_IS_NV12 ? 682 : 650);
     localparam integer CASE_EXPECTED_OTF_BEATS= (IMG_W / 4) * CASE_OTF_V_ACT;
     localparam integer CASE_TIMEOUT_CYCLES   = CASE_HAS_PLANE1 ? 12000000 : 16000000;
-    localparam integer CASE_IDLE_GAP_CYCLES  = 200000;
+    // With OTF at 100MHz and full porch timing, active pixels can start
+    // hundreds of microseconds after frame start, so the AXI-side watchdog
+    // must allow a much longer no-progress window than the legacy single-clock TB.
+    localparam integer CASE_IDLE_GAP_CYCLES  = 4000000;
     localparam integer CASE_META0_WORDS64    = CASE_IS_G016 ? G016_Y_META_WORDS64 :
                                                (CASE_IS_NV12 ? NV12_Y_META_WORDS64 : RGBA_META_WORDS64);
     localparam integer CASE_META1_WORDS64    = CASE_IS_G016 ? G016_UV_META_WORDS64 :
@@ -229,7 +233,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     wire [2:0]                o_m_axi_arprot;
     wire                      o_m_axi_arvalid;
     reg                       i_m_axi_arready;
-    reg  [AXI_DW-1:0]         i_m_axi_rdata;
+    reg  [M_AXI_DW-1:0]       i_m_axi_rdata;
     reg                       i_m_axi_rvalid;
     reg  [1:0]                i_m_axi_rresp;
     reg                       i_m_axi_rlast;
@@ -353,7 +357,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     reg [AXI_AW-1:0]          first_ar_actual_addr;
     reg [AXI_AW-1:0]          first_axi_rdata_cccc_addr;
     reg                       first_axi_rdata_cccc_is_meta;
-    reg [AXI_DW-1:0]          first_axi_rdata_cccc_data;
+    reg [M_AXI_DW-1:0]        first_axi_rdata_cccc_data;
     integer                   first_m_r_nosink_cycle;
     reg                       first_m_r_nosink_owner_s0;
     reg                       first_m_r_nosink_rlast;
@@ -419,28 +423,26 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     assign i_bank1_dout       = i_otf_sram_b_rdata;
 
     function automatic has_cccc_lane;
-        input [AXI_DW-1:0] data_word;
+        input [M_AXI_DW-1:0] data_word;
+        integer lane_idx;
         begin
-            has_cccc_lane = (data_word[63:0]    == 64'hcccccccccccccccc) ||
-                            (data_word[127:64]  == 64'hcccccccccccccccc) ||
-                            (data_word[191:128] == 64'hcccccccccccccccc) ||
-                            (data_word[255:192] == 64'hcccccccccccccccc);
+            has_cccc_lane = 1'b0;
+            for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                if (data_word[lane_idx*64 +: 64] == 64'hcccccccccccccccc)
+                    has_cccc_lane = 1'b1;
+            end
         end
     endfunction
 
     function automatic integer first_cccc_lane_idx;
-        input [AXI_DW-1:0] data_word;
+        input [M_AXI_DW-1:0] data_word;
+        integer lane_idx;
         begin
-            if (data_word[63:0] == 64'hcccccccccccccccc) begin
-                first_cccc_lane_idx = 0;
-            end else if (data_word[127:64] == 64'hcccccccccccccccc) begin
-                first_cccc_lane_idx = 1;
-            end else if (data_word[191:128] == 64'hcccccccccccccccc) begin
-                first_cccc_lane_idx = 2;
-            end else if (data_word[255:192] == 64'hcccccccccccccccc) begin
-                first_cccc_lane_idx = 3;
-            end else begin
-                first_cccc_lane_idx = -1;
+            first_cccc_lane_idx = -1;
+            for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                if ((first_cccc_lane_idx < 0) &&
+                    (data_word[lane_idx*64 +: 64] == 64'hcccccccccccccccc))
+                    first_cccc_lane_idx = lane_idx;
             end
         end
     endfunction
@@ -767,77 +769,71 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         end
     endfunction
 
-    function automatic [AXI_DW-1:0] pack_meta_axi_word;
+    function automatic [M_AXI_DW-1:0] pack_meta_axi_word;
         input integer is_plane1;
         input [AXI_AW-1:0] addr;
         input integer beat_idx;
         integer word64_base;
-        reg [63:0] w0;
-        reg [63:0] w1;
-        reg [63:0] w2;
-        reg [63:0] w3;
+        integer lane_idx;
         begin
+            pack_meta_axi_word = {M_AXI_DW{1'b0}};
             if (is_plane1 != 0) begin
-                word64_base = ((addr - CASE_META_BASE_ADDR_UV) >> 3) + beat_idx * 4;
-                w0 = (word64_base + 0 < CASE_META1_WORDS64) ? meta_plane1_words[word64_base + 0] : 64'd0;
-                w1 = (word64_base + 1 < CASE_META1_WORDS64) ? meta_plane1_words[word64_base + 1] : 64'd0;
-                w2 = (word64_base + 2 < CASE_META1_WORDS64) ? meta_plane1_words[word64_base + 2] : 64'd0;
-                w3 = (word64_base + 3 < CASE_META1_WORDS64) ? meta_plane1_words[word64_base + 3] : 64'd0;
+                word64_base = ((addr - CASE_META_BASE_ADDR_UV) >> 3) + beat_idx * (M_AXI_DW / 64);
+                for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word64_base + lane_idx) < CASE_META1_WORDS64)
+                        pack_meta_axi_word[lane_idx*64 +: 64] = meta_plane1_words[word64_base + lane_idx];
+                end
             end else begin
-                word64_base = ((addr - CASE_META_BASE_ADDR_Y) >> 3) + beat_idx * 4;
-                w0 = (word64_base + 0 < CASE_META0_WORDS64) ? meta_plane0_words[word64_base + 0] : 64'd0;
-                w1 = (word64_base + 1 < CASE_META0_WORDS64) ? meta_plane0_words[word64_base + 1] : 64'd0;
-                w2 = (word64_base + 2 < CASE_META0_WORDS64) ? meta_plane0_words[word64_base + 2] : 64'd0;
-                w3 = (word64_base + 3 < CASE_META0_WORDS64) ? meta_plane0_words[word64_base + 3] : 64'd0;
+                word64_base = ((addr - CASE_META_BASE_ADDR_Y) >> 3) + beat_idx * (M_AXI_DW / 64);
+                for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word64_base + lane_idx) < CASE_META0_WORDS64)
+                        pack_meta_axi_word[lane_idx*64 +: 64] = meta_plane0_words[word64_base + lane_idx];
+                end
             end
-            pack_meta_axi_word = {w3, w2, w1, w0};
         end
     endfunction
 
-    function automatic [AXI_DW-1:0] pack_tile_axi_word;
+    function automatic [M_AXI_DW-1:0] pack_tile_axi_word;
         input [4:0] fmt;
         input integer tile_x;
         input integer tile_y;
         input integer beat_idx;
         integer word64_base;
         integer word_idx;
-        reg [63:0] w0;
-        reg [63:0] w1;
-        reg [63:0] w2;
-        reg [63:0] w3;
+        integer lane_idx;
         begin
+            pack_tile_axi_word = {M_AXI_DW{1'b0}};
             if ((fmt == META_FMT_RGBA8888) || (fmt == META_FMT_RGBA1010102)) begin
                 word64_base = rgba_tile_base_word(tile_x, tile_y);
-                word_idx    = word64_base + beat_idx * 4;
-                w0 = (word_idx + 0 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 0] : 64'd0;
-                w1 = (word_idx + 1 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 1] : 64'd0;
-                w2 = (word_idx + 2 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 2] : 64'd0;
-                w3 = (word_idx + 3 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 3] : 64'd0;
+                word_idx    = word64_base + beat_idx * (M_AXI_DW / 64);
+                for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word_idx + lane_idx) < CASE_TILE0_WORDS64)
+                        pack_tile_axi_word[lane_idx*64 +: 64] = tile_plane0_words[word_idx + lane_idx];
+                end
             end else if (fmt == META_FMT_NV12_Y) begin
                 word64_base = plane_tile_base_word(tile_x, tile_y, 32, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 1);
-                word_idx    = word64_base + beat_idx * 4;
-                w0 = (word_idx + 0 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 0] : 64'd0;
-                w1 = (word_idx + 1 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 1] : 64'd0;
-                w2 = (word_idx + 2 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 2] : 64'd0;
-                w3 = (word_idx + 3 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 3] : 64'd0;
+                word_idx    = word64_base + beat_idx * (M_AXI_DW / 64);
+                for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word_idx + lane_idx) < CASE_TILE0_WORDS64)
+                        pack_tile_axi_word[lane_idx*64 +: 64] = tile_plane0_words[word_idx + lane_idx];
+                end
             end else if (fmt == META_FMT_P010_Y) begin
                 word64_base = plane_tile_base_word(tile_x, tile_y, 32, 4, G016_TILE_PITCH, G016_HIGHEST_BANK, 2);
-                word_idx    = word64_base + beat_idx * 4;
-                w0 = (word_idx + 0 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 0] : 64'd0;
-                w1 = (word_idx + 1 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 1] : 64'd0;
-                w2 = (word_idx + 2 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 2] : 64'd0;
-                w3 = (word_idx + 3 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 3] : 64'd0;
+                word_idx    = word64_base + beat_idx * (M_AXI_DW / 64);
+                for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word_idx + lane_idx) < CASE_TILE0_WORDS64)
+                        pack_tile_axi_word[lane_idx*64 +: 64] = tile_plane0_words[word_idx + lane_idx];
+                end
             end else begin
                 word64_base = CASE_IS_G016
                             ? plane_tile_base_word(tile_x, tile_y, 32, 4, G016_TILE_PITCH, G016_HIGHEST_BANK, 2)
                             : plane_tile_base_word(tile_x, tile_y, 32, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 1);
-                word_idx    = word64_base + beat_idx * 4;
-                w0 = (word_idx + 0 < CASE_TILE1_WORDS64) ? tile_plane1_words[word_idx + 0] : 64'd0;
-                w1 = (word_idx + 1 < CASE_TILE1_WORDS64) ? tile_plane1_words[word_idx + 1] : 64'd0;
-                w2 = (word_idx + 2 < CASE_TILE1_WORDS64) ? tile_plane1_words[word_idx + 2] : 64'd0;
-                w3 = (word_idx + 3 < CASE_TILE1_WORDS64) ? tile_plane1_words[word_idx + 3] : 64'd0;
+                word_idx    = word64_base + beat_idx * (M_AXI_DW / 64);
+                for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word_idx + lane_idx) < CASE_TILE1_WORDS64)
+                        pack_tile_axi_word[lane_idx*64 +: 64] = tile_plane1_words[word_idx + lane_idx];
+                end
             end
-            pack_tile_axi_word = {w3, w2, w1, w0};
         end
     endfunction
 
@@ -888,35 +884,32 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         end
     endfunction
 
-    function automatic [AXI_DW-1:0] pack_raw_tile_axi_word;
+    function automatic [M_AXI_DW-1:0] pack_raw_tile_axi_word;
         input [4:0] fmt;
         input [AXI_AW-1:0] addr;
         input integer beat_idx;
         integer word64_base;
         reg [AXI_AW-1:0] tile_addr_offset;
-        reg [63:0] w0;
-        reg [63:0] w1;
-        reg [63:0] w2;
-        reg [63:0] w3;
+        integer lane_idx;
         begin
+            pack_raw_tile_axi_word = {M_AXI_DW{1'b0}};
             if ((fmt == META_FMT_NV12_Y) || (fmt == META_FMT_P010_Y)) begin
                 tile_addr_offset = addr - CASE_TILE_BASE_ADDR_Y;
             end else begin
                 tile_addr_offset = addr - CASE_TILE_BASE_ADDR_UV;
             end
-            word64_base = (tile_addr_offset >> 3) + beat_idx * 4;
+            word64_base = (tile_addr_offset >> 3) + beat_idx * (M_AXI_DW / 64);
             if ((fmt == META_FMT_NV12_UV) || (fmt == META_FMT_P010_UV)) begin
-                w0 = (word64_base + 0 < CASE_TILE1_WORDS64) ? tile_plane1_words[word64_base + 0] : 64'd0;
-                w1 = (word64_base + 1 < CASE_TILE1_WORDS64) ? tile_plane1_words[word64_base + 1] : 64'd0;
-                w2 = (word64_base + 2 < CASE_TILE1_WORDS64) ? tile_plane1_words[word64_base + 2] : 64'd0;
-                w3 = (word64_base + 3 < CASE_TILE1_WORDS64) ? tile_plane1_words[word64_base + 3] : 64'd0;
+                for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word64_base + lane_idx) < CASE_TILE1_WORDS64)
+                        pack_raw_tile_axi_word[lane_idx*64 +: 64] = tile_plane1_words[word64_base + lane_idx];
+                end
             end else begin
-                w0 = (word64_base + 0 < CASE_TILE0_WORDS64) ? tile_plane0_words[word64_base + 0] : 64'd0;
-                w1 = (word64_base + 1 < CASE_TILE0_WORDS64) ? tile_plane0_words[word64_base + 1] : 64'd0;
-                w2 = (word64_base + 2 < CASE_TILE0_WORDS64) ? tile_plane0_words[word64_base + 2] : 64'd0;
-                w3 = (word64_base + 3 < CASE_TILE0_WORDS64) ? tile_plane0_words[word64_base + 3] : 64'd0;
+                for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
+                    if ((word64_base + lane_idx) < CASE_TILE0_WORDS64)
+                        pack_raw_tile_axi_word[lane_idx*64 +: 64] = tile_plane0_words[word64_base + lane_idx];
+                end
             end
-            pack_raw_tile_axi_word = {w3, w2, w1, w0};
         end
     endfunction
 
@@ -1137,7 +1130,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .APB_AW   (APB_AW),
         .APB_DW   (APB_DW),
         .AXI_AW   (AXI_AW),
-        .AXI_DW   (AXI_DW),
+        .AXI_DW   (M_AXI_DW),
         .AXI_IDW  (AXI_IDW),
         .AXI_LENW (AXI_LENW),
         .SB_WIDTH (SB_WIDTH),
@@ -1246,12 +1239,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
     initial begin
         i_axi_clk = 1'b0;
-        forever #2 i_axi_clk = ~i_axi_clk;
+        forever #1 i_axi_clk = ~i_axi_clk;
     end
 
     initial begin
         i_otf_clk = 1'b0;
-        forever #3 i_otf_clk = ~i_otf_clk;
+        forever #5 i_otf_clk = ~i_otf_clk;
     end
 
     always @(posedge i_otf_clk or negedge i_otf_rstn) begin
@@ -1356,7 +1349,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             first_axi_rdata_cccc_lane  <= -1;
             first_axi_rdata_cccc_addr  <= {AXI_AW{1'b0}};
             first_axi_rdata_cccc_is_meta <= 1'b0;
-            first_axi_rdata_cccc_data <= {AXI_DW{1'b0}};
+            first_axi_rdata_cccc_data <= {M_AXI_DW{1'b0}};
             first_m_r_nosink_cycle  <= -1;
             first_m_r_nosink_owner_s0 <= 1'b0;
             first_m_r_nosink_rlast  <= 1'b0;
@@ -1491,13 +1484,13 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     if (first_axi_rdata_cccc_cycle < 0) begin
                         first_axi_rdata_cccc_cycle   <= cycle_cnt;
                         first_axi_rdata_cccc_lane    <= first_cccc_lane_idx(dut.i_m_axi_rdata);
-                        first_axi_rdata_cccc_addr    <= axi_rsp_addr + {{(AXI_AW-13){1'b0}}, axi_rsp_beat_idx, 5'b0};
+                        first_axi_rdata_cccc_addr    <= axi_rsp_addr + (axi_rsp_beat_idx * (M_AXI_DW / 8));
                         first_axi_rdata_cccc_is_meta <= dut.u_axi_rd_interconnect.owner_s0;
                         first_axi_rdata_cccc_data    <= dut.i_m_axi_rdata;
                         $display("WARN: suspicious AXI RDATA contains 64'hcccccccccccccccc while axi_rvalid=1 at cycle=%0d owner=%0s addr=%016h lane=%0d data=%064h",
                                  cycle_cnt,
                                  dut.u_axi_rd_interconnect.owner_s0 ? "meta" : "tile",
-                                 axi_rsp_addr + {{(AXI_AW-13){1'b0}}, axi_rsp_beat_idx, 5'b0},
+                                 axi_rsp_addr + (axi_rsp_beat_idx * (M_AXI_DW / 8)),
                                  first_cccc_lane_idx(dut.i_m_axi_rdata),
                                  dut.i_m_axi_rdata);
                     end
@@ -1683,7 +1676,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         if (!i_axi_rstn) begin
             i_m_axi_arready        <= 1'b1;
             i_m_axi_rvalid         <= 1'b0;
-            i_m_axi_rdata          <= {AXI_DW{1'b0}};
+            i_m_axi_rdata          <= {M_AXI_DW{1'b0}};
             i_m_axi_rresp          <= 2'b00;
             i_m_axi_rlast          <= 1'b0;
             axi_rsp_active         <= 1'b0;
@@ -1741,7 +1734,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                             axi_rsp_active     <= 1'b1;
                             axi_rsp_is_meta    <= 1'b0;
                             axi_rsp_addr       <= o_m_axi_araddr;
-                            axi_rsp_beats_left <= tile_alen_queue[tile_queue_rd_ptr] + 1;
+                            axi_rsp_beats_left <= ((tile_alen_queue[tile_queue_rd_ptr] + 1) * (AXI_DW / M_AXI_DW));
                             axi_rsp_beat_idx   <= 8'd0;
                             axi_rsp_tile_fmt   <= tile_fmt_queue[tile_queue_rd_ptr];
                             axi_rsp_tile_x     <= tile_x_queue[tile_queue_rd_ptr];
@@ -1756,7 +1749,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                     first_ar_actual_addr   <= o_m_axi_araddr;
                                 end
                             end
-                            if (o_m_axi_arlen !== tile_alen_queue[tile_queue_rd_ptr]) begin
+                            if (o_m_axi_arlen !== (((tile_alen_queue[tile_queue_rd_ptr] + 1) * (AXI_DW / M_AXI_DW)) - 1)) begin
                                 ar_len_mismatch_cnt <= ar_len_mismatch_cnt + 1;
                             end
                             tile_queue_rd_ptr  <= tile_queue_rd_ptr + 1;
@@ -1973,7 +1966,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         i_otf_ready     = 1'b0;
         otf_ready_div   = 2'd0;
         i_m_axi_arready = 1'b1;
-        i_m_axi_rdata   = {AXI_DW{1'b0}};
+        i_m_axi_rdata   = {M_AXI_DW{1'b0}};
         i_m_axi_rvalid  = 1'b0;
         i_m_axi_rresp   = 2'b00;
         i_m_axi_rlast   = 1'b0;
