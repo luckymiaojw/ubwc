@@ -153,6 +153,67 @@ tcsh -c 'source prj_setup.env; make enc_wrapper_k_outdoor61_4096x600_g016_nonfak
 - `fake`：4 个 vector 都通过
 - `non-fake`：4 个 vector 都能跑到 compare，但当前 `ubwc_enc_vivo_top` 还是 passthrough/fake encoder，所以 `compressed data / metadata` 内容比对不过
 
+## NV12 单独跑法
+
+如果你现在只想单独跑 `NV12` 的 `dec` 和 `enc`，直接用这一节就够了。
+
+DEC NV12：
+
+```bash
+# fake all
+tcsh -c 'source prj_setup.env; make -C vrf/sim wrapper_tajmahal_4096x600_nv12_vivo_fake_all'
+
+# real all
+tcsh -c 'source prj_setup.env; make -C vrf/sim wrapper_tajmahal_4096x600_nv12_vivo_real_all'
+
+# fake verdi
+tcsh -c 'source prj_setup.env; make -C vrf/sim WRAPPER_NV12_VIVO_MODE=fake wrapper_tajmahal_4096x600_nv12_vivo_verdi'
+
+# real verdi
+tcsh -c 'source prj_setup.env; make -C vrf/sim WRAPPER_NV12_VIVO_MODE=real wrapper_tajmahal_4096x600_nv12_vivo_verdi'
+```
+
+如果你看的是 `NV12 OTF` 那条专门 compare flow：
+
+```bash
+# fake all
+tcsh -c 'source prj_setup.env; make -C vrf/sim wrapper_tajmahal_4096x600_nv12_otf_fake_all'
+
+# fake verdi
+tcsh -c 'source prj_setup.env; make -C vrf/sim wrapper_tajmahal_4096x600_nv12_otf_fake_verdi'
+```
+
+ENC NV12：
+
+```bash
+# fake all
+tcsh -c 'source prj_setup.env; make -C vrf/sim enc_wrapper_tajmahal_4096x600_nv12_fake_all'
+
+# nonfake all
+tcsh -c 'source prj_setup.env; make -C vrf/sim enc_wrapper_tajmahal_4096x600_nv12_nonfake_all'
+
+# fake verdi
+tcsh -c 'source prj_setup.env; make -C vrf/sim TOP=tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 verdi'
+
+# nonfake verdi
+tcsh -c 'source prj_setup.env; make -C vrf/sim enc_wrapper_tajmahal_4096x600_nv12_verdi'
+```
+
+如果你更喜欢脚本方式，也可以这样：
+
+```bash
+./vrf/sim/open_wave.sh dec nv12 fake
+./vrf/sim/open_wave.sh dec nv12 real
+./vrf/sim/open_wave.sh dec nv12_otf fake
+./vrf/sim/open_wave.sh enc nv12 fake
+./vrf/sim/open_wave.sh enc nv12 nonfake
+```
+
+模式对应关系：
+
+- `dec`：`fake / real`
+- `enc`：`fake / nonfake`
+
 ## 便捷脚本
 
 如果你不想每次手敲整串 `make`，现在可以直接用这两个脚本：
