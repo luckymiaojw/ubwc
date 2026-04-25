@@ -18,7 +18,7 @@ module axi_stream_txt_reader
     int current_ptr = 0;
     int remaining = 0;
 
-    // 1. 改进的文件读取逻辑
+    // 1. Improved file-read logic
     initial begin
         int f;
         int status;
@@ -35,17 +35,17 @@ module axi_stream_txt_reader
         end
 
         while (!$feof(f)) begin
-            // 探测下一个字符
-            status = $fscanf(f, " %s", s_tmp); // 读取一个字符串并自动跳过空白符
+            // Probe the next token
+            status = $fscanf(f, " %s", s_tmp); // Read one string and automatically skip whitespace
             if (status == 1) begin
-                // 如果是地址行（以 @ 开头），则跳过
+                // Skip address lines that start with @
                 if (s_tmp.len() > 0 && s_tmp[0] == "@") begin
                     $display("Skipping address line: %s", s_tmp);
                 end else begin
-                    // 尝试解析为十六进制
+                    // Try to parse as hexadecimal
                     if ($sscanf(s_tmp, "%h", buffer[total_lines]) == 1) begin
-                        // --- 字节序修复 (可选) ---
-                        // 如果你发现数据是反的，取消下面这行的注释
+                        // --- Endianness fix (optional) ---
+                        // If the data appears reversed, uncomment the line below
                         // buffer[total_lines] = {<<8{buffer[total_lines]}}; 
                         total_lines++;
                     end
@@ -56,7 +56,7 @@ module axi_stream_txt_reader
         $display("--- INFO ---: Finished reading file. Total valid lines: %0d", total_lines);
     end
 
-    // 2. 发送逻辑 (保持你的逻辑，增加安全性检查)
+    // 2. Send logic (keeps the original behavior and adds safety checks)
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             m_axis_valid <= 1'b0;
@@ -75,7 +75,7 @@ module axi_stream_txt_reader
 
                     for (int i = 0; i < 4; i++) begin
                         if (i < remaining) begin
-                            // 填充 256-bit 中的 64-bit 分段
+                            // Fill the 64-bit segment within the 256-bit word
                             m_axis_data[i*64 +: 64] <= buffer[current_ptr + i];
                             m_axis_keep[i*8 +: 8]   <= 8'hFF;
                         end

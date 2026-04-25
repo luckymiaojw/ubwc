@@ -42,7 +42,7 @@ module ubwc_sync_fifo_fwft #(
     wire empty = (wr_ptr == rd_ptr);
     wire full  = (wr_ptr[ADDR_W] != rd_ptr[ADDR_W]) && (wr_ptr[ADDR_W-1:0] == rd_ptr[ADDR_W-1:0]);
 
-    // 内部普通 FIFO 写逻辑
+    // Internal regular FIFO write logic
     always_ff @(posedge clk or negedge rstn) begin
         if (~rstn) begin
             wr_ptr <= '0;
@@ -52,7 +52,7 @@ module ubwc_sync_fifo_fwft #(
         end
     end
 
-    // 内部普通 FIFO 读逻辑
+    // Internal regular FIFO read logic
     always_ff @(posedge clk or negedge rstn) begin
         if (~rstn) begin
             rd_ptr <= '0;
@@ -61,7 +61,7 @@ module ubwc_sync_fifo_fwft #(
         end
     end
 
-    // FWFT 读出数据逻辑 (直接看下一个要读的数据)
+    // FWFT read-data logic (peek directly at the next word to read)
     assign o_push_ready = ~full;
     assign o_pop_valid  = ~empty;
     assign o_pop_data   = mem[rd_ptr[ADDR_W-1:0]];

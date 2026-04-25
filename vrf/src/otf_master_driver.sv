@@ -57,7 +57,7 @@ module enc_otf_driver
     reg [127:0] load_data;
 
     // ------------------------------------------------------------
-    // 读下一拍数据 (Task)
+    // Read the next beat (Task)
     // ------------------------------------------------------------
     task automatic load_next_beat;
         output reg         ok;
@@ -77,7 +77,7 @@ module enc_otf_driver
     endtask
 
     // ------------------------------------------------------------
-    // 带有标准消隐时序的主状态机
+    // Main state machine with standard blanking timing
     // ------------------------------------------------------------
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -99,7 +99,7 @@ module enc_otf_driver
 
             case (state_r)
                 // ------------------------------------------------
-                // IDLE: 等待启动命令
+                // IDLE: wait for the start command
                 // ------------------------------------------------
                 ST_IDLE: begin
                     otf_vsync <= 1'b0;
@@ -120,7 +120,7 @@ module enc_otf_driver
                             beat_idx_r <= 0;
                             line_idx_r <= 0;
                             
-                            // 切换到帧同步状态，并提前拉高 vsync 脉冲
+                            // Switch to the frame-sync state and assert the vsync pulse early
                             state_r   <= ST_VSYNC;
                             otf_vsync <= 1'b1; 
                         end
@@ -128,16 +128,16 @@ module enc_otf_driver
                 end
 
                 // ------------------------------------------------
-                // VSYNC: 仅存在 1 拍的干净垂直同步脉冲
+                // VSYNC: clean vertical sync pulse lasting exactly one beat
                 // ------------------------------------------------
                 ST_VSYNC: begin
                     otf_vsync <= 1'b0; 
-                    otf_hsync <= 1'b1; // 提前拉高 HSYNC 脉冲
+                    otf_hsync <= 1'b1; // Assert the HSYNC pulse early
                     state_r   <= ST_HSYNC;
                 end
 
                 // ------------------------------------------------
-                // HSYNC: 仅存在 1 拍的水平同步脉冲 (预取下一行数据)
+                // HSYNC: horizontal sync pulse lasting exactly one beat (prefetch next-line data)
                 // ------------------------------------------------
                 ST_HSYNC: begin
                     otf_hsync <= 1'b0;
@@ -152,7 +152,7 @@ module enc_otf_driver
                         end
                         state_r    <= ST_IDLE;
                     end else begin
-                        // 准备开始吐数据
+                        // Prepare to emit data
                         otf_de   <= 1'b1;
                         otf_data <= load_data;
                         otf_lcnt <= line_idx_r[11:0];
@@ -162,15 +162,15 @@ module enc_otf_driver
                 end
 
                 // ------------------------------------------------
-                // DATA: 连续吐有效数据，配合 downstream 的 ready 反压
+                // DATA: continuously emit valid data while honoring downstream ready backpressure
                 // ------------------------------------------------
                 ST_DATA: begin
-                    // 只有下游 Ready 接收了，才切数据
+                    // Advance data only when downstream Ready accepts it
                     if (otf_ready) begin
                         if (beat_idx_r == BEATS_PER_LINE - 1) begin
-                            // --- 当前行结束 ---
+                            // --- End of current line ---
                             if (line_idx_r == img_height - 1) begin
-                                // 最后一行的最后一拍，一帧结束
+                                // Last beat of the last line; frame complete
                                 done      <= 1'b1;
                                 otf_de    <= 1'b0;
                                 if (fin != 0) begin
@@ -179,18 +179,18 @@ module enc_otf_driver
                                 end
                                 state_r   <= ST_IDLE;
                             end else begin
-                                // 开启下一行，拉低 DE，触发干净的 HSYNC
+                                // Start the next line, deassert DE, and trigger a clean HSYNC
                                 beat_idx_r <= 0;
                                 line_idx_r <= line_idx_r + 1;
                                 otf_de     <= 1'b0;
                                 otf_hsync  <= 1'b1;
-                                // HSYNC 脉冲所在拍需要带着“下一行”的行号，
-                                // 否则依赖 HSYNC 锁存 lcnt 的下游会滞后一行。
+                                // The HSYNC pulse beat must carry the "next line" index;
+                                // otherwise downstream logic that latches lcnt on HSYNC will lag by one line.
                                 otf_lcnt   <= line_idx_r + 1;
                                 state_r    <= ST_HSYNC;
                             end
                         end else begin
-                            // --- 行内切数据 ---
+                            // --- Advance within the current line ---
                             beat_idx_r <= beat_idx_r + 1;
                             load_next_beat(load_ok, load_data);
                             if (!load_ok) begin
@@ -207,7 +207,7 @@ module enc_otf_driver
                             end
                         end
                     end
-                    // 若 ready 为 0，则当前状态（otf_de=1 和旧数据）原封不动保持
+                    // If ready is 0, hold the current state (otf_de=1 and previous data) unchanged
                 end
 
                 default: state_r <= ST_IDLE;

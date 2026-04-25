@@ -20,7 +20,7 @@ module axi_sram_model #(
     parameter int AXI_ID_WIDTH   = 6,
     parameter int AXI_ADDR_WIDTH = 32,
     parameter int AXI_DATA_WIDTH = 256,
-    parameter string DUMP_FILE   = "axi_mem_dump.txt" // 导出的文件名
+    parameter string DUMP_FILE   = "axi_mem_dump.txt" // Exported file name
 )(
     input  logic                      aclk,
     input  logic                      aresetn,
@@ -111,7 +111,7 @@ module axi_sram_model #(
 
                 W_DATA: begin
                     if (wvalid && wready) begin
-                        // 根据 wstrb 按字节写入关联数组
+                        // Write the associative array byte-by-byte according to wstrb
                         for (int i = 0; i < NUM_BYTES; i++) begin
                             if (wstrb[i]) begin
                                 mem[w_addr_reg + i] = wdata[i*8 +: 8];
@@ -205,7 +205,7 @@ module axi_sram_model #(
     end
 
     // -------------------------------------------------------------------------
-    // 仿真结束时自动导出数据到 TXT
+    // Automatically export data to TXT at the end of simulation
     // -------------------------------------------------------------------------
     task automatic dump_to_txt(string filename);
         int fd;
@@ -213,7 +213,7 @@ module axi_sram_model #(
         longint aligned_addr;
         logic [AXI_DATA_WIDTH-1:0] line_data;
         
-        // 步骤 1：找出所有被写过的、按 AXI_DATA_WIDTH 对齐的首地址
+        // Step 1: find all written base addresses aligned to AXI_DATA_WIDTH
         bit populated_lines [longint];
         
         if (mem.first(addr)) begin
@@ -223,31 +223,31 @@ module axi_sram_model #(
             end while (mem.next(addr));
         end
         
-        // 步骤 2：遍历这些有效对齐地址，将离散的 byte 拼成完整 word 写入文件
+        // Step 2: iterate over valid aligned addresses and combine scattered bytes into full words
         fd = $fopen(filename, "w");
         if (fd) begin
             if (populated_lines.first(aligned_addr)) begin
                 do begin
-                    line_data = '0; // 默认填 0
+                    line_data = '0; // Fill with 0 by default
                     for (int i = 0; i < NUM_BYTES; i++) begin
                         if (mem.exists(aligned_addr + i)) begin
                             line_data[i*8 +: 8] = mem[aligned_addr + i];
                         end
                     end
-                    // 输出格式：@地址(16进制) 数据(16进制)
+                    // Output format: @address(hex) data(hex)
                     $fdisplay(fd, "@%08X %x", aligned_addr, line_data);
                 end while (populated_lines.next(aligned_addr));
             end
             $fclose(fd);
             $display("==================================================");
-            $display("[AXI SRAM] 内存数据已成功导出至: %s", filename);
+            $display("[AXI SRAM] Memory data exported successfully to: %s", filename);
             $display("==================================================");
         end else begin
-            $error("[AXI SRAM] 无法打开文件 %s 进行写入！", filename);
+            $error("[AXI SRAM] Unable to open file %s for writing!", filename);
         end
     endtask
 
-    // 当 Testbench 调用 $finish 时，自动触发此 block
+    // Automatically trigger this block when the testbench calls $finish
     final begin
         dump_to_txt(DUMP_FILE);
     end

@@ -3,6 +3,7 @@
 +incdir+../ip/axi_2t1_int/src
 
 ../ip/sync_fifo.v
+../ip/mg_sync_fifo.v
 ../dec/ubwc_meta_simple_fifo.v
 ../dec/ubwc_dec_meta_get_cmd_gen.v
 ../dec/ubwc_dec_meta_axi_rcmd_gen.v
@@ -29,6 +30,7 @@
 ../dec/ubwc_dec_wrapper_top.v
 
 ../ip/sync_fifo_af.v
+../ip/ubwc_axi_wr_64to256.v
 ../ip/ubwc_axi_wr_256to64.v
 ../ip/ubwc_sync_fifo_fwft.sv
 ../ip/ubwc_sram_1rw.v
@@ -41,7 +43,7 @@
 ../enc/ubwc_enc_vivo_top.sv
 ../enc/ubwc_enc_meta_addr_gen.sv
 ../enc/ubwc_tile_enc_axi_wcmd_gen.v
-../enc/ubwc_enc_meta_axi_wcmd_gen_v2.v
+../enc/ubwc_enc_meta_axi_wcmd_gen.v
 ../enc/axi_2t1_int_DW_axi.v
 ../enc/ubwc_enc_wrapper_top.sv
 ../ubwc_wrapper_top.v

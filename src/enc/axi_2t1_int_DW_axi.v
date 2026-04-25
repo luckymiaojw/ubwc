@@ -211,8 +211,8 @@ module axi_2t1_int_DW_axi
     reg [WR_CMD_FIFO_PTR_W  :0] wr_cmd_count;
 
     // =========================================================================
-    // 1. 写地址通道 (AW Channel) - 严格优先级 M1 > M2
-    //    关键点：W 通道必须严格跟随 AW 实际发往 slave 的顺序
+    // 1. Write address channel (AW Channel) - strict priority M1 > M2
+    //    Key point: the W channel must strictly follow the AW order actually sent to the slave
     // =========================================================================
     wire wr_cmd_fifo_full  = (wr_cmd_count == WR_CMD_FIFO_DEPTH);
     wire wr_cmd_fifo_valid = (wr_cmd_count != 0);
@@ -231,7 +231,7 @@ module axi_2t1_int_DW_axi
     assign aw_fire_m1 = awvalid_m1 && awready_m1;
     assign aw_fire_m2 = awvalid_m2 && awready_m2;
 
-    // 拼接ID: M1最高位补0, M2最高位补1
+    // Concatenated ID: prefix M1 with MSB 0 and M2 with MSB 1
     assign awid_s1    = aw_gnt_m1 ? {1'b0, awid_m1}    : {1'b1, awid_m2};
     assign awaddr_s1  = aw_gnt_m1 ? awaddr_m1  : awaddr_m2;
     assign awlen_s1   = aw_gnt_m1 ? awlen_m1   : awlen_m2;
@@ -242,7 +242,7 @@ module axi_2t1_int_DW_axi
     assign awprot_s1  = aw_gnt_m1 ? awprot_m1  : awprot_m2;
 
     // =========================================================================
-    // 2. 写数据通道 (W Channel) - 严格跟随 AW 已接收顺序
+    // 2. Write data channel (W Channel) - strictly follows the accepted AW order
     // =========================================================================
     wire w_gnt_m1 = wr_cmd_fifo_valid && !wr_cmd_src_m2;
     wire w_gnt_m2 = wr_cmd_fifo_valid &&  wr_cmd_src_m2;
@@ -296,7 +296,7 @@ module axi_2t1_int_DW_axi
     end
 
     // =========================================================================
-    // 3. 写响应通道 (B Channel) - 基于 ID 最高位路由
+    // 3. Write response channel (B Channel) - routed by the ID MSB
     // =========================================================================
     wire b_to_m1 = (bid_s1[AXI_IDW] == 1'b0);
     wire b_to_m2 = (bid_s1[AXI_IDW] == 1'b1);
@@ -304,7 +304,7 @@ module axi_2t1_int_DW_axi
     assign bvalid_m1 = bvalid_s1 && b_to_m1;
     assign bvalid_m2 = bvalid_s1 && b_to_m2;
     
-    // 如果收到异常 ID，默认拉高 ready 防止总线死锁
+    // If an unexpected ID is received, assert ready by default to avoid bus deadlock
     assign bready_s1 = b_to_m1 ? bready_m1 : (b_to_m2 ? bready_m2 : 1'b1);
 
     assign bid_m1    = bid_s1[AXI_IDW-1:0];
@@ -313,7 +313,7 @@ module axi_2t1_int_DW_axi
     assign bresp_m2  = bresp_s1;
 
     // =========================================================================
-    // 4. 读地址通道 (AR Channel) - 严格优先级 M1 > M2
+    // 4. Read address channel (AR Channel) - strict priority M1 > M2
     // =========================================================================
     wire ar_gnt_m1 = arvalid_m1;
     wire ar_gnt_m2 = arvalid_m2 && !arvalid_m1;
@@ -332,7 +332,7 @@ module axi_2t1_int_DW_axi
     assign arprot_s1  = ar_gnt_m1 ? arprot_m1  : arprot_m2;
 
     // =========================================================================
-    // 5. 读数据通道 (R Channel) - 基于 ID 最高位路由
+    // 5. Read data channel (R Channel) - routed by the ID MSB
     // =========================================================================
     wire r_to_m1 = (rid_s1[AXI_IDW] == 1'b0);
     wire r_to_m2 = (rid_s1[AXI_IDW] == 1'b1);
@@ -352,7 +352,7 @@ module axi_2t1_int_DW_axi
     assign rlast_m2  = rlast_s1;
 
     // =========================================================================
-    // 6. Debug 端口处理 (dbg_s0)
+    // 6. Debug port handling (dbg_s0)
     // =========================================================================
     assign dbg_awid_s0    = 'd0;
     assign dbg_awaddr_s0  = 'd0;

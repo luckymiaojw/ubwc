@@ -526,14 +526,21 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer CASE_EXPECTED_META1_AW  = CASE_HAS_PLANE1 ? CASE_META1_WORDS64 : 0;
     localparam integer CASE_FAKE_META0_WORDS64 = CASE_META0_WORDS64;
     localparam integer CASE_FAKE_META1_WORDS64 = CASE_HAS_PLANE1 ? CASE_META1_WORDS64 : 0;
-    localparam integer CASE_FAKE_META_TOTAL_WORDS64 = CASE_FAKE_META0_WORDS64 +
-                                                      (CASE_HAS_PLANE1 ? CASE_FAKE_META1_WORDS64 : 0);
-    localparam integer CASE_FAKE_EXPECTED_META_W    = CASE_FAKE_META_TOTAL_WORDS64;
-    localparam integer CASE_FAKE_EXPECTED_META_AW   = CASE_FAKE_META_TOTAL_WORDS64;
-    localparam integer CASE_FAKE_EXPECTED_META0_W   = CASE_FAKE_META0_WORDS64;
-    localparam integer CASE_FAKE_EXPECTED_META0_AW  = CASE_FAKE_META0_WORDS64;
-    localparam integer CASE_FAKE_EXPECTED_META1_W   = CASE_HAS_PLANE1 ? CASE_FAKE_META1_WORDS64 : 0;
-    localparam integer CASE_FAKE_EXPECTED_META1_AW  = CASE_HAS_PLANE1 ? CASE_FAKE_META1_WORDS64 : 0;
+    localparam integer CASE_FAKE_ACTIVE_META0_WORDS64 =
+                                                 CASE_IS_G016 ? ((G016_Y_TILE_COLS  * G016_Y_TILE_ROWS)  / 8) :
+                                                 (CASE_IS_NV12 ? ((NV12_Y_TILE_COLS * NV12_Y_TILE_ROWS) / 8)
+                                                               : ((RGBA_TILE_COLS   * RGBA_TILE_ROWS)   / 8));
+    localparam integer CASE_FAKE_ACTIVE_META1_WORDS64 =
+                                                 CASE_HAS_PLANE1 ? (CASE_IS_G016 ? ((G016_UV_TILE_COLS * G016_UV_TILE_ROWS) / 8)
+                                                                                  : ((NV12_UV_TILE_COLS * NV12_UV_TILE_ROWS) / 8))
+                                                                 : 0;
+    localparam integer CASE_FAKE_EXPECTED_META_W    = CASE_FAKE_ACTIVE_META0_WORDS64 +
+                                                      (CASE_HAS_PLANE1 ? CASE_FAKE_ACTIVE_META1_WORDS64 : 0);
+    localparam integer CASE_FAKE_EXPECTED_META_AW   = CASE_FAKE_EXPECTED_META_W;
+    localparam integer CASE_FAKE_EXPECTED_META0_W   = CASE_FAKE_ACTIVE_META0_WORDS64;
+    localparam integer CASE_FAKE_EXPECTED_META0_AW  = CASE_FAKE_ACTIVE_META0_WORDS64;
+    localparam integer CASE_FAKE_EXPECTED_META1_W   = CASE_FAKE_ACTIVE_META1_WORDS64;
+    localparam integer CASE_FAKE_EXPECTED_META1_AW  = CASE_FAKE_ACTIVE_META1_WORDS64;
     localparam [63:0]  CASE_MAIN_BASE_MIN      = CASE_TILE_BASE_Y_ADDR;
     localparam [63:0]  CASE_META_BASE_MIN      = 64'h0000_0000_8000_0000;
     localparam integer CASE_MAIN_REF_WORDS64   = CASE_HAS_PLANE1 ?
@@ -662,6 +669,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     integer                     expected_meta_aw_plane1_total;
     integer                     expected_meta_w_plane0_total;
     integer                     expected_meta_w_plane1_total;
+    integer                     meta_ref_words_plane0;
+    integer                     meta_ref_words_plane1;
+    integer                     meta_ref_words_total;
+    integer                     meta_ref_active_words_plane0;
+    integer                     meta_ref_active_words_plane1;
+    integer                     meta_ref_active_words_total;
     integer                     otf_done_count;
     integer                     rvi_beat_count;
     integer                     rvi_beat_idx;
@@ -734,7 +747,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     integer                     meta_dump_mismatch_plane0_count;
     integer                     meta_dump_mismatch_plane1_count;
     integer                     meta_dump_word_count_error_count;
-    integer                     meta_in_fifo_drop_count;
+    integer                     meta_path_stall_count;
     integer                     meta_gen_fire_count;
     integer                     meta_gen_fire_count_plane0;
     integer                     meta_gen_fire_count_plane1;
@@ -779,10 +792,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     reg  [AXI_DW-1:0]           first_meta_mem_actual;
     reg  [63:0]                 first_meta_dump_expected;
     reg  [63:0]                 first_meta_dump_actual;
-    reg                         first_meta_in_fifo_drop_seen;
-    reg  [4:0]                  first_meta_in_fifo_drop_fmt;
-    reg  [27:0]                 first_meta_in_fifo_drop_x;
-    reg  [12:0]                 first_meta_in_fifo_drop_y;
+    reg                         first_meta_path_stall_seen;
+    reg  [4:0]                  first_meta_path_stall_fmt;
+    reg  [27:0]                 first_meta_path_stall_x;
+    reg  [12:0]                 first_meta_path_stall_y;
     reg  [AXI_DW/8-1:0]         first_main_mem_strb;
     reg  [AXI_DW/8-1:0]         first_meta_mem_strb;
     reg                         ref_cmp_mismatch;
@@ -1068,6 +1081,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             if (tb_fake_mode_en) begin
                 meta_y_words64  = CASE_FAKE_META0_WORDS64;
                 meta_uv_words64 = CASE_HAS_PLANE1 ? CASE_FAKE_META1_WORDS64 : 0;
+            end else if ((meta_ref_words_plane0 != 0) || (meta_ref_words_plane1 != 0)) begin
+                meta_y_words64  = meta_ref_words_plane0;
+                meta_uv_words64 = CASE_HAS_PLANE1 ? meta_ref_words_plane1 : 0;
             end else begin
                 meta_y_words64  = CASE_META0_WORDS64;
                 meta_uv_words64 = CASE_HAS_PLANE1 ? CASE_META1_WORDS64 : 0;
@@ -1084,6 +1100,39 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             end
         end
     endfunction
+
+    task automatic refresh_meta_ref_counts;
+        integer idx;
+        integer plane1_base_word_idx;
+        begin
+            meta_ref_words_plane0 = 0;
+            meta_ref_active_words_plane0 = 0;
+            for (idx = CASE_META0_WORDS64 - 1; idx >= 0; idx = idx - 1) begin
+                if ((meta_ref_words_plane0 == 0) && (exp_meta_words[idx] !== 64'd0))
+                    meta_ref_words_plane0 = idx + 1;
+                if (exp_meta_words[idx] !== 64'd0)
+                    meta_ref_active_words_plane0 = meta_ref_active_words_plane0 + 1;
+            end
+
+            meta_ref_words_plane1 = 0;
+            meta_ref_active_words_plane1 = 0;
+            if (CASE_HAS_PLANE1) begin
+                plane1_base_word_idx = (CASE_META_BASE_UV_ADDR - CASE_META_BASE_MIN) >> 3;
+                for (idx = CASE_META1_WORDS64 - 1; idx >= 0; idx = idx - 1) begin
+                    if ((meta_ref_words_plane1 == 0) &&
+                        (exp_meta_words[plane1_base_word_idx + idx] !== 64'd0))
+                        meta_ref_words_plane1 = idx + 1;
+                    if (exp_meta_words[plane1_base_word_idx + idx] !== 64'd0)
+                        meta_ref_active_words_plane1 = meta_ref_active_words_plane1 + 1;
+                end
+            end
+
+            meta_ref_words_total = meta_ref_words_plane0 +
+                                   (CASE_HAS_PLANE1 ? meta_ref_words_plane1 : 0);
+            meta_ref_active_words_total = meta_ref_active_words_plane0 +
+                                          (CASE_HAS_PLANE1 ? meta_ref_active_words_plane1 : 0);
+        end
+    endtask
 
     function automatic meta_v2_strb_valid;
         input [AXI_DW/8-1:0] strb;
@@ -1275,7 +1324,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 if (actual_strb[lane_idx*8 +: 8] != 8'd0) begin
                     if ((is_meta != 0) ? !meta_word_addr_valid(lane_addr) : !main_word_addr_valid(lane_addr)) begin
                         range_error = 1'b1;
-                    end else begin
+                    end else if (exp_word != 64'd0) begin
                         for (byte_idx = 0; byte_idx < 8; byte_idx = byte_idx + 1) begin
                             if (actual_strb[lane_idx*8 + byte_idx] &&
                                 (actual_data[lane_idx*64 + byte_idx*8 +: 8] !== exp_word[byte_idx*8 +: 8])) begin
@@ -1323,7 +1372,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                         end else if ($sscanf(line_buf_local, "%h", word_local) == 1) begin
                             curr_addr_local = file_base_addr + (idx * 8);
                             exp_word_local  = meta_ref_word64(curr_addr_local);
-                            if (word_local !== exp_word_local) begin
+                            if ((exp_word_local !== 64'd0) && (word_local !== exp_word_local)) begin
                                 meta_dump_mismatch_count = meta_dump_mismatch_count + 1;
                                 if (plane_sel != 0)
                                     meta_dump_mismatch_plane1_count = meta_dump_mismatch_plane1_count + 1;
@@ -1503,7 +1552,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             if (meta_dump_fd != 0) begin
                 u_axi_mem.dump_range64(meta_dump_fd,
                                        CASE_META_BASE_Y_ADDR,
-                                       CASE_META0_WORDS64,
+                                       (meta_ref_words_plane0 != 0) ? meta_ref_words_plane0 : CASE_META0_WORDS64,
                                        1'b0,
                                        meta_dump_has_prev_addr,
                                        meta_dump_next_addr);
@@ -1513,7 +1562,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 meta_dump_next_addr     = {AXI_AW{1'b0}};
                 u_axi_mem.dump_range64(meta_dump_fd_plane1,
                                        CASE_META_BASE_UV_ADDR,
-                                       CASE_META1_WORDS64,
+                                       (meta_ref_words_plane1 != 0) ? meta_ref_words_plane1 : CASE_META1_WORDS64,
                                        1'b0,
                                        meta_dump_has_prev_addr,
                                        meta_dump_next_addr);
@@ -1540,10 +1589,13 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             settle_cycles = 0;
             expected_tile_count_local = CASE_EXPECTED_TILES * completed_frames_exp;
             expected_beat_count_local = CASE_EXPECTED_BEATS * completed_frames_exp;
-            expected_meta_aw_local    = (tb_fake_mode_en ? CASE_FAKE_EXPECTED_META_AW : CASE_EXPECTED_META_AW) *
-                                        completed_frames_exp;
-            expected_meta_w_local     = (tb_fake_mode_en ? CASE_FAKE_EXPECTED_META_W : CASE_EXPECTED_META_W) *
-                                        completed_frames_exp;
+            if (tb_fake_mode_en) begin
+                expected_meta_aw_local = CASE_FAKE_EXPECTED_META_AW * completed_frames_exp;
+                expected_meta_w_local  = CASE_FAKE_EXPECTED_META_W * completed_frames_exp;
+            end else begin
+                expected_meta_aw_local = meta_ref_active_words_total * completed_frames_exp;
+                expected_meta_w_local  = meta_ref_active_words_total * completed_frames_exp;
+            end
 
             while ((settle_cycles < 64) && (timeout_count < case_timeout_cycles)) begin
                 @(posedge clk);
@@ -1587,30 +1639,30 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          dut.tile_coord_vld, dut.rvi_valid, dut.enc_axi_awvalid, dut.enc_axi_wvalid,
                          dut.meta_axi_awvalid, dut.meta_axi_wvalid, active_cmd_valid, rvi_active_cmd_valid,
                          main_burst_active, meta_burst_active);
-                $display("[TB][ERROR] meta gen state: out_valid=%0b out_ready=%0b frame_pad_active=%0b frame_pad_left=%0d row_extra=%0b frame_done_pending=%0b",
-                         dut.ubwc_enc_meta_addr_gen_inst.o_meta_valid,
-                         dut.ubwc_enc_meta_addr_gen_inst.i_meta_ready,
-                         dut.ubwc_enc_meta_addr_gen_inst.frame_pad_active_r,
-                         dut.ubwc_enc_meta_addr_gen_inst.frame_pad_words_left_r,
-                         dut.ubwc_enc_meta_addr_gen_inst.row_extra_pending_r,
-                         dut.ubwc_enc_meta_addr_gen_inst.frame_done_pending_r);
-                $display("[TB][ERROR] meta in_fifo: pop_valid=%0b push_ready=%0b drop_cnt=%0d",
-                         dut.ubwc_enc_meta_addr_gen_inst.in_fifo_pop_valid,
-                         dut.ubwc_enc_meta_addr_gen_inst.in_fifo_push_ready,
-                         meta_in_fifo_drop_count);
-                if (first_meta_in_fifo_drop_seen) begin
-                    $display("[TB][ERROR] first meta in_fifo drop: fmt=%0d x=%0d y=%0d",
-                             first_meta_in_fifo_drop_fmt,
-                             first_meta_in_fifo_drop_x,
-                             first_meta_in_fifo_drop_y);
+                $display("[TB][ERROR] meta path state: data_vld=%0b data_rdy=%0b addr_vld=%0b addr_rdy=%0b data=0x%016x last_x=%0d",
+                         dut.meta_data_valid,
+                         dut.meta_data_ready,
+                         dut.meta_addr_valid,
+                         dut.meta_addr_ready,
+                         dut.meta_data,
+                         dut.meta_last_xcoord);
+                $display("[TB][ERROR] meta path stall: enc_co_valid=%0b b_co_valid=%0b stall_cnt=%0d",
+                         dut.enc_co_valid,
+                         dut.b_co_valid,
+                         meta_path_stall_count);
+                if (first_meta_path_stall_seen) begin
+                    $display("[TB][ERROR] first meta path stall: fmt=%0d x=%0d y=%0d",
+                             first_meta_path_stall_fmt,
+                             first_meta_path_stall_x,
+                             first_meta_path_stall_y);
                 end
-                $display("[TB][ERROR] meta gen last tile: fmt=%0d x=%0d y=%0d last_of_plane=%0b miss_rows=%0d pad_words=%0d",
-                         dut.ubwc_enc_meta_addr_gen_inst.int_format,
-                         dut.ubwc_enc_meta_addr_gen_inst.int_xcoord,
-                         dut.ubwc_enc_meta_addr_gen_inst.int_ycoord,
-                         dut.ubwc_enc_meta_addr_gen_inst.tile_last_of_plane_w,
-                         dut.ubwc_enc_meta_addr_gen_inst.tile_missing_rows_w,
-                         dut.ubwc_enc_meta_addr_gen_inst.tile_frame_pad_words_w);
+                $display("[TB][ERROR] meta path last tile: fmt=%0d x=%0d y=%0d meta_vld=%0b word_x=%0d addr=0x%016x",
+                         dut.b_tile_format,
+                         dut.meta_tile_xcoord,
+                         dut.b_tile_ycoord,
+                         dut.meta_data_valid & dut.meta_addr_valid,
+                         {dut.meta_tile_xcoord[7:3], 3'b000},
+                         dut.meta_addr);
                 $fatal(1, "Encoder wrapper did not become idle before next frame start.");
             end
 
@@ -1931,7 +1983,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         meta_dump_mismatch_plane0_count = 0;
         meta_dump_mismatch_plane1_count = 0;
         meta_dump_word_count_error_count = 0;
-        meta_in_fifo_drop_count = 0;
+        meta_path_stall_count = 0;
         meta_gen_fire_count = 0;
         meta_gen_fire_count_plane0 = 0;
         meta_gen_fire_count_plane1 = 0;
@@ -1966,6 +2018,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         expected_meta_aw_plane1_total = CASE_FAKE_EXPECTED_META1_AW;
         expected_meta_w_plane0_total = CASE_FAKE_EXPECTED_META0_W;
         expected_meta_w_plane1_total = CASE_FAKE_EXPECTED_META1_W;
+        meta_ref_words_plane0 = 0;
+        meta_ref_words_plane1 = 0;
+        meta_ref_words_total = 0;
+        meta_ref_active_words_plane0 = 0;
+        meta_ref_active_words_plane1 = 0;
+        meta_ref_active_words_total = 0;
         otf_done_count = 0;
         void'($value$plusargs("tb_timeout_cycles=%d", case_timeout_cycles));
         if (!$value$plusargs("tb_frame_repeat=%d", tb_frame_repeat))
@@ -2065,10 +2123,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         first_meta_mem_actual = {AXI_DW{1'b0}};
         first_meta_dump_expected = 64'd0;
         first_meta_dump_actual = 64'd0;
-        first_meta_in_fifo_drop_seen = 1'b0;
-        first_meta_in_fifo_drop_fmt = 5'd0;
-        first_meta_in_fifo_drop_x = 28'd0;
-        first_meta_in_fifo_drop_y = 13'd0;
+        first_meta_path_stall_seen = 1'b0;
+        first_meta_path_stall_fmt = 5'd0;
+        first_meta_path_stall_x = 28'd0;
+        first_meta_path_stall_y = 13'd0;
         first_main_mem_strb = {(AXI_DW/8){1'b0}};
         first_meta_mem_strb = {(AXI_DW/8){1'b0}};
         ref_cmp_mismatch = 1'b0;
@@ -2133,6 +2191,15 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                    1, CASE_META_BASE_UV_ADDR, CASE_META1_WORDS64);
             end
         endcase
+        refresh_meta_ref_counts();
+        if (!tb_fake_mode_en) begin
+            expected_meta_aw_total = meta_ref_active_words_total * tb_frame_repeat;
+            expected_meta_w_total = meta_ref_active_words_total * tb_frame_repeat;
+            expected_meta_aw_plane0_total = meta_ref_active_words_plane0 * tb_frame_repeat;
+            expected_meta_aw_plane1_total = meta_ref_active_words_plane1 * tb_frame_repeat;
+            expected_meta_w_plane0_total = meta_ref_active_words_plane0 * tb_frame_repeat;
+            expected_meta_w_plane1_total = meta_ref_active_words_plane1 * tb_frame_repeat;
+        end
 
         if (!tb_fake_mode_en) begin
             case (CASE_ID)
@@ -2216,7 +2283,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             meta_dump_mismatch_plane0_count <= 0;
             meta_dump_mismatch_plane1_count <= 0;
             meta_dump_word_count_error_count <= 0;
-            meta_in_fifo_drop_count <= 0;
+            meta_path_stall_count <= 0;
             meta_gen_fire_count <= 0;
             meta_gen_fire_count_plane0 <= 0;
             meta_gen_fire_count_plane1 <= 0;
@@ -2312,10 +2379,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             first_meta_mem_actual    <= {AXI_DW{1'b0}};
             first_meta_dump_expected <= 64'd0;
             first_meta_dump_actual   <= 64'd0;
-            first_meta_in_fifo_drop_seen <= 1'b0;
-            first_meta_in_fifo_drop_fmt  <= 5'd0;
-            first_meta_in_fifo_drop_x    <= 28'd0;
-            first_meta_in_fifo_drop_y    <= 13'd0;
+            first_meta_path_stall_seen <= 1'b0;
+            first_meta_path_stall_fmt  <= 5'd0;
+            first_meta_path_stall_x    <= 28'd0;
+            first_meta_path_stall_y    <= 13'd0;
             first_main_mem_strb      <= {(AXI_DW/8){1'b0}};
             first_meta_mem_strb      <= {(AXI_DW/8){1'b0}};
             ref_cmp_mismatch         <= 1'b0;
@@ -2324,13 +2391,15 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         end else begin
             timeout_count <= timeout_count + 1;
 
-            if (dut.enc_co_valid && !dut.ubwc_enc_meta_addr_gen_inst.in_fifo_push_ready) begin
-                meta_in_fifo_drop_count <= meta_in_fifo_drop_count + 1;
-                if (!first_meta_in_fifo_drop_seen) begin
-                    first_meta_in_fifo_drop_seen <= 1'b1;
-                    first_meta_in_fifo_drop_fmt  <= dut.b_tile_format;
-                    first_meta_in_fifo_drop_x    <= dut.b_tile_xcoord;
-                    first_meta_in_fifo_drop_y    <= dut.b_tile_ycoord;
+            if (dut.enc_co_valid &&
+                ((dut.meta_data_valid && !dut.meta_data_ready) ||
+                 (dut.meta_addr_valid && !dut.meta_addr_ready))) begin
+                meta_path_stall_count <= meta_path_stall_count + 1;
+                if (!first_meta_path_stall_seen) begin
+                    first_meta_path_stall_seen <= 1'b1;
+                    first_meta_path_stall_fmt  <= dut.b_tile_format;
+                    first_meta_path_stall_x    <= dut.b_tile_xcoord;
+                    first_meta_path_stall_y    <= dut.b_tile_ycoord;
                 end
             end
 
@@ -3196,12 +3265,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
         compare_meta_dump_file_to_ref(meta_dump_file,
                                       CASE_META_BASE_Y_ADDR,
-                                      CASE_META0_WORDS64,
+                                      meta_ref_words_plane0,
                                       0);
         if (CASE_HAS_PLANE1) begin
             compare_meta_dump_file_to_ref(meta_dump_file_plane1,
                                           CASE_META_BASE_UV_ADDR,
-                                          CASE_META1_WORDS64,
+                                          meta_ref_words_plane1,
                                           1);
         end
 

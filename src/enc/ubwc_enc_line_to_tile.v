@@ -46,12 +46,12 @@ module ubwc_enc_line_to_tile#(
     output wire                o_tile_last,
     output wire                o_plane,      // 0:A 1:B
     output wire [15:0]         o_tile_x,
-    output wire [15:0]         o_tile_y, // 内部自动计数的 Tile Y 坐标 (0,1,2,3...)
+    output wire [15:0]         o_tile_y, // Internally auto-counted Tile Y coordinate (0,1,2,3...)
     output wire [3:0]          o_tile_fcnt
 );
 
     // ------------------------------------------------------------------------
-    // Format MUX (查表，彻底消除计算)
+    // Format MUX (lookup-table based, eliminating runtime calculations)
     // ------------------------------------------------------------------------
     localparam FMT_RGBA8888  = 3'd0;
     localparam FMT_RGBA10    = 3'd1;
@@ -112,7 +112,7 @@ module ubwc_enc_line_to_tile#(
     // Parse FIFO Payload & Extract vsync
     // ------------------------------------------------------------------------
     wire [3:0]   a_fcnt  = fifo_a_data[162:159]; 
-    wire         a_vsync = fifo_a_data[146];     // 提取 vsync 信号
+    wire         a_vsync = fifo_a_data[146];     // Extract vsync
     wire         a_tlast = fifo_a_data[144];     
     wire [127:0] a_tdata = fifo_a_data[127:0];
     
@@ -136,13 +136,13 @@ module ubwc_enc_line_to_tile#(
     reg [15:0] bank0_b_line_idx, bank0_b_tile_x, bank0_b_word_in_tile;
     reg        bank0_a_done, bank0_b_done, bank0_meta_vld;
     reg [3:0]  bank0_fcnt;
-    reg        bank0_vsync; // 新增：锁存 vsync
+    reg        bank0_vsync; // Latch vsync
 
     reg [15:0] bank1_a_line_idx, bank1_a_tile_x, bank1_a_word_in_tile;
     reg [15:0] bank1_b_line_idx, bank1_b_tile_x, bank1_b_word_in_tile;
     reg        bank1_a_done, bank1_b_done, bank1_meta_vld;
     reg [3:0]  bank1_fcnt;
-    reg        bank1_vsync; // 新增：锁存 vsync
+    reg        bank1_vsync; // Latch vsync
 
     wire bank0_ready_for_read = bank0_a_done && (!need_b || bank0_b_done);
     wire bank1_ready_for_read = bank1_a_done && (!need_b || bank1_b_done);
@@ -226,7 +226,7 @@ module ubwc_enc_line_to_tile#(
     reg [15:0] rd_pipe_y_r;
     reg [3:0]  rd_pipe_fcnt_r;
     
-    reg [15:0] rd_tile_grp_y_cnt; // 读端专用的核心 Tile Y 行计数器
+    reg [15:0] rd_tile_grp_y_cnt; // Read-side core Tile Y row counter
 
     wire [15:0] cur_tile_cols   = (rd_plane == 1'b0) ? cfg_a_tile_cols : cfg_b_tile_cols;
     wire [15:0] cur_region_base = (rd_plane == 1'b0) ? 16'd0 :
@@ -331,22 +331,22 @@ module ubwc_enc_line_to_tile#(
             rd_bank_sel_act  <= 1'b1; 
             rd_state         <= RD_IDLE;
             
-            // 内部读端 Y 计数器复位
+            // Reset the internal read-side Y counter
             rd_tile_grp_y_cnt<= 16'd0; 
 
-            // Bank0 复位
+            // Reset Bank0
             bank0_a_line_idx <= 16'd0; bank0_a_tile_x <= 16'd0; bank0_a_word_in_tile <= 16'd0;
             bank0_b_line_idx <= 16'd0; bank0_b_tile_x <= 16'd0; bank0_b_word_in_tile <= 16'd0;
             bank0_a_done     <= 1'b0;  bank0_b_done   <= 1'b0;  bank0_meta_vld       <= 1'b0; 
             bank0_fcnt       <= 4'd0;  bank0_vsync    <= 1'b0;
 
-            // Bank1 复位
+            // Reset Bank1
             bank1_a_line_idx <= 16'd0; bank1_a_tile_x <= 16'd0; bank1_a_word_in_tile <= 16'd0;
             bank1_b_line_idx <= 16'd0; bank1_b_tile_x <= 16'd0; bank1_b_word_in_tile <= 16'd0;
             bank1_a_done     <= 1'b0;  bank1_b_done   <= 1'b0;  bank1_meta_vld       <= 1'b0; 
             bank1_fcnt       <= 4'd0;  bank1_vsync    <= 1'b0;
 
-            // 读流水线及输出复位
+            // Reset the read pipeline and outputs
             rd_plane <= 1'b0; rd_y_subrow <= 1'b0; rd_tile_x <= 16'd0; rd_word_in_tile <= 16'd0; rd_group_y <= 16'd0; rd_fcnt <= 4'd0;
             rd_pipe_vld_r <= 1'b0; rd_pipe_bank_sel_r <= 1'b0; rd_pipe_last_r <= 1'b0; rd_pipe_plane_r <= 1'b0;
             rd_pipe_x_r <= 16'd0; rd_pipe_y_r <= 16'd0; rd_pipe_fcnt_r <= 4'd0;
@@ -355,10 +355,10 @@ module ubwc_enc_line_to_tile#(
             if (wr_bank_switch)
                 wr_bank_sel <= ~wr_bank_sel;
 
-            // --- A 通道写入 ---
+            // --- A-channel write ---
             if (fire_a) begin
                 if (wr_bank_sel_eff == 1'b0) begin
-                    // 锁存 vsync (防抖: 一行里只要有就抓取)
+                    // Latch vsync (debounce: capture it if it appears anywhere in the line)
                     if (a_vsync) bank0_vsync <= 1'b1;
 
                     if (!bank0_meta_vld) begin 
@@ -379,7 +379,7 @@ module ubwc_enc_line_to_tile#(
                         end
                     end
                 end else begin
-                    // 锁存 vsync
+                    // Latch vsync
                     if (a_vsync) bank1_vsync <= 1'b1;
 
                     if (!bank1_meta_vld) begin 
@@ -402,7 +402,7 @@ module ubwc_enc_line_to_tile#(
                 end
             end
 
-            // --- B 通道写入 ---
+            // --- B-channel write ---
             if (fire_b) begin
                 if (wr_bank_sel_eff == 1'b0) begin
                     if (b_vsync) bank0_vsync <= 1'b1;
@@ -447,7 +447,7 @@ module ubwc_enc_line_to_tile#(
                 end
             end
 
-            // ==================== Read Side FSM 及释放 ====================
+            // ==================== Read-side FSM and release ====================
             if (rd_state == RD_IDLE) begin
                 if (bank0_ready_for_read && (wr_bank_sel != 1'b0)) begin
                     rd_bank_sel_act <= 1'b0; rd_state <= RD_ACT;
@@ -456,7 +456,7 @@ module ubwc_enc_line_to_tile#(
                     rd_tile_x <= 16'd0; rd_word_in_tile <= 16'd0;
                     rd_fcnt <= bank0_fcnt;
 
-                    // 检测到 vsync：清零内部计数器
+                    // Vsync detected: clear the internal counter
                     if (bank0_vsync) begin
                         rd_tile_grp_y_cnt <= 16'd0;
                         rd_group_y        <= 16'd0;
@@ -470,7 +470,7 @@ module ubwc_enc_line_to_tile#(
                     rd_tile_x <= 16'd0; rd_word_in_tile <= 16'd0;
                     rd_fcnt <= bank1_fcnt;
 
-                    // 检测到 vsync：清零内部计数器
+                    // Vsync detected: clear the internal counter
                     if (bank1_vsync) begin
                         rd_tile_grp_y_cnt <= 16'd0;
                         rd_group_y        <= 16'd0;
@@ -498,10 +498,10 @@ module ubwc_enc_line_to_tile#(
                                     rd_state <= RD_FIN;
                                 end
                             end else if ((rd_plane == 1'b0) && need_b) begin
-                                // 切换到 B 通道，A 和 B 共享当前的 rd_group_y
+                                // Switch to the B channel; A and B share the current rd_group_y
                                 rd_plane <= 1'b1; rd_tile_x <= 16'd0; rd_word_in_tile <= 16'd0;
                             end else begin
-                                // A区和B区全部处理完毕，准备收尾
+                                // Both A and B regions are done; prepare to drain
                                 rd_state <= RD_FIN; 
                             end
                         end else begin
@@ -512,22 +512,22 @@ module ubwc_enc_line_to_tile#(
                     end
                 end
             end else if (rd_state == RD_FIN) begin
-                // 流水线排空，释放当前 Bank 资源
+                // Pipeline drained; release the current bank resources
                 if (resp_fifo_empty && !rd_pipe_vld_r) begin 
-                    // 当前 Tile 行（A通道和B通道全部处理完毕）
-                    // 在此处将内部 Y 坐标计数器 + 1
+                    // Current Tile row is complete (both A and B channels are done)
+                    // Increment the internal Y-coordinate counter here
                     rd_tile_grp_y_cnt <= rd_tile_grp_y_cnt + 16'd1;
 
                     if (rd_bank_sel_act == 1'b0) begin
                         bank0_a_line_idx <= 16'd0; bank0_a_tile_x <= 16'd0; bank0_a_word_in_tile <= 16'd0;
                         bank0_b_line_idx <= 16'd0; bank0_b_tile_x <= 16'd0; bank0_b_word_in_tile <= 16'd0;
                         bank0_a_done     <= 1'b0;  bank0_b_done   <= 1'b0;  bank0_meta_vld       <= 1'b0; 
-                        bank0_fcnt       <= 4'd0;  bank0_vsync    <= 1'b0; // 清除 vsync 标志
+                        bank0_fcnt       <= 4'd0;  bank0_vsync    <= 1'b0; // Clear the vsync flag
                     end else begin
                         bank1_a_line_idx <= 16'd0; bank1_a_tile_x <= 16'd0; bank1_a_word_in_tile <= 16'd0;
                         bank1_b_line_idx <= 16'd0; bank1_b_tile_x <= 16'd0; bank1_b_word_in_tile <= 16'd0;
                         bank1_a_done     <= 1'b0;  bank1_b_done   <= 1'b0;  bank1_meta_vld       <= 1'b0; 
-                        bank1_fcnt       <= 4'd0;  bank1_vsync    <= 1'b0; // 清除 vsync 标志
+                        bank1_fcnt       <= 4'd0;  bank1_vsync    <= 1'b0; // Clear the vsync flag
                     end
                     rd_state <= RD_IDLE;
                 end

@@ -1,40 +1,40 @@
-## 3. 128x128 RGBA8888 完整配置例子
+## 3. Complete 128x128 RGBA8888 Configuration Example
 
-### 3.1 第一段：图像信息、OTF 配置信息、流程信息
+### 3.1 Part 1: Image Information, OTF Configuration, and Flow Information
 
-下面给一个基于**当前 RTL**的最小 bring-up 例子，目标图像是：
+The following is a minimal bring-up example based on the **current RTL**. The target image is:
 
-- 格式：`RGBA8888`
-- 分辨率：`128 x 128`
-- 默认假设：无 lossy，`highest_bank_bit=16`，`lvl1/lvl2/lvl3 = 0/1/1`，`bank_spread=1`
+- Format: `RGBA8888`
+- Resolution: `128 x 128`
+- Default assumptions: no lossy mode, `highest_bank_bit=16`, `lvl1/lvl2/lvl3 = 0/1/1`, `bank_spread=1`
 
-先把这组图像参数换成当前实现需要的几何量：
+First convert these image parameters into the geometry required by the current implementation:
 
-- `RGBA8888` 在当前实现里使用 `16 x 4 tile`
+- `RGBA8888` uses a `16 x 4 tile` in the current implementation
 - `tile_x_numbers = ceil(128 / 16) = 8`
 - `tile_y_numbers = ceil(128 / 4) = 32`
 - `pitch(bytes) = 128 * 4 = 512`
-- `stored_height = 128`，因为 `128` 本身已经是 `4-line` 对齐
+- `stored_height = 128`, because `128` is already aligned to `4-line`
 
-建议的示例地址：
+Suggested example addresses:
 
-- 编码输出主图基地址：`0x0000_0000_8100_0000`
-- 编码输出 metadata 基地址：`0x0000_0000_8200_0000`
-- 解码输入主图基地址：`0x0000_0000_8100_0000`
-- 解码输入 metadata 基地址：`0x0000_0000_8200_0000`
+- Encoder output main-image base address: `0x0000_0000_8100_0000`
+- Encoder output metadata base address: `0x0000_0000_8200_0000`
+- Decoder input main-image base address: `0x0000_0000_8100_0000`
+- Decoder input metadata base address: `0x0000_0000_8200_0000`
 
-注意一个**当前 RTL 的命名差异**：
+Note one **current RTL naming difference**:
 
-- `enc` 侧做 `RGBA8888` 时，主图和 metadata 都走 `Y base / META_Y base`
-- `dec` 侧做 `RGBA8888` 时，主图和 metadata 都走 `RGBA_UV base / META_RGBA_UV base`
+- On the `enc` side, `RGBA8888` uses `Y base / META_Y base` for both the main image and metadata
+- On the `dec` side, `RGBA8888` uses `RGBA_UV base / META_RGBA_UV base` for both the main image and metadata
 
-也就是说，同样是单平面 `RGBA8888`，`enc` 和 `dec` 走的 base 寄存器名字并不完全对称。
+In other words, although `RGBA8888` is a single-plane format, the base-register names used by `enc` and `dec` are not fully symmetric.
 
-#### 3.1.1 ubwc_enc_wrapper_top 的 OTF 配置和流程
+#### 3.1.1 OTF Configuration and Flow for ubwc_enc_wrapper_top
 
-本例使用的 OTF 相关信息：
+OTF-related information used in this example:
 
-- `format = 0`，表示 `RGBA8888`
+- `format = 0`, meaning `RGBA8888`
 - `width = 128`
 - `height = 128`
 - `tile_w = 16`
@@ -44,28 +44,28 @@
 - `meta_active_width_px = 128`
 - `meta_active_height_px = 128`
 
-`enc` 的启动流程是：
+The `enc` startup flow is:
 
 ```text
-1. 先写 TILE 配置
-2. 再写主图和 metadata 输出地址
-3. 再写 CI 配置
-4. 再写 OTF 配置
-5. 最后开始送入一帧 i_otf_* 输入
+1. Write the TILE configuration first
+2. Write the main-image and metadata output addresses
+3. Write the CI configuration
+4. Write the OTF configuration
+5. Finally start sending one frame of i_otf_* input
 ```
 
-这里最重要的点是：
+The most important points are:
 
-- `enc` 没有单独的 APB `start`
-- 最后是靠输入 OTF 视频流开始握手来启动
-- 当上游开始送 `i_otf_vsync / i_otf_hsync / i_otf_de / i_otf_data`，并且与 `o_otf_ready` 握手成功后，就开始编码
+- `enc` has no separate APB `start`
+- Startup relies on the input OTF video stream handshake
+- Encoding starts when the upstream source begins sending `i_otf_vsync / i_otf_hsync / i_otf_de / i_otf_data` and successfully handshakes with `o_otf_ready`
 
-#### 3.1.2 ubwc_dec_wrapper_top 的 OTF 配置和流程
+#### 3.1.2 OTF Configuration and Flow for ubwc_dec_wrapper_top
 
-本例给一组 bring-up 用的简化 OTF 时序：
+This example uses a simplified OTF timing setup for bring-up:
 
 - `img_width = 128`
-- `format = 0`，表示 `RGBA8888`
+- `format = 0`, meaning `RGBA8888`
 - `H_TOTAL = 160`
 - `H_SYNC = 4`
 - `H_BP = 8`
@@ -75,38 +75,38 @@
 - `V_BP = 4`
 - `V_ACT = 128`
 
-`dec` 的启动流程是：
+The `dec` startup flow is:
 
 ```text
-1. 写 TILE 配置
-2. 写 tile base address
-3. 写 VIVO 配置
-4. 写 metadata 配置
-5. 写 OTF 配置
-6. 最后写 META_CFG0[0]=1 发起 start
-7. 轮询 STATUS1[4] 和 STATUS0[6]
+1. Write the TILE configuration
+2. Write the tile base address
+3. Write the VIVO configuration
+4. Write the metadata configuration
+5. Write the OTF configuration
+6. Finally write META_CFG0[0]=1 to issue start
+7. Poll STATUS1[4] and STATUS0[6]
 ```
 
-这里最重要的点是：
+The most important points are:
 
-- `dec` 的启动一定是最后写 `META_CFG0[0]=1`
-- 结束建议先看 `STATUS1[4] = frame_done`
-- 再看 `STATUS0[6] = frame_idle_done`
+- `dec` must be started by writing `META_CFG0[0]=1` last
+- For completion, check `STATUS1[4] = frame_done` first
+- Then check `STATUS0[6] = frame_idle_done`
 
-#### 3.1.3 这个例子里最容易写错的点
+#### 3.1.3 Easy-to-Miss Points in This Example
 
-- `RGBA8888` 在当前实现里是 `16x4 tile`，不是 `32x8 tile`
-- `pitch` 是**字节数**，`128x128 RGBA8888` 要写 `512`
-- `enc` 做 `RGBA8888` 时，当前地址选择逻辑走 `Y base / META_Y base`
-- `dec` 做 `RGBA8888` 时，当前地址选择逻辑走 `RGBA_UV base / META_RGBA_UV base`
-- `dec` 的启动一定是最后写 `META_CFG0[0]=1`
-- `enc` 没有 APB start，最后是靠 OTF 输入流启动
+- `RGBA8888` is `16x4 tile` in the current implementation, not `32x8 tile`
+- `pitch` is measured in **bytes**, so `128x128 RGBA8888` needs `512`
+- For `RGBA8888` on `enc`, the current address-selection logic uses `Y base / META_Y base`
+- For `RGBA8888` on `dec`, the current address-selection logic uses `RGBA_UV base / META_RGBA_UV base`
+- `dec` must be started by writing `META_CFG0[0]=1` last
+- `enc` has no APB start; it starts from the OTF input stream
 
-### 3.2 第二段：寄存器读写信息
+### 3.2 Part 2: Register Read/Write Information
 
-#### 3.2.1 ubwc_enc_wrapper_top 寄存器写法
+#### 3.2.1 Register Writes for ubwc_enc_wrapper_top
 
-本例使用的关键寄存器值：
+Key register values used in this example:
 
 - `REG_TILE_CFG0 = 0x0001_100d`
   - `enc_ubwc_en = 1`
@@ -129,16 +129,16 @@
 - `REG_OTF_CFG3 = 0x0000_0008`
 - `REG_META_ACTIVE_SIZE = 0x0080_0080`
 
-推荐写寄存器顺序：
+Recommended register write order:
 
 ```text
-1. 先写 REG_TILE_CFG1，再写 REG_TILE_CFG0
-2. 写主图/metadata base address
-3. 先写 REG_ENC_CI_CFG1/2/3，最后写 REG_ENC_CI_CFG0
-4. 先写 REG_OTF_CFG1/2/3 和 REG_META_ACTIVE_SIZE，最后写 REG_OTF_CFG0
+1. Write REG_TILE_CFG1 first, then REG_TILE_CFG0
+2. Write the main-image/metadata base addresses
+3. Write REG_ENC_CI_CFG1/2/3 first, then REG_ENC_CI_CFG0 last
+4. Write REG_OTF_CFG1/2/3 and REG_META_ACTIVE_SIZE first, then REG_OTF_CFG0 last
 ```
 
-一组可直接照抄的 APB 写序列：
+An APB write sequence that can be copied directly:
 
 ```text
 write(0x000c, 0x02000001);  // REG_TILE_CFG1
@@ -166,9 +166,9 @@ write(0x0050, 0x00800080);  // REG_META_ACTIVE_SIZE
 write(0x0020, 0x00000000);  // REG_OTF_CFG0
 ```
 
-#### 3.2.2 ubwc_dec_wrapper_top 寄存器写法
+#### 3.2.2 Register Writes for ubwc_dec_wrapper_top
 
-本例使用的关键寄存器值：
+Key register values used in this example:
 
 - `TILE_CFG0 = 0x0000_0706`
   - `lvl1/lvl2/lvl3 = 0/1/1`
@@ -189,19 +189,19 @@ write(0x0020, 0x00000000);  // REG_OTF_CFG0
 - `OTF_CFG3 = 0x0002_008c`
 - `OTF_CFG4 = 0x0080_0004`
 
-推荐写寄存器顺序：
+Recommended register write order:
 
 ```text
-1. 写 TILE_CFG0/1/2
-2. 写 TILE_BASE0/1/2/3
-3. 写 VIVO_CFG
-4. 写 META_CFG1/2/3/4/5
-5. 写 OTF_CFG0/1/2/3/4
-6. 最后写 META_CFG0 = (base_format << 4) | 1
-7. 轮询 STATUS1[4]，再轮询 STATUS0[6]
+1. Write TILE_CFG0/1/2
+2. Write TILE_BASE0/1/2/3
+3. Write VIVO_CFG
+4. Write META_CFG1/2/3/4/5
+5. Write OTF_CFG0/1/2/3/4
+6. Finally write META_CFG0 = (base_format << 4) | 1
+7. Poll STATUS1[4], then poll STATUS0[6]
 ```
 
-一组可直接照抄的 APB 写序列：
+An APB write sequence that can be copied directly:
 
 ```text
 write(0x0008, 0x00000706);  // TILE_CFG0

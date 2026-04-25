@@ -1,59 +1,59 @@
-模块,寄存器地址,寄存器名,访问属性,复位值,位段,字段名,说明,备注
-ubwc_enc_apb_reg_blk_v2,0x0000,VERSION,RO,建议:0x00020000,31:00:00,version,版本号,建议从v1递增到v2
-ubwc_enc_apb_reg_blk_v2,0x0004,DATE,RO,实现时填写,31:00:00,date,日期码,建议沿用当前DATE寄存器语义
-ubwc_enc_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,0,cfg_commit,提交当前一组配置快照,建议W1P; 替代v1里多个分散的cfg_vld脉冲
-ubwc_enc_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,1,arm_next_frame,允许接收下一帧输入,可选保留位; 方便软件统一驱动
-ubwc_enc_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,2,clr_status,清除sticky状态位,建议W1P
-ubwc_enc_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,3,soft_reset,wrapper软复位请求,建议W1P或自清零
-ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,动态,0,busy,编码wrapper忙状态,建议综合内部OTF/tile/AXI活动
-ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,动态,1,idle,编码wrapper空闲状态,建议与busy互斥
-ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,动态,2,frame_done_sticky,一帧完成sticky标志,下一次commit或clr_status可清除
-ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,动态,3,enc_error_sticky,编码错误sticky标志,建议映射i_enc_error
-ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,动态,4,otf_overflow_sticky,OTF到tile溢出sticky标志,建议映射i_otf_to_tile_overflow
-ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,动态,5,cfg_applied,最新配置已被内部采样,用于确认commit生效
-ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,动态,6,input_frame_seen,已观察到输入帧开始,方便软件区分未启动与已启动
-ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,动态,7,axi_busy,AXI写回侧忙状态,建议综合主图和metadata写通道
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,0,ubwc_en,UBWC编码使能,
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,1,lvl1_bank_swizzle_en,一级bank swizzle使能,
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,2,lvl2_bank_swizzle_en,二级bank swizzle使能,
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,3,lvl3_bank_swizzle_en,三级bank swizzle使能,
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,8:04,highest_bank_bit,最高bank bit配置,
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,9,bank_spread_en,bank spread使能,
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,10,four_line_format,4-line tile格式使能,
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,11,is_lossy_rgba_2_1_format,RGBA 2:1 lossy格式选择,
-ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,22:12,pitch,tile pitch配置,按当前v1有效位宽11bit整理
-ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,0,input_type,编码CI输入类型,
-ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,3:01,alen,编码CI alen配置,
-ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,8:04,format,编码CI格式,
-ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,9,forced_pcm,强制PCM模式,
-ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,10,sb,编码CI sideband,按当前SB_WIDTH=1整理; 若SB_WIDTH增大可再拆分
-ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,11,lossy,编码CI lossy使能,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,2:00,ubwc_cfg_0,UBWC CI配置0,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,5:03,ubwc_cfg_1,UBWC CI配置1,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,9:06,ubwc_cfg_2,UBWC CI配置2,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,13:10,ubwc_cfg_3,UBWC CI配置3,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,17:14,ubwc_cfg_4,UBWC CI配置4,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,21:18,ubwc_cfg_5,UBWC CI配置5,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,23:22,ubwc_cfg_6,UBWC CI配置6,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,25:24:00,ubwc_cfg_7,UBWC CI配置7,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,27:26:00,ubwc_cfg_8,UBWC CI配置8,
-ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,30:28:00,ubwc_cfg_9,UBWC CI配置9,
-ubwc_enc_apb_reg_blk_v2,0x001C,CI_CFG2,RW,0x00000000,5:00,ubwc_cfg_10,UBWC CI配置10,
-ubwc_enc_apb_reg_blk_v2,0x001C,CI_CFG2,RW,0x00000000,11:06,ubwc_cfg_11,UBWC CI配置11,
-ubwc_enc_apb_reg_blk_v2,0x0020,OTF_CFG0,RW,0x00000000,15:00,width,输入图像宽度像素,
-ubwc_enc_apb_reg_blk_v2,0x0020,OTF_CFG0,RW,0x00000000,31:16:00,height,输入图像高度像素,
-ubwc_enc_apb_reg_blk_v2,0x0024,OTF_CFG1,RW,0x00000000,15:00,tile_w,tile宽度像素,
-ubwc_enc_apb_reg_blk_v2,0x0024,OTF_CFG1,RW,0x00000000,19:16,tile_h,tile高度像素,
-ubwc_enc_apb_reg_blk_v2,0x0024,OTF_CFG1,RW,0x00000000,22:20,format,输入OTF格式,把v1的REG_OTF_CFG0.format并入这里
-ubwc_enc_apb_reg_blk_v2,0x0028,OTF_CFG2,RW,0x00000000,15:00,a_tile_cols,A面tile列数,
-ubwc_enc_apb_reg_blk_v2,0x0028,OTF_CFG2,RW,0x00000000,31:16:00,b_tile_cols,B面tile列数,
-ubwc_enc_apb_reg_blk_v2,0x002C,TILE_BASE_Y_LO,RW,0x00000000,31:00:00,y_base_addr[31:0],Y面压缩数据基地址低32位,
-ubwc_enc_apb_reg_blk_v2,0x0030,TILE_BASE_Y_HI,RW,0x00000000,31:00:00,y_base_addr[63:32],Y面压缩数据基地址高32位,AXI_AW=64时组成完整地址
-ubwc_enc_apb_reg_blk_v2,0x0034,TILE_BASE_UV_LO,RW,0x00000000,31:00:00,uv_base_addr[31:0],UV或RGBA面压缩数据基地址低32位,
-ubwc_enc_apb_reg_blk_v2,0x0038,TILE_BASE_UV_HI,RW,0x00000000,31:00:00,uv_base_addr[63:32],UV或RGBA面压缩数据基地址高32位,AXI_AW=64时组成完整地址
-ubwc_enc_apb_reg_blk_v2,0x003C,META_BASE_Y_LO,RW,0x00000000,31:00:00,meta_y_base_addr[31:0],Y面metadata基地址低32位,
-ubwc_enc_apb_reg_blk_v2,0x0040,META_BASE_Y_HI,RW,0x00000000,31:00:00,meta_y_base_addr[63:32],Y面metadata基地址高32位,AXI_AW=64时组成完整地址
-ubwc_enc_apb_reg_blk_v2,0x0044,META_BASE_UV_LO,RW,0x00000000,31:00:00,meta_uv_base_addr[31:0],UV或RGBA面metadata基地址低32位,
-ubwc_enc_apb_reg_blk_v2,0x0048,META_BASE_UV_HI,RW,0x00000000,31:00:00,meta_uv_base_addr[63:32],UV或RGBA面metadata基地址高32位,AXI_AW=64时组成完整地址
-ubwc_enc_apb_reg_blk_v2,0x004C,META_ACTIVE_SIZE,RW,0x00000000,15:00,active_width_px,metadata有效区域宽度像素,写0表示沿用整帧宽度
-ubwc_enc_apb_reg_blk_v2,0x004C,META_ACTIVE_SIZE,RW,0x00000000,31:16:00,active_height_px,metadata有效区域高度像素,写0表示沿用整帧高度
+Module,Register Address,Register Name,Access,Reset Value,Bit Field,Field Name,Description,Notes
+ubwc_enc_apb_reg_blk_v2,0x0000,VERSION,RO,Recommended:0x00020000,31:00:00,version,Version number,Recommended to increment from v1 to v2
+ubwc_enc_apb_reg_blk_v2,0x0004,DATE,RO,Filled at implementation,31:00:00,date,Date code,Recommended to keep the current DATE register semantics
+ubwc_enc_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,0,cfg_commit,Commit the current configuration snapshot,Recommended as W1P; replaces the scattered cfg_vld pulses in v1
+ubwc_enc_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,1,arm_next_frame,Allow receiving the next input frame,Optional reserved bit for unified software control
+ubwc_enc_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,2,clr_status,Clear sticky status bits,Recommended as W1P
+ubwc_enc_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,3,soft_reset,Wrapper soft-reset request,Recommended as W1P or self-clearing
+ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,0,busy,Encoder wrapper busy status,Recommended to combine internal OTF/tile/AXI activity
+ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,1,idle,Encoder wrapper idle status,Recommended to be mutually exclusive with busy
+ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,2,frame_done_sticky,One-frame completion sticky flag,Can be cleared by the next commit or clr_status
+ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,3,enc_error_sticky,Encoder error sticky flag,Recommended to map i_enc_error
+ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,4,otf_overflow_sticky,OTF-to-tile overflow sticky flag,Recommended to map i_otf_to_tile_overflow
+ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,5,cfg_applied,Latest configuration has been sampled internally,Used to confirm that commit took effect
+ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,6,input_frame_seen,Input frame start has been observed,Helps software distinguish not-started from started
+ubwc_enc_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,7,axi_busy,AXI writeback side busy status,Recommended to combine main-image and metadata write channels
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,0,ubwc_en,UBWC encode enable,
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,1,lvl1_bank_swizzle_en,Level-1 bank swizzle enable,
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,2,lvl2_bank_swizzle_en,Level-2 bank swizzle enable,
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,3,lvl3_bank_swizzle_en,Level-3 bank swizzle enable,
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,8:04,highest_bank_bit,Highest bank bit configuration,
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,9,bank_spread_en,Bank spread enable,
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,10,four_line_format,4-line tile format enable,
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,11,is_lossy_rgba_2_1_format,RGBA 2:1 lossy format select,
+ubwc_enc_apb_reg_blk_v2,0x0010,TILE_CFG0,RW,0x00000000,22:12,pitch,Tile pitch configuration,Organized according to the current v1 effective width of 11 bits
+ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,0,input_type,Encoded CI input type,
+ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,3:01,alen,Encoded CI alen configuration,
+ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,8:04,format,Encoded CI format,
+ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,9,forced_pcm,Forced PCM mode,
+ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,10,sb,Encoded CI sideband,Organized assuming current SB_WIDTH=1; split further if SB_WIDTH increases
+ubwc_enc_apb_reg_blk_v2,0x0014,CI_CFG0,RW,0x00000000,11,lossy,Encoded CI lossy enable,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,2:00,ubwc_cfg_0,UBWC CI configuration 0,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,5:03,ubwc_cfg_1,UBWC CI configuration 1,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,9:06,ubwc_cfg_2,UBWC CI configuration 2,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,13:10,ubwc_cfg_3,UBWC CI configuration 3,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,17:14,ubwc_cfg_4,UBWC CI configuration 4,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,21:18,ubwc_cfg_5,UBWC CI configuration 5,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,23:22,ubwc_cfg_6,UBWC CI configuration 6,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,25:24:00,ubwc_cfg_7,UBWC CI configuration 7,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,27:26:00,ubwc_cfg_8,UBWC CI configuration 8,
+ubwc_enc_apb_reg_blk_v2,0x0018,CI_CFG1,RW,0x00000000,30:28:00,ubwc_cfg_9,UBWC CI configuration 9,
+ubwc_enc_apb_reg_blk_v2,0x001C,CI_CFG2,RW,0x00000000,5:00,ubwc_cfg_10,UBWC CI configuration 10,
+ubwc_enc_apb_reg_blk_v2,0x001C,CI_CFG2,RW,0x00000000,11:06,ubwc_cfg_11,UBWC CI configuration 11,
+ubwc_enc_apb_reg_blk_v2,0x0020,OTF_CFG0,RW,0x00000000,15:00,width,Input image width in pixels,
+ubwc_enc_apb_reg_blk_v2,0x0020,OTF_CFG0,RW,0x00000000,31:16:00,height,Input image height in pixels,
+ubwc_enc_apb_reg_blk_v2,0x0024,OTF_CFG1,RW,0x00000000,15:00,tile_w,Tile width in pixels,
+ubwc_enc_apb_reg_blk_v2,0x0024,OTF_CFG1,RW,0x00000000,19:16,tile_h,Tile height in pixels,
+ubwc_enc_apb_reg_blk_v2,0x0024,OTF_CFG1,RW,0x00000000,22:20,format,Input OTF format,Merges REG_OTF_CFG0.format from v1 into this register
+ubwc_enc_apb_reg_blk_v2,0x0028,OTF_CFG2,RW,0x00000000,15:00,a_tile_cols,A-plane tile column count,
+ubwc_enc_apb_reg_blk_v2,0x0028,OTF_CFG2,RW,0x00000000,31:16:00,b_tile_cols,B-plane tile column count,
+ubwc_enc_apb_reg_blk_v2,0x002C,TILE_BASE_Y_LO,RW,0x00000000,31:00:00,y_base_addr[31:0],Low 32 bits of the Y-plane compressed data base address,
+ubwc_enc_apb_reg_blk_v2,0x0030,TILE_BASE_Y_HI,RW,0x00000000,31:00:00,y_base_addr[63:32],High 32 bits of the Y-plane compressed data base address,Forms the full address when AXI_AW=64
+ubwc_enc_apb_reg_blk_v2,0x0034,TILE_BASE_UV_LO,RW,0x00000000,31:00:00,uv_base_addr[31:0],Low 32 bits of the UV or RGBA-plane compressed data base address,
+ubwc_enc_apb_reg_blk_v2,0x0038,TILE_BASE_UV_HI,RW,0x00000000,31:00:00,uv_base_addr[63:32],High 32 bits of the UV or RGBA-plane compressed data base address,Forms the full address when AXI_AW=64
+ubwc_enc_apb_reg_blk_v2,0x003C,META_BASE_Y_LO,RW,0x00000000,31:00:00,meta_y_base_addr[31:0],Low 32 bits of the Y-plane metadata base address,
+ubwc_enc_apb_reg_blk_v2,0x0040,META_BASE_Y_HI,RW,0x00000000,31:00:00,meta_y_base_addr[63:32],High 32 bits of the Y-plane metadata base address,Forms the full address when AXI_AW=64
+ubwc_enc_apb_reg_blk_v2,0x0044,META_BASE_UV_LO,RW,0x00000000,31:00:00,meta_uv_base_addr[31:0],Low 32 bits of the UV or RGBA-plane metadata base address,
+ubwc_enc_apb_reg_blk_v2,0x0048,META_BASE_UV_HI,RW,0x00000000,31:00:00,meta_uv_base_addr[63:32],High 32 bits of the UV or RGBA-plane metadata base address,Forms the full address when AXI_AW=64
+ubwc_enc_apb_reg_blk_v2,0x004C,META_ACTIVE_SIZE,RW,0x00000000,15:00,active_width_px,Metadata active-area width in pixels,Writing 0 means using the full-frame width
+ubwc_enc_apb_reg_blk_v2,0x004C,META_ACTIVE_SIZE,RW,0x00000000,31:16:00,active_height_px,Metadata active-area height in pixels,Writing 0 means using the full-frame height

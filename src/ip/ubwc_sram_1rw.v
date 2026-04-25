@@ -18,7 +18,7 @@
 
 module ubwc_sram_1rw #(
     parameter DATA_WIDTH = 64,
-    parameter ADDR_WIDTH = 13 // 最大支持 256 个宏块 * 32 拍 = 8192 words
+    parameter ADDR_WIDTH = 13 // Supports up to 256 macroblocks * 32 beats = 8192 words
 )(
     input  wire                     i_clk   ,
     input  wire                     i_cs    , // Chip Select
@@ -28,7 +28,7 @@ module ubwc_sram_1rw #(
     output logic [DATA_WIDTH-1:0]   o_rdata   
 );
 
-    // 综合时替换为芯片厂商提供的 64-bit 单端口 SRAM 宏
+    // Replace with the vendor-provided 64-bit single-port SRAM macro for synthesis
     logic [DATA_WIDTH-1:0] mem [0:(1<<ADDR_WIDTH)-1];
 
     always_ff @(posedge i_clk) begin

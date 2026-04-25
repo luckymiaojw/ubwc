@@ -205,8 +205,8 @@ module ubwc_enc_otf_to_tile
     wire       ci_push_needed   = tile_first_word_r;
 
     assign data_fifo_din   = flush_half_only ?
-                             {1'b1, (half_forced_pcm_r ? 32'd0 : {16'd0, half_keep_r}), {128'd0, half_data_r}} :
-                             {line_tile_last, (half_forced_pcm_r ? 32'd0 : {line_tile_keep, half_keep_r}), {line_tile_data, half_data_r}};
+                             {1'b1, {16'd0, half_keep_r}, {128'd0, half_data_r}} :
+                             {line_tile_last, {line_tile_keep, half_keep_r}, {line_tile_data, half_data_r}};
     assign data_fifo_wr_en = flush_half_only || pack_second_fire;
     assign data_fifo_rd_en = !data_fifo_empty && i_tile_rdy;
 

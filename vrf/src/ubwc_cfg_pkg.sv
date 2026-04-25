@@ -6,13 +6,13 @@
 // Engineer          : MiaoJiawang magic.jw@magicip.com.cn
 // Create Date       : 2026-02-27  06:24:46
 // Module Name       : ubwc_cfg_pkg.sv
-// Description       : Optimized UBWC configuration parser using $sscanf
+// Description       : Verification-only UBWC configuration parser using $sscanf
 // -------------------------------------------------------------------------------
 //////////////////////////////////////////////////////////////////////////////////
 
 package ubwc_cfg_pkg;
 
-    // UBWC 配置结构体定义
+    // UBWC configuration struct definition
     typedef struct {
         string       meta_y_file;
         string       comp_y_file;
@@ -36,7 +36,7 @@ package ubwc_cfg_pkg;
         int unsigned ddr_channels;
     } ubwc_cfg_t;
 
-    // 去除字符串首尾空格、制表符及换行符
+    // Trim leading/trailing spaces, tabs, and newlines
     function automatic string _trim(string s);
         int i, j;
         i = 0;
@@ -44,10 +44,10 @@ package ubwc_cfg_pkg;
         j = s.len() - 1;
         while (j >= i && (s.getc(j) == " " || s.getc(j) == "\t" || s.getc(j) == "\r" || s.getc(j) == "\n")) j--;
         if (j < i) return "";
-        return s.substr(i, j); // 注意：SV substr(i, j) 第二个参数是结束索引
+        return s.substr(i, j); // Note: for SV substr(i, j), the second argument is the end index
     endfunction
 
-    // 字符串转无符号整数，支持十进制和十六进制
+    // Convert a string to an unsigned integer; supports decimal and hexadecimal
     function automatic int unsigned _parse_uint(string s);
         string t; 
         int unsigned v;
@@ -61,12 +61,12 @@ package ubwc_cfg_pkg;
         return v;
     endfunction
 
-    // 主解析函数
+    // Main parser function
     function automatic void parse_readme(string path, output ubwc_cfg_t cfg);
         int fd;
         string line, key, val;
         
-        // 初始化
+        // Initialize
         cfg.width            = 0;
         cfg.height           = 0;
         cfg.image_format     = "";
@@ -83,8 +83,8 @@ package ubwc_cfg_pkg;
             
             if (line.len() == 0) continue;
 
-            // 使用 $sscanf 直接提取 Key 和 Value 字符串
-            // %s 会自动跳过前导空格并以空白符作为结束，非常稳健
+            // Use $sscanf to directly extract the Key and Value strings
+            // %s automatically skips leading spaces and stops at whitespace, making this robust
             if ($sscanf(line, "%s %s", key, val) == 2) begin
                 case (key)
                     "Image_Format"      : cfg.image_format     = val;
@@ -103,14 +103,14 @@ package ubwc_cfg_pkg;
                     "AMSBC"             : cfg.amsbc            = _parse_uint(val);
                     "Lossy"             : cfg.lossy            = _parse_uint(val);
                     "DDR_Channel"       : cfg.ddr_channels     = _parse_uint(val);
-                    default: ; // 忽略未知 Key
+                    default: ; // Ignore unknown keys
                 endcase
             end
         end
 
         $fclose(fd);
 
-        // 打印解析结果以供核对
+        // Print parsed results for checking
         $display("-----------------------------------------------");
         $display("UBWC Configuration Parsed From: %s", path);
         $display("Format     : %s", cfg.image_format);

@@ -404,7 +404,7 @@ int ubwc_demo_main(int argc, char** argv)
                     tile_address += (128 * (tile_y % 2));
                 }
 
-                // Bank Spreading处理
+                // Bank spreading handling
                 if (bank_spreading_en)
                 {
                     int bank_spreaded = ((tile_address & 0x100) >> 8) ^ ((tile_address & 0x200) >> 9);
@@ -438,7 +438,7 @@ int ubwc_demo_main(int argc, char** argv)
         std::cout << "Done" << std::endl;
     }
 
-    std::cout << "\n=== Encode Begin：Encode and Compressed ===" << std::endl;
+    std::cout << "\n=== Encode Begin: Encode and Compressed ===" << std::endl;
     for (int32_t plane = 0; plane < numPlanes; plane++)
     {
         std::cout << "Plane :" << plane << std::endl;
@@ -542,4 +542,3 @@ int ubwc_demo_run(int format, int w, int h)
     int argc = 4;
     return ubwc_demo_main(argc, argv);
 }
-

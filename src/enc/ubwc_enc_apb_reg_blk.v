@@ -39,7 +39,7 @@ module ubwc_enc_apb_reg_blk
         output  wire    [15:0]          o_otf_cfg_b_tile_cols,
         output  wire    [15:0]          o_pic_tile_cols,
         output  wire    [15:0]          o_pic_tile_rows,
-        output  wire    [7:0]           o_total_x_units,
+        output  wire    [15:0]          o_total_x_units,
         output  wire    [27:0]          o_tile_x_numbers,
         output  wire    [12:0]          o_tile_y_numbers,
         output  wire    [15:0]          o_meta_active_width_px,
@@ -227,7 +227,7 @@ module ubwc_enc_apb_reg_blk
     assign o_otf_cfg_b_tile_cols       = regs[REG_OTF_CFG3][16 +: 16];
     assign o_pic_tile_cols             = (o_otf_cfg_a_tile_cols >= o_otf_cfg_b_tile_cols) ? o_otf_cfg_a_tile_cols : o_otf_cfg_b_tile_cols;
     assign o_pic_tile_rows             = (o_otf_cfg_tile_h != 0) ? ((o_otf_cfg_height + {{12{1'b0}}, o_otf_cfg_tile_h} - 16'd1) / {{12{1'b0}}, o_otf_cfg_tile_h}) : 16'd0;
-    assign o_total_x_units             = (o_pic_tile_cols + 16'd15) >> 4;
+    assign o_total_x_units             = o_pic_tile_cols;
     assign o_tile_x_numbers            = {{12{1'b0}}, o_pic_tile_cols};
     assign o_tile_y_numbers            = o_pic_tile_rows[12:0];
     assign meta_active_width_px        = regs[REG_META_ACTIVE_SIZE][15:0];

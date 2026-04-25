@@ -1,47 +1,47 @@
-模块,寄存器地址,寄存器名,访问属性,复位值,位段,字段名,说明,备注
-ubwc_dec_apb_reg_blk_v2,0x0000,VERSION,RO,建议:0x00020000,31:00:00,version,版本号,建议从v1递增到v2
-ubwc_dec_apb_reg_blk_v2,0x0004,DATE,RO,实现时填写,31:00:00,date,日期码,建议沿用当前DATE寄存器语义
-ubwc_dec_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,0,start,启动当前一帧解码,建议W1P
-ubwc_dec_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,1,clr_status,清除sticky状态位,建议W1P
-ubwc_dec_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,2,soft_reset,wrapper软复位请求,建议W1P或自清零
-ubwc_dec_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,7:03,base_format,metadata/base格式配置,替代v1里的META_CFG0[8:4]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,0,frame_active,当前帧处于active状态,合并自v1 STATUS0[0]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,1,meta_busy,metadata读取阶段busy,合并自v1 STATUS0[1]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,2,tile_busy,tile读取阶段busy,合并自v1 STATUS0[2]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,3,vivo_busy,vivo解码阶段busy,合并自v1 STATUS0[3]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,4,otf_busy,OTF输出阶段busy,合并自v1 STATUS0[4]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,5,frame_done,整帧完成sticky标志,建议软件优先轮询
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,6,all_idle,所有阶段已空闲,合并自v1 STATUS0[6]/[5]语义
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,7,meta_seen_busy,本帧metadata阶段曾进入busy,合并自v1 STATUS1[5]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,8,tile_seen_busy,本帧tile阶段曾进入busy,合并自v1 STATUS1[6]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,9,vivo_seen_busy,本帧vivo阶段曾进入busy,合并自v1 STATUS1[7]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,10,otf_seen_busy,本帧otf阶段曾进入busy,合并自v1 STATUS1[8]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,11,meta_done,metadata阶段已完成,合并自v1 STATUS1[0]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,12,tile_done,tile阶段已完成,合并自v1 STATUS1[1]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,13,vivo_done,vivo阶段已完成,合并自v1 STATUS1[2]
-ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,动态,14,otf_done,OTF阶段已完成,合并自v1 STATUS1[3]
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,0,lvl1_bank_swizzle_en,一级bank swizzle使能,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,1,lvl2_bank_swizzle_en,二级bank swizzle使能,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,2,lvl3_bank_swizzle_en,三级bank swizzle使能,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,7:03,highest_bank_bit,最高bank bit配置,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,8,bank_spread_en,bank spread使能,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,9,four_line_format,4-line tile格式使能,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,10,is_lossy_rgba_2_1_format,RGBA 2:1 lossy格式选择,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,22:11,pitch,tile pitch配置,按当前v1有效位宽12bit整理
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,23,ci_input_type,CI输入类型,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,24,ci_sb,CI sideband,按当前SB_WIDTH=1整理; 若SB_WIDTH增大可再拆分
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,25,ci_lossy,CI lossy使能,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,27:26:00,ci_alpha_mode,CI alpha mode配置,
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,28,vivo_ubwc_en,vivo解码使能,沿用v1默认1
-ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,29,vivo_sreset,vivo子模块软复位,
-ubwc_dec_apb_reg_blk_v2,0x0014,META_TILE_NUM,RW,0x00000000,15:00,tile_x_numbers,metadata横向tile数量,
-ubwc_dec_apb_reg_blk_v2,0x0014,META_TILE_NUM,RW,0x00000000,31:16:00,tile_y_numbers,metadata纵向tile数量,
-ubwc_dec_apb_reg_blk_v2,0x0018,META_BASE_RGUV_LO,RW,0x00000000,31:00:00,meta_rgba_uv_base[31:0],RGBA或UV metadata基地址低32位,
-ubwc_dec_apb_reg_blk_v2,0x001C,META_BASE_RGUV_HI,RW,0x00000000,31:00:00,meta_rgba_uv_base[63:32],RGBA或UV metadata基地址高32位,AXI_AW=64时组成完整地址
-ubwc_dec_apb_reg_blk_v2,0x0020,META_BASE_Y_LO,RW,0x00000000,31:00:00,meta_y_base[31:0],Y metadata基地址低32位,
-ubwc_dec_apb_reg_blk_v2,0x0024,META_BASE_Y_HI,RW,0x00000000,31:00:00,meta_y_base[63:32],Y metadata基地址高32位,AXI_AW=64时组成完整地址
-ubwc_dec_apb_reg_blk_v2,0x0028,OTF_CFG0,RW,0x00000000,15:00,img_width,输出图像有效宽度像素,
-ubwc_dec_apb_reg_blk_v2,0x0028,OTF_CFG0,RW,0x00000000,20:16,format,输出OTF格式,
+Module,Register Address,Register Name,Access,Reset Value,Bit Field,Field Name,Description,Notes
+ubwc_dec_apb_reg_blk_v2,0x0000,VERSION,RO,Recommended:0x00020000,31:00:00,version,Version number,Recommended to increment from v1 to v2
+ubwc_dec_apb_reg_blk_v2,0x0004,DATE,RO,Filled at implementation,31:00:00,date,Date code,Recommended to keep the current DATE register semantics
+ubwc_dec_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,0,start,Start decoding the current frame,Recommended as W1P
+ubwc_dec_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,1,clr_status,Clear sticky status bits,Recommended as W1P
+ubwc_dec_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,2,soft_reset,Wrapper soft-reset request,Recommended as W1P or self-clearing
+ubwc_dec_apb_reg_blk_v2,0x0008,CTRL,RW/W1P,0x00000000,7:03,base_format,Metadata/base format configuration,Replaces META_CFG0[8:4] in v1
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,0,frame_active,Current frame is active,Merged from v1 STATUS0[0]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,1,meta_busy,Metadata read stage busy,Merged from v1 STATUS0[1]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,2,tile_busy,Tile read stage busy,Merged from v1 STATUS0[2]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,3,vivo_busy,VIVO decode stage busy,Merged from v1 STATUS0[3]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,4,otf_busy,OTF output stage busy,Merged from v1 STATUS0[4]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,5,frame_done,Full-frame completion sticky flag,Recommended as the primary software polling bit
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,6,all_idle,All stages are idle,Merges the semantics of v1 STATUS0[6]/[5]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,7,meta_seen_busy,Metadata stage entered busy during this frame,Merged from v1 STATUS1[5]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,8,tile_seen_busy,Tile stage entered busy during this frame,Merged from v1 STATUS1[6]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,9,vivo_seen_busy,VIVO stage entered busy during this frame,Merged from v1 STATUS1[7]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,10,otf_seen_busy,OTF stage entered busy during this frame,Merged from v1 STATUS1[8]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,11,meta_done,Metadata stage completed,Merged from v1 STATUS1[0]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,12,tile_done,Tile stage completed,Merged from v1 STATUS1[1]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,13,vivo_done,VIVO stage completed,Merged from v1 STATUS1[2]
+ubwc_dec_apb_reg_blk_v2,0x000C,STATUS,RO,dynamic,14,otf_done,OTF stage completed,Merged from v1 STATUS1[3]
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,0,lvl1_bank_swizzle_en,Level-1 bank swizzle enable,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,1,lvl2_bank_swizzle_en,Level-2 bank swizzle enable,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,2,lvl3_bank_swizzle_en,Level-3 bank swizzle enable,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,7:03,highest_bank_bit,Highest bank bit configuration,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,8,bank_spread_en,Bank spread enable,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,9,four_line_format,4-line tile format enable,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,10,is_lossy_rgba_2_1_format,RGBA 2:1 lossy format select,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,22:11,pitch,Tile pitch configuration,Organized according to the current v1 effective width of 12 bits
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,23,ci_input_type,CI input type,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,24,ci_sb,CI sideband,Organized assuming current SB_WIDTH=1; split further if SB_WIDTH increases
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,25,ci_lossy,CI lossy enable,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,27:26:00,ci_alpha_mode,CI alpha mode configuration,
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,28,vivo_ubwc_en,VIVO decode enable,Keeps the v1 default of 1
+ubwc_dec_apb_reg_blk_v2,0x0010,TILE_VIVO_CFG0,RW,0x10000000,29,vivo_sreset,VIVO submodule soft reset,
+ubwc_dec_apb_reg_blk_v2,0x0014,META_TILE_NUM,RW,0x00000000,15:00,tile_x_numbers,Metadata tile count in the horizontal direction,
+ubwc_dec_apb_reg_blk_v2,0x0014,META_TILE_NUM,RW,0x00000000,31:16:00,tile_y_numbers,Metadata tile count in the vertical direction,
+ubwc_dec_apb_reg_blk_v2,0x0018,META_BASE_RGUV_LO,RW,0x00000000,31:00:00,meta_rgba_uv_base[31:0],Low 32 bits of the RGBA or UV metadata base address,
+ubwc_dec_apb_reg_blk_v2,0x001C,META_BASE_RGUV_HI,RW,0x00000000,31:00:00,meta_rgba_uv_base[63:32],High 32 bits of the RGBA or UV metadata base address,Forms the full address when AXI_AW=64
+ubwc_dec_apb_reg_blk_v2,0x0020,META_BASE_Y_LO,RW,0x00000000,31:00:00,meta_y_base[31:0],Low 32 bits of the Y metadata base address,
+ubwc_dec_apb_reg_blk_v2,0x0024,META_BASE_Y_HI,RW,0x00000000,31:00:00,meta_y_base[63:32],High 32 bits of the Y metadata base address,Forms the full address when AXI_AW=64
+ubwc_dec_apb_reg_blk_v2,0x0028,OTF_CFG0,RW,0x00000000,15:00,img_width,Valid output image width in pixels,
+ubwc_dec_apb_reg_blk_v2,0x0028,OTF_CFG0,RW,0x00000000,20:16,format,Output OTF format,
 ubwc_dec_apb_reg_blk_v2,0x002C,OTF_CFG1,RW,0x00000000,15:00,h_total,OTF H_TOTAL,
 ubwc_dec_apb_reg_blk_v2,0x002C,OTF_CFG1,RW,0x00000000,31:16:00,h_sync,OTF H_SYNC,
 ubwc_dec_apb_reg_blk_v2,0x0030,OTF_CFG2,RW,0x00000000,15:00,h_bp,OTF H_BP,
@@ -50,7 +50,7 @@ ubwc_dec_apb_reg_blk_v2,0x0034,OTF_CFG3,RW,0x00000000,15:00,v_total,OTF V_TOTAL,
 ubwc_dec_apb_reg_blk_v2,0x0034,OTF_CFG3,RW,0x00000000,31:16:00,v_sync,OTF V_SYNC,
 ubwc_dec_apb_reg_blk_v2,0x0038,OTF_CFG4,RW,0x00000000,15:00,v_bp,OTF V_BP,
 ubwc_dec_apb_reg_blk_v2,0x0038,OTF_CFG4,RW,0x00000000,31:16:00,v_act,OTF V_ACT,
-ubwc_dec_apb_reg_blk_v2,0x003C,TILE_BASE_RGUV_LO,RW,0x00000000,31:00:00,tile_rgba_uv_base[31:0],RGBA或UV tile基地址低32位,
-ubwc_dec_apb_reg_blk_v2,0x0040,TILE_BASE_RGUV_HI,RW,0x00000000,31:00:00,tile_rgba_uv_base[63:32],RGBA或UV tile基地址高32位,AXI_AW=64时组成完整地址
-ubwc_dec_apb_reg_blk_v2,0x0044,TILE_BASE_Y_LO,RW,0x00000000,31:00:00,tile_y_base[31:0],Y tile基地址低32位,
-ubwc_dec_apb_reg_blk_v2,0x0048,TILE_BASE_Y_HI,RW,0x00000000,31:00:00,tile_y_base[63:32],Y tile基地址高32位,AXI_AW=64时组成完整地址
+ubwc_dec_apb_reg_blk_v2,0x003C,TILE_BASE_RGUV_LO,RW,0x00000000,31:00:00,tile_rgba_uv_base[31:0],Low 32 bits of the RGBA or UV tile base address,
+ubwc_dec_apb_reg_blk_v2,0x0040,TILE_BASE_RGUV_HI,RW,0x00000000,31:00:00,tile_rgba_uv_base[63:32],High 32 bits of the RGBA or UV tile base address,Forms the full address when AXI_AW=64
+ubwc_dec_apb_reg_blk_v2,0x0044,TILE_BASE_Y_LO,RW,0x00000000,31:00:00,tile_y_base[31:0],Low 32 bits of the Y tile base address,
+ubwc_dec_apb_reg_blk_v2,0x0048,TILE_BASE_Y_HI,RW,0x00000000,31:00:00,tile_y_base[63:32],High 32 bits of the Y tile base address,Forms the full address when AXI_AW=64

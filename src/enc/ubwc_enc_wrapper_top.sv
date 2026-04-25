@@ -162,12 +162,14 @@ module ubwc_enc_wrapper_top
 	wire	[256        -1:0]           rvi_data				    ;
 	wire	[ 32        -1:0]           rvi_mask				    ;
     wire    [4          -1:0]           tile_fcnt                   ;
-    localparam integer                  COORD_FIFO_DEPTH            = 32;
-    localparam integer                  COORD_FIFO_W                = 5 + 4 + 13 + 28;
+        localparam integer                  COORD_FIFO_DEPTH            = 32;
+        localparam integer                  META_YCOORD_DW             = 13;
+        localparam integer                  META_XCOORD_DW             = 8;
+        localparam integer                  COORD_FIFO_W                = 5 + 4 + META_YCOORD_DW + 28;
     wire                                b_tile_info_vld            ;
     wire    [5          -1:0]           b_tile_format              ;
     wire    [4          -1:0]           b_tile_fcnt                ;
-    wire    [13         -1:0]           b_tile_ycoord              ;
+    wire    [META_YCOORD_DW-1:0]        b_tile_ycoord              ;
     wire    [28         -1:0]           b_tile_xcoord              ;
     wire                                b_co_valid                 ;
     wire                                b_co_fire                  ;
@@ -177,7 +179,7 @@ module ubwc_enc_wrapper_top
     wire    [5          -1:0]           tile_format                 ;
     wire    [16         -1:0]           tile_ycoord_raw             ;
     wire    [16         -1:0]           tile_xcoord_raw             ;
-    wire    [13         -1:0]           tile_ycoord                 ;
+    wire    [META_YCOORD_DW-1:0]        tile_ycoord                 ;
     wire    [28         -1:0]           tile_xcoord                 ;
 
     wire    [28         -1:0]           tile_addr                   ;
@@ -215,28 +217,23 @@ module ubwc_enc_wrapper_top
     wire                                meta_ready                  ;
     wire    [ 64        -1:0]           meta_data                   ;
     wire    [AXI_AW     -1:0]           meta_addr                   ;
-    reg                                 meta_pkt_active             ;
-    reg                                 meta_pkt_sel_uv             ;
+    wire                                meta_data_valid             ;
+    wire                                meta_data_ready             ;
+    wire                                meta_addr_valid             ;
+    wire                                meta_addr_ready             ;
     wire                                meta_sel_uv                 ;
     wire                                meta_sel_y                  ;
+    wire                                meta_err_0                  ;
+    wire                                meta_err_1                  ;
 
     wire                                tile_addr_co_ready          ;
     wire    [16         -1:0]           pic_tile_cols               ;
     wire    [16         -1:0]           pic_tile_rows               ;
-    wire    [ 8         -1:0]           total_x_units               ;
-    wire    [28         -1:0]           tile_x_numbers              ;
-    wire    [13         -1:0]           tile_y_numbers              ;
-    wire    [28         -1:0]           meta_active_tile_x_numbers  ;
-    wire    [13         -1:0]           meta_active_tile_y_numbers  ;
-    wire                                dual_plane_mode             ;
-    wire    [28         -1:0]           y_surface_tile_x_numbers    ;
-    wire    [28         -1:0]           uv_surface_tile_x_numbers   ;
-    wire    [8          -1:0]           y_surface_total_x_units     ;
-    wire    [8          -1:0]           uv_surface_total_x_units    ;
-    wire                                meta_active_width_override  ;
-    wire    [28         -1:0]           y_surface_active_tile_x_numbers;
-    wire    [28         -1:0]           uv_surface_active_tile_x_numbers;
-    wire    [55         -1:0]           uv_active_tile_cols_scaled  ;
+    wire    [16         -1:0]           total_x_units               ;
+    wire    [32         -1:0]           meta_data_plane_pitch       ;
+    wire    [META_YCOORD_DW-1:0]        tile_y_numbers              ;
+    wire    [META_XCOORD_DW-1:0]        meta_last_xcoord            ;
+    wire    [META_XCOORD_DW-1:0]        meta_tile_xcoord            ;
 
     wire                                err_bline                   ;
     wire                                err_bframe                  ;
@@ -305,6 +302,26 @@ module ubwc_enc_wrapper_top
     wire                                meta_axi_bvalid             ;
     wire                                meta_axi_bready             ;
 
+    wire    [AXI_IDW    -1: 0]          meta64_axi_awid             ;
+    wire    [AXI_AW     -1: 0]          meta64_axi_awaddr           ;
+    wire    [AXI_LENW   -1: 0]          meta64_axi_awlen            ;
+    wire    [3          -1: 0]          meta64_axi_awsize           ;
+    wire    [2          -1: 0]          meta64_axi_awburst          ;
+    wire    [2          -1: 0]          meta64_axi_awlock           ;
+    wire    [4          -1: 0]          meta64_axi_awcache          ;
+    wire    [3          -1: 0]          meta64_axi_awprot           ;
+    wire                                meta64_axi_awvalid          ;
+    wire                                meta64_axi_awready          ;
+    wire    [AXI_DW     -1: 0]          meta64_axi_wdata            ;
+    wire    [AXI_DW/8   -1: 0]          meta64_axi_wstrb            ;
+    wire                                meta64_axi_wlast            ;
+    wire                                meta64_axi_wvalid           ;
+    wire                                meta64_axi_wready           ;
+    wire    [AXI_IDW    -1: 0]          meta64_axi_bid              ;
+    wire    [2          -1: 0]          meta64_axi_bresp            ;
+    wire                                meta64_axi_bvalid           ;
+    wire                                meta64_axi_bready           ;
+
     wire    [AXI_IDW      :0]           dbg_awid_s0                 ;
     wire    [AXI_AW     -1:0]           dbg_awaddr_s0               ;
     wire    [AXI_LENW   -1:0]           dbg_awlen_s0                ;
@@ -345,27 +362,36 @@ module ubwc_enc_wrapper_top
     assign tile_coord_vld    = enc_ci_valid & enc_ci_ready;
     assign tile_coord_rdy    = enc_ci_ready;
     assign tile_xcoord       = {{12{1'b0}}, tile_xcoord_raw};
-    assign tile_ycoord       = tile_ycoord_raw[12:0];
+    assign tile_ycoord       = tile_ycoord_raw[META_YCOORD_DW-1:0];
     assign enc_ci_format     = tile_format;
     assign b_co_valid        = b_tile_info_vld;
     assign b_co_fire         = b_tile_info_vld & enc_co_ready;
     assign otf_to_tile_busy  = rvi_valid;
     assign otf_to_tile_overflow = err_fifo_ovf;
     assign meta_force_flush  = 1'b0;
-    assign dual_plane_mode   = (otf_cfg_b_tile_cols != 16'd0);
-    assign y_surface_tile_x_numbers  = dual_plane_mode ? {{12{1'b0}}, otf_cfg_b_tile_cols} : tile_x_numbers;
-    assign uv_surface_tile_x_numbers = dual_plane_mode ? {{12{1'b0}}, otf_cfg_a_tile_cols} : tile_x_numbers;
-    assign y_surface_total_x_units   = (y_surface_tile_x_numbers[15:0]  + 16'd15) >> 4;
-    assign uv_surface_total_x_units  = (uv_surface_tile_x_numbers[15:0] + 16'd15) >> 4;
-    assign meta_active_width_override = dual_plane_mode && (meta_active_tile_x_numbers != tile_x_numbers);
-    assign y_surface_active_tile_x_numbers =
-        meta_active_width_override ? meta_active_tile_x_numbers : y_surface_tile_x_numbers;
-    assign uv_active_tile_cols_scaled =
-        ({28'd0, meta_active_tile_x_numbers} * {28'd0, uv_surface_tile_x_numbers}) +
-        {28'd0, y_surface_tile_x_numbers} - 56'd1;
-    assign uv_surface_active_tile_x_numbers =
-        meta_active_width_override ? (uv_active_tile_cols_scaled / y_surface_tile_x_numbers)
-                                   : uv_surface_tile_x_numbers;
+    assign meta_valid        = meta_data_valid & meta_addr_valid;
+    assign meta_ready        = meta_data_ready & meta_addr_ready;
+    assign meta_last         = 1'b1;
+    assign meta_data_plane_pitch =
+        {16'd0, total_x_units} +
+        ((total_x_units[5:0] == 6'd0) ? 32'd0 : (32'd64 - {26'd0, total_x_units[5:0]}));
+    assign meta_last_xcoord   =
+        (total_x_units == 16'd0) ? {META_XCOORD_DW{1'b0}} :
+        (total_x_units[META_XCOORD_DW-1:0] - {{(META_XCOORD_DW-1){1'b0}}, 1'b1});
+    assign meta_tile_xcoord   = b_tile_xcoord[META_XCOORD_DW-1:0];
+    assign meta_sel_uv       = (meta_addr >= meta_uv_base_offset_addr) &&
+                               (meta_uv_base_offset_addr != {AXI_AW{1'b0}});
+    assign meta_sel_y        = ~meta_sel_uv;
+    assign y_meta_valid      = meta_valid & meta_sel_y;
+    assign y_meta_last       = meta_last;
+    assign y_meta_ready      = meta_ready & meta_sel_y;
+    assign y_meta_data       = meta_data;
+    assign y_meta_addr       = meta_sel_y ? meta_addr : {AXI_AW{1'b0}};
+    assign uv_meta_valid     = meta_valid & meta_sel_uv;
+    assign uv_meta_last      = meta_last;
+    assign uv_meta_ready     = meta_ready & meta_sel_uv;
+    assign uv_meta_data      = meta_data;
+    assign uv_meta_addr      = meta_sel_uv ? meta_addr : {AXI_AW{1'b0}};
 
     ubwc_enc_rst_mdl ubwc_enc_rst_mdl_inst 
     (
@@ -410,10 +436,10 @@ module ubwc_enc_wrapper_top
         .o_pic_tile_cols            ( pic_tile_cols                 ),
         .o_pic_tile_rows            ( pic_tile_rows                 ),
         .o_total_x_units            ( total_x_units                 ),
-        .o_tile_x_numbers           ( tile_x_numbers                ),
+        .o_tile_x_numbers           (                               ),
         .o_tile_y_numbers           ( tile_y_numbers                ),
-        .o_meta_active_tile_x_numbers ( meta_active_tile_x_numbers  ),
-        .o_meta_active_tile_y_numbers ( meta_active_tile_y_numbers  ),
+        .o_meta_active_tile_x_numbers (                             ),
+        .o_meta_active_tile_y_numbers (                             ),
 
         .o_enc_ubwc_en				( enc_ubwc_en				    ),
         .o_enc_ci_vld				( enc_ci_cfg_vld_ahb            ),
@@ -627,23 +653,20 @@ module ubwc_enc_wrapper_top
     #(
         .SB_WIDTH                   ( SB_WIDTH                      ),
         .META_AW                    ( AXI_AW                        ),
+        .TH_DW                      ( META_YCOORD_DW                ),
+        .TW_DW                      ( META_XCOORD_DW                ),
         .IN_FIFO_DEPTH              ( 256                           )
     )
     ubwc_enc_meta_addr_gen_inst
     (
         .i_clk                      ( i_clk                         ),
         .i_rstn                     ( i_rstn                        ),
-
-        .i_meta_data_plane_pitch    ( {20'd0, pitch}                ),
-        .i_total_x_units            ( total_x_units                 ),
-        .i_pic_width_tiles          ( tile_x_numbers                ),
-        .i_pic_height_tiles         ( tile_y_numbers                ),
-        .i_active_pic_width_tiles   ( meta_active_tile_x_numbers    ),
-        .i_active_pic_height_tiles  ( meta_active_tile_y_numbers    ),
+        .i_srstn                    ( ~srst                         ),
+        .i_meta_data_plane_pitch    ( meta_data_plane_pitch         ),
+        .i_total_x_units            ( meta_last_xcoord              ),
 
         .i_meta_y_base_offset_addr  ( meta_y_base_offset_addr       ),
         .i_meta_uv_base_offset_addr ( meta_uv_base_offset_addr      ),
-        .i_force_flush              ( meta_force_flush              ),
 
         .i_co_valid                 ( enc_co_valid                  ),
         .i_co_alen                  ( enc_co_alen                   ),
@@ -651,14 +674,16 @@ module ubwc_enc_wrapper_top
         .i_co_pcm                   ( enc_co_pcm                    ),
         .i_format                   ( b_tile_format                 ),
         .i_ycoord                   ( b_tile_ycoord                 ),
-        .i_xcoord                   ( b_tile_xcoord                 ),
+        .i_xcoord                   ( meta_tile_xcoord              ),
 
-        .o_meta_valid               ( meta_valid                    ),
-        .o_meta_last                ( meta_last                     ),
-        .i_meta_ready               ( meta_ready                    ),
+        .o_meta_data_valid          ( meta_data_valid               ),
         .o_meta_data                ( meta_data                     ),
+        .i_meta_data_ready          ( meta_data_ready               ),
+        .o_meta_addr_valid          ( meta_addr_valid               ),
         .o_meta_addr                ( meta_addr                     ),
-
+        .i_meta_addr_ready          ( meta_addr_ready               ),
+        .o_meta_err_0               ( meta_err_0                    ),
+        .o_meta_err_1               ( meta_err_1                    ),
         .o_frame_done               (                               )
     );
 
@@ -707,10 +732,10 @@ module ubwc_enc_wrapper_top
         .o_m_axi_bready             ( enc_axi_bready                )
     );
 
-    ubwc_enc_meta_axi_wcmd_gen_v2
+    ubwc_enc_meta_axi_wcmd_gen
     #(
         .AXI_AW                     ( AXI_AW                        ),
-        .AXI_DW                     ( CORE_AXI_DW                   ),
+        .AXI_DW                     ( AXI_DW                        ),
         .AXI_LENW                   ( AXI_LENW                      ),
         .AXI_IDW                    ( AXI_IDW                       )
     )
@@ -719,33 +744,87 @@ module ubwc_enc_wrapper_top
         .i_aclk                     ( i_clk                         ),
         .i_aresetn                  ( i_rstn                        ),
 
-        .i_meta_valid               ( meta_valid                    ),
-        .i_meta_last                ( meta_last                     ),
-        .o_meta_ready               ( meta_ready                    ),
-        .i_meta_addr                ( meta_addr                     ),
+        .i_meta_data_valid          ( meta_data_valid               ),
+        .o_meta_data_ready          ( meta_data_ready               ),
         .i_meta_data                ( meta_data                     ),
+        .i_meta_addr_valid          ( meta_addr_valid               ),
+        .o_meta_addr_ready          ( meta_addr_ready               ),
+        .i_meta_addr                ( meta_addr                     ),
 
-        .o_m_axi_awid               ( meta_axi_awid                 ),
-        .o_m_axi_awaddr             ( meta_axi_awaddr               ),
-        .o_m_axi_awlen              ( meta_axi_awlen                ),
-        .o_m_axi_awsize             ( meta_axi_awsize               ),
-        .o_m_axi_awburst            ( meta_axi_awburst              ),
-        .o_m_axi_awlock             ( meta_axi_awlock               ),
-        .o_m_axi_awcache            ( meta_axi_awcache              ),
-        .o_m_axi_awprot             ( meta_axi_awprot               ),
-        .o_m_axi_awvalid            ( meta_axi_awvalid              ),
-        .i_m_axi_awready            ( meta_axi_awready              ),
+        .o_m_axi_awid               ( meta64_axi_awid               ),
+        .o_m_axi_awaddr             ( meta64_axi_awaddr             ),
+        .o_m_axi_awlen              ( meta64_axi_awlen              ),
+        .o_m_axi_awsize             ( meta64_axi_awsize             ),
+        .o_m_axi_awburst            ( meta64_axi_awburst            ),
+        .o_m_axi_awlock             ( meta64_axi_awlock             ),
+        .o_m_axi_awcache            ( meta64_axi_awcache            ),
+        .o_m_axi_awprot             ( meta64_axi_awprot             ),
+        .o_m_axi_awvalid            ( meta64_axi_awvalid            ),
+        .i_m_axi_awready            ( meta64_axi_awready            ),
 
-        .o_m_axi_wdata              ( meta_axi_wdata                ),
-        .o_m_axi_wstrb              ( meta_axi_wstrb                ),
-        .o_m_axi_wvalid             ( meta_axi_wvalid               ),
-        .o_m_axi_wlast              ( meta_axi_wlast                ),
-        .i_m_axi_wready             ( meta_axi_wready               ),
+        .o_m_axi_wdata              ( meta64_axi_wdata              ),
+        .o_m_axi_wstrb              ( meta64_axi_wstrb              ),
+        .o_m_axi_wvalid             ( meta64_axi_wvalid             ),
+        .o_m_axi_wlast              ( meta64_axi_wlast              ),
+        .i_m_axi_wready             ( meta64_axi_wready             ),
 
-        .i_m_axi_bid                ( meta_axi_bid                  ),
-        .i_m_axi_bresp              ( meta_axi_bresp                ),
-        .i_m_axi_bvalid             ( meta_axi_bvalid               ),
-        .o_m_axi_bready             ( meta_axi_bready               )
+        .i_m_axi_bid                ( meta64_axi_bid                ),
+        .i_m_axi_bresp              ( meta64_axi_bresp              ),
+        .i_m_axi_bvalid             ( meta64_axi_bvalid             ),
+        .o_m_axi_bready             ( meta64_axi_bready             )
+    );
+
+    ubwc_axi_wr_64to256 #(
+        .ADDR_WIDTH                 ( AXI_AW                        ),
+        .ID_WIDTH                   ( AXI_IDW                       ),
+        .AXI_LENW                   ( AXI_LENW                      ),
+        .S_AXI_DW                   ( AXI_DW                        ),
+        .M_AXI_DW                   ( CORE_AXI_DW                   )
+    )
+    u_meta_axi_wr_64to256
+    (
+        .clk                        ( i_clk                         ),
+        .rst_n                      ( i_rstn                        ),
+
+        .s_axi_awid                 ( meta64_axi_awid               ),
+        .s_axi_awaddr               ( meta64_axi_awaddr             ),
+        .s_axi_awlen                ( meta64_axi_awlen              ),
+        .s_axi_awsize               ( meta64_axi_awsize             ),
+        .s_axi_awburst              ( meta64_axi_awburst            ),
+        .s_axi_awlock               ( meta64_axi_awlock             ),
+        .s_axi_awcache              ( meta64_axi_awcache            ),
+        .s_axi_awprot               ( meta64_axi_awprot             ),
+        .s_axi_awvalid              ( meta64_axi_awvalid            ),
+        .s_axi_awready              ( meta64_axi_awready            ),
+        .s_axi_wdata                ( meta64_axi_wdata              ),
+        .s_axi_wstrb                ( meta64_axi_wstrb              ),
+        .s_axi_wlast                ( meta64_axi_wlast              ),
+        .s_axi_wvalid               ( meta64_axi_wvalid             ),
+        .s_axi_wready               ( meta64_axi_wready             ),
+        .s_axi_bid                  ( meta64_axi_bid                ),
+        .s_axi_bresp                ( meta64_axi_bresp              ),
+        .s_axi_bvalid               ( meta64_axi_bvalid             ),
+        .s_axi_bready               ( meta64_axi_bready             ),
+
+        .m_axi_awid                 ( meta_axi_awid                 ),
+        .m_axi_awaddr               ( meta_axi_awaddr               ),
+        .m_axi_awlen                ( meta_axi_awlen                ),
+        .m_axi_awsize               ( meta_axi_awsize               ),
+        .m_axi_awburst              ( meta_axi_awburst              ),
+        .m_axi_awlock               ( meta_axi_awlock               ),
+        .m_axi_awcache              ( meta_axi_awcache              ),
+        .m_axi_awprot               ( meta_axi_awprot               ),
+        .m_axi_awvalid              ( meta_axi_awvalid              ),
+        .m_axi_awready              ( meta_axi_awready              ),
+        .m_axi_wdata                ( meta_axi_wdata                ),
+        .m_axi_wstrb                ( meta_axi_wstrb                ),
+        .m_axi_wlast                ( meta_axi_wlast                ),
+        .m_axi_wvalid               ( meta_axi_wvalid               ),
+        .m_axi_wready               ( meta_axi_wready               ),
+        .m_axi_bid                  ( meta_axi_bid                  ),
+        .m_axi_bresp                ( meta_axi_bresp                ),
+        .m_axi_bvalid               ( meta_axi_bvalid               ),
+        .m_axi_bready               ( meta_axi_bready               )
     );
 
     axi_2t1_int_DW_axi

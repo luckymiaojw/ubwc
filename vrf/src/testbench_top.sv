@@ -30,7 +30,7 @@ module testbench_top;
 
     `include "dut_conn.sv"
 
-    // DPI 入口
+    // DPI entry point
     import "DPI-C" context task ubwc_demo_run(int format, int w, int h);//, string in0);
 
     initial begin
