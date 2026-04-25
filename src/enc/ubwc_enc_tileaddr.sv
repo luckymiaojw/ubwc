@@ -16,13 +16,13 @@
 
 module ubwc_enc_tile_addr
     #(
-        parameter SB_WIDTH = 1
+        parameter SB_WIDTH = 1,
+        parameter TH_DW    = 13,
+        parameter TW_DW    = 8
     )(
         input   wire                        i_clk,
         input   wire                        i_rstn,
     
-        input   wire                        i_tile_addr_gen_cfg_vld,
-        output  wire                        o_tile_addr_gen_cfg_rdy,
         input   wire                        i_lvl1_bank_swizzle_en,
         input   wire                        i_lvl2_bank_swizzle_en,
         input   wire                        i_lvl3_bank_swizzle_en,
@@ -31,13 +31,13 @@ module ubwc_enc_tile_addr
     
         input   wire                        i_4line_format,
         input   wire                        i_is_lossy_rgba_2_1_format,
-        input   wire    [12 -1:0]           i_pitch,
+        input   wire    [12 -1:0]           i_tile_pitch,
 
         input   wire    [64 -1:0]           i_y_base_offset_addr    ,
         input   wire    [64 -1:0]           i_uv_base_offset_addr   ,
 
-        input   wire    [13 -1:0]           i_ycoord,
-        input   wire    [28 -1:0]           i_xcoord,
+        input   wire    [TH_DW -1:0]        i_ycoord,
+        input   wire    [TW_DW -1:0]        i_xcoord,
         input   wire    [5  -1:0]           i_format,
     
         input   wire                        i_co_valid,
@@ -84,11 +84,10 @@ module ubwc_enc_tile_addr
     wire                    active_is_uv_plane;
     wire [27:0]             active_base_offset_addr;
 
-    assign o_tile_addr_gen_cfg_rdy  = 1'b1;
     assign o_co_ready               = 1'b1;
     assign active_format            = i_format;
-    assign active_ycoord            = i_ycoord;
-    assign active_xcoord            = i_xcoord;
+    assign active_ycoord            = {{(13-TH_DW){1'b0}}, i_ycoord};
+    assign active_xcoord            = {{(28-TW_DW){1'b0}}, i_xcoord};
     assign active_is_uv_plane = (active_format == FMT_NV12_UV)    ||
                                 (active_format == FMT_NV16_UV)    ||
                                 (active_format == FMT_NV16_10_UV) ||
@@ -109,7 +108,7 @@ module ubwc_enc_tile_addr
         active_xcoord[0]^ycoord_int_sel[1]
     };
 
-    assign macrotile_pitch = i_4line_format ? {1'd0, i_pitch, 4'd0} : {i_pitch, 5'd0};
+    assign macrotile_pitch = i_4line_format ? {1'd0, i_tile_pitch, 4'd0} : {i_tile_pitch, 5'd0};
     assign product         = macrotile_y * macrotile_pitch;
     assign add_x           = {9'd0, macrotile_x, 8'd0};
     assign add_inter_tile  = {macrotile, 4'd0};
@@ -117,7 +116,7 @@ module ubwc_enc_tile_addr
     assign add_before_bs   = product + add_x + add_inter_tile + add_y_2_1_shift;
 
     assign super_pixel_size = i_4line_format ? 7'd32 : 7'd8;
-    assign surface_pitch    = {i_pitch, 4'd0};
+    assign surface_pitch    = {i_tile_pitch, 4'd0};
     assign surface_pitch_x16 = {surface_pitch, 4'd0};
 
     always @(*) begin

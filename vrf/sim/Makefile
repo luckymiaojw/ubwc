@@ -197,7 +197,15 @@ TB_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 := $(VRF_ENC_SRC_DIR)/tb_u
 TB_SRC_tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 := $(VRF_DEC_SRC_DIR)/tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12.sv
 
+ENC_WRAPPER_MONITOR_SRC := $(VRF_ENC_SRC_DIR)/monitor.sv
+TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_tajmahal_cases := $(ENC_WRAPPER_MONITOR_SRC)
+TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 := $(ENC_WRAPPER_MONITOR_SRC)
+TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 := $(ENC_WRAPPER_MONITOR_SRC)
+TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 := $(ENC_WRAPPER_MONITOR_SRC)
+TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 := $(ENC_WRAPPER_MONITOR_SRC)
+
 TB_SRC := $(TB_SRC_$(TOP))
+TB_EXTRA_SRC := $(TB_EXTRA_SRC_$(TOP))
 
 FILELIST_tb_ubwc_dec_tile_to_line_path := $(RTL_FLIST_DIR)/filelist_otf.f
 FILELIST_tb_ubwc_dec_tile_to_line_image_formats := $(RTL_FLIST_DIR)/filelist_otf.f
@@ -277,6 +285,7 @@ VCS_WARN_FLAGS := +v2k +lint=TFIPC-L +warn=all
 VCS_FLAGS := -full64 -sverilog -timescale=1ns/1ps \
 	-F $(FILELIST) \
 	$(TB_SRC) \
+	$(TB_EXTRA_SRC) \
 	-top $(TOP) \
 	-o $(SIMV) \
 	-Mdir=$(BUILD_DIR)/csrc \
@@ -291,21 +300,28 @@ VCS_FLAGS += -P $(VERDI_HOME)/share/PLI/VCS/LINUX64/novas.tab \
 	$(VERDI_HOME)/share/PLI/VCS/LINUX64/pli.a
 endif
 
-VERDI_FLAGS := -sv -F $(FILELIST) $(TB_SRC) -top $(TOP)
+VERDI_FLAGS := -sv -F $(FILELIST) $(TB_SRC) $(TB_EXTRA_SRC) -top $(TOP)
 FILELIST_DIR := $(abspath $(dir $(FILELIST)))
 FILELIST_NAME := $(notdir $(FILELIST))
+FLIST_DEPS := $(PYTHON) $(VRF_SCRIPT_DIR)/flist_deps.py
+FILELIST_SRC := $(shell $(FLIST_DEPS) --sources $(FILELIST))
+FILELIST_INC_DIRS := $(shell $(FLIST_DEPS) --incdirs $(FILELIST))
+FILELIST_INCLUDE_DEPS := $(shell $(FLIST_DEPS) --includes $(FILELIST))
+SIMV_DEPS := $(FILELIST) $(FILELIST_SRC) $(FILELIST_INCLUDE_DEPS) $(TB_SRC) $(TB_EXTRA_SRC) $(MAKEFILE_LIST)
 
 IVERILOG_FLAGS := -g2012 \
 	-s $(TOP) \
 	$(IVERILOG_PARAM_FLAGS) \
 	-o $(abspath $(IVERILOG_SIMV)) \
 	-f $(FILELIST_NAME) \
-	$(TB_SRC)
+	$(TB_SRC) \
+	$(TB_EXTRA_SRC)
 
 VERILATOR_FLAGS := --binary --timing -Wno-fatal \
 	-Mdir $(VERILATOR_OBJ_DIR) \
 	-F $(FILELIST) \
 	$(TB_SRC) \
+	$(TB_EXTRA_SRC) \
 	--top-module $(TOP) \
 	$(VERILATOR_PARAM_FLAGS)
 
@@ -396,8 +412,9 @@ VERILATOR_FLAGS := --binary --timing -Wno-fatal \
 
 comp: $(SIMV)
 
-$(SIMV): $(FILELIST) $(TB_SRC)
+$(SIMV): $(SIMV_DEPS)
 	@mkdir -p $(BUILD_DIR)
+	rm -f $(SIMV)
 	$(VCS) $(VCS_FLAGS)
 
 run: $(SIMV)
@@ -408,8 +425,9 @@ all: comp run
 
 iverilog_comp: $(IVERILOG_SIMV)
 
-$(IVERILOG_SIMV): $(FILELIST) $(TB_SRC)
+$(IVERILOG_SIMV): $(SIMV_DEPS)
 	@mkdir -p $(IVERILOG_BUILD_DIR)
+	rm -f $(IVERILOG_SIMV)
 	cd $(FILELIST_DIR) && $(IVERILOG) $(IVERILOG_FLAGS) > $(abspath $(IVERILOG_COMP_LOG)) 2>&1 || { cat $(abspath $(IVERILOG_COMP_LOG)); exit 1; }
 
 iverilog_run: $(IVERILOG_SIMV)
@@ -427,8 +445,9 @@ iverilog_all: iverilog_comp iverilog_run
 
 verilator_comp: $(VERILATOR_SIMV)
 
-$(VERILATOR_SIMV): $(FILELIST) $(TB_SRC)
+$(VERILATOR_SIMV): $(SIMV_DEPS)
 	@mkdir -p $(VERILATOR_BUILD_DIR)
+	rm -f $(VERILATOR_SIMV)
 	$(VERILATOR) $(VERILATOR_FLAGS) > $(VERILATOR_COMP_LOG) 2>&1 || { cat $(VERILATOR_COMP_LOG); exit 1; }
 
 verilator_run: $(VERILATOR_SIMV)

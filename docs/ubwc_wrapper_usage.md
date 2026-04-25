@@ -105,24 +105,26 @@ start_otf_input_stream();
 
 ### 1.5 Completion Detection
 
-Pay special attention here:current `ubwc_enc_apb_reg_blk.v` has these inputs:
+Pay special attention here:current `ubwc_enc_apb_reg_blk.v` exposes `REG_STATUS0 (0x0058)`:
 
-- `i_enc_idle`
-- `i_enc_error`
-- `i_otf_to_tile_busy`
-- `i_otf_to_tile_overflow`
+- `bit0`: `enc_idle`
+- `bit1`: `enc_error`
+- `bit2`: `otf_to_tile_busy`
+- `bit3`: `otf_to_tile_overflow`
+- `bit4`: `otf_err_bline`
+- `bit5`: `otf_err_bframe`
+- `bit6`: `meta_err_0`, currently tied low
+- `bit7`: `meta_err_1`, currently tied low
+- `bit8`: `meta_frame_done`, currently tied low
 
-these status signals are not mapped to `PRDATA`, that is:
-
-- the current APB version has no `STATUS0/STATUS1`
-- software cannot determine frame completion only by polling registers
+These are live status bits, not sticky completion bits.
 
 There are two safer completion-detection methods in the current version:
 
 1. Simulation/integration method
    The upstream source confirms the input frame has been fully sent, then observe that the AXI write channel has no new `AW/W` activity for a period of time, or directly observe internal `enc_idle`
 2. Production-driver method
-   It is recommended to add a status register, export `enc_idle`, `enc_error`, `otf_to_tile_overflow`, AXI outstanding status
+   Poll `REG_STATUS0`, especially `enc_idle` plus error bits; add a sticky frame-done bit later if dec-style completion polling is required
 
 The testbench uses this detection idea:
 
@@ -130,7 +132,7 @@ The testbench uses this detection idea:
 - Then wait for a"no-output-activity"window
 - In multi-frame scenarios, make sure the wrapper returns to idle before starting the next frame
 
-So if you are writing a software driver, `enc` the biggest missing item in this version is"a readable completion status".
+So if you are writing a software driver, use `REG_STATUS0 (0x0058)` for basic live completion/error observation.
 
 ## 2. ubwc_dec_wrapper_top Usage Guide
 
@@ -265,7 +267,7 @@ First convert these image parameters into the geometry required by the current i
 - `RGBA8888` uses `16 x 4 tile`
 - `tile_x_numbers = ceil(128 / 16) = 8`
 - `tile_y_numbers = ceil(128 / 4) = 32`
-- `pitch(bytes) = 128 * 4 = 512`
+- `tile_pitch(bytes) = 128 * 4 = 512`
 - `stored_height = 128`, because `128` is already `4-line` aligned
 
 Suggested example addresses:
@@ -348,7 +350,7 @@ The most important points are:
 #### 3.1.3 Easy-to-Miss Points in This Example
 
 - `RGBA8888` is `16x4 tile`, not `32x8 tile`
-- `pitch` is measured in **bytes**, `128x128 RGBA8888` needs `512`
+- `tile_pitch` is measured in **bytes**, `128x128 RGBA8888` needs `512`
 - For `RGBA8888` on `enc`, the current address-selection logic uses `Y base / META_Y base`
 - For `RGBA8888` on `dec`, the current address-selection logic uses `RGBA_UV base / META_RGBA_UV base`
 - `dec` must be started by writing `META_CFG0[0]=1` last
@@ -368,12 +370,12 @@ Key register values used in this example:
 - `REG_TILE_CFG1 = 0x0200_0001`
   - `four_line_format = 1`
   - `is_lossy_rgba_2_1_format = 0`
-  - `pitch = 512`
+  - `tile_pitch = 512`
 - `REG_ENC_CI_CFG0 = 0x0000_0701`
   - `input_type = 1`
   - `alen = 7`
   - `format = 0` (`RGBA8888`)
-  - `forced_pcm = 0`
+  - forced PCM is generated dynamically by the OTF path
 - `REG_ENC_CI_CFG1/2/3 = 0`
 - `REG_OTF_CFG0 = 0x0000_0000`
 - `REG_OTF_CFG1 = 0x0080_0080`
@@ -429,7 +431,7 @@ Key register values used in this example:
   - `4line_format = 1`
   - `lossy_rgba_2_1 = 0`
 - `TILE_CFG1 = 0x0000_0200`
-  - `pitch = 512`
+  - `tile_pitch = 512`
 - `TILE_CFG2 = 0x0000_000f`
 - `VIVO_CFG = 0x0000_0001`
 - `META_CFG5 = 0x0020_0008`
@@ -498,8 +500,8 @@ The following is a concise table based on the **current RTL**; see the detailed 
 | `0x0000` | `REG_VERSION` | Version number | Read-only |
 | `0x0004` | `REG_DATE` | RTL date | Read-only |
 | `0x0008` | `REG_TILE_CFG0` | `enc_ubwc_en`, `lvl1/2/3`, `highest_bank_bit`, `bank_spread_en` | Writing this register emits `o_tile_addr_gen_cfg_vld` |
-| `0x000c` | `REG_TILE_CFG1` | `four_line_format`, `is_lossy_rgba_2_1_format`, `pitch` | Recommended to write this register first |
-| `0x0010` | `REG_ENC_CI_CFG0` | `input_type`, `alen`, `format`, `forced_pcm` | Writing this register emits `o_enc_ci_vld` |
+| `0x000c` | `REG_TILE_CFG1` | `four_line_format`, `is_lossy_rgba_2_1_format`, `tile_pitch` | Recommended to write this register first |
+| `0x0010` | `REG_ENC_CI_CFG0` | `input_type`, `alen`, `format` | `forced_pcm` is generated dynamically by the OTF path |
 | `0x0014` | `REG_ENC_CI_CFG1` | `sb`, `lossy` | Other bits may default to `0` |
 | `0x0018` | `REG_ENC_CI_CFG2` | `ubwc_cfg_0 ~ ubwc_cfg_9` | This example may write `0` |
 | `0x001c` | `REG_ENC_CI_CFG3` | `ubwc_cfg_10 ~ ubwc_cfg_11` | This example may write `0` |
@@ -516,6 +518,8 @@ The following is a concise table based on the **current RTL**; see the detailed 
 | `0x0048` | `REG_META_BASE_UV_LO` | Low 32 bits of the UV metadata base address | Single-plane `RGBA8888` can write `0` |
 | `0x004c` | `REG_META_BASE_UV_HI` | High 32 bits of the UV metadata base address | Single-plane `RGBA8888` can write `0` |
 | `0x0050` | `REG_META_ACTIVE_SIZE` | `active_width_px`, `active_height_px` | Writing `0` means using the full frame |
+| `0x0054` | `REG_META_PITCH` | `meta_data_plane_pitch` | Metadata pitch in bytes, separate from pixel-data pitch |
+| `0x0058` | `REG_STATUS0` | `enc/otf/meta` live status bits | Metadata bits are currently tied low |
 
 ### 4.2 ubwc_dec_wrapper_top Current Register Table
 
@@ -524,7 +528,7 @@ The following is a concise table based on the **current RTL**; see the detailed 
 | `0x0000` | `REG_VERSION` | Version number | Read-only |
 | `0x0004` | `REG_DATE` | RTL date | Read-only |
 | `0x0008` | `TILE_CFG0` | `lvl1/2/3`, `highest_bank_bit`, `bank_spread_en`, `4line_format`, `lossy_rgba_2_1` | The `RGBA8888` example writes `0x00000706` |
-| `0x000c` | `TILE_CFG1` | `pitch` | Unit is bytes |
+| `0x000c` | `TILE_CFG1` | `tile_pitch` | Unit is bytes |
 | `0x0010` | `TILE_CFG2` | `ci_input_type`, `ci_sb`, `ci_lossy`, `ci_alpha_mode` | This example keeps the TB default value |
 | `0x0014` | `VIVO_CFG` | `vivo_ubwc_en`, `vivo_sreset` | Usually `vivo_ubwc_en=1` |
 | `0x0018` | `META_CFG0` | `start(W1P)`, `meta_base_format` | Write last; `bit0` is the start pulse |
@@ -547,9 +551,9 @@ The following is a concise table based on the **current RTL**; see the detailed 
 
 ## 5. Summary of Differences Between the Two Wrappers
 
-- `enc`: the APB side mainly provides configuration registers and has no ready-made completion status register
+- `enc`: the APB side mainly provides configuration registers plus a basic live `REG_STATUS0`
 - `dec`: the APB side has both configuration registers and complete `STATUS0/STATUS1` registers
 - `enc` starts from"the input frame beginning to arrive"
 - `dec` starts from"writing `META_CFG0[0]=1`"
-- `enc` should add status registers for long-term software-driver use
+- `enc` can add sticky frame-done/status registers later for long-term software-driver use
 - `dec` can already poll registers directly for completion

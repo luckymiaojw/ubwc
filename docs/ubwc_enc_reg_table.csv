@@ -9,11 +9,11 @@ ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,12:8,highest_bank_bit,Hi
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,16,bank_spread_en,Bank spread enable,Same as above
 ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,0,four_line_format,4-line tile format enable,Recommended to write this register before committing REG_TILE_CFG0
 ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,1,is_lossy_rgba_2_1_format,RGBA 2:1 lossy format select,Same as above
-ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,26:16,pitch,Tile pitch configuration,The effective width in code is 11 bits; high bits of o_pitch are filled with 0
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,26:16,tile_pitch,Tile pitch configuration,The effective width in code is 11 bits
 ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,0,enc_ci_input_type,Encoded CI input type,Recommended as the final write in the CI configuration group; writing this register generates an o_enc_ci_vld pulse
 ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,10:8,enc_ci_alen,Encoded CI alen configuration,Same as above
 ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,20:16,enc_ci_format,Encoded CI format,Same as above
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,24,enc_ci_forced_pcm,Forced PCM mode,Same as above
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,24,reserved,Unused forced PCM configuration bit,Forced PCM is generated dynamically by the OTF path
 ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,RW,0x00000000,SB_WIDTH-1:0,enc_ci_sb,Encoded CI sideband configuration,Width is determined by the SB_WIDTH parameter
 ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,RW,0x00000000,16,enc_ci_lossy,Encoded CI lossy enable,
 ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,2:0,enc_ci_ubwc_cfg_0,UBWC CI configuration 0,
@@ -45,3 +45,13 @@ ubwc_enc_apb_reg_blk,0x0048,REG_META_BASE_UV_LO,RW,0x00000000,31:0,meta_uv_base_
 ubwc_enc_apb_reg_blk,0x004c,REG_META_BASE_UV_HI,RW,0x00000000,31:0,meta_uv_base_offset_addr[63:32],High 32 bits of the UV or RGBA-plane metadata base address,Forms the full 64-bit address when AXI_AW=64
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,RW,0x00000000,15:0,meta_active_width_px,Metadata active-area width in pixels,Writing 0 means using the full-frame width
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,RW,0x00000000,31:16,meta_active_height_px,Metadata active-area height in pixels,Writing 0 means using the full-frame height
+ubwc_enc_apb_reg_blk,0x0054,REG_META_PITCH,RW,0x00000000,31:0,meta_data_plane_pitch,Metadata plane pitch in bytes,Program this separately from the pixel-data pitch
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,0,enc_idle,Encoder core idle status,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,1,enc_error,Encoder core error status,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,2,otf_to_tile_busy,OTF-to-tile busy status,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,3,otf_to_tile_overflow,OTF-to-tile FIFO overflow status,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,4,otf_err_bline,OTF input bad-line error status,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,5,otf_err_bframe,OTF input bad-frame error status,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,6,meta_err_0,Metadata generator error 0 status,Currently tied low
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,7,meta_err_1,Metadata generator error 1 status,Currently tied low
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,8,meta_frame_done,Metadata generator frame done status,Currently tied low

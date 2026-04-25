@@ -424,6 +424,14 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer CASE_NV12        = 2;
     localparam integer CASE_G016        = 3;
 
+    function automatic integer align_up_int;
+        input integer value;
+        input integer alignment;
+        begin
+            align_up_int = ((value + alignment - 1) / alignment) * alignment;
+        end
+    endfunction
+
     localparam integer APB_AW          = 16;
     localparam integer APB_DW          = 32;
     localparam integer AXI_AW          = 64;
@@ -477,11 +485,14 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                             (CASE_IS_NV12 ? 32 : 16);
     localparam integer CASE_TILE_H        = CASE_IS_G016 ? 4 :
                                             (CASE_IS_NV12 ? 8 : 4);
+    localparam integer CASE_BYTES_PER_PIXEL = CASE_IS_G016 ? 2 :
+                                              (CASE_IS_NV12 ? 1 : 4);
     localparam integer CASE_A_TILE_COLS   = CASE_IS_G016 ? G016_UV_TILE_COLS :
                                             (CASE_IS_NV12 ? NV12_UV_TILE_COLS : RGBA_TILE_COLS);
     localparam integer CASE_B_TILE_COLS   = CASE_HAS_PLANE1 ? (CASE_IS_G016 ? G016_Y_TILE_COLS : NV12_Y_TILE_COLS) : 0;
-    localparam integer CASE_PITCH_BYTES   = CASE_IS_G016 ? G016_TILE_PITCH :
-                                            (CASE_IS_NV12 ? NV12_TILE_PITCH : RGBA_TILE_PITCH);
+    localparam integer CASE_PITCH_BYTES   = align_up_int(IMG_W * CASE_BYTES_PER_PIXEL,
+                                                         CASE_TILE_W * 4 * CASE_BYTES_PER_PIXEL);
+    localparam integer CASE_META_PITCH_BYTES = align_up_int((align_up_int(IMG_W, CASE_TILE_W * 4) + CASE_TILE_W - 1) / CASE_TILE_W, 64);
     localparam integer CASE_PITCH_UNITS = CASE_PITCH_BYTES / 16;
     localparam integer CASE_TILE0_WORDS64 = CASE_IS_G016 ? ((G016_TILE_PITCH * G016_Y_STORED_H) / 8) :
                                             (CASE_IS_NV12 ? ((NV12_TILE_PITCH * NV12_Y_STORED_H) / 8)
@@ -728,6 +739,28 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     wire [15:0]                 dbg_otf_to_tile_y;
     wire [3:0]                  dbg_otf_to_tile_fcnt;
     wire [4:0]                  dbg_otf_to_tile_format;
+    wire                        mon_meta_valid;
+    wire                        mon_meta_ready;
+    wire                        mon_meta_last;
+    wire                        mon_meta_sel_y;
+    wire                        mon_meta_sel_uv;
+    wire                        mon_y_meta_valid;
+    wire                        mon_y_meta_last;
+    wire                        mon_y_meta_ready;
+    wire [64-1:0]               mon_y_meta_data;
+    wire [AXI_AW-1:0]           mon_y_meta_addr;
+    wire                        mon_uv_meta_valid;
+    wire                        mon_uv_meta_last;
+    wire                        mon_uv_meta_ready;
+    wire [64-1:0]               mon_uv_meta_data;
+    wire [AXI_AW-1:0]           mon_uv_meta_addr;
+    wire                        mon_meta_aw_fire;
+    wire                        mon_meta_aw_sel_uv;
+    wire [AXI_AW-1:0]           mon_meta_aw_y_addr;
+    wire [AXI_AW-1:0]           mon_meta_aw_uv_addr;
+    wire                        mon_b_co_valid;
+    wire                        mon_err_bline;
+    wire                        mon_err_bframe;
     reg                         dbg_line_tile_en;
     reg                         tb_fake_mode_en;
     integer                     out_aw_count;
@@ -1636,7 +1669,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 $display("[TB][ERROR] meta last aw: y=0x%08x uv=0x%08x",
                          last_meta_aw_addr_y, last_meta_aw_addr_uv);
                 $display("[TB][ERROR] activity: tile_coord_vld=%0b rvi_valid=%0b enc_awvalid=%0b enc_wvalid=%0b meta_awvalid=%0b meta_wvalid=%0b active_cmd=%0b rvi_active_cmd=%0b main_burst=%0b meta_burst=%0b",
-                         dut.tile_coord_vld, dut.rvi_valid, dut.enc_axi_awvalid, dut.enc_axi_wvalid,
+                         (dut.enc_ci_valid && dut.enc_ci_ready), dut.rvi_valid, dut.enc_axi_awvalid, dut.enc_axi_wvalid,
                          dut.meta_axi_awvalid, dut.meta_axi_wvalid, active_cmd_valid, rvi_active_cmd_valid,
                          main_burst_active, meta_burst_active);
                 $display("[TB][ERROR] meta path state: data_vld=%0b data_rdy=%0b addr_vld=%0b addr_rdy=%0b data=0x%016x last_x=%0d",
@@ -1648,7 +1681,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          dut.meta_last_xcoord);
                 $display("[TB][ERROR] meta path stall: enc_co_valid=%0b b_co_valid=%0b stall_cnt=%0d",
                          dut.enc_co_valid,
-                         dut.b_co_valid,
+                         mon_b_co_valid,
                          meta_path_stall_count);
                 if (first_meta_path_stall_seen) begin
                     $display("[TB][ERROR] first meta path stall: fmt=%0d x=%0d y=%0d",
@@ -1658,10 +1691,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 end
                 $display("[TB][ERROR] meta path last tile: fmt=%0d x=%0d y=%0d meta_vld=%0b word_x=%0d addr=0x%016x",
                          dut.b_tile_format,
-                         dut.meta_tile_xcoord,
+                         dut.b_tile_xcoord,
                          dut.b_tile_ycoord,
                          dut.meta_data_valid & dut.meta_addr_valid,
-                         {dut.meta_tile_xcoord[7:3], 3'b000},
+                         {dut.b_tile_xcoord[7:3], 3'b000},
                          dut.meta_addr);
                 $fatal(1, "Encoder wrapper did not become idle before next frame start.");
             end
@@ -1700,6 +1733,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         reg [31:0] reg10_data;
         reg [31:0] reg11_data;
         reg [31:0] reg20_data;
+        reg [31:0] reg21_data;
         begin
             reg2_data = 32'd0;
             reg2_data[0]     = 1'b1;
@@ -1729,6 +1763,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             reg11_data = {CASE_B_TILE_COLS[15:0], CASE_A_TILE_COLS[15:0]};
             reg20_data = CASE_HAS_PLANE1 ? {(CASE_IS_G016 ? G016_ACTIVE_H[15:0] : NV12_ACTIVE_H[15:0]), IMG_W[15:0]}
                                          : {RGBA_ACTIVE_H[15:0], IMG_W[15:0]};
+            reg21_data = CASE_META_PITCH_BYTES[31:0];
 
             apb_write(16'h000c, reg3_data);
             apb_write(16'h0008, reg2_data);
@@ -1748,6 +1783,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             apb_write(16'h0028, reg10_data);
             apb_write(16'h002c, reg11_data);
             apb_write(16'h0050, reg20_data);
+            apb_write(16'h0054, reg21_data);
             apb_write(16'h0020, reg8_data);
         end
     endtask
@@ -1814,6 +1850,52 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .i_m_axi_bresp   (i_m_axi_bresp),
         .i_m_axi_bvalid  (i_m_axi_bvalid),
         .o_m_axi_bready  (o_m_axi_bready)
+    );
+
+    tb_ubwc_enc_wrapper_top_monitor #(
+        .AXI_AW (AXI_AW)
+    ) u_monitor (
+        .meta_data_valid          (dut.meta_data_valid),
+        .meta_data_ready          (dut.meta_data_ready),
+        .meta_data                (dut.meta_data),
+        .meta_addr_valid          (dut.meta_addr_valid),
+        .meta_addr_ready          (dut.meta_addr_ready),
+        .meta_addr                (dut.meta_addr),
+        .meta_uv_base_offset_addr (dut.meta_uv_base_offset_addr),
+        .meta_axi_awvalid         (dut.meta_axi_awvalid),
+        .meta_axi_awready         (dut.meta_axi_awready),
+        .meta_axi_awaddr          (dut.meta_axi_awaddr),
+        .b_tile_info_vld          (dut.u_coord_fifo.valid),
+        .enc_co_ready             (dut.enc_co_ready),
+        .otf_tile_last            (dut.ubwc_enc_otf_to_tile_inst.o_tile_last),
+        .otf_tile_fcnt            (dut.ubwc_enc_otf_to_tile_inst.o_tile_fcnt),
+        .err_bline                (dut.ubwc_enc_otf_to_tile_inst.o_err_bline),
+        .err_bframe               (dut.ubwc_enc_otf_to_tile_inst.o_err_bframe),
+        .meta_valid               (mon_meta_valid),
+        .meta_ready               (mon_meta_ready),
+        .meta_last                (mon_meta_last),
+        .meta_sel_y               (mon_meta_sel_y),
+        .meta_sel_uv              (mon_meta_sel_uv),
+        .y_meta_valid             (mon_y_meta_valid),
+        .y_meta_last              (mon_y_meta_last),
+        .y_meta_ready             (mon_y_meta_ready),
+        .y_meta_data              (mon_y_meta_data),
+        .y_meta_addr              (mon_y_meta_addr),
+        .uv_meta_valid            (mon_uv_meta_valid),
+        .uv_meta_last             (mon_uv_meta_last),
+        .uv_meta_ready            (mon_uv_meta_ready),
+        .uv_meta_data             (mon_uv_meta_data),
+        .uv_meta_addr             (mon_uv_meta_addr),
+        .meta_aw_fire             (mon_meta_aw_fire),
+        .meta_aw_sel_uv           (mon_meta_aw_sel_uv),
+        .meta_aw_y_addr           (mon_meta_aw_y_addr),
+        .meta_aw_uv_addr          (mon_meta_aw_uv_addr),
+        .b_co_valid               (mon_b_co_valid),
+        .b_co_fire                (),
+        .dbg_otf_tile_last        (dbg_otf_to_tile_last),
+        .dbg_otf_tile_fcnt        (dbg_otf_to_tile_fcnt),
+        .dbg_err_bline            (mon_err_bline),
+        .dbg_err_bframe           (mon_err_bframe)
     );
 
     tb_enc_sync_sram_1rw #(
@@ -1890,12 +1972,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
     assign dbg_otf_to_tile_ci_valid  = dut.enc_ci_valid;
     assign dbg_otf_to_tile_ci_ready  = dut.enc_ci_ready;
-    assign dbg_otf_to_tile_last      = dut.rvi_last;
-    assign dbg_otf_to_tile_coord_vld = dut.tile_coord_vld;
+    assign dbg_otf_to_tile_coord_vld = dut.enc_ci_valid && dut.enc_ci_ready;
     assign dbg_otf_to_tile_x         = dut.tile_xcoord_raw;
     assign dbg_otf_to_tile_y         = dut.tile_ycoord_raw;
-    assign dbg_otf_to_tile_fcnt      = dut.tile_fcnt;
-    assign dbg_otf_to_tile_format    = dut.enc_ci_format;
+    assign dbg_otf_to_tile_format    = dut.tile_format;
     assign meta_aw_fire_w            = dut.meta_axi_awvalid && dut.meta_axi_awready;
     assign meta_w_fire_w             = dut.meta_axi_wvalid && dut.meta_axi_wready;
     assign meta_use_curr_aw_w        = meta_aw_fire_w && !meta_burst_active;
@@ -1914,7 +1994,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                         dut.enc_cvo_valid && dut.enc_cvo_ready &&
                                         !cvo_active_cmd_valid &&
                                         (cvo_cmd_rd_ptr >= cvo_cmd_wr_ptr));
-    assign tb_output_activity        = dut.tile_coord_vld || dut.rvi_valid ||
+    assign tb_output_activity        = (dut.enc_ci_valid && dut.enc_ci_ready) || dut.rvi_valid ||
                                        dut.enc_axi_awvalid || dut.enc_axi_wvalid ||
                                        dut.meta_axi_awvalid || dut.meta_axi_wvalid ||
                                        active_cmd_valid || rvi_active_cmd_valid ||
@@ -2403,7 +2483,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 end
             end
 
-            if (dut.meta_valid && dut.meta_ready) begin
+            if (mon_meta_valid && mon_meta_ready) begin
                 meta_gen_fire_count <= meta_gen_fire_count + 1;
                 if (CASE_HAS_PLANE1 && (dut.meta_addr >= CASE_META_BASE_UV_ADDR))
                     meta_gen_fire_count_plane1 <= meta_gen_fire_count_plane1 + 1;
@@ -2416,11 +2496,11 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 end
             end
 
-            if (dut.tile_coord_vld) begin
+            if (dut.enc_ci_valid && dut.enc_ci_ready) begin
                 coord_count <= coord_count + 1;
                 if (tb_fake_mode_en) begin
                     if (cmd_wr_ptr < TILE_QUEUE_CAPACITY) begin
-                        cmd_fmt_queue[cmd_wr_ptr] <= dut.enc_ci_format;
+                        cmd_fmt_queue[cmd_wr_ptr] <= dut.tile_format;
                         cmd_x_queue[cmd_wr_ptr]   <= dut.tile_xcoord_raw;
                         cmd_y_queue[cmd_wr_ptr]   <= dut.tile_ycoord_raw;
                         cmd_wr_ptr                <= cmd_wr_ptr + 1;
@@ -2938,9 +3018,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                         first_meta_aw_addr        <= dut.meta_axi_awaddr;
                         first_meta_aw_y_base      <= dut.meta_y_base_offset_addr;
                         first_meta_aw_uv_base     <= dut.meta_uv_base_offset_addr;
-                        first_meta_aw_y_meta_addr <= dut.y_meta_addr;
-                        first_meta_aw_uv_meta_addr<= dut.uv_meta_addr;
-                        first_meta_aw_sel_uv      <= dut.meta_sel_uv;
+                        first_meta_aw_sel_uv      <= mon_meta_aw_sel_uv;
+                        first_meta_aw_y_meta_addr <= mon_meta_aw_y_addr;
+                        first_meta_aw_uv_meta_addr<= mon_meta_aw_uv_addr;
                     end
                     if (!meta_word_addr_valid(dut.meta_axi_awaddr)) begin
                         out_range_mismatch_count <= out_range_mismatch_count + 1;
@@ -3307,8 +3387,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             $display("  range_mismatch_cnt  : %0d", out_range_mismatch_count);
             $display("  wlast_mismatch_cnt  : %0d", out_wlast_mismatch_count);
         end
-        $display("  dut.err_bline       : %0d", dut.err_bline);
-        $display("  dut.err_bframe      : %0d", dut.err_bframe);
+            $display("  dut.err_bline       : %0d", mon_err_bline);
+            $display("  dut.err_bframe      : %0d", mon_err_bframe);
         $display("  dut.err_fifo_ovf    : %0d", dut.err_fifo_ovf);
         $display("  otf_error           : %0d", otf_error);
         $display("  main_mem_dump_file  : %0s", main_dump_file);

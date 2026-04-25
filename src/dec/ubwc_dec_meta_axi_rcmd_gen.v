@@ -51,6 +51,7 @@ module ubwc_dec_meta_axi_rcmd_gen #(
 
     wire        fifo_empty;
     wire        fifo_full;
+    wire        fifo_valid;
     wire        fifo_rd_en;
     wire [ADDR_WIDTH+7:0] fifo_dout;
     wire [ADDR_WIDTH-1:0] fifo_cmd_addr;
@@ -59,24 +60,28 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     
     // --- 1. FIFO storage logic ---
     // The start pulse acts as a synchronous clear for the FIFO pointers
-    sync_fifo #(
-        .DATA_WIDTH(ADDR_WIDTH + 8),
-        .DEPTH(16)
+    mg_sync_fifo #(
+        .PROG_DEPTH (1),
+        .DWIDTH     (ADDR_WIDTH + 8),
+        .DEPTH      (16),
+        .SHOW_AHEAD (1)
     ) u_cmd_fifo (
-        .clk      (clk),
-        .rst_n    (rst_n),
-        .clr      (start),
-        .wr_en    (in_cmd_en && in_cmd_ready),
-        .din      ({in_cmd_addr, in_cmd_len}),
-        .rd_en    (fifo_rd_en),
-        .dout     (fifo_dout),
-        .empty    (fifo_empty),
-        .full     (fifo_full)
+        .clk        (clk),
+        .rst_n      (rst_n && !start),
+        .wr_en      (in_cmd_en && in_cmd_ready),
+        .din        ({in_cmd_addr, in_cmd_len}),
+        .prog_full  (),
+        .full       (fifo_full),
+        .rd_en      (fifo_rd_en),
+        .empty      (fifo_empty),
+        .dout       (fifo_dout),
+        .valid      (fifo_valid),
+        .data_count ()
     );
 
     // --- 2. AXI AR channel drive ---
     assign in_cmd_ready  = rst_n && !start && !fifo_full;
-    assign m_axi_arvalid = rst_n && !start && !fifo_empty;
+    assign m_axi_arvalid = rst_n && !start && fifo_valid;
     assign {fifo_cmd_addr, fifo_cmd_len_bytes} = fifo_dout;
     assign m_axi_araddr = fifo_cmd_addr;
     assign m_axi_arlen  = (fifo_cmd_len_bytes == 8'd0) ? 8'd0 :

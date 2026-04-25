@@ -127,6 +127,7 @@ module ubwc_enc_otf_to_tile
     wire                   data_fifo_full;
     wire                   data_fifo_almost_full;
     wire                   data_fifo_empty;
+    wire                   data_fifo_valid;
     wire [DATA_FIFO_W-1:0] data_fifo_dout;
     wire [DATA_FIFO_W-1:0] data_fifo_din;
     wire                   data_fifo_wr_en;
@@ -134,6 +135,7 @@ module ubwc_enc_otf_to_tile
 
     wire                 ci_fifo_full;
     wire                 ci_fifo_empty;
+    wire                 ci_fifo_valid;
     wire [CI_FIFO_W-1:0] ci_fifo_dout;
     wire [CI_FIFO_W-1:0] ci_fifo_din;
     wire                 ci_fifo_wr_en;
@@ -208,15 +210,15 @@ module ubwc_enc_otf_to_tile
                              {1'b1, {16'd0, half_keep_r}, {128'd0, half_data_r}} :
                              {line_tile_last, {line_tile_keep, half_keep_r}, {line_tile_data, half_data_r}};
     assign data_fifo_wr_en = flush_half_only || pack_second_fire;
-    assign data_fifo_rd_en = !data_fifo_empty && i_tile_rdy;
+    assign data_fifo_rd_en = data_fifo_valid && i_tile_rdy;
 
     assign ci_fifo_din     = {line_tile_forced_pcm, line_tile_format, line_tile_fcnt, line_tile_y, line_tile_x};
     assign ci_fifo_wr_en   = line_tile_fire && tile_first_word_r;
-    assign ci_fifo_rd_en   = !ci_fifo_empty && i_ci_ready;
+    assign ci_fifo_rd_en   = ci_fifo_valid && i_ci_ready;
 
     assign line_tile_rdy = pack_in_ready && !data_fifo_almost_full && (!ci_push_needed || ci_push_ready);
-    assign o_tile_vld    = !data_fifo_empty;
-    assign o_ci_valid    = !ci_fifo_empty;
+    assign o_tile_vld    = data_fifo_valid;
+    assign o_ci_valid    = ci_fifo_valid;
     assign {o_tile_last, o_tile_keep, o_tile_data} = data_fifo_dout;
     assign {o_ci_forced_pcm, o_tile_format, o_tile_fcnt, o_tile_y, o_tile_x} = ci_fifo_dout;
 
@@ -272,36 +274,42 @@ module ubwc_enc_otf_to_tile
         end
     end
 
-    sync_fifo_af #(
-        .DATA_WIDTH (DATA_FIFO_W),
+    mg_sync_fifo #(
+        .PROG_DEPTH (DATA_FIFO_DEPTH - DATA_FIFO_AF_LEVEL),
+        .DWIDTH     (DATA_FIFO_W),
         .DEPTH      (DATA_FIFO_DEPTH),
-        .AF_LEVEL   (DATA_FIFO_AF_LEVEL)
+        .SHOW_AHEAD (1)
     ) u_data_fifo (
         .clk         (clk),
         .rst_n       (rst_n),
         .wr_en       (data_fifo_wr_en),
         .din         (data_fifo_din),
+        .prog_full   (data_fifo_almost_full),
         .full        (data_fifo_full),
-        .almost_full (data_fifo_almost_full),
         .rd_en       (data_fifo_rd_en),
+        .empty       (data_fifo_empty),
         .dout        (data_fifo_dout),
-        .empty       (data_fifo_empty)
+        .valid       (data_fifo_valid),
+        .data_count  ()
     );
 
-    sync_fifo_af #(
-        .DATA_WIDTH (CI_FIFO_W),
+    mg_sync_fifo #(
+        .PROG_DEPTH (1),
+        .DWIDTH     (CI_FIFO_W),
         .DEPTH      (CI_FIFO_DEPTH),
-        .AF_LEVEL   (CI_FIFO_DEPTH-1)
+        .SHOW_AHEAD (1)
     ) u_ci_fifo (
         .clk         (clk),
         .rst_n       (rst_n),
         .wr_en       (ci_fifo_wr_en),
         .din         (ci_fifo_din),
+        .prog_full   (),
         .full        (ci_fifo_full),
-        .almost_full (),
         .rd_en       (ci_fifo_rd_en),
+        .empty       (ci_fifo_empty),
         .dout        (ci_fifo_dout),
-        .empty       (ci_fifo_empty)
+        .valid       (ci_fifo_valid),
+        .data_count  ()
     );
 
     ubwc_enc_otf_data_packer u_otf_data_packer

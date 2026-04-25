@@ -28,7 +28,7 @@ module ubwc_enc_meta_addr_gen
         input   wire                        i_srstn                     ,
 
         input   wire    [32         -1:0]   i_meta_data_plane_pitch     ,
-        input   wire    [TW_DW      -1:0]   i_total_x_units             ,
+        input   wire    [TW_DW      -1:0]   i_meta_last_xcoord          ,
 
         input   wire    [64         -1:0]   i_meta_y_base_offset_addr   ,
         input   wire    [64         -1:0]   i_meta_uv_base_offset_addr  ,
@@ -128,7 +128,7 @@ module ubwc_enc_meta_addr_gen
     assign tile_meta_fill_byte_w = build_meta_byte(int_co_alen);
     assign tile_meta_vld_w       = tile_meta_vld;
     assign pack_reg_r            = tile_meta_word_w;
-    assign tile_last_xcoord_w    = i_total_x_units;
+    assign tile_last_xcoord_w    = i_meta_last_xcoord;
     assign tile_word_xcoord_w    = {int_xcoord[TW_DW-1:3], 3'b000};
 
     //pop_cnt
@@ -165,7 +165,7 @@ module ubwc_enc_meta_addr_gen
             in_fifo_pop_ready   <= 1'b0 ;
         else if((meta_data_buf_pfull == 1'b0) && (meta_addr_buf_pfull == 1'b0))
             in_fifo_pop_ready   <= 1'b1 ;
-        else if(((pop_cnt == 3'd7) || (int_xcoord == i_total_x_units)) && ((meta_data_buf_pfull == 1'b1) || (meta_addr_buf_pfull == 1'b1)))
+        else if(((pop_cnt == 3'd7) || (int_xcoord == i_meta_last_xcoord)) && ((meta_data_buf_pfull == 1'b1) || (meta_addr_buf_pfull == 1'b1)))
             in_fifo_pop_ready   <= 1'b0 ;
     end
 
@@ -173,7 +173,7 @@ module ubwc_enc_meta_addr_gen
         if(~i_rstn)
             tile_meta_vld   <= 1'b0 ;
         else if(in_fifo_pop_valid && in_fifo_pop_ready) begin
-            if((pop_cnt == 3'd7) || (int_xcoord == i_total_x_units))
+            if((pop_cnt == 3'd7) || (int_xcoord == i_meta_last_xcoord))
                 tile_meta_vld   <= 1'b1 ;
             else
                 tile_meta_vld   <= 1'b0 ;
@@ -251,5 +251,9 @@ module ubwc_enc_meta_addr_gen
         .valid                      ( o_meta_addr_valid         ),
         .data_count                 (                           )
     );
+
+    assign  o_meta_err_0   = 1'b0;
+    assign  o_meta_err_1   = 1'b0;
+    assign  o_frame_done   = 1'b0;
 
 endmodule

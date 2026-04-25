@@ -15,7 +15,8 @@ module ubwc_enc_apb_reg_blk
         parameter AW       = 16,
         parameter DW       = 32,
         parameter NREG     = 64,
-        parameter SB_WIDTH = 1
+        parameter SB_WIDTH = 1,
+        parameter TW_DW    = 8
     )(
         input   wire                    PCLK,
         input   wire                    PRESETn,
@@ -28,8 +29,6 @@ module ubwc_enc_apb_reg_blk
         output  wire                    PSLVERR,
         output  wire    [DW-1:0]        PRDATA,
 
-        output  reg                     o_otf_cfg_vld,
-        input   wire                    i_otf_cfg_rdy,
         output  wire    [2:0]           o_otf_cfg_format,
         output  wire    [15:0]          o_otf_cfg_width,
         output  wire    [15:0]          o_otf_cfg_height,
@@ -37,23 +36,14 @@ module ubwc_enc_apb_reg_blk
         output  wire    [3:0]           o_otf_cfg_tile_h,
         output  wire    [15:0]          o_otf_cfg_a_tile_cols,
         output  wire    [15:0]          o_otf_cfg_b_tile_cols,
-        output  wire    [15:0]          o_pic_tile_cols,
-        output  wire    [15:0]          o_pic_tile_rows,
-        output  wire    [15:0]          o_total_x_units,
-        output  wire    [27:0]          o_tile_x_numbers,
-        output  wire    [12:0]          o_tile_y_numbers,
+        output  wire    [TW_DW-1:0]     o_meta_last_xcoord,
         output  wire    [15:0]          o_meta_active_width_px,
         output  wire    [15:0]          o_meta_active_height_px,
-        output  wire    [27:0]          o_meta_active_tile_x_numbers,
-        output  wire    [12:0]          o_meta_active_tile_y_numbers,
+        output  wire    [31:0]          o_meta_data_plane_pitch,
 
         output  wire                    o_enc_ubwc_en,
-        output  reg                     o_enc_ci_vld,
-        input   wire                    i_enc_ci_rdy,
         output  wire                    o_enc_ci_input_type,
         output  wire    [2:0]           o_enc_ci_alen,
-        output  wire    [4:0]           o_enc_ci_format,
-        output  wire                    o_enc_ci_forced_pcm,
         output  wire    [SB_WIDTH-1:0]  o_enc_ci_sb,
         output  wire                    o_enc_ci_lossy,
         output  wire    [2:0]           o_enc_ci_ubwc_cfg_0,
@@ -72,8 +62,6 @@ module ubwc_enc_apb_reg_blk
         input   wire                    i_enc_idle,
         input   wire                    i_enc_error,
 
-        output  reg                     o_tile_addr_gen_cfg_vld,
-        input   wire                    i_tile_addr_gen_cfg_rdy,
         output  wire                    o_lvl1_bank_swizzle_en,
         output  wire                    o_lvl2_bank_swizzle_en,
         output  wire                    o_lvl3_bank_swizzle_en,
@@ -81,14 +69,19 @@ module ubwc_enc_apb_reg_blk
         output  wire                    o_bank_spread_en,
         output  wire                    o_4line_format,
         output  wire                    o_is_lossy_rgba_2_1_format,
-        output  wire    [11:0]          o_pitch,
+        output  wire    [11:0]          o_tile_pitch,
         output  wire    [63:0]          o_y_base_offset_addr,
         output  wire    [63:0]          o_uv_base_offset_addr,
         output  wire    [63:0]          o_meta_y_base_offset_addr,
         output  wire    [63:0]          o_meta_uv_base_offset_addr,
 
         input   wire                    i_otf_to_tile_busy,
-        input   wire                    i_otf_to_tile_overflow
+        input   wire                    i_otf_to_tile_overflow,
+        input   wire                    i_otf_err_bline,
+        input   wire                    i_otf_err_bframe,
+        input   wire                    i_meta_err_0,
+        input   wire                    i_meta_err_1,
+        input   wire                    i_meta_frame_done
     );
 
     localparam [DW-1:0] REG_VERSION = 32'h0001_0000;
@@ -115,6 +108,8 @@ module ubwc_enc_apb_reg_blk
     localparam integer REG_META_BASE_UV_LO = 18;
     localparam integer REG_META_BASE_UV_HI = 19;
     localparam integer REG_META_ACTIVE_SIZE = 20;
+    localparam integer REG_META_PITCH       = 21;
+    localparam integer REG_STATUS0          = 22;
 
     reg [DW-1:0] regs [0:NREG-1];
     reg [DW-1:0] r_prdata;
@@ -124,8 +119,8 @@ module ubwc_enc_apb_reg_blk
     wire [AW-3:0] reg_addr = PADDR[AW-1:2];
     wire [15:0] meta_active_width_px;
     wire [15:0] meta_active_height_px;
-    wire [15:0] meta_active_tile_cols;
-    wire [15:0] meta_active_tile_rows;
+    wire [15:0] total_x_units;
+    wire [DW-1:0] status0;
 
     integer i;
 
@@ -144,49 +139,33 @@ module ubwc_enc_apb_reg_blk
                     regs[i] <= {DW{1'b0}};
             end
         end else if (apb_write) begin
-            if (reg_addr > REG_DATE_IDX[AW-3:0])
+            if ((reg_addr > REG_DATE_IDX[AW-3:0]) && (reg_addr < NREG) && (reg_addr != REG_STATUS0[AW-3:0]))
                 regs[reg_addr] <= PWDATA;
         end
     end
 
     always @(*) begin
-        if (reg_addr < NREG)
+        if (reg_addr == REG_STATUS0[AW-3:0])
+            r_prdata = status0;
+        else if (reg_addr < NREG)
             r_prdata = regs[reg_addr];
         else
             r_prdata = {DW{1'b0}};
     end
 
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            o_enc_ci_vld <= 1'b0;
-        else if (o_enc_ci_vld && i_enc_ci_rdy)
-            o_enc_ci_vld <= 1'b0;
-        else if (apb_write && (reg_addr == REG_ENC_CI_CFG0[AW-3:0]))
-            o_enc_ci_vld <= 1'b1;
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            o_otf_cfg_vld <= 1'b0;
-        else if (o_otf_cfg_vld && i_otf_cfg_rdy)
-            o_otf_cfg_vld <= 1'b0;
-        else if (apb_write && (reg_addr == REG_OTF_CFG0[AW-3:0]))
-            o_otf_cfg_vld <= 1'b1;
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            o_tile_addr_gen_cfg_vld <= 1'b0;
-        else if (o_tile_addr_gen_cfg_vld && i_tile_addr_gen_cfg_rdy)
-            o_tile_addr_gen_cfg_vld <= 1'b0;
-        else if (apb_write && (reg_addr == REG_TILE_CFG0[AW-3:0]))
-            o_tile_addr_gen_cfg_vld <= 1'b1;
-    end
+    assign status0                    = {{(DW-9){1'b0}},
+                                         i_meta_frame_done,
+                                         i_meta_err_1,
+                                         i_meta_err_0,
+                                         i_otf_err_bframe,
+                                         i_otf_err_bline,
+                                         i_otf_to_tile_overflow,
+                                         i_otf_to_tile_busy,
+                                         i_enc_error,
+                                         i_enc_idle};
 
     assign o_enc_ci_input_type         = regs[REG_ENC_CI_CFG0][0];
     assign o_enc_ci_alen               = regs[REG_ENC_CI_CFG0][10:8];
-    assign o_enc_ci_format             = regs[REG_ENC_CI_CFG0][20:16];
-    assign o_enc_ci_forced_pcm         = regs[REG_ENC_CI_CFG0][24];
 
     assign o_enc_ci_sb                 = regs[REG_ENC_CI_CFG1][0 +: SB_WIDTH];
     assign o_enc_ci_lossy              = regs[REG_ENC_CI_CFG1][16];
@@ -212,11 +191,12 @@ module ubwc_enc_apb_reg_blk
     assign o_bank_spread_en            = regs[REG_TILE_CFG0][16];
     assign o_4line_format              = regs[REG_TILE_CFG1][0];
     assign o_is_lossy_rgba_2_1_format  = regs[REG_TILE_CFG1][1];
-    assign o_pitch                     = regs[REG_TILE_CFG1][16 +: 11];
+    assign o_tile_pitch                = regs[REG_TILE_CFG1][16 +: 11];
     assign o_y_base_offset_addr        = {regs[REG_TILE_BASE_Y_HI],  regs[REG_TILE_BASE_Y_LO]};
     assign o_uv_base_offset_addr       = {regs[REG_TILE_BASE_UV_HI], regs[REG_TILE_BASE_UV_LO]};
     assign o_meta_y_base_offset_addr   = {regs[REG_META_BASE_Y_HI],  regs[REG_META_BASE_Y_LO]};
     assign o_meta_uv_base_offset_addr  = {regs[REG_META_BASE_UV_HI], regs[REG_META_BASE_UV_LO]};
+    assign o_meta_data_plane_pitch     = regs[REG_META_PITCH];
 
     assign o_otf_cfg_format            = regs[REG_OTF_CFG0][0  +: 3];
     assign o_otf_cfg_width             = regs[REG_OTF_CFG1][0  +: 16];
@@ -225,20 +205,12 @@ module ubwc_enc_apb_reg_blk
     assign o_otf_cfg_tile_h            = regs[REG_OTF_CFG2][16 +: 4];
     assign o_otf_cfg_a_tile_cols       = regs[REG_OTF_CFG3][0  +: 16];
     assign o_otf_cfg_b_tile_cols       = regs[REG_OTF_CFG3][16 +: 16];
-    assign o_pic_tile_cols             = (o_otf_cfg_a_tile_cols >= o_otf_cfg_b_tile_cols) ? o_otf_cfg_a_tile_cols : o_otf_cfg_b_tile_cols;
-    assign o_pic_tile_rows             = (o_otf_cfg_tile_h != 0) ? ((o_otf_cfg_height + {{12{1'b0}}, o_otf_cfg_tile_h} - 16'd1) / {{12{1'b0}}, o_otf_cfg_tile_h}) : 16'd0;
-    assign o_total_x_units             = o_pic_tile_cols;
-    assign o_tile_x_numbers            = {{12{1'b0}}, o_pic_tile_cols};
-    assign o_tile_y_numbers            = o_pic_tile_rows[12:0];
+    assign total_x_units               = (o_otf_cfg_a_tile_cols >= o_otf_cfg_b_tile_cols) ? o_otf_cfg_a_tile_cols : o_otf_cfg_b_tile_cols;
+    assign o_meta_last_xcoord          = (total_x_units == 16'd0) ? {TW_DW{1'b0}} :
+                                         (total_x_units[TW_DW-1:0] - {{(TW_DW-1){1'b0}}, 1'b1});
     assign meta_active_width_px        = regs[REG_META_ACTIVE_SIZE][15:0];
     assign meta_active_height_px       = regs[REG_META_ACTIVE_SIZE][31:16];
     assign o_meta_active_width_px      = meta_active_width_px;
     assign o_meta_active_height_px     = meta_active_height_px;
-    assign meta_active_tile_cols       = (meta_active_width_px == 16'd0) ? o_pic_tile_cols :
-                                         ((o_otf_cfg_tile_w != 0) ? ((meta_active_width_px + o_otf_cfg_tile_w - 16'd1) / o_otf_cfg_tile_w) : 16'd0);
-    assign meta_active_tile_rows       = (meta_active_height_px == 16'd0) ? o_pic_tile_rows :
-                                         ((o_otf_cfg_tile_h != 0) ? ((meta_active_height_px + {{12{1'b0}}, o_otf_cfg_tile_h} - 16'd1) / {{12{1'b0}}, o_otf_cfg_tile_h}) : 16'd0);
-    assign o_meta_active_tile_x_numbers = {{12{1'b0}}, meta_active_tile_cols};
-    assign o_meta_active_tile_y_numbers = meta_active_tile_rows[12:0];
 
 endmodule

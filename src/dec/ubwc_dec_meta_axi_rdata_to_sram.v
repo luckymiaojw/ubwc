@@ -89,28 +89,42 @@ module ubwc_dec_meta_axi_rdata_to_sram #(
     // 2. FIFO instantiation (pure signal wiring only)
     // -------------------------------------------------------------------------
     
-    sync_fifo #(.DATA_WIDTH(37), .DEPTH(16)) u_meta_fifo (
-        .clk    (clk),
-        .rst_n  (rst_n && !start),
-        .clr    (1'b0),
-        .din    (m_fifo_din),
-        .wr_en  (m_fifo_wr_en),
-        .full   (m_fifo_full),
-        .dout   (m_fifo_dout),
-        .rd_en  (m_fifo_rd_en),
-        .empty  (m_fifo_empty)
+    mg_sync_fifo #(
+        .PROG_DEPTH (1),
+        .DWIDTH     (37),
+        .DEPTH      (16),
+        .SHOW_AHEAD (1)
+    ) u_meta_fifo (
+        .clk        (clk),
+        .rst_n      (rst_n && !start),
+        .wr_en      (m_fifo_wr_en),
+        .din        (m_fifo_din),
+        .prog_full  (),
+        .full       (m_fifo_full),
+        .rd_en      (m_fifo_rd_en),
+        .empty      (m_fifo_empty),
+        .dout       (m_fifo_dout),
+        .valid      (),
+        .data_count ()
     );
 
-    sync_fifo #(.DATA_WIDTH(AXI_DATA_WIDTH + 1), .DEPTH(32)) u_data_fifo (
-        .clk    (clk),
-        .rst_n  (rst_n && !start),
-        .clr    (1'b0),
-        .din    (d_fifo_din),
-        .wr_en  (d_fifo_wr_en),
-        .full   (d_fifo_full),
-        .dout   (d_fifo_dout),
-        .rd_en  (d_fifo_rd_en),
-        .empty  (d_fifo_empty)
+    mg_sync_fifo #(
+        .PROG_DEPTH (1),
+        .DWIDTH     (AXI_DATA_WIDTH + 1),
+        .DEPTH      (32),
+        .SHOW_AHEAD (1)
+    ) u_data_fifo (
+        .clk        (clk),
+        .rst_n      (rst_n && !start),
+        .wr_en      (d_fifo_wr_en),
+        .din        (d_fifo_din),
+        .prog_full  (),
+        .full       (d_fifo_full),
+        .rd_en      (d_fifo_rd_en),
+        .empty      (d_fifo_empty),
+        .dout       (d_fifo_dout),
+        .valid      (),
+        .data_count ()
     );
 
     // -------------------------------------------------------------------------

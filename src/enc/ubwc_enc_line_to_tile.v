@@ -241,6 +241,7 @@ module ubwc_enc_line_to_tile#(
     wire                   resp_fifo_full;
     wire                   resp_fifo_almost_full;
     wire                   resp_fifo_empty;
+    wire                   resp_fifo_valid;
     wire [RESP_FIFO_W-1:0] resp_fifo_din;
     wire [RESP_FIFO_W-1:0] resp_fifo_dout;
     wire                   resp_fifo_wr_en;
@@ -254,9 +255,9 @@ module ubwc_enc_line_to_tile#(
     wire [127:0]      read_data     = rd_pipe_bank_sel_r ? bank1_dout : bank0_dout;
     assign resp_fifo_din = {rd_pipe_fcnt_r, rd_pipe_y_r, rd_pipe_x_r, rd_pipe_plane_r, rd_pipe_last_r, 16'hFFFF, read_data};
     assign resp_fifo_wr_en = read_data_vld;
-    assign resp_fifo_rd_en = !resp_fifo_empty && i_tile_rdy;
+    assign resp_fifo_rd_en = resp_fifo_valid && i_tile_rdy;
 
-    assign o_tile_vld  = !resp_fifo_empty;
+    assign o_tile_vld  = resp_fifo_valid;
     assign {o_tile_fcnt, o_tile_y, o_tile_x, o_plane, o_tile_last, o_tile_keep, o_tile_data} = resp_fifo_dout;
 
     // ------------------------------------------------------------------------
@@ -306,20 +307,23 @@ module ubwc_enc_line_to_tile#(
 
     end
 
-    sync_fifo_af #(
-        .DATA_WIDTH (RESP_FIFO_W),
+    mg_sync_fifo #(
+        .PROG_DEPTH (RESP_FIFO_DEPTH - RESP_FIFO_AF_LEVEL),
+        .DWIDTH     (RESP_FIFO_W),
         .DEPTH      (RESP_FIFO_DEPTH),
-        .AF_LEVEL   (RESP_FIFO_AF_LEVEL)
+        .SHOW_AHEAD (1)
     ) u_resp_fifo (
         .clk         (clk),
         .rst_n       (rst_n),
         .wr_en       (resp_fifo_wr_en),
         .din         (resp_fifo_din),
+        .prog_full   (resp_fifo_almost_full),
         .full        (resp_fifo_full),
-        .almost_full (resp_fifo_almost_full),
         .rd_en       (resp_fifo_rd_en),
+        .empty       (resp_fifo_empty),
         .dout        (resp_fifo_dout),
-        .empty       (resp_fifo_empty)
+        .valid       (resp_fifo_valid),
+        .data_count  ()
     );
 
     // ------------------------------------------------------------------------

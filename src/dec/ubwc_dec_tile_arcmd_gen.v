@@ -188,25 +188,30 @@ module ubwc_dec_tile_arcmd_gen #(
     wire [CI_FIFO_W-1:0] ci_fifo_dout;
     wire                 ci_fifo_full;
     wire                 ci_fifo_empty;
+    wire                 ci_fifo_valid;
     wire                 ci_fifo_wr_en = tile_cmd_valid && tile_cmd_ready;
     wire                 ci_fifo_rd_en = o_ci_valid && i_ci_ready;
     wire                 ci_fifo_has_payload = ci_fifo_dout[CI_PAYLOAD_BIT];
     wire [AXI_AW-1:0]    ci_fifo_addr        = ci_fifo_dout[CI_ADDR_MSB:CI_ADDR_LSB];
     wire [2:0]           ci_fifo_alen        = ci_fifo_dout[CI_ALEN_MSB:CI_ALEN_LSB];
 
-    sync_fifo #(
-        .DATA_WIDTH (CI_FIFO_W),
-        .DEPTH      (64)
+    mg_sync_fifo #(
+        .PROG_DEPTH (1),
+        .DWIDTH     (CI_FIFO_W),
+        .DEPTH      (64),
+        .SHOW_AHEAD (1)
     ) u_ci_fifo (
-        .clk    (clk),
-        .rst_n  (rst_n),
-        .clr    (frame_start),
-        .wr_en  (ci_fifo_wr_en),
-        .din    (ci_fifo_din),
-        .full   (ci_fifo_full),
-        .rd_en  (ci_fifo_rd_en),
-        .dout   (ci_fifo_dout),
-        .empty  (ci_fifo_empty)
+        .clk        (clk),
+        .rst_n      (rst_n && !frame_start),
+        .wr_en      (ci_fifo_wr_en),
+        .din        (ci_fifo_din),
+        .prog_full  (),
+        .full       (ci_fifo_full),
+        .rd_en      (ci_fifo_rd_en),
+        .empty      (ci_fifo_empty),
+        .dout       (ci_fifo_dout),
+        .valid      (ci_fifo_valid),
+        .data_count ()
     );
 
     reg  [AXI_AW-1:0]       ar_req_addr_reg;
@@ -224,7 +229,7 @@ module ubwc_dec_tile_arcmd_gen #(
 
     assign tile_cmd_ready = !ci_fifo_full;
 
-    assign o_ci_valid       = !ci_fifo_empty && (payload_beats_left_reg == 4'd0);
+    assign o_ci_valid       = ci_fifo_valid && (payload_beats_left_reg == 4'd0);
     assign o_ci_input_type  = i_cfg_ci_input_type;
     assign o_ci_format      = ci_fifo_dout[CI_FORMAT_MSB:CI_FORMAT_LSB];
     assign o_ci_metadata    = ci_fifo_dout[CI_META_MSB:CI_META_LSB];

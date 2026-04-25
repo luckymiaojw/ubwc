@@ -180,43 +180,50 @@ module ubwc_enc_otf_data_packer
     wire         is_odd_line   = inf_lcnt[0];
 
     wire         fifo_a_empty, fifo_b_empty;
+    wire         fifo_a_valid, fifo_b_valid;
     reg          out_fifo_a_wr, out_fifo_b_wr;
     reg  [162:0] out_fifo_a_din, out_fifo_b_din;
     wire         out_fifo_a_afull, out_fifo_b_afull;
 
-    sync_fifo_af #(
-        .DATA_WIDTH(163),
-        .DEPTH(16),
-        .AF_LEVEL(12)
+    mg_sync_fifo #(
+        .PROG_DEPTH (4),
+        .DWIDTH     (163),
+        .DEPTH      (16),
+        .SHOW_AHEAD (1)
     ) u_out_fifo_a (
         .clk         (i_clk),
         .rst_n       (rst_n),
         .wr_en       (out_fifo_a_wr),
         .din         (out_fifo_a_din),
+        .prog_full   (out_fifo_a_afull),
         .full        (),
-        .almost_full (out_fifo_a_afull),
         .rd_en       (fifo_a_vld && fifo_a_rdy),
+        .empty       (fifo_a_empty),
         .dout        (fifo_a_data),
-        .empty       (fifo_a_empty)
+        .valid       (fifo_a_valid),
+        .data_count  ()
     );
-    assign fifo_a_vld = ~fifo_a_empty;
+    assign fifo_a_vld = fifo_a_valid;
 
-    sync_fifo_af #(
-        .DATA_WIDTH(163),
-        .DEPTH(16),
-        .AF_LEVEL(12)
+    mg_sync_fifo #(
+        .PROG_DEPTH (4),
+        .DWIDTH     (163),
+        .DEPTH      (16),
+        .SHOW_AHEAD (1)
     ) u_out_fifo_b (
         .clk         (i_clk),
         .rst_n       (rst_n),
         .wr_en       (out_fifo_b_wr),
         .din         (out_fifo_b_din),
+        .prog_full   (out_fifo_b_afull),
         .full        (),
-        .almost_full (out_fifo_b_afull),
         .rd_en       (fifo_b_vld && fifo_b_rdy),
+        .empty       (fifo_b_empty),
         .dout        (fifo_b_data),
-        .empty       (fifo_b_empty)
+        .valid       (fifo_b_valid),
+        .data_count  ()
     );
-    assign fifo_b_vld = ~fifo_b_empty;
+    assign fifo_b_vld = fifo_b_valid;
 
     wire pipe_stall = out_fifo_a_afull | (need_b && out_fifo_b_afull);
     assign in_fifo_rd = !in_fifo_empty && !pipe_stall;
