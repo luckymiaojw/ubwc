@@ -69,7 +69,7 @@ module ubwc_dec_meta_data_from_sram
     wire        in_bfifo_re;
     wire [40:0] in_bfifo_rdata;
     wire        in_bfifo_empty;
-    wire        in_bfifo_full_unused;
+    wire        in_bfifo_full;
 
     ubwc_meta_simple_fifo #(
         .DWIDTH(41),
@@ -83,7 +83,7 @@ module ubwc_dec_meta_data_from_sram
         .re         (in_bfifo_re),
         .dout       (in_bfifo_rdata),
         .empty      (in_bfifo_empty),
-        .full       (in_bfifo_full_unused),
+        .full       (in_bfifo_full),
         .prog_full  (bfifo_prog_full)
     );
 
@@ -92,8 +92,8 @@ module ubwc_dec_meta_data_from_sram
     wire        legacy_int_fifo_re;
     wire [40:0] legacy_int_fifo_rdata;
     wire        legacy_int_fifo_empty;
-    wire        legacy_int_fifo_full_unused;
-    wire        legacy_int_fifo_prog_full_unused;
+    wire        legacy_int_fifo_full;
+    wire        legacy_int_fifo_prog_full;
 
     ubwc_meta_simple_fifo #( .DWIDTH(41), .AWIDTH(9) ) u_internal_fifo (
         .clk        (clk),
@@ -103,8 +103,8 @@ module ubwc_dec_meta_data_from_sram
         .re         (legacy_int_fifo_re),
         .dout       (legacy_int_fifo_rdata),
         .empty      (legacy_int_fifo_empty),
-        .full       (legacy_int_fifo_full_unused),
-        .prog_full  (legacy_int_fifo_prog_full_unused)
+        .full       (legacy_int_fifo_full),
+        .prog_full  (legacy_int_fifo_prog_full)
     );
 
     wire        yuv420_y0_fifo_we;
@@ -113,6 +113,7 @@ module ubwc_dec_meta_data_from_sram
     wire [40:0] yuv420_y0_fifo_dout;
     wire        yuv420_y0_fifo_empty;
     wire        yuv420_y0_fifo_full;
+    wire        yuv420_y0_fifo_prog_full;
 
     wire        yuv420_y1_fifo_we;
     wire [40:0] yuv420_y1_fifo_din;
@@ -120,6 +121,7 @@ module ubwc_dec_meta_data_from_sram
     wire [40:0] yuv420_y1_fifo_dout;
     wire        yuv420_y1_fifo_empty;
     wire        yuv420_y1_fifo_full;
+    wire        yuv420_y1_fifo_prog_full;
 
     wire        yuv420_uv_fifo_we;
     wire [40:0] yuv420_uv_fifo_din;
@@ -127,30 +129,32 @@ module ubwc_dec_meta_data_from_sram
     wire [40:0] yuv420_uv_fifo_dout;
     wire        yuv420_uv_fifo_empty;
     wire        yuv420_uv_fifo_full;
+    wire        yuv420_uv_fifo_prog_full;
 
     wire        yuv420_y0_int_fifo_we;
     wire [40:0] yuv420_y0_int_fifo_din;
     wire        yuv420_y0_int_fifo_re;
     wire [40:0] yuv420_y0_int_fifo_dout;
     wire        yuv420_y0_int_fifo_empty;
-    wire        yuv420_y0_int_fifo_full_unused;
-    wire        yuv420_y0_int_fifo_prog_full_unused;
+    wire        yuv420_y0_int_fifo_full;
+    wire        yuv420_y0_int_fifo_prog_full;
 
     wire        yuv420_y1_int_fifo_we;
     wire [40:0] yuv420_y1_int_fifo_din;
     wire        yuv420_y1_int_fifo_re;
     wire [40:0] yuv420_y1_int_fifo_dout;
     wire        yuv420_y1_int_fifo_empty;
-    wire        yuv420_y1_int_fifo_full_unused;
-    wire        yuv420_y1_int_fifo_prog_full_unused;
+    wire        yuv420_y1_int_fifo_full;
+    wire        yuv420_y1_int_fifo_prog_full;
 
     wire        yuv420_uv_int_fifo_we;
     wire [40:0] yuv420_uv_int_fifo_din;
     wire        yuv420_uv_int_fifo_re;
     wire [40:0] yuv420_uv_int_fifo_dout;
     wire        yuv420_uv_int_fifo_empty;
-    wire        yuv420_uv_int_fifo_full_unused;
-    wire        yuv420_uv_int_fifo_prog_full_unused;
+    wire        yuv420_uv_int_fifo_full;
+    wire        yuv420_uv_int_fifo_prog_full;
+    wire        fifo_status_seen;
 
     ubwc_meta_simple_fifo #( .DWIDTH(41), .AWIDTH(7) ) u_yuv420_y0_fifo (
         .clk        (clk),
@@ -161,7 +165,7 @@ module ubwc_dec_meta_data_from_sram
         .dout       (yuv420_y0_fifo_dout),
         .empty      (yuv420_y0_fifo_empty),
         .full       (yuv420_y0_fifo_full),
-        .prog_full  ()
+        .prog_full  (yuv420_y0_fifo_prog_full)
     );
 
     ubwc_meta_simple_fifo #( .DWIDTH(41), .AWIDTH(7) ) u_yuv420_y1_fifo (
@@ -173,7 +177,7 @@ module ubwc_dec_meta_data_from_sram
         .dout       (yuv420_y1_fifo_dout),
         .empty      (yuv420_y1_fifo_empty),
         .full       (yuv420_y1_fifo_full),
-        .prog_full  ()
+        .prog_full  (yuv420_y1_fifo_prog_full)
     );
 
     ubwc_meta_simple_fifo #( .DWIDTH(41), .AWIDTH(7) ) u_yuv420_uv_fifo (
@@ -185,7 +189,7 @@ module ubwc_dec_meta_data_from_sram
         .dout       (yuv420_uv_fifo_dout),
         .empty      (yuv420_uv_fifo_empty),
         .full       (yuv420_uv_fifo_full),
-        .prog_full  ()
+        .prog_full  (yuv420_uv_fifo_prog_full)
     );
 
     ubwc_meta_simple_fifo #( .DWIDTH(41), .AWIDTH(7) ) u_yuv420_y0_int_fifo (
@@ -196,8 +200,8 @@ module ubwc_dec_meta_data_from_sram
         .re         (yuv420_y0_int_fifo_re),
         .dout       (yuv420_y0_int_fifo_dout),
         .empty      (yuv420_y0_int_fifo_empty),
-        .full       (yuv420_y0_int_fifo_full_unused),
-        .prog_full  (yuv420_y0_int_fifo_prog_full_unused)
+        .full       (yuv420_y0_int_fifo_full),
+        .prog_full  (yuv420_y0_int_fifo_prog_full)
     );
 
     ubwc_meta_simple_fifo #( .DWIDTH(41), .AWIDTH(7) ) u_yuv420_y1_int_fifo (
@@ -208,8 +212,8 @@ module ubwc_dec_meta_data_from_sram
         .re         (yuv420_y1_int_fifo_re),
         .dout       (yuv420_y1_int_fifo_dout),
         .empty      (yuv420_y1_int_fifo_empty),
-        .full       (yuv420_y1_int_fifo_full_unused),
-        .prog_full  (yuv420_y1_int_fifo_prog_full_unused)
+        .full       (yuv420_y1_int_fifo_full),
+        .prog_full  (yuv420_y1_int_fifo_prog_full)
     );
 
     ubwc_meta_simple_fifo #( .DWIDTH(41), .AWIDTH(7) ) u_yuv420_uv_int_fifo (
@@ -220,9 +224,18 @@ module ubwc_dec_meta_data_from_sram
         .re         (yuv420_uv_int_fifo_re),
         .dout       (yuv420_uv_int_fifo_dout),
         .empty      (yuv420_uv_int_fifo_empty),
-        .full       (yuv420_uv_int_fifo_full_unused),
-        .prog_full  (yuv420_uv_int_fifo_prog_full_unused)
+        .full       (yuv420_uv_int_fifo_full),
+        .prog_full  (yuv420_uv_int_fifo_prog_full)
     );
+
+    assign fifo_status_seen = in_bfifo_full |
+                              legacy_int_fifo_full | legacy_int_fifo_prog_full |
+                              yuv420_y0_fifo_prog_full |
+                              yuv420_y1_fifo_prog_full |
+                              yuv420_uv_fifo_prog_full |
+                              yuv420_y0_int_fifo_full | yuv420_y0_int_fifo_prog_full |
+                              yuv420_y1_int_fifo_full | yuv420_y1_int_fifo_prog_full |
+                              yuv420_uv_int_fifo_full | yuv420_uv_int_fifo_prog_full;
 
     // ==========================================
     // 2. State machine and arbitration logic
@@ -567,7 +580,7 @@ module ubwc_dec_meta_data_from_sram
         endcase
     end
 
-    assign fifo_vld = (state == ST_SERIALIZE);
+    assign fifo_vld = (state == ST_SERIALIZE) | (fifo_status_seen & 1'b0);
     assign fifo_wdata = {
         meta_error_reg,                             // error
         meta_eol_reg,                               // is_eol

@@ -211,11 +211,18 @@ module ubwc_enc_meta_addr_gen
     wire    [META_AW  -1:0]     tile_meta_y_base_addr_w ;
     wire                        tile_meta_addr_base_w   ;
     wire    [META_AW  -1:0]     tile_meta_base_addr     ;
+    localparam integer          META_TILE_OFFSET_W      = TW_DW + 4;
+    wire    [META_TILE_OFFSET_W-1:0] tile_meta_offset_w ;
 
     assign  tile_meta_addr_base_w   = ((int_format == FMT_NV12_UV) || (int_format == FMT_P010_UV)) ? 1'b1 : 1'b0;
     assign  tile_meta_base_addr     = tile_meta_addr_base_w ? i_meta_uv_base_offset_addr : i_meta_y_base_offset_addr;
     assign  tile_meta_y_base_addr_w = int_ycoord[TH_DW-1:4] * {i_meta_data_plane_pitch,4'd0};
     assign  tile_meta_addr_w        = tile_meta_addr;
+    assign  tile_meta_offset_w      = {int_xcoord[TW_DW-1:4]
+                                      ,int_ycoord[3+:1]
+                                      ,int_xcoord[3+:1]
+                                      ,int_ycoord[0+:3]
+                                      ,int_xcoord[0+:3]};
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
@@ -223,11 +230,7 @@ module ubwc_enc_meta_addr_gen
         else if(in_fifo_pop_valid && in_fifo_pop_ready && (int_xcoord[2:0] == 3'd0))
                 tile_meta_addr  <= tile_meta_base_addr
                                  + tile_meta_y_base_addr_w
-                                 + {int_xcoord[TW_DW-1:4]
-                                   ,int_ycoord[3+:1]
-                                   ,int_xcoord[3+:1]
-                                   ,int_ycoord[0+:3]
-                                   ,int_xcoord[0+:3]} ;
+                                 + {{(META_AW-META_TILE_OFFSET_W){1'b0}}, tile_meta_offset_w};
     end
 
     mg_sync_fifo

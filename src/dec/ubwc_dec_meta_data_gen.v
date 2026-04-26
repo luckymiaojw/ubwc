@@ -1,253 +1,157 @@
 `timescale 1ns/1ps
 
-module ubwc_dec_meta_data_gen #(
-    parameter ADDR_WIDTH     = 32,
-    parameter ID_WIDTH       = 4,
-    parameter AXI_DATA_WIDTH = 256,
-    parameter SRAM_ADDR_W    = 12,
-    parameter SRAM_RD_DW     = 64,
-    parameter SRAM_NUM_LANES = 4
-)(
-    input  wire                      clk,
-    input  wire                      rst_n,
-    input  wire                      start,
+module ubwc_dec_meta_data_gen
+    #(
+        parameter   ADDR_WIDTH          = 32    ,
+        parameter   ID_WIDTH            = 4     ,
+        parameter   AXI_DATA_WIDTH      = 256   ,
+        parameter   FORCE_FULL_PAYLOAD  = 0
+    )(
+        input   wire                                clk                         ,
+        input   wire                                rst_n                       ,
+        input   wire                                start                       ,
 
-    // --- External configuration ---
-    input  wire [4:0]                base_format,            // Frame-level format: RGBA8888/RGBA1010102/YUV420 8/10/YUV422 8/10
-    input  wire [ADDR_WIDTH-1:0]     meta_base_addr_rgba_uv,
-    input  wire [ADDR_WIDTH-1:0]     meta_base_addr_y,
-    input  wire [15:0]               tile_x_numbers,          // Image tile columns, one metadata byte per tile
-    input  wire [15:0]               tile_y_numbers,          // Image tile rows, one metadata byte per tile
+    // External configuration
+        input   wire    [5              -1:0]       base_format                 ,
+        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_rgba_y       ,
+        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_uv           ,
+        input   wire    [16             -1:0]       tile_x_numbers              ,
+        input   wire    [16             -1:0]       tile_y_numbers              ,
+        input   wire                                i_cfg_is_lossy_rgba_2_1_format ,
 
-    // --- AXI AR channel ---
-    output wire                      m_axi_arvalid,
-    input  wire                      m_axi_arready,
-    output wire [ADDR_WIDTH-1:0]     m_axi_araddr,
-    output wire [7:0]                m_axi_arlen,
-    output wire [2:0]                m_axi_arsize,
-    output wire [1:0]                m_axi_arburst,
-    output wire [ID_WIDTH-1:0]       m_axi_arid,
+    // AXI AR channel
+        output  wire                                m_axi_arvalid               ,
+        input   wire                                m_axi_arready               ,
+        output  wire    [ADDR_WIDTH     -1:0]       m_axi_araddr                ,
+        output  wire    [8              -1:0]       m_axi_arlen                 ,
+        output  wire    [3              -1:0]       m_axi_arsize                ,
+        output  wire    [2              -1:0]       m_axi_arburst               ,
+        output  wire    [ID_WIDTH       -1:0]       m_axi_arid                  ,
 
-    // --- AXI R channel ---
-    input  wire                      m_axi_rvalid,
-    output wire                      m_axi_rready,
-    input  wire [AXI_DATA_WIDTH-1:0] m_axi_rdata,
-    input  wire [ID_WIDTH-1:0]       m_axi_rid,
-    input  wire [1:0]                m_axi_rresp,
-    input  wire                      m_axi_rlast,
+    // AXI R channel
+        input   wire                                m_axi_rvalid                ,
+        output  wire                                m_axi_rready                ,
+        input   wire    [AXI_DATA_WIDTH -1:0]       m_axi_rdata                 ,
+        input   wire    [ID_WIDTH       -1:0]       m_axi_rid                   ,
+        input   wire    [2              -1:0]       m_axi_rresp                 ,
+        input   wire                                m_axi_rlast                 ,
 
-    // --- Downstream output FIFO ---
-    output wire [37:0]               fifo_wdata,
-    output wire                      fifo_vld,
-    input  wire                      fifo_rdy,
+    // Decoded metadata output
+        output  wire                                o_dec_valid                 ,
+        input   wire                                i_dec_ready                 ,
+        output  wire    [5              -1:0]       o_dec_format                ,
+        output  wire    [4              -1:0]       o_dec_flag                  ,
+        output  wire    [3              -1:0]       o_dec_alen                  ,
+        output  wire                                o_dec_has_payload           ,
+        output  wire    [12             -1:0]       o_dec_x                     ,
+        output  wire    [10             -1:0]       o_dec_y                     ,
 
-    output wire                      o_busy,
+        output  wire                                o_busy                      ,
 
-    // --- Status outputs ---
-    output wire [31:0]               error_cnt,
-    output wire [31:0]               cmd_ok_cnt,
-    output wire [31:0]               cmd_fail_cnt
-);
+    // Status outputs
+        output  wire    [32             -1:0]       error_cnt                   ,
+        output  wire    [32             -1:0]       cmd_ok_cnt                  ,
+        output  wire    [32             -1:0]       cmd_fail_cnt
+    );
 
-    // Internal bfifo descriptor:
-    // {pingpong, error, is_eol, is_last_pass, meta_format[4:0], xcoord[15:0], ycoord[15:0]}
-    wire        bfifo_we;
-    wire [40:0] bfifo_wdata;
-    wire        bfifo_prog_full;
-    wire                      cmd_valid;
-    wire                      cmd_ready;
-    wire [ADDR_WIDTH-1:0]     cmd_addr;
-    wire [7:0]                cmd_len;
-    wire                      meta_valid;
-    wire                      meta_ready;
-    wire [4:0]                meta_format;
-    wire [15:0]               meta_xcoord;
-    wire [15:0]               meta_ycoord;
-    wire                      meta_bank_fill_valid;
-    wire                      meta_bank_fill_bank_b;
-    wire                      meta_bank_release_valid;
-    wire                      meta_bank_release_bank_b;
-    reg                       meta_bank_a_free;
-    reg                       meta_bank_b_free;
-    wire [SRAM_NUM_LANES-1:0] sram_wr_we_a_int;
-    wire [SRAM_NUM_LANES-1:0] sram_wr_we_b_int;
-    wire [SRAM_ADDR_W-1:0]    sram_wr_addr_int;
-    wire [AXI_DATA_WIDTH-1:0] sram_wr_wdata_int;
-    wire [SRAM_NUM_LANES-1:0] sram_rd_re_a_int;
-    wire [SRAM_NUM_LANES-1:0] sram_rd_re_b_int;
-    wire [SRAM_ADDR_W-1:0]    sram_rd_addr_int;
-    wire [SRAM_RD_DW-1:0]     sram_rd_rdata_int;
-    wire                      sram_rd_rvalid_int;
-    wire                      sram_dbg_rd_rsp_bank_b_unused;
-    wire [$clog2(SRAM_NUM_LANES)-1:0] sram_dbg_rd_rsp_lane_unused;
-    wire [SRAM_ADDR_W-1:0]    sram_dbg_rd_rsp_addr_unused;
-    wire                      sram_dbg_rd_rsp_hit_unused;
-    wire [31:0]               sram_dbg_wr_cnt_unused;
-    wire [31:0]               sram_dbg_rd_req_cnt_unused;
-    wire [31:0]               sram_dbg_rd_rsp_cnt_unused;
-    wire [31:0]               sram_dbg_rd_miss_cnt_unused;
+    wire                                        meta_grp_valid             ;
+    wire                                        meta_grp_ready             ;
+    wire    [ADDR_WIDTH     -1:0]               meta_grp_addr              ;
+    wire    [5              -1:0]               meta_format                ;
+    wire    [12             -1:0]               meta_xcoord                ;
+    wire    [10             -1:0]               meta_ycoord                ;
+    wire                                        meta_data_valid            ;
+    wire                                        meta_data_ready            ;
+    wire    [8              -1:0]               meta_data                  ;
+    wire    [5              -1:0]               meta_data_format           ;
+    wire    [12             -1:0]               meta_data_xcoord           ;
+    wire    [10             -1:0]               meta_data_ycoord           ;
+    wire                                        tile_number_high_seen      ;
+
+    assign tile_number_high_seen = (|tile_x_numbers[15:12]) | (|tile_y_numbers[15:10]);
 
     ubwc_enc_meta_get_cmd_gen #(
-        .ADDR_WIDTH (ADDR_WIDTH)
+        .ADDR_WIDTH             ( ADDR_WIDTH                            ),
+        .TW_DW                  ( 12                                    ),
+        .TH_DW                  ( 10                                    )
     ) u_meta_get_cmd_gen (
-        .clk                    (clk),
-        .rst_n                  (rst_n),
-        .start                  (start),
-        .base_format            (base_format),
-        .meta_base_addr_rgba_uv (meta_base_addr_rgba_uv),
-        .meta_base_addr_y       (meta_base_addr_y),
-        .tile_x_numbers         (tile_x_numbers),
-        .tile_y_numbers         (tile_y_numbers),
-        .cmd_valid              (cmd_valid),
-        .cmd_ready              (cmd_ready),
-        .cmd_addr               (cmd_addr),
-        .cmd_len                (cmd_len),
-        .meta_valid             (meta_valid),
-        .meta_ready             (meta_ready),
-        .meta_format            (meta_format),
-        .meta_xcoord            (meta_xcoord),
-        .meta_ycoord            (meta_ycoord)
+        .clk                    ( clk                                   ),
+        .rst_n                  ( rst_n                                 ),
+        .start                  ( start                                 ),
+        .base_format            ( base_format                           ),
+        .meta_base_addr_rgba_y  ( meta_base_addr_rgba_y                 ),
+        .meta_base_addr_uv      ( meta_base_addr_uv                     ),
+        .tile_x_numbers         ( tile_x_numbers[11:0]                 ),
+        .tile_y_numbers         ( tile_y_numbers[9:0]                  ),
+        .meta_grp_valid         ( meta_grp_valid                        ),
+        .meta_grp_ready         ( meta_grp_ready                        ),
+        .meta_grp_addr          ( meta_grp_addr                         ),
+        .meta_format            ( meta_format                           ),
+        .meta_xcoord            ( meta_xcoord                           ),
+        .meta_ycoord            ( meta_ycoord                           )
     );
 
     ubwc_dec_meta_axi_rcmd_gen #(
-        .ADDR_WIDTH (ADDR_WIDTH),
-        .ID_WIDTH   (ID_WIDTH),
-        .DATA_WIDTH (AXI_DATA_WIDTH)
+        .ADDR_WIDTH             ( ADDR_WIDTH                            ),
+        .ID_WIDTH               ( ID_WIDTH                              ),
+        .DATA_WIDTH             ( AXI_DATA_WIDTH                        ),
+        .TW_DW                  ( 12                                    ),
+        .TH_DW                  ( 10                                    )
     ) u_axi_rcmd_gen (
-        .clk           (clk),
-        .rst_n         (rst_n),
-        .start         (start),
-        .m_axi_arvalid (m_axi_arvalid),
-        .m_axi_arready (m_axi_arready),
-        .m_axi_araddr  (m_axi_araddr),
-        .m_axi_arlen   (m_axi_arlen),
-        .m_axi_arsize  (m_axi_arsize),
-        .m_axi_arburst (m_axi_arburst),
-        .m_axi_arid    (m_axi_arid),
-        .m_axi_rvalid  (m_axi_rvalid),
-        .m_axi_rready  (m_axi_rready),
-        .m_axi_rid     (m_axi_rid),
-        .m_axi_rresp   (m_axi_rresp),
-        .m_axi_rlast   (m_axi_rlast),
-        .in_cmd_en     (cmd_valid),
-        .in_cmd_ready  (cmd_ready),
-        .in_cmd_addr   (cmd_addr),
-        .in_cmd_len    (cmd_len),
-        .error_cnt     (error_cnt),
-        .cmd_ok_cnt    (cmd_ok_cnt),
-        .cmd_fail_cnt  (cmd_fail_cnt)
+        .clk                    ( clk                                   ),
+        .rst_n                  ( rst_n                                 ),
+        .start                  ( start                                 ),
+        .m_axi_arvalid          ( m_axi_arvalid                         ),
+        .m_axi_arready          ( m_axi_arready                         ),
+        .m_axi_araddr           ( m_axi_araddr                          ),
+        .m_axi_arlen            ( m_axi_arlen                           ),
+        .m_axi_arsize           ( m_axi_arsize                          ),
+        .m_axi_arburst          ( m_axi_arburst                         ),
+        .m_axi_arid             ( m_axi_arid                            ),
+        .m_axi_rvalid           ( m_axi_rvalid                          ),
+        .m_axi_rready           ( m_axi_rready                          ),
+        .m_axi_rdata            ( m_axi_rdata                           ),
+        .m_axi_rid              ( m_axi_rid                             ),
+        .m_axi_rresp            ( m_axi_rresp                           ),
+        .m_axi_rlast            ( m_axi_rlast                           ),
+        .meta_grp_valid         ( meta_grp_valid                        ),
+        .meta_grp_ready         ( meta_grp_ready                        ),
+        .meta_grp_addr          ( meta_grp_addr                         ),
+        .meta_format            ( meta_format                           ),
+        .meta_xcoord            ( meta_xcoord                           ),
+        .meta_ycoord            ( meta_ycoord                           ),
+        .meta_data_valid        ( meta_data_valid                       ),
+        .meta_data_ready        ( meta_data_ready                       ),
+        .meta_data              ( meta_data                             ),
+        .meta_data_format       ( meta_data_format                      ),
+        .meta_data_xcoord       ( meta_data_xcoord                      ),
+        .meta_data_ycoord       ( meta_data_ycoord                      ),
+        .error_cnt              ( error_cnt                             ),
+        .cmd_ok_cnt             ( cmd_ok_cnt                            ),
+        .cmd_fail_cnt           ( cmd_fail_cnt                          )
     );
 
-    ubwc_dec_meta_axi_rdata_to_sram #(
-        .AXI_DATA_WIDTH (AXI_DATA_WIDTH),
-        .SRAM_ADDR_W    (SRAM_ADDR_W)
-    ) u_axi_rdata_to_sram (
-        .clk             (clk),
-        .rst_n           (rst_n),
-        .start           (start),
-        .base_format     (base_format),
-        .tile_x_numbers  (tile_x_numbers),
-        .tile_y_numbers  (tile_y_numbers),
-        .meta_valid      (meta_valid),
-        .meta_ready      (meta_ready),
-        .meta_format     (meta_format),
-        .meta_xcoord     (meta_xcoord),
-        .meta_ycoord     (meta_ycoord),
-        .axi_rvalid      (m_axi_rvalid),
-        .axi_rready      (m_axi_rready),
-        .axi_rdata       (m_axi_rdata),
-        .axi_rlast       (m_axi_rlast),
-        .bank_a_free     (meta_bank_a_free),
-        .bank_b_free     (meta_bank_b_free),
-        .sram_we_a       (sram_wr_we_a_int),
-        .sram_we_b       (sram_wr_we_b_int),
-        .sram_addr       (sram_wr_addr_int),
-        .sram_wdata      (sram_wr_wdata_int),
-        .bfifo_prog_full (bfifo_prog_full),
-        .bfifo_we        (bfifo_we),
-        .bfifo_wdata     (bfifo_wdata),
-        .bank_fill_valid (meta_bank_fill_valid),
-        .bank_fill_bank_b(meta_bank_fill_bank_b)
+    ubwc_dec_meta_data_decode #(
+        .FORCE_FULL_PAYLOAD     ( FORCE_FULL_PAYLOAD                    )
+    ) u_decode_metadata (
+        .i_cfg_is_lossy_rgba_2_1_format  ( i_cfg_is_lossy_rgba_2_1_format        ),
+        .i_meta_valid           ( meta_data_valid                       ),
+        .o_meta_ready           ( meta_data_ready                       ),
+        .i_meta_format          ( meta_data_format                      ),
+        .i_meta_data            ( meta_data                             ),
+        .i_meta_x               ( meta_data_xcoord                      ),
+        .i_meta_y               ( meta_data_ycoord                      ),
+        .o_dec_valid            ( o_dec_valid                           ),
+        .i_dec_ready            ( i_dec_ready                           ),
+        .o_dec_format           ( o_dec_format                          ),
+        .o_dec_flag             ( o_dec_flag                            ),
+        .o_dec_alen             ( o_dec_alen                            ),
+        .o_dec_has_payload      ( o_dec_has_payload                     ),
+        .o_dec_x                ( o_dec_x                               ),
+        .o_dec_y                ( o_dec_y                               )
     );
 
-    ubwc_dec_meta_data_from_sram #(
-        .SRAM_ADDR_W    (SRAM_ADDR_W),
-        .SRAM_DW        (SRAM_RD_DW)
-    ) u_meta_data_from_sram (
-        .clk             (clk),
-        .rst_n           (rst_n),
-        .start           (start),
-        .base_format     (base_format),
-        .tile_x_numbers  (tile_x_numbers),
-        .tile_y_numbers  (tile_y_numbers),
-        .sram_re_a       (sram_rd_re_a_int),
-        .sram_re_b       (sram_rd_re_b_int),
-        .sram_addr       (sram_rd_addr_int),
-        .sram_rdata      (sram_rd_rdata_int),
-        .sram_rvalid     (sram_rd_rvalid_int),
-        .bfifo_we        (bfifo_we),
-        .bfifo_wdata     (bfifo_wdata),
-        .bfifo_prog_full (bfifo_prog_full),
-        .fifo_wdata      (fifo_wdata),
-        .fifo_vld        (fifo_vld),
-        .fifo_rdy        (fifo_rdy),
-        .bank_release_valid (meta_bank_release_valid),
-        .bank_release_bank_b(meta_bank_release_bank_b)
-    );
-
-    ubwc_dec_meta_pingpong_sram #(
-        .WR_DATA_W (AXI_DATA_WIDTH),
-        .RD_DATA_W (SRAM_RD_DW),
-        .ADDR_W    (SRAM_ADDR_W),
-        .NUM_LANES (SRAM_NUM_LANES),
-        .DEPTH     (1 << SRAM_ADDR_W)
-    ) u_meta_pingpong_sram (
-        .clk           (clk),
-        .rst_n         (rst_n),
-        .wr_we_a       (sram_wr_we_a_int),
-        .wr_we_b       (sram_wr_we_b_int),
-        .wr_addr       (sram_wr_addr_int),
-        .wr_wdata      (sram_wr_wdata_int),
-        .rd_re_a       (sram_rd_re_a_int),
-        .rd_re_b       (sram_rd_re_b_int),
-        .rd_addr       (sram_rd_addr_int),
-        .rd_rdata      (sram_rd_rdata_int),
-        .rd_rvalid     (sram_rd_rvalid_int),
-        .rd_rsp_bank_b (sram_dbg_rd_rsp_bank_b_unused),
-        .rd_rsp_lane   (sram_dbg_rd_rsp_lane_unused),
-        .rd_rsp_addr   (sram_dbg_rd_rsp_addr_unused),
-        .rd_rsp_hit    (sram_dbg_rd_rsp_hit_unused),
-        .wr_cnt        (sram_dbg_wr_cnt_unused),
-        .rd_req_cnt    (sram_dbg_rd_req_cnt_unused),
-        .rd_rsp_cnt    (sram_dbg_rd_rsp_cnt_unused),
-        .rd_miss_cnt   (sram_dbg_rd_miss_cnt_unused)
-    );
-
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            meta_bank_a_free <= 1'b1;
-            meta_bank_b_free <= 1'b1;
-        end else if (start) begin
-            meta_bank_a_free <= 1'b1;
-            meta_bank_b_free <= 1'b1;
-        end else begin
-            if (meta_bank_fill_valid && !meta_bank_fill_bank_b) begin
-                meta_bank_a_free <= 1'b0;
-            end else if (meta_bank_release_valid && !meta_bank_release_bank_b) begin
-                meta_bank_a_free <= 1'b1;
-            end
-
-            if (meta_bank_fill_valid && meta_bank_fill_bank_b) begin
-                meta_bank_b_free <= 1'b0;
-            end else if (meta_bank_release_valid && meta_bank_release_bank_b) begin
-                meta_bank_b_free <= 1'b1;
-            end
-        end
-    end
-
-    assign o_busy = cmd_valid | meta_valid | m_axi_arvalid | m_axi_rvalid | fifo_vld |
-                    bfifo_we | (|sram_wr_we_a_int) | (|sram_wr_we_b_int) |
-                    (|sram_rd_re_a_int) | (|sram_rd_re_b_int) | sram_rd_rvalid_int |
-                    !meta_bank_a_free | !meta_bank_b_free;
+    assign o_busy = meta_grp_valid | m_axi_arvalid | m_axi_rvalid | meta_data_valid |
+                    o_dec_valid | (tile_number_high_seen & 1'b0);
 
 endmodule

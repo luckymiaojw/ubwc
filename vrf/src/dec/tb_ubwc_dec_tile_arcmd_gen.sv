@@ -17,12 +17,10 @@ module tb_ubwc_dec_tile_arcmd_gen;
     reg                      clk;
     reg                      rst_n;
 
-    reg                      i_cfg_lvl1_bank_swizzle_en;
     reg                      i_cfg_lvl2_bank_swizzle_en;
     reg                      i_cfg_lvl3_bank_swizzle_en;
     reg  [4:0]               i_cfg_highest_bank_bit;
     reg                      i_cfg_bank_spread_en;
-    reg                      i_cfg_4line_format;
     reg                      i_cfg_is_lossy_rgba_2_1_format;
     reg  [11:0]              i_cfg_pitch;
 
@@ -36,6 +34,14 @@ module tb_ubwc_dec_tile_arcmd_gen;
     reg  [37:0]              fifo_wdata;
     reg                      fifo_vld;
     wire                     fifo_rdy;
+    wire                     dec_meta_valid;
+    wire                     dec_meta_ready;
+    wire [4:0]               dec_meta_format;
+    wire [3:0]               dec_meta_flag;
+    wire [2:0]               dec_meta_alen;
+    wire                     dec_meta_has_payload;
+    wire [11:0]              dec_meta_x;
+    wire [9:0]               dec_meta_y;
 
     wire                     m_axi_arvalid;
     reg                      m_axi_arready;
@@ -87,6 +93,29 @@ module tb_ubwc_dec_tile_arcmd_gen;
     reg   [11:0]             last_tile_x_coord;
     reg   [9:0]              last_tile_y_coord;
 
+    ubwc_dec_meta_data_decode u_decode_metadata (
+        .clk                             (clk),
+        .rst_n                           (rst_n),
+        .i_cfg_is_lossy_rgba_2_1_format  (i_cfg_is_lossy_rgba_2_1_format),
+        .i_meta_valid                    (fifo_vld),
+        .o_meta_ready                    (fifo_rdy),
+        .i_meta_format                   (fifo_wdata[26:22]),
+        .i_meta_data                     (fifo_wdata[34:27]),
+        .i_meta_error                    (fifo_wdata[37]),
+        .i_meta_eol                      (fifo_wdata[36]),
+        .i_meta_last_pass                (fifo_wdata[35]),
+        .i_meta_x                        (fifo_wdata[21:10]),
+        .i_meta_y                        (fifo_wdata[9:0]),
+        .o_dec_valid                     (dec_meta_valid),
+        .i_dec_ready                     (dec_meta_ready),
+        .o_dec_format                    (dec_meta_format),
+        .o_dec_flag                      (dec_meta_flag),
+        .o_dec_alen                      (dec_meta_alen),
+        .o_dec_has_payload               (dec_meta_has_payload),
+        .o_dec_x                         (dec_meta_x),
+        .o_dec_y                         (dec_meta_y)
+    );
+
     ubwc_dec_tile_arcmd_gen #(
         .AXI_AW   (AXI_AW),
         .AXI_DW   (AXI_DW),
@@ -95,12 +124,11 @@ module tb_ubwc_dec_tile_arcmd_gen;
     ) dut (
         .clk                             (clk),
         .rst_n                           (rst_n),
-        .i_cfg_lvl1_bank_swizzle_en      (i_cfg_lvl1_bank_swizzle_en),
+        .i_frame_start                   (1'b0),
         .i_cfg_lvl2_bank_swizzle_en      (i_cfg_lvl2_bank_swizzle_en),
         .i_cfg_lvl3_bank_swizzle_en      (i_cfg_lvl3_bank_swizzle_en),
         .i_cfg_highest_bank_bit          (i_cfg_highest_bank_bit),
         .i_cfg_bank_spread_en            (i_cfg_bank_spread_en),
-        .i_cfg_4line_format              (i_cfg_4line_format),
         .i_cfg_is_lossy_rgba_2_1_format  (i_cfg_is_lossy_rgba_2_1_format),
         .i_cfg_pitch                     (i_cfg_pitch),
         .i_cfg_ci_input_type             (i_cfg_ci_input_type),
@@ -109,9 +137,14 @@ module tb_ubwc_dec_tile_arcmd_gen;
         .i_cfg_ci_alpha_mode             (i_cfg_ci_alpha_mode),
         .i_cfg_base_addr_rgba_uv         (i_cfg_base_addr_rgba_uv),
         .i_cfg_base_addr_y               (i_cfg_base_addr_y),
-        .fifo_wdata                      (fifo_wdata),
-        .fifo_vld                        (fifo_vld),
-        .fifo_rdy                        (fifo_rdy),
+        .dec_meta_valid                  (dec_meta_valid),
+        .dec_meta_ready                  (dec_meta_ready),
+        .dec_meta_format                 (dec_meta_format),
+        .dec_meta_flag                   (dec_meta_flag),
+        .dec_meta_alen                   (dec_meta_alen),
+        .dec_meta_has_payload            (dec_meta_has_payload),
+        .dec_meta_x                      (dec_meta_x),
+        .dec_meta_y                      (dec_meta_y),
         .m_axi_arvalid                   (m_axi_arvalid),
         .m_axi_arready                   (m_axi_arready),
         .m_axi_araddr                    (m_axi_araddr),
@@ -294,12 +327,10 @@ module tb_ubwc_dec_tile_arcmd_gen;
 
     initial begin
         rst_n = 1'b0;
-        i_cfg_lvl1_bank_swizzle_en = 1'b1;
         i_cfg_lvl2_bank_swizzle_en = 1'b1;
         i_cfg_lvl3_bank_swizzle_en = 1'b1;
         i_cfg_highest_bank_bit = 5'd16;
         i_cfg_bank_spread_en = 1'b1;
-        i_cfg_4line_format = 1'b1;
         i_cfg_is_lossy_rgba_2_1_format = 1'b0;
         // Pitch is configured in 16-byte units here. 16 -> 256 bytes.
         i_cfg_pitch = 12'd16;

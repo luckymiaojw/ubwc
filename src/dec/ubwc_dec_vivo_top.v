@@ -46,17 +46,12 @@ module ubwc_dec_vivo_top #(
     reg                 r_tile_active;
     reg [3:0]           r_out_beats_left;
     reg [3:0]           r_in_beats_left;
-    reg                 r_ci_input_type;
     reg [2:0]           r_ci_alen;
-    reg [4:0]           r_ci_format;
-    reg [3:0]           r_ci_metadata;
-    reg                 r_ci_lossy;
-    reg [1:0]           r_ci_alpha_mode;
     reg [SB_WIDTH-1:0]  r_ci_sb;
     wire ci_period_hit;
     wire ci_fire;
-    wire cvi_fire;
     wire out_fire;
+    wire sideband_seen;
 
     always @(posedge i_clk or posedge i_reset) begin
         if (i_reset) begin
@@ -83,23 +78,13 @@ module ubwc_dec_vivo_top #(
             r_tile_active   <= 1'b0;
             r_out_beats_left<= 4'd0;
             r_in_beats_left <= 4'd0;
-            r_ci_input_type <= 1'b0;
             r_ci_alen       <= 3'd0;
-            r_ci_format     <= 5'd0;
-            r_ci_metadata   <= 4'd0;
-            r_ci_lossy      <= 1'b0;
-            r_ci_alpha_mode <= 2'd0;
             r_ci_sb         <= {SB_WIDTH{1'b0}};
         end else if (r_reset_sync || !i_ubwc_en) begin
             r_tile_active   <= 1'b0;
             r_out_beats_left<= 4'd0;
             r_in_beats_left <= 4'd0;
-            r_ci_input_type <= 1'b0;
             r_ci_alen       <= 3'd0;
-            r_ci_format     <= 5'd0;
-            r_ci_metadata   <= 4'd0;
-            r_ci_lossy      <= 1'b0;
-            r_ci_alpha_mode <= 2'd0;
             r_ci_sb         <= {SB_WIDTH{1'b0}};
         end else begin
             if (ci_fire) begin
@@ -110,12 +95,7 @@ module ubwc_dec_vivo_top #(
                 r_tile_active    <= 1'b1;
                 r_out_beats_left <= TILE_OUT_BEATS;
                 r_in_beats_left  <= i_ci_metadata[3] ? 4'd0 : ({1'b0, i_ci_alen} + 4'd1);
-                r_ci_input_type <= i_ci_input_type;
                 r_ci_alen       <= i_ci_alen;
-                r_ci_format     <= i_ci_format;
-                r_ci_metadata   <= i_ci_metadata;
-                r_ci_lossy      <= i_ci_lossy;
-                r_ci_alpha_mode <= i_ci_alpha_mode;
                 r_ci_sb         <= i_ci_sb;
             end
 
@@ -145,8 +125,9 @@ module ubwc_dec_vivo_top #(
                          (r_tile_active ? ((r_in_beats_left != 4'd0) ? i_rvo_ready : 1'b1) : 1'b1);
 
     assign ci_fire  = i_ci_valid  && o_ci_ready;
-    assign cvi_fire = i_cvi_valid && o_cvi_ready;
     assign out_fire = o_rvo_valid && i_rvo_ready;
+    assign sideband_seen = i_ci_input_type | (|i_ci_format) | (|i_ci_metadata[2:0]) |
+                           i_ci_lossy | (|i_ci_alpha_mode) | i_cvi_last;
 
     assign o_co_valid = r_tile_active;
     assign o_co_alen  = r_ci_alen;
@@ -168,9 +149,6 @@ module ubwc_dec_vivo_top #(
     assign o_idle[5] = !o_rvo_valid || i_rvo_ready;
     assign o_idle[6] = !r_reset_sync;
 
-    assign o_error = 7'd0;
-
-    wire unused_cfg = r_ci_input_type | r_ci_lossy | |r_ci_format | |r_ci_metadata |
-                      |r_ci_alpha_mode;
+    assign o_error = {6'd0, sideband_seen & 1'b0};
 
 endmodule

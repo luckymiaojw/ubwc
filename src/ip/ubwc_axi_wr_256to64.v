@@ -76,6 +76,10 @@ module ubwc_axi_wr_256to64 #(
     localparam integer CORE_SIZE_VALUE = $clog2(CORE_AXI_DW / 8);
     localparam integer MAX_EXT_BEATS   = 32;
     localparam integer MAX_CORE_BEATS  = MAX_EXT_BEATS / RATIO;
+    localparam integer EXT_BEATCNT_W   = AXI_LENW + 3;
+    localparam [2:0] EXT_SIZE_VALUE_W  = 3'(EXT_SIZE_VALUE);
+    localparam [2:0] CORE_SIZE_VALUE_W = 3'(CORE_SIZE_VALUE);
+    localparam [RATIO_W-1:0] RATIO_LAST = RATIO_W'(RATIO - 1);
 
     localparam [2:0] ST_IDLE = 3'd0;
     localparam [2:0] ST_AW   = 3'd1;
@@ -109,9 +113,11 @@ module ubwc_axi_wr_256to64 #(
     wire                          m_w_fire_w  = m_axi_wvalid && m_axi_wready;
     wire                          m_b_fire_w  = m_axi_bvalid && m_axi_bready;
     wire                          s_b_fire_w  = s_bvalid_r && s_axi_bready;
-    wire                          narrow_mode_w = (awsize_r == EXT_SIZE_VALUE[2:0]);
-    wire [AXI_LENW+2:0]           ext_beats_total_w =
-                                  narrow_mode_w ? core_beats_total_r : (core_beats_total_r * RATIO);
+    wire                          narrow_mode_w = (awsize_r == EXT_SIZE_VALUE_W);
+    wire [EXT_BEATCNT_W-1:0]      core_beats_total_ext_w = {{(EXT_BEATCNT_W-CORE_BEAT_W){1'b0}}, core_beats_total_r};
+    wire [EXT_BEATCNT_W-1:0]      core_beats_total_scaled_w = core_beats_total_ext_w * EXT_BEATCNT_W'(RATIO);
+    wire [EXT_BEATCNT_W-1:0]      ext_beats_total_w =
+                                  narrow_mode_w ? core_beats_total_ext_w : core_beats_total_scaled_w;
     wire [RATIO_W-1:0]            narrow_lane_idx_w;
 
     function automatic [RATIO_W-1:0] first_active_lane;
@@ -141,7 +147,7 @@ module ubwc_axi_wr_256to64 #(
     assign m_axi_awid    = awid_r;
     assign m_axi_awaddr  = awaddr_r;
     assign m_axi_awlen   = ext_beats_total_w[AXI_LENW-1:0] - {{AXI_LENW-1{1'b0}}, 1'b1};
-    assign m_axi_awsize  = EXT_SIZE_VALUE[2:0];
+    assign m_axi_awsize  = EXT_SIZE_VALUE_W;
     assign m_axi_awburst = awburst_r;
     assign m_axi_awlock  = awlock_r;
     assign m_axi_awcache = awcache_r;
@@ -157,7 +163,7 @@ module ubwc_axi_wr_256to64 #(
     assign m_axi_wvalid  = (state_r == ST_W) && wbuf_valid_r;
     assign m_axi_wlast   = (state_r == ST_W) && wbuf_valid_r &&
                            (core_beats_left_r == {{CORE_BEAT_W-1{1'b0}}, 1'b1}) &&
-                           (narrow_mode_w || (lane_idx_r == (RATIO - 1)));
+                           (narrow_mode_w || (lane_idx_r == RATIO_LAST));
     assign m_axi_bready  = (state_r == ST_B) && !s_bvalid_r;
 
     always @(posedge clk or negedge rst_n) begin
@@ -166,7 +172,7 @@ module ubwc_axi_wr_256to64 #(
             awid_r            <= {ID_WIDTH{1'b0}};
             awaddr_r          <= {ADDR_WIDTH{1'b0}};
             awlen_r           <= {AXI_LENW{1'b0}};
-            awsize_r          <= EXT_SIZE_VALUE[2:0];
+            awsize_r          <= EXT_SIZE_VALUE_W;
             awburst_r         <= 2'b01;
             awlock_r          <= 2'b00;
             awcache_r         <= 4'b0000;
@@ -206,13 +212,15 @@ module ubwc_axi_wr_256to64 #(
                         core_beats_total_r <= {{1'b0}, s_axi_awlen} + {{CORE_BEAT_W-1{1'b0}}, 1'b1};
                         core_beats_left_r  <= {{1'b0}, s_axi_awlen} + {{CORE_BEAT_W-1{1'b0}}, 1'b1};
                         state_r            <= ST_AW;
+`ifndef SYNTHESIS
                         if (({{1'b0}, s_axi_awlen} + {{AXI_LENW{1'b0}}, 1'b1}) > MAX_CORE_BEATS)
                             $display("[%0t] WARN: ubwc_axi_wr_256to64 saw core burst len=%0d (> %0d beats), external 64-bit burst may exceed 32 beats.",
                                      $time, s_axi_awlen, MAX_CORE_BEATS);
-                        if ((s_axi_awsize != CORE_SIZE_VALUE[2:0]) &&
-                            (s_axi_awsize != EXT_SIZE_VALUE[2:0]))
+                        if ((s_axi_awsize != CORE_SIZE_VALUE_W) &&
+                            (s_axi_awsize != EXT_SIZE_VALUE_W))
                             $display("[%0t] WARN: ubwc_axi_wr_256to64 core AWSIZE=%0d, expected %0d or %0d.",
                                      $time, s_axi_awsize, CORE_SIZE_VALUE, EXT_SIZE_VALUE);
+`endif
                     end
                 end
 
@@ -239,23 +247,27 @@ module ubwc_axi_wr_256to64 #(
                             if (core_beats_left_r == {{CORE_BEAT_W-1{1'b0}}, 1'b1}) begin
                                 core_beats_left_r <= {CORE_BEAT_W{1'b0}};
                                 state_r           <= ST_B;
+`ifndef SYNTHESIS
                                 if (!wbuf_last_r)
                                     $display("[%0t] WARN: ubwc_axi_wr_256to64 expected core WLAST on final 256-bit beat.", $time);
+`endif
                             end else begin
                                 core_beats_left_r <= core_beats_left_r - {{CORE_BEAT_W-1{1'b0}}, 1'b1};
                             end
                         end else begin
-                            if (lane_idx_r == (RATIO - 1)) begin
+                            if (lane_idx_r == RATIO_LAST) begin
                                 wbuf_valid_r <= 1'b0;
                                 lane_idx_r   <= {RATIO_W{1'b0}};
                                 if (core_beats_left_r == {{CORE_BEAT_W-1{1'b0}}, 1'b1}) begin
-                                    core_beats_left_r <= {CORE_BEAT_W{1'b0}};
-                                    state_r           <= ST_B;
-                                    if (!wbuf_last_r)
-                                        $display("[%0t] WARN: ubwc_axi_wr_256to64 expected core WLAST on final 256-bit beat.", $time);
-                                end else begin
-                                    core_beats_left_r <= core_beats_left_r - {{CORE_BEAT_W-1{1'b0}}, 1'b1};
-                                end
+                                core_beats_left_r <= {CORE_BEAT_W{1'b0}};
+                                state_r           <= ST_B;
+`ifndef SYNTHESIS
+                                if (!wbuf_last_r)
+                                    $display("[%0t] WARN: ubwc_axi_wr_256to64 expected core WLAST on final 256-bit beat.", $time);
+`endif
+                            end else begin
+                                core_beats_left_r <= core_beats_left_r - {{CORE_BEAT_W-1{1'b0}}, 1'b1};
+                            end
                             end else begin
                                 lane_idx_r <= lane_idx_r + {{RATIO_W-1{1'b0}}, 1'b1};
                             end

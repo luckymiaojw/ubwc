@@ -204,6 +204,8 @@ module axi_2t1_int_DW_axi
 
     localparam integer WR_CMD_FIFO_DEPTH = 32;
     localparam integer WR_CMD_FIFO_PTR_W = $clog2(WR_CMD_FIFO_DEPTH);
+    localparam [WR_CMD_FIFO_PTR_W  :0] WR_CMD_FIFO_DEPTH_COUNT = (WR_CMD_FIFO_PTR_W+1)'(WR_CMD_FIFO_DEPTH);
+    localparam [WR_CMD_FIFO_PTR_W-1:0] WR_CMD_FIFO_LAST_PTR    = WR_CMD_FIFO_PTR_W'(WR_CMD_FIFO_DEPTH - 1);
 
     reg                         wr_cmd_src_fifo [0:WR_CMD_FIFO_DEPTH-1];
     reg [WR_CMD_FIFO_PTR_W-1:0] wr_cmd_wr_ptr;
@@ -214,7 +216,7 @@ module axi_2t1_int_DW_axi
     // 1. Write address channel (AW Channel) - strict priority M1 > M2
     //    Key point: the W channel must strictly follow the AW order actually sent to the slave
     // =========================================================================
-    wire wr_cmd_fifo_full  = (wr_cmd_count == WR_CMD_FIFO_DEPTH);
+    wire wr_cmd_fifo_full  = (wr_cmd_count == WR_CMD_FIFO_DEPTH_COUNT);
     wire wr_cmd_fifo_valid = (wr_cmd_count != 0);
     wire wr_cmd_src_m2     = wr_cmd_src_fifo[wr_cmd_rd_ptr];
 
@@ -274,14 +276,14 @@ module axi_2t1_int_DW_axi
             end
 
             if (aw_fire_m1 || aw_fire_m2) begin
-                if (wr_cmd_wr_ptr == (WR_CMD_FIFO_DEPTH - 1))
+                if (wr_cmd_wr_ptr == WR_CMD_FIFO_LAST_PTR)
                     wr_cmd_wr_ptr <= {WR_CMD_FIFO_PTR_W{1'b0}};
                 else
                     wr_cmd_wr_ptr <= wr_cmd_wr_ptr + {{(WR_CMD_FIFO_PTR_W-1){1'b0}}, 1'b1};
             end
 
             if ((w_fire_m1 && wlast_m1) || (w_fire_m2 && wlast_m2)) begin
-                if (wr_cmd_rd_ptr == (WR_CMD_FIFO_DEPTH - 1))
+                if (wr_cmd_rd_ptr == WR_CMD_FIFO_LAST_PTR)
                     wr_cmd_rd_ptr <= {WR_CMD_FIFO_PTR_W{1'b0}};
                 else
                     wr_cmd_rd_ptr <= wr_cmd_rd_ptr + {{(WR_CMD_FIFO_PTR_W-1){1'b0}}, 1'b1};

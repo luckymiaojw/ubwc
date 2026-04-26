@@ -16,12 +16,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns / 1ps
 
-module ubwc_dec_tile_to_otf #(
-    parameter MAX_W_PIXELS = 4096,
-    parameter FMT_RGBA8888 = 5'b00000,
-    parameter FMT_YUV420_8 = 5'b01000,
-    parameter FMT_YUV422_8 = 5'b01010
-)(
+module ubwc_dec_tile_to_otf (
     // --- Clocks and reset ---
     input  wire           clk_sram,      // Write and memory-read clock, for example 200 MHz
     input  wire           clk_otf,       // Pixel output clock, for example 148.5 MHz for 1080p60
@@ -215,7 +210,11 @@ module ubwc_dec_tile_to_otf #(
 
     // Async FIFO across clock domains.
     // It must use FWFT (First-Word Fall-Through) mode.
-    async_fifo_fwft_256w u_cdc_fifo (
+    async_fifo_fwft_256w #(
+        .DATA_WIDTH (256),
+        .ADDR_WIDTH (5),
+        .DEPTH      (32)
+    ) u_cdc_fifo (
         .wr_clk     (clk_sram),
         .wr_rst_n   (rst_n),
         .wr_clr     (frame_start_sram),

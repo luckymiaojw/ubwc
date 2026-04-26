@@ -47,18 +47,21 @@ module ubwc_dec_axi_rd_interconnect #(
     input  wire                  m_rvalid,
     input  wire [1:0]            m_rresp,
     input  wire                  m_rlast,
-    output wire                  m_rready
+    output wire                  m_rready,
+
+    output wire                  o_busy
 );
 
     reg                  inflight;
     reg                  owner_s0;
+    reg                  prefer_s1;
     reg                  rbuf_valid;
     reg [AXI_DW-1:0]     rbuf_data;
     reg [1:0]            rbuf_resp;
     reg                  rbuf_last;
 
-    wire grant_s0 = !inflight && s0_arvalid;
-    wire grant_s1 = !inflight && !s0_arvalid && s1_arvalid;
+    wire grant_s0 = !inflight && s0_arvalid && (!s1_arvalid || !prefer_s1);
+    wire grant_s1 = !inflight && s1_arvalid && (!s0_arvalid ||  prefer_s1);
 
     wire [AXI_AW-1:0]   sel_araddr  = grant_s0 ? s0_araddr  : s1_araddr;
     wire [7:0]          sel_arlen   = grant_s0 ? s0_arlen   : s1_arlen;
@@ -98,11 +101,13 @@ module ubwc_dec_axi_rd_interconnect #(
     // selected sink. This avoids a subtle drain/fill race where one beat can be
     // accepted into the interconnect without ever reaching either sink.
     assign m_rready = inflight && !rbuf_valid;
+    assign o_busy   = inflight | rbuf_valid;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             inflight <= 1'b0;
             owner_s0 <= 1'b0;
+            prefer_s1 <= 1'b0;
             rbuf_valid <= 1'b0;
             rbuf_data  <= {AXI_DW{1'b0}};
             rbuf_resp  <= 2'b00;
@@ -110,6 +115,7 @@ module ubwc_dec_axi_rd_interconnect #(
         end else if (i_frame_start) begin
             inflight <= 1'b0;
             owner_s0 <= 1'b0;
+            prefer_s1 <= 1'b0;
             rbuf_valid <= 1'b0;
             rbuf_data  <= {AXI_DW{1'b0}};
             rbuf_resp  <= 2'b00;
@@ -120,6 +126,7 @@ module ubwc_dec_axi_rd_interconnect #(
                 if (m_arvalid && m_arready) begin
                     inflight <= 1'b1;
                     owner_s0 <= grant_s0;
+                    prefer_s1 <= grant_s0;
                 end
             end else begin
                 if (rbuf_valid) begin

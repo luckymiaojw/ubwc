@@ -75,7 +75,7 @@ module ubwc_axi_wr_64to256 #(
     localparam integer S_BYTE_LG2     = $clog2(S_AXI_DW / 8);
     localparam integer M_BYTE_LG2     = $clog2(M_AXI_DW / 8);
     localparam integer BEATCNT_W      = AXI_LENW + 1;
-    localparam [2:0] S_SIZE_VALUE     = $clog2(S_AXI_DW / 8);
+    localparam [2:0] S_SIZE_VALUE     = 3'($clog2(S_AXI_DW / 8));
 
     localparam [2:0] ST_IDLE = 3'd0;
     localparam [2:0] ST_AW   = 3'd1;
@@ -112,7 +112,10 @@ module ubwc_axi_wr_64to256 #(
     function automatic [RATIO_W-1:0] lane_from_addr;
         input [ADDR_WIDTH-1:0] addr;
         begin
-            lane_from_addr = (addr >> S_BYTE_LG2) & (RATIO - 1);
+            if (RATIO <= 1)
+                lane_from_addr = {RATIO_W{1'b0}};
+            else
+                lane_from_addr = addr[S_BYTE_LG2 +: RATIO_W];
         end
     endfunction
 
@@ -205,9 +208,11 @@ module ubwc_axi_wr_64to256 #(
                         beats_left_r <= {{1'b0}, s_axi_awlen} + {{BEATCNT_W-1{1'b0}}, 1'b1};
                         lane_idx_r   <= lane_from_addr(s_axi_awaddr);
                         state_r      <= ST_AW;
+`ifndef SYNTHESIS
                         if (s_axi_awsize != S_SIZE_VALUE)
                             $display("[%0t] WARN: ubwc_axi_wr_64to256 expected 64-bit AWSIZE=%0d, got %0d.",
                                      $time, S_SIZE_VALUE, s_axi_awsize);
+`endif
                     end
                 end
 
@@ -229,8 +234,10 @@ module ubwc_axi_wr_64to256 #(
                         if (beats_left_r == {{BEATCNT_W-1{1'b0}}, 1'b1}) begin
                             beats_left_r <= {BEATCNT_W{1'b0}};
                             state_r      <= ST_B;
+`ifndef SYNTHESIS
                             if (!wbuf_last_r)
                                 $display("[%0t] WARN: ubwc_axi_wr_64to256 expected WLAST on final 64-bit beat.", $time);
+`endif
                         end else begin
                             beats_left_r <= beats_left_r - {{BEATCNT_W-1{1'b0}}, 1'b1};
                             lane_idx_r   <= lane_idx_r + {{RATIO_W-1{1'b0}}, 1'b1};

@@ -52,12 +52,13 @@ module ubwc_enc_vivo_top #(
 
     localparam integer CI_READY_PERIOD = 24;
     localparam integer CI_CNT_W        = (CI_READY_PERIOD <= 1) ? 1 : $clog2(CI_READY_PERIOD);
+    localparam [CI_CNT_W-1:0] CI_READY_PERIOD_LAST = CI_CNT_W'(CI_READY_PERIOD - 1);
 
     reg  [CI_CNT_W-1:0] ci_ready_cnt_r;
 
     wire ci_period_hit;
 
-    assign ci_period_hit = (ci_ready_cnt_r == CI_READY_PERIOD-1);
+    assign ci_period_hit = (ci_ready_cnt_r == CI_READY_PERIOD_LAST);
 
     always @(posedge i_clk or posedge i_reset) begin
         if(i_reset)

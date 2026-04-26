@@ -63,6 +63,8 @@ module ubwc_tile_enc_axi_wcmd_gen #(
     localparam integer BEAT_BYTES       = AXI_DW / 8;
     localparam integer BEAT_BYTE_LG2    = $clog2(BEAT_BYTES);
     localparam integer BEATCNT_W        = AXI_LENW + 1;
+    localparam [2:0]   AXI_SIZE_W       = 3'($clog2(AXI_DW / 8));
+    localparam [12:0]  BEAT_BYTES_M1_W  = 13'(BEAT_BYTES - 1);
 
     localparam [1:0] ST_IDLE = 2'd0;
     localparam [1:0] ST_AW   = 2'd1;
@@ -92,7 +94,7 @@ module ubwc_tile_enc_axi_wcmd_gen #(
     wire cmd_avail  = (cmd_count_r != 0);
     wire data_avail = (data_count_r != 0);
 
-    wire [AXI_AW-1:0]    cmd_start_addr_w  = {{(AXI_AW-28){1'b0}}, cmd_addr_mem[cmd_rd_ptr_r], 4'b0000};
+    wire [AXI_AW-1:0]    cmd_start_addr_w  = {{(AXI_AW-32){1'b0}}, cmd_addr_mem[cmd_rd_ptr_r], 4'b0000};
     wire [BEATCNT_W-1:0] cmd_total_beats_w = {{(BEATCNT_W-4){1'b0}}, cmd_len_mem[cmd_rd_ptr_r]} +
                                              {{(BEATCNT_W-1){1'b0}}, 1'b1};
 
@@ -102,12 +104,15 @@ module ubwc_tile_enc_axi_wcmd_gen #(
     wire [BEATCNT_W-1:0] one_beat_w             = {{(BEATCNT_W-1){1'b0}}, 1'b1};
     wire [13:0]          cmd_total_bytes_w      = {cmd_total_beats_w, {BEAT_BYTE_LG2{1'b0}}};
     wire [12:0]          bytes_to_4k_w          = 13'd4096 - {1'b0, cmd_start_addr_w[11:0]};
-    wire [12:0]          bytes_to_4k_ceil_w     = bytes_to_4k_w + (BEAT_BYTES - 1);
-    wire [BEATCNT_W-1:0] first_burst_beats_w    = (({1'b0, cmd_start_addr_w[11:0]} + cmd_total_bytes_w) > 14'd4096) ?
-                                                   (bytes_to_4k_ceil_w >> BEAT_BYTE_LG2) :
-                                                   cmd_total_beats_w;
+    wire [12:0]          bytes_to_4k_ceil_w     = bytes_to_4k_w + BEAT_BYTES_M1_W;
+    wire [12:0]          first_burst_beats_calc_w =
+                                                  (({1'b0, cmd_start_addr_w[11:0]} + cmd_total_bytes_w) > 14'd4096) ?
+                                                  (bytes_to_4k_ceil_w >> BEAT_BYTE_LG2) :
+                                                  {{(13-BEATCNT_W){1'b0}}, cmd_total_beats_w};
+    wire [BEATCNT_W-1:0] first_burst_beats_w    = first_burst_beats_calc_w[BEATCNT_W-1:0];
     wire [BEATCNT_W-1:0] second_burst_beats_w   = cmd_total_beats_w - first_burst_beats_w;
-    wire [AXI_AW-1:0]    second_burst_addr_w    = cmd_start_addr_w + (first_burst_beats_w << BEAT_BYTE_LG2);
+    wire [AXI_AW-1:0]    first_burst_bytes_w    = {{(AXI_AW-BEATCNT_W){1'b0}}, first_burst_beats_w} << BEAT_BYTE_LG2;
+    wire [AXI_AW-1:0]    second_burst_addr_w    = cmd_start_addr_w + first_burst_bytes_w;
     wire                 cmd_crosses_4k_w       = (second_burst_beats_w != {BEATCNT_W{1'b0}});
     wire                 burst_last_beat_w      = (burst_sent_beats_r == (burst_beats_r - one_beat_w));
 
@@ -115,7 +120,7 @@ module ubwc_tile_enc_axi_wcmd_gen #(
     assign o_m_axi_awid    = {AXI_IDW{1'b0}};
     assign o_m_axi_awaddr  = burst_addr_r;
     assign o_m_axi_awlen   = burst_beats_r[AXI_LENW-1:0] - {{(AXI_LENW-1){1'b0}}, 1'b1};
-    assign o_m_axi_awsize  = $clog2(AXI_DW/8);
+    assign o_m_axi_awsize  = AXI_SIZE_W;
     assign o_m_axi_awburst = 2'b01;
     assign o_m_axi_awlock  = 2'b00;
     assign o_m_axi_awcache = 4'b0011;
@@ -146,7 +151,7 @@ module ubwc_tile_enc_axi_wcmd_gen #(
         end else begin
             if (cmd_push) begin
                 cmd_addr_mem[cmd_wr_ptr_r] <= i_tile_addr;
-                cmd_len_mem [cmd_wr_ptr_r] <= i_tile_alen;
+                cmd_len_mem [cmd_wr_ptr_r] <= {1'b0, i_tile_alen};
                 cmd_wr_ptr_r               <= cmd_wr_ptr_r + 1'b1;
             end
             if ((state_r == ST_IDLE) && cmd_avail) begin

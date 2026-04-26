@@ -63,10 +63,13 @@ module otf_driver (
     reg [15:0] h_cnt, v_cnt;
     reg        stream_started;
     wire       frame_start = (i_frame_start == 1'b1);
-    wire is_act = (h_cnt >= h_act_start && h_cnt < h_act_end) &&
-                  (v_cnt >= v_act_start && v_cnt < v_act_end);
+    wire is_active_line = (v_cnt >= v_act_start) && (v_cnt < v_act_end);
+    wire is_hsync       = is_active_line && (h_cnt < h_sync_beats);
+    wire is_act         = is_active_line && (h_cnt >= h_act_start) && (h_cnt < h_act_end);
     wire [15:0] active_line_raw = v_cnt - v_act_start;
-    wire [11:0] active_line = (v_cnt >= v_act_start) ? active_line_raw[11:0] : 12'd0;
+    wire [11:0] active_line = (v_cnt >= v_act_start) ?
+                              ((|active_line_raw[15:12]) ? 12'hfff : active_line_raw[11:0]) :
+                              12'd0;
     // Match the YUV420 table where the first active line uses the ODD layout
     // without chroma bytes, and the second active line uses the EVEN layout.
     wire line_has_uv = active_line[0];
@@ -106,7 +109,7 @@ module otf_driver (
                 end
             end else h_cnt <= h_cnt + 1;
 
-            o_otf_hsync <= (h_cnt < h_sync_beats);
+            o_otf_hsync <= is_hsync;
             o_otf_vsync <= (v_cnt < cfg_otf_v_sync);
             o_otf_de <= is_act;
             o_otf_lcnt  <= active_line;
@@ -162,33 +165,21 @@ module otf_driver (
     wire [1:0]  phase_out = phase - 2'd1;
     reg  [31:0] cur_y;
     reg  [31:0] cur_u;
-    reg  [63:0] cur_y10;
-    reg  [63:0] cur_u10;
     wire [7:0] Y0=cur_y[7:0], Y1=cur_y[15:8], Y2=cur_y[23:16], Y3=cur_y[31:24];
     wire [7:0] U0=cur_u[7:0], V0=cur_u[15:8], U1=cur_u[23:16], V1=cur_u[31:24];
-    wire [9:0] Y0_10 = cur_y10[15:6];
-    wire [9:0] Y1_10 = cur_y10[31:22];
-    wire [9:0] Y2_10 = cur_y10[47:38];
-    wire [9:0] Y3_10 = cur_y10[63:54];
-    wire [9:0] U0_10 = cur_u10[15:6];
-    wire [9:0] V0_10 = cur_u10[31:22];
-    wire [9:0] U1_10 = cur_u10[47:38];
-    wire [9:0] V1_10 = cur_u10[63:54];
+    wire [9:0] Y0_10 = (phase == 2'd1) ? compact_data[15:6]    : compact_data[79:70];
+    wire [9:0] Y1_10 = (phase == 2'd1) ? compact_data[31:22]   : compact_data[95:86];
+    wire [9:0] Y2_10 = (phase == 2'd1) ? compact_data[47:38]   : compact_data[111:102];
+    wire [9:0] Y3_10 = (phase == 2'd1) ? compact_data[63:54]   : compact_data[127:118];
+    wire [9:0] U0_10 = (phase == 2'd1) ? compact_data[143:134] : compact_data[207:198];
+    wire [9:0] V0_10 = (phase == 2'd1) ? compact_data[159:150] : compact_data[223:214];
+    wire [9:0] U1_10 = (phase == 2'd1) ? compact_data[175:166] : compact_data[239:230];
+    wire [9:0] V1_10 = (phase == 2'd1) ? compact_data[191:182] : compact_data[255:246];
 
     always @(*) begin
         cur_y = 32'd0;
         cur_u = 32'd0;
-        cur_y10 = 64'd0;
-        cur_u10 = 64'd0;
-        if (is_yuv420_10) begin
-            if (phase == 2'd1) begin
-                cur_y10 = compact_data[63:0];
-                cur_u10 = compact_data[191:128];
-            end else begin
-                cur_y10 = compact_data[127:64];
-                cur_u10 = compact_data[255:192];
-            end
-        end else begin
+        if (!is_yuv420_10) begin
             case (phase_out)
                 2'd0: begin
                     cur_y = compact_data[31:0];

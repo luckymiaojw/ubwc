@@ -37,8 +37,8 @@ module tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_nv12;
     reg                         rst_n;
     reg                         start;
     reg  [4:0]                  base_format;
-    reg  [ADDR_WIDTH-1:0]       meta_base_addr_rgba_uv;
-    reg  [ADDR_WIDTH-1:0]       meta_base_addr_y;
+    reg  [ADDR_WIDTH-1:0]       meta_base_addr_rgba_y;
+    reg  [ADDR_WIDTH-1:0]       meta_base_addr_uv;
     reg  [15:0]                 tile_x_numbers;
     reg  [15:0]                 tile_y_numbers;
 
@@ -161,8 +161,8 @@ module tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_nv12;
         .rst_n                  (rst_n),
         .start                  (start),
         .base_format            (base_format),
-        .meta_base_addr_rgba_uv (meta_base_addr_rgba_uv),
-        .meta_base_addr_y       (meta_base_addr_y),
+        .meta_base_addr_rgba_y (meta_base_addr_rgba_y),
+        .meta_base_addr_uv       (meta_base_addr_uv),
         .tile_x_numbers         (tile_x_numbers),
         .tile_y_numbers         (tile_y_numbers),
         .m_axi_arvalid          (m_axi_arvalid),
@@ -446,11 +446,11 @@ module tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_nv12;
                 $display("TIMEOUT DEBUG: exp_tile_y=%0d exp_pass=%0d exp_row_phase=%0d exp_tile_x=%0d exp_byte_idx=%0d",
                          exp_tile_y, exp_pass, exp_row_phase, exp_tile_x, exp_byte_idx);
                 $display("TIMEOUT DEBUG: meta_get_state=%0d read_state=%0d row_phase=%0d scan_pass=%0d beat_cnt=%0d sram_pending=%0b",
-                         dut.u_meta_get_cmd_gen.state,
+                         dut.u_meta_get_cmd_gen.frame_done,
                          dut.u_meta_data_from_sram.state,
                          dut.u_meta_data_from_sram.row_phase,
-                         dut.u_axi_rdata_to_sram.scan_pass,
-                         dut.u_axi_rdata_to_sram.beat_cnt,
+                         dut.u_axi_rdata_to_sram.sram_base_addr_offset,
+                         1'b0,
                          dut.u_meta_pingpong_sram.rd_pending_valid);
                 $fatal(1, "Timeout waiting for expected FIFO outputs.");
             end
@@ -804,8 +804,8 @@ module tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_nv12;
         rst_n                  = 1'b0;
         start                  = 1'b0;
         base_format            = BASE_FMT_YUV420_8;
-        meta_base_addr_rgba_uv = META_BASE_ADDR_UV;
-        meta_base_addr_y       = META_BASE_ADDR_Y;
+        meta_base_addr_rgba_y = META_BASE_ADDR_Y;
+        meta_base_addr_uv     = META_BASE_ADDR_UV;
         tile_x_numbers         = CASE_TILE_X_NUMBERS[15:0];
         tile_y_numbers         = CASE_TILE_Y_NUMBERS[15:0];
 

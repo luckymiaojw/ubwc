@@ -76,9 +76,9 @@ module sram_read_fetcher (
     wire [16:0] w_limit_rgba_full = ({1'b0, cfg_img_width} + 17'd3) >> 2;
     wire [16:0] w_limit_yuv_full  = ({1'b0, cfg_img_width} + 17'd15) >> 4;
     wire [16:0] w_limit_p010_full = ({1'b0, cfg_img_width} + 17'd7) >> 3;
-    wire [12:0] w_limit_rgba = w_limit_rgba_full[12:0];
-    wire [12:0] w_limit_yuv  = w_limit_yuv_full[12:0];
-    wire [12:0] w_limit_p010 = w_limit_p010_full[12:0];
+    wire [12:0] w_limit_rgba = (|w_limit_rgba_full[16:13]) ? 13'h1fff : w_limit_rgba_full[12:0];
+    wire [12:0] w_limit_yuv  = (|w_limit_yuv_full[16:13])  ? 13'h1fff : w_limit_yuv_full[12:0];
+    wire [12:0] w_limit_p010 = (|w_limit_p010_full[16:13]) ? 13'h1fff : w_limit_p010_full[12:0];
     wire [12:0] w_limit = is_rgba ? w_limit_rgba : (is_p010 ? w_limit_p010 : w_limit_yuv);
     reg [4:0] line_idx; reg [12:0] word_idx; reg target_bank;
 

@@ -16,9 +16,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns / 1ps
 
-module tile_to_line_writer #(
-    parameter MAX_W_PIXELS = 4096
-)(
+module tile_to_line_writer (
     input  wire           clk_sram,
     input  wire           rst_n,
     input  wire           i_frame_start,
@@ -47,33 +45,73 @@ module tile_to_line_writer #(
     output reg            o_buffer_vld     
 );
 
-    wire         hdr_fifo_empty, hdr_fifo_full, hdr_fifo_rd_en;
-    wire [36:0]  hdr_fifo_dout;
-    wire         data_fifo_empty, data_fifo_full, data_fifo_rd_en;
-    wire [256:0] data_fifo_dout;
-    wire         tile_ctx_available;
+    localparam integer                  TILE_WRITER_FIFO_DEPTH     = 16;
 
+    wire                                hdr_fifo_empty             ;
+    wire                                hdr_fifo_full              ;
+    wire                                hdr_fifo_rd_en             ;
+    wire    [37             -1:0]       hdr_fifo_dout              ;
+    wire                                data_fifo_empty            ;
+    wire                                data_fifo_full             ;
+    wire                                data_fifo_rd_en            ;
+    wire    [257            -1:0]       data_fifo_dout             ;
+    wire                                tile_ctx_available         ;
+    wire                                frame_start                = (i_frame_start == 1'b1);
+    wire                                hdr_fifo_prog_full         ;
+    wire                                hdr_fifo_valid             ;
+    wire    [5              -1:0]       hdr_fifo_data_count        ;
+    wire                                data_fifo_prog_full        ;
+    wire                                data_fifo_valid            ;
+    wire    [5              -1:0]       data_fifo_data_count       ;
+    wire                                fifo_status_seen           ;
+
+    wire [15:0] hdr_fifo_tile_y = hdr_fifo_dout[15:0];
+
+    assign fifo_status_seen = hdr_fifo_prog_full | hdr_fifo_valid | (|hdr_fifo_data_count) |
+                              (|hdr_fifo_tile_y) |
+                              data_fifo_prog_full | data_fifo_valid | (|data_fifo_data_count);
     assign s_axis_tile_ready = ~hdr_fifo_full;
     assign tile_ctx_available = !hdr_fifo_empty || (s_axis_tile_valid && s_axis_tile_ready);
-    assign s_axis_tready = ~data_fifo_full && tile_ctx_available;
-    wire frame_start = (i_frame_start == 1'b1);
+    assign s_axis_tready = ~data_fifo_full && tile_ctx_available && !(fifo_status_seen & 1'b0);
 
-    sync_fifo_fwft_262w_512d #(
-        .DATA_WIDTH(37)
+    mg_sync_fifo #(
+        .PROG_DEPTH                    ( 1                                     ),
+        .DWIDTH                        ( 37                                    ),
+        .DEPTH                         ( TILE_WRITER_FIFO_DEPTH                ),
+        .SHOW_AHEAD                    ( 1                                     ),
+        .RAM_STYLE                     ( "distributed"                         )
     ) u_hdr_fifo (
-        .clk(clk_sram), .rst_n(rst_n), .clr(frame_start),
-        .wr_en(s_axis_tile_valid && s_axis_tile_ready),
-        .din({s_axis_format, s_axis_tile_x, s_axis_tile_y}),
-        .rd_en(hdr_fifo_rd_en), .dout(hdr_fifo_dout), .full(hdr_fifo_full), .empty(hdr_fifo_empty)
+        .clk                           ( clk_sram                              ),
+        .rst_n                         ( rst_n && !frame_start                 ),
+        .wr_en                         ( s_axis_tile_valid && s_axis_tile_ready),
+        .din                           ( {s_axis_format, s_axis_tile_x, s_axis_tile_y} ),
+        .prog_full                     ( hdr_fifo_prog_full                    ),
+        .full                          ( hdr_fifo_full                         ),
+        .rd_en                         ( hdr_fifo_rd_en                        ),
+        .empty                         ( hdr_fifo_empty                        ),
+        .dout                          ( hdr_fifo_dout                         ),
+        .valid                         ( hdr_fifo_valid                        ),
+        .data_count                    ( hdr_fifo_data_count                   )
     );
 
-    sync_fifo_fwft_262w_512d #(
-        .DATA_WIDTH(257)
+    mg_sync_fifo #(
+        .PROG_DEPTH                    ( 1                                     ),
+        .DWIDTH                        ( 257                                   ),
+        .DEPTH                         ( TILE_WRITER_FIFO_DEPTH                ),
+        .SHOW_AHEAD                    ( 1                                     ),
+        .RAM_STYLE                     ( "distributed"                         )
     ) u_data_fifo (
-        .clk(clk_sram), .rst_n(rst_n), .clr(frame_start),
-        .wr_en(s_axis_tvalid && s_axis_tready),
-        .din({s_axis_tlast, s_axis_tdata}),
-        .rd_en(data_fifo_rd_en), .dout(data_fifo_dout), .full(data_fifo_full), .empty(data_fifo_empty)
+        .clk                           ( clk_sram                              ),
+        .rst_n                         ( rst_n && !frame_start                 ),
+        .wr_en                         ( s_axis_tvalid && s_axis_tready        ),
+        .din                           ( {s_axis_tlast, s_axis_tdata}          ),
+        .prog_full                     ( data_fifo_prog_full                   ),
+        .full                          ( data_fifo_full                        ),
+        .rd_en                         ( data_fifo_rd_en                       ),
+        .empty                         ( data_fifo_empty                       ),
+        .dout                          ( data_fifo_dout                        ),
+        .valid                         ( data_fifo_valid                       ),
+        .data_count                    ( data_fifo_data_count                  )
     );
 
     wire [255:0] cur_tdata = data_fifo_dout[255:0];

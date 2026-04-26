@@ -14,8 +14,8 @@ module tb_ubwc_dec_meta_data_gen_bank_reuse;
     reg                       rst_n;
     reg                       start;
     reg  [4:0]                base_format;
-    reg  [ADDR_WIDTH-1:0]     meta_base_addr_rgba_uv;
-    reg  [ADDR_WIDTH-1:0]     meta_base_addr_y;
+    reg  [ADDR_WIDTH-1:0]     meta_base_addr_rgba_y;
+    reg  [ADDR_WIDTH-1:0]     meta_base_addr_uv;
     reg  [15:0]               tile_x_numbers;
     reg  [15:0]               tile_y_numbers;
 
@@ -63,8 +63,8 @@ module tb_ubwc_dec_meta_data_gen_bank_reuse;
         .rst_n                  (rst_n),
         .start                  (start),
         .base_format            (base_format),
-        .meta_base_addr_rgba_uv (meta_base_addr_rgba_uv),
-        .meta_base_addr_y       (meta_base_addr_y),
+        .meta_base_addr_rgba_y (meta_base_addr_rgba_y),
+        .meta_base_addr_uv       (meta_base_addr_uv),
         .tile_x_numbers         (tile_x_numbers),
         .tile_y_numbers         (tile_y_numbers),
         .m_axi_arvalid          (m_axi_arvalid),
@@ -180,8 +180,8 @@ module tb_ubwc_dec_meta_data_gen_bank_reuse;
         rst_n                  = 1'b0;
         start                  = 1'b0;
         base_format            = BASE_FMT_RGBA8888;
-        meta_base_addr_rgba_uv = 32'h8000_0000;
-        meta_base_addr_y       = 32'h8000_0000;
+        meta_base_addr_rgba_y = 32'h8000_0000;
+        meta_base_addr_uv       = 32'h8000_0000;
         tile_x_numbers         = 16'd8;
         tile_y_numbers         = 16'd48;
         fifo_rdy               = 1'b0;

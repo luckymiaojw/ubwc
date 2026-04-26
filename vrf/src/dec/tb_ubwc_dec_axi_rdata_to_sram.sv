@@ -16,22 +16,19 @@ module tb_ubwc_dec_axi_rdata_to_sram();
     // --- External configuration ---
     reg [4:0]  base_format;
     reg [15:0] tile_x_numbers;
+    reg [15:0] tile_y_numbers;
 
-    // --- Meta interface ---
-    reg        meta_valid;
-    wire       meta_ready;
+    // --- Metadata stream interface ---
+    reg        meta_data_valid;
+    wire       meta_data_ready;
+    reg [7:0]  meta_data;
     reg [4:0]  meta_format;
     reg [15:0] meta_xcoord, meta_ycoord;
-
-    // --- AXI R channel ---
-    reg                       axi_rvalid;
-    wire                      axi_rready;
-    reg  [AXI_DATA_WIDTH-1:0] axi_rdata;
-    reg                       axi_rlast;
 
     // --- SRAM & FIFO monitors ---
     wire [3:0]  sram_we_a, sram_we_b;
     wire [11:0] sram_addr;
+    wire [AXI_DATA_WIDTH-1:0] sram_wdata;
     wire        bfifo_we;
     wire [40:0] bfifo_wdata;
     wire        bank_fill_valid_unused;
@@ -44,21 +41,20 @@ module tb_ubwc_dec_axi_rdata_to_sram();
         .start(start),
         .base_format(base_format),
         .tile_x_numbers(tile_x_numbers),
-        .meta_valid(meta_valid),
-        .meta_ready(meta_ready),
+        .tile_y_numbers(tile_y_numbers),
+        .meta_data_valid(meta_data_valid),
+        .meta_data_ready(meta_data_ready),
+        .meta_data(meta_data),
         .meta_format(meta_format),
         .meta_xcoord(meta_xcoord),
         .meta_ycoord(meta_ycoord),
-        .axi_rvalid(axi_rvalid),
-        .axi_rready(axi_rready),
-        .axi_rdata(axi_rdata),
-        .axi_rlast(axi_rlast),
         .bank_a_free(1'b1),
         .bank_b_free(1'b1),
         .sram_we_a(sram_we_a),
         .sram_we_b(sram_we_b),
         .sram_addr(sram_addr),
-        .sram_wdata(),
+        .sram_wdata(sram_wdata),
+        .bfifo_prog_full(1'b0),
         .bfifo_we(bfifo_we),
         .bfifo_wdata(bfifo_wdata),
         .bank_fill_valid(bank_fill_valid_unused),
@@ -70,18 +66,20 @@ module tb_ubwc_dec_axi_rdata_to_sram();
 
     // --- Generic send task ---
     task send_meta(input [4:0] fmt, input [15:0] x, input [15:0] y);
+        integer byte_idx;
         begin
-            meta_valid = 1; meta_format = fmt; meta_xcoord = x; meta_ycoord = y;
-            // Beat 1
-            @(posedge clk); 
-            axi_rvalid = 1; axi_rlast = 0; axi_rdata = {$random, $random};
-            // Beat 2
-            @(posedge clk); 
-            axi_rlast = 1; axi_rdata = {$random, $random};
-            // Wait for completion
-            @(posedge clk);
-            while(!meta_ready) @(posedge clk);
-            meta_valid = 0; axi_rvalid = 0; axi_rlast = 0;
+            for (byte_idx = 0; byte_idx < 8; byte_idx = byte_idx + 1) begin
+                @(negedge clk);
+                meta_data_valid = 1;
+                meta_data = $random;
+                meta_format = fmt;
+                meta_xcoord = x + byte_idx[15:0];
+                meta_ycoord = y;
+                do begin
+                    @(posedge clk);
+                end while (!meta_data_ready);
+                meta_data_valid = 0;
+            end
             @(posedge clk);
         end
     endtask
@@ -89,8 +87,10 @@ module tb_ubwc_dec_axi_rdata_to_sram();
     initial begin
         // Initialize signals
         rst_n = 0; base_format = BASE_FMT_RGBA8888; tile_x_numbers = 16'd32;
+        tile_y_numbers = 16'd16;
         start = 0;
-        meta_valid = 0; axi_rvalid = 0; axi_rlast = 0; axi_rdata = 0;
+        meta_data_valid = 0; meta_data = 8'd0;
+        meta_format = META_FMT_RGBA8888; meta_xcoord = 16'd0; meta_ycoord = 16'd0;
         #25 rst_n = 1;
         #10 start = 1;
         #10 start = 0;
@@ -101,9 +101,9 @@ module tb_ubwc_dec_axi_rdata_to_sram();
         // ============================================================
         $display("\n[CASE 1] Normal YUV420 Flow...");
         base_format = BASE_FMT_YUV420_8;
-        send_meta(META_FMT_NV12_Y, 0, 0); send_meta(META_FMT_NV12_Y, 1, 0);
-        send_meta(META_FMT_NV12_Y, 0, 1); send_meta(META_FMT_NV12_Y, 1, 1);
-        send_meta(META_FMT_NV12_UV, 0, 0); send_meta(META_FMT_NV12_UV, 1, 0);
+        send_meta(META_FMT_NV12_Y, 0, 0); send_meta(META_FMT_NV12_Y, 8, 0);
+        send_meta(META_FMT_NV12_Y, 0, 1); send_meta(META_FMT_NV12_Y, 8, 1);
+        send_meta(META_FMT_NV12_UV, 0, 0); send_meta(META_FMT_NV12_UV, 8, 0);
         #50;
 
         // ============================================================
@@ -117,7 +117,7 @@ module tb_ubwc_dec_axi_rdata_to_sram();
         base_format = BASE_FMT_RGBA8888;
         $display("   !!! Base Format forced to RGBA now !!!");
         
-        send_meta(META_FMT_NV12_Y, 1, 0);
+        send_meta(META_FMT_NV12_Y, 8, 0);
         #50;
 
         // ============================================================
@@ -128,7 +128,7 @@ module tb_ubwc_dec_axi_rdata_to_sram();
         base_format = BASE_FMT_YUV422_8;
         tile_x_numbers = 16'd16;
 
-        send_meta(META_FMT_NV16_Y, 1, 0);
+        send_meta(META_FMT_NV16_Y, 8, 0);
         #50;
 
         // ============================================================
@@ -137,7 +137,7 @@ module tb_ubwc_dec_axi_rdata_to_sram();
         $display("\n[CASE 4] Normal RGBA Single Pass...");
         base_format = BASE_FMT_RGBA8888;
         tile_x_numbers = 16'd32;
-        send_meta(META_FMT_RGBA8888, 0, 0); send_meta(META_FMT_RGBA8888, 1, 0);
+        send_meta(META_FMT_RGBA8888, 0, 0); send_meta(META_FMT_RGBA8888, 8, 0);
         
         #100;
         $display("\n--- ALL TEST CASES FINISHED ---");

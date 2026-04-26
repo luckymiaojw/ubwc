@@ -5,13 +5,13 @@
 // Company           : MagicIP
 // Engineer          : jiawang.miao magic.jw@magicip.com.cn
 // Create Date       : 2026-03-28  17:29:56
-// Design Name       : 
+// Design Name       :
 // Module Name       : tb_ubwc_enc_meta_get_cmd_gen.sv
 // Editor            : Gvim, tab size (4)
 // Revision          : 1.00
 //		Revision 1.00 - File Created by		: MiaoJiawang
-//		Description							: 
-// Additional Comments: 
+//		Description							:
+// Additional Comments:
 //
 //////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns / 1ps
@@ -30,20 +30,16 @@ module tb_ubwc_enc_meta_get_cmd_gen();
     reg                   rst_n;
     reg                   start;
     reg  [4:0]            base_format;
-    
-    reg  [ADDR_WIDTH-1:0] meta_base_addr_rgba_uv;
-    reg  [ADDR_WIDTH-1:0] meta_base_addr_y;
-    
+
+    reg  [ADDR_WIDTH-1:0] meta_base_addr_rgba_y;
+    reg  [ADDR_WIDTH-1:0] meta_base_addr_uv;
+
     reg  [15:0]           tile_x_numbers;
     reg  [15:0]           tile_y_numbers;
 
-    wire                  cmd_valid;
-    reg                   cmd_ready;
-    wire [ADDR_WIDTH-1:0] cmd_addr;
-    wire [7:0]            cmd_len;
-
-    wire                  meta_valid;
-    reg                   meta_ready;
+    wire                  meta_grp_valid;
+    reg                   meta_grp_ready;
+    wire [ADDR_WIDTH-1:0] meta_grp_addr;
     wire [4:0]            meta_format;
     wire [15:0]           meta_xcoord;
     wire [15:0]           meta_ycoord;
@@ -55,17 +51,13 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         .rst_n(rst_n),
         .start(start),
         .base_format(base_format),
-        .meta_base_addr_rgba_uv(meta_base_addr_rgba_uv),
-        .meta_base_addr_y(meta_base_addr_y),
+        .meta_base_addr_rgba_y(meta_base_addr_rgba_y),
+        .meta_base_addr_uv(meta_base_addr_uv),
         .tile_x_numbers(tile_x_numbers),
         .tile_y_numbers(tile_y_numbers),
-        .cmd_valid(cmd_valid),
-        .cmd_ready(cmd_ready),
-      
-        .cmd_addr(cmd_addr),
-        .cmd_len(cmd_len),
-        .meta_valid(meta_valid),
-        .meta_ready(meta_ready),
+        .meta_grp_valid(meta_grp_valid),
+        .meta_grp_ready(meta_grp_ready),
+        .meta_grp_addr(meta_grp_addr),
         .meta_format(meta_format),
         .meta_xcoord(meta_xcoord),
         .meta_ycoord(meta_ycoord)
@@ -82,30 +74,31 @@ module tb_ubwc_enc_meta_get_cmd_gen();
     initial begin
         rst_n = 0;
         start = 0;
-        cmd_ready = 1;  
-        // meta_ready is driven by the random backpressure logic below
+        // meta_grp_ready is driven by the random backpressure logic below
 
-        meta_base_addr_rgba_uv = 32'h1000_0000;
-        meta_base_addr_y       = 32'h2000_0000;
+        meta_base_addr_rgba_y = 32'h1000_0000;
+        meta_base_addr_uv       = 32'h2000_0000;
 
         // Global tile resolution: 129 columns x 65 rows
-        tile_x_numbers = 16'd129; 
+        tile_x_numbers = 16'd129;
         tile_y_numbers = 16'd65;
 
         #25 rst_n = 1;
         #10;
 
         // -----------------------------------------------------------
-        // Test Case 1: RGBA8888 
+        // Test Case 1: RGBA8888
         // -----------------------------------------------------------
         $display("\n==============================================");
         $display("--- TEST 1: RGBA8888 SCANNING (129 x 65) ---");
         $display("==============================================");
         base_format = BASE_FMT_RGBA8888;
+        @(negedge clk);
         start = 1;
-        #10 start = 0;
-        wait (dut.state == 8); // Wait for S_DONE
-        
+        @(negedge clk);
+        start = 0;
+        wait (dut.frame_done == 1'b1);
+
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000; // Frame interval: 1us (1000ns)
 
@@ -116,10 +109,12 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         $display("--- TEST 2: RGBA1010102 SCANNING (129 x 65) ---");
         $display("==============================================");
         base_format = BASE_FMT_RGBA1010102;
+        @(negedge clk);
         start = 1;
-        #10 start = 0;
-        wait (dut.state == 8); 
-        
+        @(negedge clk);
+        start = 0;
+        wait (dut.frame_done == 1'b1);
+
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000; // Frame interval: 1us (1000ns)
 
@@ -130,10 +125,12 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         $display("--- TEST 3: YUV422 SCANNING (129 x 65) ---");
         $display("==============================================");
         base_format = BASE_FMT_YUV422_8;
+        @(negedge clk);
         start = 1;
-        #10 start = 0;
-        wait (dut.state == 8); 
-        
+        @(negedge clk);
+        start = 0;
+        wait (dut.frame_done == 1'b1);
+
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000; // Frame interval: 1us (1000ns)
 
@@ -144,10 +141,12 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         $display("--- TEST 4: YUV420 SCANNING (129 x 65) ---");
         $display("==============================================");
         base_format = BASE_FMT_YUV420_8;
+        @(negedge clk);
         start = 1;
-        #10 start = 0;
-        wait (dut.state == 8); 
-        
+        @(negedge clk);
+        start = 0;
+        wait (dut.frame_done == 1'b1);
+
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000;
 
@@ -155,10 +154,12 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         $display("--- TEST 5: P010 SCANNING (129 x 65) ---");
         $display("==============================================");
         base_format = BASE_FMT_YUV420_10;
+        @(negedge clk);
         start = 1;
-        #10 start = 0;
-        wait (dut.state == 8); 
-        
+        @(negedge clk);
+        start = 0;
+        wait (dut.frame_done == 1'b1);
+
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000;
 
@@ -166,10 +167,12 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         $display("--- TEST 6: YUV422 10BIT SCANNING (129 x 65) ---");
         $display("==============================================");
         base_format = BASE_FMT_YUV422_10;
+        @(negedge clk);
         start = 1;
-        #10 start = 0;
-        wait (dut.state == 8); 
-        
+        @(negedge clk);
+        start = 0;
+        wait (dut.frame_done == 1'b1);
+
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000; // Frame interval: 1us (1000ns)
 
@@ -181,47 +184,47 @@ module tb_ubwc_enc_meta_get_cmd_gen();
     // Log monitor
     // ============================================================
     always @(posedge clk) begin
-        if (meta_valid && meta_ready) begin
-            $display(">> [%0t ns] [META] Format: %b | Coord: (X=%0d, Y=%0d)", 
+        if (meta_grp_valid && meta_grp_ready) begin
+            $display(">> [%0t ns] [META] Format: %b | Coord: (X=%0d, Y=%0d)",
                      $time, meta_format, meta_xcoord, meta_ycoord);
         end
-        if (cmd_valid && cmd_ready) begin
-            $display("   [CMD]  Addr: 0x%0h", cmd_addr);
+        if (meta_grp_valid && meta_grp_ready) begin
+            $display("   [META_GRP]  Addr: 0x%0h", meta_grp_addr);
         end
     end
 
     // ============================================================
-    // Random meta_ready backpressure control
+    // Random meta_grp_ready backpressure control
     // Force ready low for 1~10 cycles after every 16 successful handshakes
     // ============================================================
     integer meta_handshake_cnt = 0;
     integer wait_cycles = 0;
 
     initial begin
-        meta_ready = 1; // Initially ready to accept data
+        meta_grp_ready = 1; // Initially ready to accept data
         forever begin
             @(posedge clk);
-            
+
             // Count a transfer only when valid and ready are both high
-            if (meta_valid && meta_ready) begin
+            if (meta_grp_valid && meta_grp_ready) begin
                 meta_handshake_cnt = meta_handshake_cnt + 1;
-                
+
                 // Once 16 transfers have been accepted
                 if (meta_handshake_cnt == 16) begin
-                    meta_ready <= 0; // Force ready low to emulate downstream FIFO full
-                    
+                    meta_grp_ready <= 0; // Force ready low to emulate downstream FIFO full
+
                     // Generate a random stall length from 1 to 10 cycles
                     wait_cycles = $urandom_range(1, 10);
                     $display("------------------------------------------------------------------");
-                    $display(">>> [TB INJECT] 16 META entries accepted, forcing meta_ready low for %0d cycles <<<", wait_cycles);
+                    $display(">>> [TB INJECT] 16 META group entries accepted, forcing meta_grp_ready low for %0d cycles <<<", wait_cycles);
                     $display("------------------------------------------------------------------");
-                    
+
                     // Block for the randomized number of cycles
                     repeat(wait_cycles) @(posedge clk);
-                    
+
                     // Restore ready and clear the counter for the next round
-                    meta_ready <= 1; 
-                    meta_handshake_cnt = 0; 
+                    meta_grp_ready <= 1;
+                    meta_handshake_cnt = 0;
                 end
             end
         end

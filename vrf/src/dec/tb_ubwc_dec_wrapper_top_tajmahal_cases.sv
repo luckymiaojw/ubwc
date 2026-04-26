@@ -108,6 +108,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                              : (CASE_IS_NV12
                                                 ? (NV12_TILE_X_COUNT * (NV12_Y_TILE_Y_COUNT + NV12_UV_TILE_Y_COUNT))
                                                 : (RGBA_TILE_X_COUNT * RGBA_TILE_Y_COUNT));
+    localparam integer CASE_EXPECTED_DEC_META_SAMPLES = CASE_EXPECTED_CI_CMDS;
     localparam integer CASE_FULL_TILE_BEATS   = 8;
     localparam integer CASE_TILE_PITCH_BYTES = CASE_IS_G016 ? G016_TILE_PITCH :
                                                (CASE_IS_NV12 ? NV12_TILE_PITCH : RGBA_TILE_PITCH);
@@ -126,6 +127,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                                (CASE_IS_NV12 ? NV12_Y_META_WORDS64 : RGBA_META_WORDS64);
     localparam integer CASE_META1_WORDS64    = CASE_IS_G016 ? G016_UV_META_WORDS64 :
                                                (CASE_IS_NV12 ? NV12_UV_META_WORDS64 : 1);
+    localparam integer CASE_META_PITCH_BYTES  = ceil_div(CASE_TILE_X_NUMBERS, 64) * 64;
     localparam integer CASE_TILE0_WORDS64    = CASE_IS_G016 ? G016_Y_TILE_WORDS64 :
                                                (CASE_IS_NV12 ? NV12_Y_TILE_WORDS64 : RGBA_TILE_WORDS64);
     localparam integer CASE_TILE1_WORDS64    = CASE_IS_G016 ? G016_UV_TILE_WORDS64 :
@@ -276,7 +278,6 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     integer                   tile_queue_wr_ptr;
     integer                   tile_queue_rd_ptr;
     integer                   ci_queue_wr_ptr;
-    integer                   fake_ci_queue_rd_ptr;
     integer                   cmp_tile_rd_ptr;
     integer                   cmp_tile_beat_idx;
     integer                   meta_ar_cnt;
@@ -333,6 +334,14 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     integer                   expected_stream_plane0_fd;
     integer                   stream_plane1_fd;
     integer                   expected_stream_plane1_fd;
+    integer                   dec_meta_actual_fd;
+    integer                   dec_meta_expected_fd;
+    integer                   vivo_ci_fd [0:5];
+    integer                   vivo_cvi_fd [0:5];
+    integer                   vivo_rvo_fd [0:5];
+    integer                   vivo_ci_dump_cnt [0:5];
+    integer                   vivo_cvi_dump_cnt [0:5];
+    integer                   vivo_rvo_dump_cnt [0:5];
     integer                   otf_fd;
     integer                   compressed_tile_in_fd;
     integer                   summary_fd;
@@ -358,6 +367,20 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     reg [AXI_AW-1:0]          first_axi_rdata_cccc_addr;
     reg                       first_axi_rdata_cccc_is_meta;
     reg [M_AXI_DW-1:0]        first_axi_rdata_cccc_data;
+    reg [7:0]                 first_dec_meta_expected_raw;
+    reg [7:0]                 first_dec_meta_actual_raw;
+    reg [4:0]                 first_dec_meta_expected_format;
+    reg [4:0]                 first_dec_meta_actual_format;
+    reg [3:0]                 first_dec_meta_expected_flag;
+    reg [3:0]                 first_dec_meta_actual_flag;
+    reg [2:0]                 first_dec_meta_expected_alen;
+    reg [2:0]                 first_dec_meta_actual_alen;
+    reg                       first_dec_meta_expected_has_payload;
+    reg                       first_dec_meta_actual_has_payload;
+    reg [11:0]                first_dec_meta_expected_x;
+    reg [11:0]                first_dec_meta_actual_x;
+    reg [9:0]                 first_dec_meta_expected_y;
+    reg [9:0]                 first_dec_meta_actual_y;
     integer                   first_m_r_nosink_cycle;
     reg                       first_m_r_nosink_owner_s0;
     reg                       first_m_r_nosink_rlast;
@@ -377,13 +400,13 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     integer                   otf_active_y;
     integer                   compressed_tile_hs_cnt;
     integer                   compressed_tile_last_cnt;
+    integer                   dec_meta_out_cnt;
+    integer                   dec_meta_mismatch_cnt;
+    integer                   first_dec_meta_mismatch_idx;
     integer                   fake_ci_fifo_wr_cnt;
     integer                   fake_ci_fifo_rd_cnt;
-    reg                       fake_vivo_tile_active;
-    integer                   fake_vivo_beat_idx;
-    reg                       fake_vivo_rvo_valid;
-    reg  [255:0]              fake_vivo_rvo_data;
-    reg                       fake_vivo_rvo_last;
+    integer                   cvi_tile_rd_ptr;
+    integer                   cvi_tile_beat_idx;
     reg                       axi_r_cccc_seen_curr_beat;
 
     reg [4:0]                 inject_axis_format;
@@ -401,7 +424,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     reg [8*128-1:0]           expected_stream_plane0_file;
     reg [8*128-1:0]           stream_plane1_file;
     reg [8*128-1:0]           expected_stream_plane1_file;
+    reg [8*128-1:0]           dec_meta_actual_file;
+    reg [8*128-1:0]           dec_meta_expected_file;
     reg [8*128-1:0]           summary_file;
+
+    reg                       exp_dec_meta_is_uv;
+    reg [11:0]                exp_dec_meta_x;
+    reg [9:0]                 exp_dec_meta_y;
+    reg [9:0]                 exp_dec_meta_uv_y;
+    reg                       exp_dec_meta_done;
 
     assign tb_otf_vsync = o_otf_vsync;
     assign tb_otf_hsync = o_otf_hsync;
@@ -472,6 +503,189 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         end
     endfunction
 
+    function automatic [4:0] expected_dec_meta_format;
+        input integer is_uv_plane;
+        begin
+            if (CASE_IS_NV12) begin
+                expected_dec_meta_format = (is_uv_plane != 0) ? META_FMT_NV12_UV : META_FMT_NV12_Y;
+            end else if (CASE_IS_G016) begin
+                expected_dec_meta_format = (is_uv_plane != 0) ? META_FMT_P010_UV : META_FMT_P010_Y;
+            end else if (CASE_IS_RGBA1010102) begin
+                expected_dec_meta_format = META_FMT_RGBA1010102;
+            end else begin
+                expected_dec_meta_format = META_FMT_RGBA8888;
+            end
+        end
+    endfunction
+
+    function automatic [AXI_AW-1:0] expected_dec_meta_byte_addr;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        reg [AXI_AW-1:0] meta_offset_addr;
+        begin
+            meta_offset_addr = ((tile_y >> 4) * CASE_META_PITCH_BYTES * 16) +
+                               ((tile_x >> 4) << 8) +
+                               (((tile_y >> 3) & 1) << 7) +
+                               (((tile_x >> 3) & 1) << 6) +
+                               ((tile_y & 7) << 3) +
+                               (tile_x & 7);
+            expected_dec_meta_byte_addr = (is_plane1_fmt(fmt) ? CASE_META_BASE_ADDR_UV : CASE_META_BASE_ADDR_Y) +
+                                          meta_offset_addr;
+        end
+    endfunction
+
+    function automatic [7:0] expected_dec_meta_raw;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        reg [AXI_AW-1:0] byte_addr;
+        integer word_idx;
+        integer byte_idx;
+        reg [63:0] meta_word;
+        begin
+            byte_addr = expected_dec_meta_byte_addr(fmt, tile_x, tile_y);
+            byte_idx  = byte_addr[2:0];
+            if (is_plane1_fmt(fmt)) begin
+                word_idx  = (byte_addr - CASE_META_BASE_ADDR_UV) >> 3;
+                meta_word = (word_idx < CASE_META1_WORDS64) ? meta_plane1_words[word_idx] : 64'd0;
+            end else begin
+                word_idx  = (byte_addr - CASE_META_BASE_ADDR_Y) >> 3;
+                meta_word = (word_idx < CASE_META0_WORDS64) ? meta_plane0_words[word_idx] : 64'd0;
+            end
+            expected_dec_meta_raw = meta_word[byte_idx*8 +: 8];
+        end
+    endfunction
+
+    function automatic integer expected_dec_meta_compressed_size;
+        input [4:0] fmt;
+        input [7:0] meta_raw;
+        reg [1:0] alpha_mode;
+        begin
+            alpha_mode = {meta_raw[5], meta_raw[0]};
+            if (FORCE_FULL_PAYLOAD_CASE != 0) begin
+                expected_dec_meta_compressed_size = 256;
+            end else if (meta_raw[7:6] != 2'b00) begin
+                expected_dec_meta_compressed_size = 32;
+            end else if (!meta_raw[4]) begin
+                expected_dec_meta_compressed_size = 0;
+            end else begin
+                expected_dec_meta_compressed_size = ((meta_raw[3:1] + 1) << 5);
+                if (expected_dec_meta_compressed_size == 256) begin
+                    if ((fmt == META_FMT_RGBA8888) && ({meta_raw[5], meta_raw[0]} >= 2'd2)) begin
+                        expected_dec_meta_compressed_size = 192;
+                    end
+                end
+            end
+        end
+    endfunction
+
+    function automatic [3:0] expected_dec_meta_flag;
+        input [7:0] meta_raw;
+        begin
+            if (FORCE_FULL_PAYLOAD_CASE != 0) begin
+                expected_dec_meta_flag = 4'h7;
+            end else if (meta_raw[7:6] != 2'b00) begin
+                expected_dec_meta_flag = 4'd0;
+            end else if (!meta_raw[4]) begin
+                expected_dec_meta_flag = 4'h8 | {1'b0, meta_raw[3:2], 1'b0};
+            end else begin
+                expected_dec_meta_flag = {1'b0, meta_raw[3:1]};
+            end
+        end
+    endfunction
+
+    function automatic [2:0] expected_dec_meta_alen;
+        input [4:0] fmt;
+        input [7:0] meta_raw;
+        integer compressed_size;
+        begin
+            compressed_size = expected_dec_meta_compressed_size(fmt, meta_raw);
+            expected_dec_meta_alen = (compressed_size == 0) ? 3'd0 : (((compressed_size >> 5) - 1) & 3'h7);
+        end
+    endfunction
+
+    function automatic expected_dec_meta_has_payload;
+        input [4:0] fmt;
+        input [7:0] meta_raw;
+        begin
+            expected_dec_meta_has_payload = (expected_dec_meta_compressed_size(fmt, meta_raw) != 0);
+        end
+    endfunction
+
+    task automatic write_dec_meta_line;
+        input integer fd;
+        input integer index;
+        input [7:0] raw;
+        input [4:0] fmt;
+        input [3:0] flag;
+        input [2:0] alen;
+        input has_payload;
+        input [11:0] xcoord;
+        input [9:0] ycoord;
+        begin
+            if (fd != 0) begin
+                $fwrite(fd, "%06d raw=%02h fmt=%02h flag=%01h alen=%0d payload=%0d x=%04h y=%04h\n",
+                        index, raw, fmt, flag, alen, has_payload, xcoord, ycoord);
+            end
+        end
+    endtask
+
+    task automatic dump_expected_dec_meta_stream;
+        input integer fd;
+        integer sample_idx;
+        integer is_uv_plane;
+        integer xcoord;
+        integer ycoord;
+        integer uv_ycoord;
+        integer active_ycoord;
+        reg [4:0] fmt;
+        reg [7:0] raw;
+        begin
+            if (fd != 0) begin
+                $fwrite(fd, "# idx raw fmt flag alen payload x y\n");
+            end
+
+            sample_idx  = 0;
+            is_uv_plane = 0;
+            xcoord      = 0;
+            ycoord      = 0;
+            uv_ycoord   = 0;
+
+            while (sample_idx < CASE_EXPECTED_DEC_META_SAMPLES) begin
+                fmt = expected_dec_meta_format(is_uv_plane);
+                active_ycoord = is_uv_plane ? uv_ycoord : ycoord;
+                raw = expected_dec_meta_raw(fmt, xcoord, active_ycoord);
+                write_dec_meta_line(fd, sample_idx, raw, fmt, expected_dec_meta_flag(raw),
+                                    expected_dec_meta_alen(fmt, raw),
+                                    expected_dec_meta_has_payload(fmt, raw),
+                                    xcoord, active_ycoord);
+
+                sample_idx = sample_idx + 1;
+                if (xcoord == (CASE_TILE_X_NUMBERS - 1)) begin
+                    xcoord = 0;
+                    if (!CASE_HAS_PLANE1) begin
+                        ycoord = ycoord + 1;
+                    end else if (!is_uv_plane) begin
+                        if (((ycoord & 1) == 0) && ((ycoord + 1) < CASE_TILE_Y_NUMBERS)) begin
+                            ycoord = ycoord + 1;
+                        end else begin
+                            is_uv_plane = 1;
+                        end
+                    end else begin
+                        uv_ycoord = uv_ycoord + 1;
+                        if ((ycoord + 1) < CASE_TILE_Y_NUMBERS) begin
+                            ycoord      = ycoord + 1;
+                            is_uv_plane = 0;
+                        end
+                    end
+                end else begin
+                    xcoord = xcoord + 1;
+                end
+            end
+        end
+    endtask
+
     function automatic integer rvo_plane_word_base;
         input [4:0] fmt;
         input integer tile_x;
@@ -501,6 +715,151 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 $fwrite(fd, "%016h\n", beat_data[191:128]);
                 $fwrite(fd, "%016h\n", beat_data[255:192]);
             end
+        end
+    endtask
+
+    function automatic integer vivo_fmt_dump_idx;
+        input [4:0] fmt;
+        begin
+            case (fmt)
+                META_FMT_RGBA1010102: vivo_fmt_dump_idx = 1;
+                META_FMT_NV12_Y:      vivo_fmt_dump_idx = 2;
+                META_FMT_NV12_UV:     vivo_fmt_dump_idx = 3;
+                META_FMT_P010_Y:      vivo_fmt_dump_idx = 4;
+                META_FMT_P010_UV:     vivo_fmt_dump_idx = 5;
+                default:              vivo_fmt_dump_idx = 0;
+            endcase
+        end
+    endfunction
+
+    task automatic write_vivo_dump_headers;
+        input integer idx;
+        begin
+            if (vivo_ci_fd[idx] != 0) begin
+                $fwrite(vivo_ci_fd[idx], "# idx fmt x y input_type alen metadata lossy alpha_mode sb\n");
+            end
+            if (vivo_cvi_fd[idx] != 0) begin
+                $fwrite(vivo_cvi_fd[idx], "# idx fmt x y beat last data\n");
+            end
+            if (vivo_rvo_fd[idx] != 0) begin
+                $fwrite(vivo_rvo_fd[idx], "# idx fmt x y beat last data\n");
+            end
+        end
+    endtask
+
+    task automatic open_vivo_dump_files;
+        integer idx;
+        begin
+            for (idx = 0; idx < 6; idx = idx + 1) begin
+                vivo_ci_dump_cnt[idx]  = 0;
+                vivo_cvi_dump_cnt[idx] = 0;
+                vivo_rvo_dump_cnt[idx] = 0;
+            end
+
+            vivo_ci_fd[0]  = $fopen("vivo_ci_rgba8888.txt", "w");
+            vivo_cvi_fd[0] = $fopen("vivo_cvi_rgba8888.txt", "w");
+            vivo_rvo_fd[0] = $fopen("vivo_rvo_rgba8888.txt", "w");
+            vivo_ci_fd[1]  = $fopen("vivo_ci_rgba1010102.txt", "w");
+            vivo_cvi_fd[1] = $fopen("vivo_cvi_rgba1010102.txt", "w");
+            vivo_rvo_fd[1] = $fopen("vivo_rvo_rgba1010102.txt", "w");
+            vivo_ci_fd[2]  = $fopen("vivo_ci_nv12_y.txt", "w");
+            vivo_cvi_fd[2] = $fopen("vivo_cvi_nv12_y.txt", "w");
+            vivo_rvo_fd[2] = $fopen("vivo_rvo_nv12_y.txt", "w");
+            vivo_ci_fd[3]  = $fopen("vivo_ci_nv12_uv.txt", "w");
+            vivo_cvi_fd[3] = $fopen("vivo_cvi_nv12_uv.txt", "w");
+            vivo_rvo_fd[3] = $fopen("vivo_rvo_nv12_uv.txt", "w");
+            vivo_ci_fd[4]  = $fopen("vivo_ci_p010_y.txt", "w");
+            vivo_cvi_fd[4] = $fopen("vivo_cvi_p010_y.txt", "w");
+            vivo_rvo_fd[4] = $fopen("vivo_rvo_p010_y.txt", "w");
+            vivo_ci_fd[5]  = $fopen("vivo_ci_p010_uv.txt", "w");
+            vivo_cvi_fd[5] = $fopen("vivo_cvi_p010_uv.txt", "w");
+            vivo_rvo_fd[5] = $fopen("vivo_rvo_p010_uv.txt", "w");
+
+            for (idx = 0; idx < 6; idx = idx + 1) begin
+                if ((vivo_ci_fd[idx] == 0) || (vivo_cvi_fd[idx] == 0) || (vivo_rvo_fd[idx] == 0)) begin
+                    $fatal(1, "Failed to open vivo dump file set idx=%0d", idx);
+                end
+                write_vivo_dump_headers(idx);
+            end
+        end
+    endtask
+
+    task automatic close_vivo_dump_files;
+        integer idx;
+        begin
+            for (idx = 0; idx < 6; idx = idx + 1) begin
+                if (vivo_ci_fd[idx] != 0) begin
+                    $fclose(vivo_ci_fd[idx]);
+                    vivo_ci_fd[idx] = 0;
+                end
+                if (vivo_cvi_fd[idx] != 0) begin
+                    $fclose(vivo_cvi_fd[idx]);
+                    vivo_cvi_fd[idx] = 0;
+                end
+                if (vivo_rvo_fd[idx] != 0) begin
+                    $fclose(vivo_rvo_fd[idx]);
+                    vivo_rvo_fd[idx] = 0;
+                end
+            end
+        end
+    endtask
+
+    task automatic write_vivo_ci_dump;
+        input [4:0] fmt;
+        input [11:0] tile_x;
+        input [9:0] tile_y;
+        input input_type;
+        input [2:0] alen;
+        input [3:0] metadata;
+        input lossy;
+        input [1:0] alpha_mode;
+        input [SB_WIDTH-1:0] sb;
+        integer idx;
+        begin
+            idx = vivo_fmt_dump_idx(fmt);
+            if (vivo_ci_fd[idx] != 0) begin
+                $fwrite(vivo_ci_fd[idx],
+                        "%0d fmt=%0d x=%0d y=%0d input_type=%0b alen=%0d metadata=%0h lossy=%0b alpha_mode=%0d sb=%0h\n",
+                        vivo_ci_dump_cnt[idx], fmt, tile_x, tile_y, input_type, alen, metadata, lossy,
+                        alpha_mode, sb);
+            end
+            vivo_ci_dump_cnt[idx] = vivo_ci_dump_cnt[idx] + 1;
+        end
+    endtask
+
+    task automatic write_vivo_cvi_dump;
+        input [4:0] fmt;
+        input [11:0] tile_x;
+        input [9:0] tile_y;
+        input integer beat_idx;
+        input last;
+        input [255:0] data;
+        integer idx;
+        begin
+            idx = vivo_fmt_dump_idx(fmt);
+            if (vivo_cvi_fd[idx] != 0) begin
+                $fwrite(vivo_cvi_fd[idx], "%0d fmt=%0d x=%0d y=%0d beat=%0d last=%0b data=%064h\n",
+                        vivo_cvi_dump_cnt[idx], fmt, tile_x, tile_y, beat_idx, last, data);
+            end
+            vivo_cvi_dump_cnt[idx] = vivo_cvi_dump_cnt[idx] + 1;
+        end
+    endtask
+
+    task automatic write_vivo_rvo_dump;
+        input [4:0] fmt;
+        input [11:0] tile_x;
+        input [9:0] tile_y;
+        input integer beat_idx;
+        input last;
+        input [255:0] data;
+        integer idx;
+        begin
+            idx = vivo_fmt_dump_idx(fmt);
+            if (vivo_rvo_fd[idx] != 0) begin
+                $fwrite(vivo_rvo_fd[idx], "%0d fmt=%0d x=%0d y=%0d beat=%0d last=%0b data=%064h\n",
+                        vivo_rvo_dump_cnt[idx], fmt, tile_x, tile_y, beat_idx, last, data);
+            end
+            vivo_rvo_dump_cnt[idx] = vivo_rvo_dump_cnt[idx] + 1;
         end
     endtask
 
@@ -1056,20 +1415,20 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
     task automatic program_wrapper_regs;
         reg cfg_4line_format;
-        reg [AXI_AW-1:0] meta_plane_rgba_uv_base;
+        reg [AXI_AW-1:0] meta_plane_rgba_y_base;
         begin
             cfg_4line_format = CASE_IS_NV12 ? 1'b0 : 1'b1;
-            meta_plane_rgba_uv_base = CASE_HAS_PLANE1 ? CASE_META_BASE_ADDR_UV : CASE_META_BASE_ADDR_Y;
+            meta_plane_rgba_y_base = CASE_META_BASE_ADDR_Y;
 
             apb_write(16'h0008, {20'd0, 1'b0, cfg_4line_format, 1'b1, 5'd16, 1'b0, 1'b1, 1'b1, 1'b0});
             apb_write(16'h000c, CASE_TILE_PITCH_UNITS);
             apb_write(16'h0010, 32'h0000_000f);
             apb_write(16'h0014, 32'h0000_0001);
 
-            apb_write(16'h001c, meta_plane_rgba_uv_base[31:0]);
-            apb_write(16'h0020, meta_plane_rgba_uv_base[63:32]);
-            apb_write(16'h0024, CASE_META_BASE_ADDR_Y[31:0]);
-            apb_write(16'h0028, CASE_META_BASE_ADDR_Y[63:32]);
+            apb_write(16'h001c, meta_plane_rgba_y_base[31:0]);
+            apb_write(16'h0020, meta_plane_rgba_y_base[63:32]);
+            apb_write(16'h0024, CASE_META_BASE_ADDR_UV[31:0]);
+            apb_write(16'h0028, CASE_META_BASE_ADDR_UV[63:32]);
             apb_write(16'h002c, {CASE_TILE_Y_NUMBERS[15:0], CASE_TILE_X_NUMBERS[15:0]});
 
             apb_write(16'h0030, {11'd0, CASE_BASE_FORMAT, 16'd4096});
@@ -1276,17 +1635,6 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         end
     end
 
-    initial begin : fake_vivo_force_block
-        fake_vivo_rvo_valid = 1'b0;
-        fake_vivo_rvo_data  = 256'd0;
-        fake_vivo_rvo_last  = 1'b0;
-        if (TB_REAL_VIVO_MODE == 0) begin
-            force dut.u_dec_vivo_top.o_rvo_valid = fake_vivo_rvo_valid;
-            force dut.u_dec_vivo_top.o_rvo_data  = fake_vivo_rvo_data;
-            force dut.u_dec_vivo_top.o_rvo_last  = fake_vivo_rvo_last;
-        end
-    end
-
     always @(posedge i_axi_clk or negedge i_axi_rstn) begin
         if (!i_axi_rstn) begin
             tile_queue_wr_ptr       <= 0;
@@ -1339,8 +1687,32 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             rbuf_tile_drain_cnt     <= 0;
             compressed_tile_hs_cnt  <= 0;
             compressed_tile_last_cnt<= 0;
+            dec_meta_out_cnt        <= 0;
+            dec_meta_mismatch_cnt   <= 0;
+            first_dec_meta_mismatch_idx <= -1;
+            first_dec_meta_expected_raw <= 8'd0;
+            first_dec_meta_actual_raw   <= 8'd0;
+            first_dec_meta_expected_format <= 5'd0;
+            first_dec_meta_actual_format   <= 5'd0;
+            first_dec_meta_expected_flag <= 4'd0;
+            first_dec_meta_actual_flag   <= 4'd0;
+            first_dec_meta_expected_alen <= 3'd0;
+            first_dec_meta_actual_alen   <= 3'd0;
+            first_dec_meta_expected_has_payload <= 1'b0;
+            first_dec_meta_actual_has_payload   <= 1'b0;
+            first_dec_meta_expected_x <= 12'd0;
+            first_dec_meta_actual_x   <= 12'd0;
+            first_dec_meta_expected_y <= 10'd0;
+            first_dec_meta_actual_y   <= 10'd0;
+            exp_dec_meta_is_uv     <= 1'b0;
+            exp_dec_meta_x         <= 12'd0;
+            exp_dec_meta_y         <= 10'd0;
+            exp_dec_meta_uv_y      <= 10'd0;
+            exp_dec_meta_done      <= 1'b0;
             fake_ci_fifo_wr_cnt     <= 0;
             fake_ci_fifo_rd_cnt     <= 0;
+            cvi_tile_rd_ptr         <= 0;
+            cvi_tile_beat_idx       <= 0;
             axi_r_cccc_seen_curr_beat <= 1'b0;
             axi_rdata_cccc_cnt      <= 0;
             axi_rdata_cccc_meta_cnt <= 0;
@@ -1374,6 +1746,84 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 last_progress_cycle      <= cycle_cnt;
             end
 
+            if (dut.meta_dec_valid && dut.meta_dec_ready) begin : dec_meta_compare_block
+                reg [4:0]  exp_fmt;
+                reg [7:0]  exp_raw;
+                reg [3:0]  exp_flag;
+                reg [2:0]  exp_alen;
+                reg        exp_has_payload;
+                reg [11:0] exp_x;
+                reg [9:0]  exp_y;
+                exp_fmt         = expected_dec_meta_format(exp_dec_meta_is_uv);
+                exp_x           = exp_dec_meta_x;
+                exp_y           = exp_dec_meta_is_uv ? exp_dec_meta_uv_y : exp_dec_meta_y;
+                exp_raw         = expected_dec_meta_raw(exp_fmt, exp_x, exp_y);
+                exp_flag        = expected_dec_meta_flag(exp_raw);
+                exp_alen        = expected_dec_meta_alen(exp_fmt, exp_raw);
+                exp_has_payload = expected_dec_meta_has_payload(exp_fmt, exp_raw);
+
+                dec_meta_out_cnt <= dec_meta_out_cnt + 1;
+                write_dec_meta_line(dec_meta_actual_fd, dec_meta_out_cnt,
+                                    dut.u_meta_data_gen.meta_data,
+                                    dut.meta_dec_format,
+                                    dut.meta_dec_flag,
+                                    dut.meta_dec_alen,
+                                    dut.meta_dec_has_payload,
+                                    dut.meta_dec_x,
+                                    dut.meta_dec_y);
+
+                if ((dec_meta_out_cnt >= CASE_EXPECTED_DEC_META_SAMPLES) ||
+                    (dut.u_meta_data_gen.meta_data !== exp_raw) ||
+                    (dut.meta_dec_format !== exp_fmt) ||
+                    (dut.meta_dec_flag !== exp_flag) ||
+                    (dut.meta_dec_alen !== exp_alen) ||
+                    (dut.meta_dec_has_payload !== exp_has_payload) ||
+                    (dut.meta_dec_x !== exp_x) ||
+                    (dut.meta_dec_y !== exp_y)) begin
+                    dec_meta_mismatch_cnt <= dec_meta_mismatch_cnt + 1;
+                    if (first_dec_meta_mismatch_idx < 0) begin
+                        first_dec_meta_mismatch_idx <= dec_meta_out_cnt;
+                        first_dec_meta_expected_raw <= exp_raw;
+                        first_dec_meta_actual_raw   <= dut.u_meta_data_gen.meta_data;
+                        first_dec_meta_expected_format <= exp_fmt;
+                        first_dec_meta_actual_format   <= dut.meta_dec_format;
+                        first_dec_meta_expected_flag <= exp_flag;
+                        first_dec_meta_actual_flag   <= dut.meta_dec_flag;
+                        first_dec_meta_expected_alen <= exp_alen;
+                        first_dec_meta_actual_alen   <= dut.meta_dec_alen;
+                        first_dec_meta_expected_has_payload <= exp_has_payload;
+                        first_dec_meta_actual_has_payload   <= dut.meta_dec_has_payload;
+                        first_dec_meta_expected_x <= exp_x;
+                        first_dec_meta_actual_x   <= dut.meta_dec_x;
+                        first_dec_meta_expected_y <= exp_y;
+                        first_dec_meta_actual_y   <= dut.meta_dec_y;
+                    end
+                end
+
+                if (exp_dec_meta_x == (CASE_TILE_X_NUMBERS - 1)) begin
+                    exp_dec_meta_x <= 12'd0;
+                    if (!CASE_HAS_PLANE1) begin
+                        exp_dec_meta_y <= exp_dec_meta_y + 1'b1;
+                    end else if (!exp_dec_meta_is_uv) begin
+                        if (!exp_dec_meta_y[0] && ((exp_dec_meta_y + 1'b1) < CASE_TILE_Y_NUMBERS)) begin
+                            exp_dec_meta_y <= exp_dec_meta_y + 1'b1;
+                        end else begin
+                            exp_dec_meta_is_uv <= 1'b1;
+                        end
+                    end else begin
+                        exp_dec_meta_uv_y <= exp_dec_meta_uv_y + 1'b1;
+                        if ((exp_dec_meta_y + 1'b1) >= CASE_TILE_Y_NUMBERS) begin
+                            exp_dec_meta_done <= 1'b1;
+                        end else begin
+                            exp_dec_meta_y     <= exp_dec_meta_y + 1'b1;
+                            exp_dec_meta_is_uv <= 1'b0;
+                        end
+                    end
+                end else begin
+                    exp_dec_meta_x <= exp_dec_meta_x + 1'b1;
+                end
+            end
+
             if (dut.tile_ci_valid_int && dut.tile_ci_ready_int) begin
                 ci_accept_cnt        <= ci_accept_cnt + 1;
                 ci_fmt_queue[ci_queue_wr_ptr] <= dut.tile_ci_format_int;
@@ -1390,12 +1840,35 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 if (TB_REAL_VIVO_MODE == 0) begin
                     fake_ci_fifo_wr_cnt <= fake_ci_fifo_wr_cnt + 1;
                 end
+                write_vivo_ci_dump(dut.u_dec_vivo_top.i_ci_format,
+                                   dut.tile_x_coord_int,
+                                   dut.tile_y_coord_int,
+                                   dut.u_dec_vivo_top.i_ci_input_type,
+                                   dut.u_dec_vivo_top.i_ci_alen,
+                                   dut.u_dec_vivo_top.i_ci_metadata,
+                                   dut.u_dec_vivo_top.i_ci_lossy,
+                                   dut.u_dec_vivo_top.i_ci_alpha_mode,
+                                   dut.u_dec_vivo_top.i_ci_sb);
                 last_progress_cycle  <= cycle_cnt;
             end
 
             if ((TB_REAL_VIVO_MODE == 0) &&
                 dut.tile_cvi_valid_int && dut.tile_cvi_ready_int) begin
                 compressed_tile_hs_cnt <= compressed_tile_hs_cnt + 1;
+                if (cvi_tile_rd_ptr < ci_queue_wr_ptr) begin
+                    write_vivo_cvi_dump(ci_fmt_queue[cvi_tile_rd_ptr],
+                                        ci_x_queue[cvi_tile_rd_ptr],
+                                        ci_y_queue[cvi_tile_rd_ptr],
+                                        cvi_tile_beat_idx,
+                                        dut.u_dec_vivo_top.i_cvi_last,
+                                        dut.u_dec_vivo_top.i_cvi_data);
+                    if (dut.u_dec_vivo_top.i_cvi_last) begin
+                        cvi_tile_rd_ptr   <= cvi_tile_rd_ptr + 1;
+                        cvi_tile_beat_idx <= 0;
+                    end else begin
+                        cvi_tile_beat_idx <= cvi_tile_beat_idx + 1;
+                    end
+                end
                 if (compressed_tile_in_fd != 0) begin
                     $fwrite(compressed_tile_in_fd, "%064h\n", dut.tile_cvi_data_int);
                     if (dut.tile_cvi_last_int) begin
@@ -1408,7 +1881,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 last_progress_cycle <= cycle_cnt;
             end
 
-            if (dut.vivo_co_valid_unused) begin
+            if (dut.u_dec_vivo_top.o_co_valid) begin
                 co_active_cycle_cnt <= co_active_cycle_cnt + 1;
             end
 
@@ -1587,6 +2060,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     end
                     if (dut.vivo_rvo_last) begin
                         rvo_last_cnt <= rvo_last_cnt + 1;
+                        if (TB_REAL_VIVO_MODE == 0) begin
+                            fake_ci_fifo_rd_cnt <= fake_ci_fifo_rd_cnt + 1;
+                        end
                     end
 
                     if (stream_fd != 0) begin
@@ -1594,6 +2070,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                 ci_fmt_queue[cmp_tile_rd_ptr], ci_x_queue[cmp_tile_rd_ptr], ci_y_queue[cmp_tile_rd_ptr],
                                 cmp_tile_beat_idx, dut.vivo_rvo_data);
                     end
+                    write_vivo_rvo_dump(ci_fmt_queue[cmp_tile_rd_ptr],
+                                        ci_x_queue[cmp_tile_rd_ptr],
+                                        ci_y_queue[cmp_tile_rd_ptr],
+                                        cmp_tile_beat_idx,
+                                        dut.u_dec_vivo_top.o_rvo_last,
+                                        dut.u_dec_vivo_top.o_rvo_data);
                     capture_rvo_beat_to_plane_mem(ci_fmt_queue[cmp_tile_rd_ptr],
                                                   ci_x_queue[cmp_tile_rd_ptr],
                                                   ci_y_queue[cmp_tile_rd_ptr],
@@ -1618,57 +2100,6 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 end
             end
 
-        end
-    end
-
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn) begin
-            fake_ci_queue_rd_ptr <= 0;
-            fake_vivo_tile_active<= 1'b0;
-            fake_vivo_beat_idx   <= 0;
-            fake_vivo_rvo_valid  <= 1'b0;
-            fake_vivo_rvo_data   <= 256'd0;
-            fake_vivo_rvo_last   <= 1'b0;
-        end else if (TB_REAL_VIVO_MODE == 0) begin
-            if (!fake_vivo_tile_active) begin
-                fake_vivo_rvo_valid <= 1'b0;
-                fake_vivo_rvo_data  <= 256'd0;
-                fake_vivo_rvo_last  <= 1'b0;
-                if (fake_ci_queue_rd_ptr < ci_queue_wr_ptr) begin
-                    fake_vivo_tile_active <= 1'b1;
-                    fake_vivo_beat_idx    <= 0;
-                    fake_vivo_rvo_valid   <= 1'b1;
-                    fake_vivo_rvo_data    <= pack_ref_tile_axi_word(ci_fmt_queue[fake_ci_queue_rd_ptr],
-                                                                     ci_x_queue[fake_ci_queue_rd_ptr],
-                                                                     ci_y_queue[fake_ci_queue_rd_ptr],
-                                                                     0);
-                    fake_vivo_rvo_last    <= (CASE_FULL_TILE_BEATS == 1);
-                end
-            end else if (fake_vivo_rvo_valid && dut.otf_axis_tready_int) begin
-                if (fake_vivo_beat_idx == (CASE_FULL_TILE_BEATS - 1)) begin
-                    fake_ci_queue_rd_ptr <= fake_ci_queue_rd_ptr + 1;
-                    fake_ci_fifo_rd_cnt  <= fake_ci_fifo_rd_cnt + 1;
-                    fake_vivo_tile_active<= 1'b0;
-                    fake_vivo_beat_idx   <= 0;
-                    fake_vivo_rvo_valid  <= 1'b0;
-                    fake_vivo_rvo_data   <= 256'd0;
-                    fake_vivo_rvo_last   <= 1'b0;
-                end else begin
-                    fake_vivo_beat_idx <= fake_vivo_beat_idx + 1;
-                    fake_vivo_rvo_data <= pack_ref_tile_axi_word(ci_fmt_queue[fake_ci_queue_rd_ptr],
-                                                                  ci_x_queue[fake_ci_queue_rd_ptr],
-                                                                  ci_y_queue[fake_ci_queue_rd_ptr],
-                                                                  fake_vivo_beat_idx + 1);
-                    fake_vivo_rvo_last <= ((fake_vivo_beat_idx + 1) == (CASE_FULL_TILE_BEATS - 1));
-                end
-            end
-        end else begin
-            fake_ci_queue_rd_ptr <= 0;
-            fake_vivo_tile_active<= 1'b0;
-            fake_vivo_beat_idx   <= 0;
-            fake_vivo_rvo_valid  <= 1'b0;
-            fake_vivo_rvo_data   <= 256'd0;
-            fake_vivo_rvo_last   <= 1'b0;
         end
     end
 
@@ -1912,6 +2343,8 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 end
             end
         endcase
+        dec_meta_actual_file   = "wrapper_dec_meta_actual.txt";
+        dec_meta_expected_file = "wrapper_dec_meta_expected.txt";
         summary_file = "wrapper_compare_summary.txt";
 
         $readmemh("expected_otf_stream.txt", expected_otf_beats);
@@ -1979,12 +2412,23 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         expected_stream_plane0_fd = 0;
         stream_plane1_fd = 0;
         expected_stream_plane1_fd = 0;
+        dec_meta_actual_fd = 0;
+        dec_meta_expected_fd = 0;
+        for (init_idx = 0; init_idx < 6; init_idx = init_idx + 1) begin
+            vivo_ci_fd[init_idx]       = 0;
+            vivo_cvi_fd[init_idx]      = 0;
+            vivo_rvo_fd[init_idx]      = 0;
+            vivo_ci_dump_cnt[init_idx] = 0;
+            vivo_cvi_dump_cnt[init_idx]= 0;
+            vivo_rvo_dump_cnt[init_idx]= 0;
+        end
         otf_fd          = 0;
         compressed_tile_in_fd = 0;
         summary_fd      = 0;
         tb_timeout_limit_cycles = CASE_TIMEOUT_CYCLES;
         tb_idle_gap_limit_cycles = CASE_IDLE_GAP_CYCLES;
-        fake_ci_queue_rd_ptr = 0;
+        cvi_tile_rd_ptr     = 0;
+        cvi_tile_beat_idx   = 0;
         cmp_tile_rd_ptr     = 0;
         cmp_tile_beat_idx   = 0;
         inject_tile_cnt     = 0;
@@ -2038,6 +2482,17 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         if (compressed_tile_in_fd == 0) begin
             $fatal(1, "Failed to open compressed_tile_in.txt");
         end
+        dec_meta_actual_fd = $fopen(dec_meta_actual_file, "w");
+        if (dec_meta_actual_fd == 0) begin
+            $fatal(1, "Failed to open %0s", dec_meta_actual_file);
+        end
+        dec_meta_expected_fd = $fopen(dec_meta_expected_file, "w");
+        if (dec_meta_expected_fd == 0) begin
+            $fatal(1, "Failed to open %0s", dec_meta_expected_file);
+        end
+        $fwrite(dec_meta_actual_fd, "# idx raw fmt flag alen payload x y\n");
+        dump_expected_dec_meta_stream(dec_meta_expected_fd);
+        open_vivo_dump_files();
         summary_fd = $fopen(summary_file, "w");
         if (summary_fd == 0) begin
             $fatal(1, "Failed to open %0s", summary_file);
@@ -2046,7 +2501,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         $display("");
         $display("==============================================================");
         $display("TB: ubwc_dec_wrapper_top unified check %0s", case_name);
-        $display("Vivo mode   : %s", (TB_REAL_VIVO_MODE != 0) ? "real/rvo-compare" : "fake/ref-playback+rvo-compare");
+        $display("Vivo mode   : %s", (TB_REAL_VIVO_MODE != 0) ? "real/rvo-compare" : "fake/uncompressed-axi+rvo-compare");
         $display("Metadata plane0 : input_meta_plane0.txt");
         if (CASE_HAS_PLANE1) $display("Metadata plane1 : input_meta_plane1.txt");
         $display("Tile plane0 : input_tile_plane0.txt");
@@ -2067,6 +2522,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             $display("Expect RVO U: %0s", expected_stream_plane1_file);
         end
         $display("Comp Tile In: compressed_tile_in.txt");
+        $display("Vivo CI dump: vivo_ci_<format>.txt");
+        $display("Vivo CVI dump: vivo_cvi_<format>.txt");
+        $display("Vivo RVO dump: vivo_rvo_<format>.txt");
+        $display("Dec Meta Act: %0s", dec_meta_actual_file);
+        $display("Dec Meta Exp: %0s", dec_meta_expected_file);
         $display("Actual OTF  : actual_otf_stream.txt");
         $display("Expected OTF: expected_otf_stream.txt");
         $display("Summary     : %0s", summary_file);
@@ -2091,7 +2551,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 axi_rsp_active ||
                 (tile_queue_rd_ptr < tile_queue_wr_ptr) ||
                 (cmp_tile_rd_ptr < CASE_EXPECTED_CI_CMDS) ||
-                ((TB_REAL_VIVO_MODE == 0) && ((fake_ci_queue_rd_ptr < ci_queue_wr_ptr) || fake_vivo_tile_active || fake_vivo_rvo_valid)) ||
+                ((TB_REAL_VIVO_MODE == 0) && (fake_ci_fifo_rd_cnt < ci_queue_wr_ptr)) ||
                 !otf_frame_done) &&
                ((cycle_cnt - last_progress_cycle) <= tb_idle_gap_limit_cycles) &&
                (timeout_cycles < tb_timeout_limit_cycles)) begin
@@ -2126,11 +2586,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         $display("  otf need+empty cnt   : %0d first=%0d", otf_fifo_empty_need_cnt, first_otf_fifo_empty_need_beat);
         if (TB_REAL_VIVO_MODE == 0) begin
             $display("  fake CI fifo wr/rd   : %0d / %0d", fake_ci_fifo_wr_cnt, fake_ci_fifo_rd_cnt);
-            $display("  fake tile state      : active=%0b beat_idx=%0d rd_ptr=%0d wr_ptr=%0d",
-                     fake_vivo_tile_active, fake_vivo_beat_idx, fake_ci_queue_rd_ptr, ci_queue_wr_ptr);
-            $display("  fake RVO vld/last    : %0b / %0b", fake_vivo_rvo_valid, fake_vivo_rvo_last);
+            $display("  fake CI/RVO tiles    : ci_wr=%0d rvo_last=%0d", ci_queue_wr_ptr, fake_ci_fifo_rd_cnt);
             $display("  comp tile hs/last    : %0d / %0d", compressed_tile_hs_cnt, compressed_tile_last_cnt);
         end
+        $display("  dec meta outputs     : %0d", dec_meta_out_cnt);
+        $display("  dec meta mismatches  : %0d", dec_meta_mismatch_cnt);
         $display("  dbg bank state       : a_free=%0b b_free=%0b pending_a=%0b pending_b=%0b",
                  dut.u_tile_to_otf.sram_a_free, dut.u_tile_to_otf.sram_b_free,
                  dut.u_tile_to_otf.pending_a, dut.u_tile_to_otf.pending_b);
@@ -2156,13 +2616,13 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                  dut.u_tile_arcmd_gen.ci_fifo_empty,
                  dut.u_tile_arcmd_gen.ci_fifo_full);
         $display("  dbg tile cfg         : lvl1=%0b lvl2=%0b lvl3=%0b highest=%0d spread=%0b pitch=0x%0h 4line=%0b",
-                 dut.r_tile_cfg_lvl1_bank_swizzle_en,
+                 dut.u_apb_dec_reg_blk.r_tile_cfg_lvl1_bank_swizzle_en,
                  dut.r_tile_cfg_lvl2_bank_swizzle_en,
                  dut.r_tile_cfg_lvl3_bank_swizzle_en,
                  dut.r_tile_cfg_highest_bank_bit,
                  dut.r_tile_cfg_bank_spread_en,
                  dut.r_tile_cfg_pitch,
-                 dut.r_tile_cfg_4line_format);
+                 dut.u_apb_dec_reg_blk.r_tile_cfg_4line_format);
         $display("  dbg tile axi state   : rvalid=%0b rready=%0b rlast=%0b",
                  dut.tile_m_axi_rvalid,
                  dut.tile_m_axi_rready,
@@ -2193,6 +2653,17 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             $display("  First AR exp/act     : %016h / %016h",
                      first_ar_expected_addr, first_ar_actual_addr);
         end
+        if (dec_meta_mismatch_cnt != 0) begin
+            $display("  First dec meta mis   : idx=%0d raw %02h/%02h fmt %0d/%0d flag %0h/%0h alen %0d/%0d payload %0d/%0d x %0d/%0d y %0d/%0d",
+                     first_dec_meta_mismatch_idx,
+                     first_dec_meta_expected_raw, first_dec_meta_actual_raw,
+                     first_dec_meta_expected_format, first_dec_meta_actual_format,
+                     first_dec_meta_expected_flag, first_dec_meta_actual_flag,
+                     first_dec_meta_expected_alen, first_dec_meta_actual_alen,
+                     first_dec_meta_expected_has_payload, first_dec_meta_actual_has_payload,
+                     first_dec_meta_expected_x, first_dec_meta_actual_x,
+                     first_dec_meta_expected_y, first_dec_meta_actual_y);
+        end
         if (first_axi_rdata_cccc_cycle >= 0) begin
             $display("  First AXI cccc hit   : cycle=%0d owner=%0s addr=%016h lane=%0d",
                      first_axi_rdata_cccc_cycle,
@@ -2219,6 +2690,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         if (ci_accept_cnt != CASE_EXPECTED_CI_CMDS) begin
             fail_check_cnt = fail_check_cnt + 1;
             $display("FAIL: Unexpected CI count. got=%0d exp=%0d", ci_accept_cnt, CASE_EXPECTED_CI_CMDS);
+        end
+        if (dec_meta_out_cnt != CASE_EXPECTED_DEC_META_SAMPLES) begin
+            fail_check_cnt = fail_check_cnt + 1;
+            $display("FAIL: Unexpected decoded metadata count. got=%0d exp=%0d",
+                     dec_meta_out_cnt, CASE_EXPECTED_DEC_META_SAMPLES);
+        end
+        if (dec_meta_mismatch_cnt != 0) begin
+            fail_check_cnt = fail_check_cnt + 1;
+            $display("FAIL: Decoded metadata output mismatches were observed.");
         end
         if (tile_ar_cnt != payload_cmd_cnt) begin
             fail_check_cnt = fail_check_cnt + 1;
@@ -2266,9 +2746,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             fail_check_cnt = fail_check_cnt + 1;
             $display("FAIL: Vivo raw output last mismatches were observed.");
         end
-        if ((TB_REAL_VIVO_MODE == 0) && (fake_ci_queue_rd_ptr != ci_queue_wr_ptr)) begin
+        if ((TB_REAL_VIVO_MODE == 0) && (fake_ci_fifo_rd_cnt != ci_queue_wr_ptr)) begin
             fail_check_cnt = fail_check_cnt + 1;
-            $display("FAIL: Fake CI FIFO not fully drained. rd=%0d wr=%0d", fake_ci_queue_rd_ptr, ci_queue_wr_ptr);
+            $display("FAIL: Fake vivo RVO tile count mismatch. rvo=%0d ci=%0d", fake_ci_fifo_rd_cnt, ci_queue_wr_ptr);
         end
         if (tile_queue_underflow_cnt != 0) begin
             fail_check_cnt = fail_check_cnt + 1;
@@ -2316,15 +2796,46 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 $fwrite(summary_fd, "expected_rvo_plane1=%0s\n", expected_stream_plane1_file);
             end
             $fwrite(summary_fd, "compressed_tile_in=compressed_tile_in.txt\n");
+            $fwrite(summary_fd, "vivo_ci_rgba8888=vivo_ci_rgba8888.txt\n");
+            $fwrite(summary_fd, "vivo_cvi_rgba8888=vivo_cvi_rgba8888.txt\n");
+            $fwrite(summary_fd, "vivo_rvo_rgba8888=vivo_rvo_rgba8888.txt\n");
+            $fwrite(summary_fd, "vivo_ci_rgba1010102=vivo_ci_rgba1010102.txt\n");
+            $fwrite(summary_fd, "vivo_cvi_rgba1010102=vivo_cvi_rgba1010102.txt\n");
+            $fwrite(summary_fd, "vivo_rvo_rgba1010102=vivo_rvo_rgba1010102.txt\n");
+            $fwrite(summary_fd, "vivo_ci_nv12_y=vivo_ci_nv12_y.txt\n");
+            $fwrite(summary_fd, "vivo_cvi_nv12_y=vivo_cvi_nv12_y.txt\n");
+            $fwrite(summary_fd, "vivo_rvo_nv12_y=vivo_rvo_nv12_y.txt\n");
+            $fwrite(summary_fd, "vivo_ci_nv12_uv=vivo_ci_nv12_uv.txt\n");
+            $fwrite(summary_fd, "vivo_cvi_nv12_uv=vivo_cvi_nv12_uv.txt\n");
+            $fwrite(summary_fd, "vivo_rvo_nv12_uv=vivo_rvo_nv12_uv.txt\n");
+            $fwrite(summary_fd, "vivo_ci_p010_y=vivo_ci_p010_y.txt\n");
+            $fwrite(summary_fd, "vivo_cvi_p010_y=vivo_cvi_p010_y.txt\n");
+            $fwrite(summary_fd, "vivo_rvo_p010_y=vivo_rvo_p010_y.txt\n");
+            $fwrite(summary_fd, "vivo_ci_p010_uv=vivo_ci_p010_uv.txt\n");
+            $fwrite(summary_fd, "vivo_cvi_p010_uv=vivo_cvi_p010_uv.txt\n");
+            $fwrite(summary_fd, "vivo_rvo_p010_uv=vivo_rvo_p010_uv.txt\n");
+            $fwrite(summary_fd, "actual_dec_meta=%0s\n", dec_meta_actual_file);
+            $fwrite(summary_fd, "expected_dec_meta=%0s\n", dec_meta_expected_file);
             $fwrite(summary_fd, "actual_otf=actual_otf_stream.txt\n");
             $fwrite(summary_fd, "expected_otf=expected_otf_stream.txt\n");
             $fwrite(summary_fd, "meta_ar_cnt=%0d\n", meta_ar_cnt);
             $fwrite(summary_fd, "tile_ar_cnt=%0d\n", tile_ar_cnt);
             $fwrite(summary_fd, "ci_accept_cnt=%0d\n", ci_accept_cnt);
+            $fwrite(summary_fd, "dec_meta_out_cnt=%0d\n", dec_meta_out_cnt);
+            $fwrite(summary_fd, "dec_meta_mismatch_cnt=%0d\n", dec_meta_mismatch_cnt);
             $fwrite(summary_fd, "fake_ci_fifo_wr_cnt=%0d\n", fake_ci_fifo_wr_cnt);
             $fwrite(summary_fd, "fake_ci_fifo_rd_cnt=%0d\n", fake_ci_fifo_rd_cnt);
             $fwrite(summary_fd, "compressed_tile_hs_cnt=%0d\n", compressed_tile_hs_cnt);
             $fwrite(summary_fd, "compressed_tile_last_cnt=%0d\n", compressed_tile_last_cnt);
+            $fwrite(summary_fd, "vivo_dump_ci_counts=%0d,%0d,%0d,%0d,%0d,%0d\n",
+                    vivo_ci_dump_cnt[0], vivo_ci_dump_cnt[1], vivo_ci_dump_cnt[2],
+                    vivo_ci_dump_cnt[3], vivo_ci_dump_cnt[4], vivo_ci_dump_cnt[5]);
+            $fwrite(summary_fd, "vivo_dump_cvi_counts=%0d,%0d,%0d,%0d,%0d,%0d\n",
+                    vivo_cvi_dump_cnt[0], vivo_cvi_dump_cnt[1], vivo_cvi_dump_cnt[2],
+                    vivo_cvi_dump_cnt[3], vivo_cvi_dump_cnt[4], vivo_cvi_dump_cnt[5]);
+            $fwrite(summary_fd, "vivo_dump_rvo_counts=%0d,%0d,%0d,%0d,%0d,%0d\n",
+                    vivo_rvo_dump_cnt[0], vivo_rvo_dump_cnt[1], vivo_rvo_dump_cnt[2],
+                    vivo_rvo_dump_cnt[3], vivo_rvo_dump_cnt[4], vivo_rvo_dump_cnt[5]);
             $fwrite(summary_fd, "axi_rdata_cccc_cnt=%0d\n", axi_rdata_cccc_cnt);
             $fwrite(summary_fd, "axi_rdata_cccc_meta_cnt=%0d\n", axi_rdata_cccc_meta_cnt);
             $fwrite(summary_fd, "axi_rdata_cccc_tile_cnt=%0d\n", axi_rdata_cccc_tile_cnt);
@@ -2348,6 +2859,17 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                         first_rvo_mismatch_beat, first_rvo_expected_alen, first_rvo_actual_last);
                 $fwrite(summary_fd, "first_rvo_expected=%064h\n", first_rvo_expected_data);
                 $fwrite(summary_fd, "first_rvo_actual=%064h\n", first_rvo_actual_data);
+            end
+            if (dec_meta_mismatch_cnt != 0) begin
+                $fwrite(summary_fd, "first_dec_meta_mismatch=idx:%0d exp_raw:%02h act_raw:%02h exp_fmt:%0d act_fmt:%0d exp_flag:%0h act_flag:%0h exp_alen:%0d act_alen:%0d exp_payload:%0d act_payload:%0d exp_x:%0d act_x:%0d exp_y:%0d act_y:%0d\n",
+                        first_dec_meta_mismatch_idx,
+                        first_dec_meta_expected_raw, first_dec_meta_actual_raw,
+                        first_dec_meta_expected_format, first_dec_meta_actual_format,
+                        first_dec_meta_expected_flag, first_dec_meta_actual_flag,
+                        first_dec_meta_expected_alen, first_dec_meta_actual_alen,
+                        first_dec_meta_expected_has_payload, first_dec_meta_actual_has_payload,
+                        first_dec_meta_expected_x, first_dec_meta_actual_x,
+                        first_dec_meta_expected_y, first_dec_meta_actual_y);
             end
             if (otf_mismatch_cnt != 0) begin
                 $fwrite(summary_fd, "first_otf_mismatch=beat:%0d x:%0d y:%0d\n",
@@ -2381,6 +2903,13 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         if (compressed_tile_in_fd != 0) begin
             $fclose(compressed_tile_in_fd);
         end
+        if (dec_meta_actual_fd != 0) begin
+            $fclose(dec_meta_actual_fd);
+        end
+        if (dec_meta_expected_fd != 0) begin
+            $fclose(dec_meta_expected_fd);
+        end
+        close_vivo_dump_files();
         if (summary_fd != 0) begin
             $fclose(summary_fd);
         end
@@ -2428,7 +2957,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_cases #(
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (CASE_ID),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (0)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
     ) u_core ();
 endmodule
 
@@ -2439,7 +2968,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba8888 #(
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (0),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (0)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
     ) u_core ();
 endmodule
 
@@ -2450,7 +2979,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba1010102 #(
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (1),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (0)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
     ) u_core ();
 endmodule
 
@@ -2461,7 +2990,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (2),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (0)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
     ) u_core ();
 endmodule
 
@@ -2472,6 +3001,6 @@ module tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016 #(
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (3),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (0)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
     ) u_core ();
 endmodule

@@ -17,10 +17,10 @@ ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000001,0,vivo_ubwc_en,ubwc_
 ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000001,1,vivo_sreset,VIVO submodule soft reset,Can be used to independently clear VIVO internal state
 ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,W1P/RW,0x00000000,0,meta_start,Start pulse bit,Writing 1 toggles the start toggle and generates frame_start_pulse_axi in the AXI domain; readback is fixed to 0; recommended as the final write
 ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,RW,0x00000000,8:4,meta_base_format,Metadata/base format configuration,Usually issued with start in the same write
-ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_META_CFG1,RW,0x00000000,31:0,meta_base_addr_rgba_uv[31:0],Low 32 bits of the RGBA or UV metadata base address,
-ubwc_dec_apb_reg_blk,0x0020,APB_ADDR_META_CFG2,RW,0x00000000,31:0,meta_base_addr_rgba_uv[63:32],High 32 bits of the RGBA or UV metadata base address,Forms the full 64-bit address when AXI_AW=64
-ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_META_CFG3,RW,0x00000000,31:0,meta_base_addr_y[31:0],Low 32 bits of the Y metadata base address,
-ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_META_CFG4,RW,0x00000000,31:0,meta_base_addr_y[63:32],High 32 bits of the Y metadata base address,Forms the full 64-bit address when AXI_AW=64
+ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_META_CFG1,RW,0x00000000,31:0,meta_base_addr_rgba_y[31:0],Low 32 bits of the RGBA or Y metadata base address,
+ubwc_dec_apb_reg_blk,0x0020,APB_ADDR_META_CFG2,RW,0x00000000,31:0,meta_base_addr_rgba_y[63:32],High 32 bits of the RGBA or Y metadata base address,Forms the full 64-bit address when AXI_AW=64
+ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_META_CFG3,RW,0x00000000,31:0,meta_base_addr_uv[31:0],Low 32 bits of the UV metadata base address,
+ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_META_CFG4,RW,0x00000000,31:0,meta_base_addr_uv[63:32],High 32 bits of the UV metadata base address,Forms the full 64-bit address when AXI_AW=64
 ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,RW,0x00000000,15:0,meta_tile_x_numbers,Metadata tile count in the horizontal direction,
 ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,RW,0x00000000,31:16,meta_tile_y_numbers,Metadata tile count in the vertical direction,
 ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,RW,0x00000000,15:0,otf_cfg_img_width,Valid output image width in pixels,

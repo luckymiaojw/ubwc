@@ -532,10 +532,10 @@ The following is a concise table based on the **current RTL**; see the detailed 
 | `0x0010` | `TILE_CFG2` | `ci_input_type`, `ci_sb`, `ci_lossy`, `ci_alpha_mode` | This example keeps the TB default value |
 | `0x0014` | `VIVO_CFG` | `vivo_ubwc_en`, `vivo_sreset` | Usually `vivo_ubwc_en=1` |
 | `0x0018` | `META_CFG0` | `start(W1P)`, `meta_base_format` | Write last; `bit0` is the start pulse |
-| `0x001c` | `META_CFG1` | `meta_base_addr_rgba_uv[31:0]` | `RGBA8888` uses this base |
-| `0x0020` | `META_CFG2` | `meta_base_addr_rgba_uv[63:32]` |  |
-| `0x0024` | `META_CFG3` | `meta_base_addr_y[31:0]` | `NV12/P010 Y` uses this base |
-| `0x0028` | `META_CFG4` | `meta_base_addr_y[63:32]` |  |
+| `0x001c` | `META_CFG1` | `meta_base_addr_rgba_y[31:0]` | `RGBA8888/NV12/P010 Y` uses this base |
+| `0x0020` | `META_CFG2` | `meta_base_addr_rgba_y[63:32]` |  |
+| `0x0024` | `META_CFG3` | `meta_base_addr_uv[31:0]` | `NV12/P010 UV` uses this base |
+| `0x0028` | `META_CFG4` | `meta_base_addr_uv[63:32]` |  |
 | `0x002c` | `META_CFG5` | `meta_tile_x_numbers`, `meta_tile_y_numbers` | This example uses `8 x 32` |
 | `0x0030` | `OTF_CFG0` | `img_width`, `format` | `format=0` means `RGBA8888` |
 | `0x0034` | `OTF_CFG1` | `h_total`, `h_sync` | OTF timing |

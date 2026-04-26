@@ -546,7 +546,7 @@ module ubwc_enc_wrapper_top
         .META_AW                    ( AXI_AW                        ),
         .TH_DW                      ( TH_DW                         ),
         .TW_DW                      ( TW_DW                         ),
-        .IN_FIFO_DEPTH              ( 256                           )
+        .IN_FIFO_DEPTH              ( 32                            )
     )
     ubwc_enc_meta_addr_gen_inst
     (

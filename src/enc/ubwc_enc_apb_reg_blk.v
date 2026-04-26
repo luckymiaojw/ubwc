@@ -110,6 +110,7 @@ module ubwc_enc_apb_reg_blk
     localparam integer REG_META_ACTIVE_SIZE = 20;
     localparam integer REG_META_PITCH       = 21;
     localparam integer REG_STATUS0          = 22;
+    localparam integer REG_IDX_W            = $clog2(NREG);
 
     reg [DW-1:0] regs [0:NREG-1];
     reg [DW-1:0] r_prdata;
@@ -117,6 +118,7 @@ module ubwc_enc_apb_reg_blk
     wire apb_access = PSEL && PENABLE;
     wire apb_write  = apb_access && PWRITE;
     wire [AW-3:0] reg_addr = PADDR[AW-1:2];
+    wire [REG_IDX_W-1:0] reg_idx = reg_addr[REG_IDX_W-1:0];
     wire [15:0] meta_active_width_px;
     wire [15:0] meta_active_height_px;
     wire [15:0] total_x_units;
@@ -140,7 +142,7 @@ module ubwc_enc_apb_reg_blk
             end
         end else if (apb_write) begin
             if ((reg_addr > REG_DATE_IDX[AW-3:0]) && (reg_addr < NREG) && (reg_addr != REG_STATUS0[AW-3:0]))
-                regs[reg_addr] <= PWDATA;
+                regs[reg_idx] <= PWDATA;
         end
     end
 
@@ -148,7 +150,7 @@ module ubwc_enc_apb_reg_blk
         if (reg_addr == REG_STATUS0[AW-3:0])
             r_prdata = status0;
         else if (reg_addr < NREG)
-            r_prdata = regs[reg_addr];
+            r_prdata = regs[reg_idx];
         else
             r_prdata = {DW{1'b0}};
     end
@@ -191,7 +193,7 @@ module ubwc_enc_apb_reg_blk
     assign o_bank_spread_en            = regs[REG_TILE_CFG0][16];
     assign o_4line_format              = regs[REG_TILE_CFG1][0];
     assign o_is_lossy_rgba_2_1_format  = regs[REG_TILE_CFG1][1];
-    assign o_tile_pitch                = regs[REG_TILE_CFG1][16 +: 11];
+    assign o_tile_pitch                = {1'b0, regs[REG_TILE_CFG1][16 +: 11]};
     assign o_y_base_offset_addr        = {regs[REG_TILE_BASE_Y_HI],  regs[REG_TILE_BASE_Y_LO]};
     assign o_uv_base_offset_addr       = {regs[REG_TILE_BASE_UV_HI], regs[REG_TILE_BASE_UV_LO]};
     assign o_meta_y_base_offset_addr   = {regs[REG_META_BASE_Y_HI],  regs[REG_META_BASE_Y_LO]};

@@ -60,7 +60,7 @@ module ubwc_enc_tile_addr
     logic [27:0] add_x;
     logic [7:0]  add_inter_tile;
     logic [27:0] add_before_bs;
-    logic [6:0]  super_pixel_size;
+    logic [7:0]  super_pixel_size;
     logic [15:0] surface_pitch;
     logic [19:0] surface_pitch_x16;
     logic [12:0] ycoord_int_sel;
@@ -113,9 +113,9 @@ module ubwc_enc_tile_addr
     assign add_x           = {9'd0, macrotile_x, 8'd0};
     assign add_inter_tile  = {macrotile, 4'd0};
     assign add_y_2_1_shift = i_is_lossy_rgba_2_1_format ? {active_ycoord[0], 3'b0} : 4'b0;
-    assign add_before_bs   = product + add_x + add_inter_tile + add_y_2_1_shift;
+    assign add_before_bs   = product + add_x + {20'd0, add_inter_tile} + {24'd0, add_y_2_1_shift};
 
-    assign super_pixel_size = i_4line_format ? 7'd32 : 7'd8;
+    assign super_pixel_size = i_4line_format ? 8'd32 : 8'd8;
     assign surface_pitch    = {i_tile_pitch, 4'd0};
     assign surface_pitch_x16 = {surface_pitch, 4'd0};
 
@@ -124,73 +124,73 @@ module ubwc_enc_tile_addr
         case (i_highest_bank_bit)
             5'd13: begin
                 if (!(|surface_pitch_x16[11:0]) && (super_pixel_size <= 8'd128)) begin
-                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 6'd32))
+                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 8'd32))
                         swizzle_xor[11] = line_ycoord_int[3] ^ active_xcoord[1];
                 end
                 if (i_lvl2_bank_swizzle_en && !(|surface_pitch_x16[12:0]))
-                    swizzle_xor[12] = (super_pixel_size == 6'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
+                    swizzle_xor[12] = (super_pixel_size == 8'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
                 if (i_lvl3_bank_swizzle_en && !(|surface_pitch_x16[13:0]))
-                    swizzle_xor[13] = (super_pixel_size == 6'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
+                    swizzle_xor[13] = (super_pixel_size == 8'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
             end
             5'd14: begin
                 if (!(|surface_pitch_x16[12:0]) && (super_pixel_size <= 8'd128)) begin
-                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 6'd32))
+                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 8'd32))
                         swizzle_xor[12] = line_ycoord_int[3] ^ active_xcoord[1];
                 end
                 if (i_lvl2_bank_swizzle_en && !(|surface_pitch_x16[13:0]))
-                    swizzle_xor[13] = (super_pixel_size == 6'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
+                    swizzle_xor[13] = (super_pixel_size == 8'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
                 if (i_lvl3_bank_swizzle_en && !(|surface_pitch_x16[14:0]))
-                    swizzle_xor[14] = (super_pixel_size == 6'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
+                    swizzle_xor[14] = (super_pixel_size == 8'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
             end
             5'd15: begin
                 if (!(|surface_pitch_x16[13:0]) && (super_pixel_size <= 8'd128)) begin
-                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 6'd32))
+                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 8'd32))
                         swizzle_xor[13] = line_ycoord_int[3] ^ active_xcoord[1];
                 end
                 if (i_lvl2_bank_swizzle_en && !(|surface_pitch_x16[14:0]))
-                    swizzle_xor[14] = (super_pixel_size == 6'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
+                    swizzle_xor[14] = (super_pixel_size == 8'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
                 if (i_lvl3_bank_swizzle_en && !(|surface_pitch_x16[15:0]))
-                    swizzle_xor[15] = (super_pixel_size == 6'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
+                    swizzle_xor[15] = (super_pixel_size == 8'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
             end
             5'd16: begin
                 if (!(|surface_pitch_x16[14:0]) && (super_pixel_size <= 8'd128)) begin
-                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 6'd32))
+                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 8'd32))
                         swizzle_xor[14] = line_ycoord_int[3] ^ active_xcoord[1];
                 end
                 if (i_lvl2_bank_swizzle_en && !(|surface_pitch_x16[15:0]))
-                    swizzle_xor[15] = (super_pixel_size == 6'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
+                    swizzle_xor[15] = (super_pixel_size == 8'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
                 if (i_lvl3_bank_swizzle_en && !(|surface_pitch_x16[16:0]))
-                    swizzle_xor[16] = (super_pixel_size == 6'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
+                    swizzle_xor[16] = (super_pixel_size == 8'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
             end
             5'd17: begin
                 if (!(|surface_pitch_x16[15:0]) && (super_pixel_size <= 8'd128)) begin
-                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 6'd32))
+                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 8'd32))
                         swizzle_xor[15] = line_ycoord_int[3] ^ active_xcoord[1];
                 end
                 if (i_lvl2_bank_swizzle_en && !(|surface_pitch_x16[16:0]))
-                    swizzle_xor[16] = (super_pixel_size == 6'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
+                    swizzle_xor[16] = (super_pixel_size == 8'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
                 if (i_lvl3_bank_swizzle_en && !(|surface_pitch_x16[17:0]))
-                    swizzle_xor[17] = (super_pixel_size == 6'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
+                    swizzle_xor[17] = (super_pixel_size == 8'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
             end
             5'd18: begin
                 if (!(|surface_pitch_x16[16:0]) && (super_pixel_size <= 8'd128)) begin
-                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 6'd32))
+                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 8'd32))
                         swizzle_xor[16] = line_ycoord_int[3] ^ active_xcoord[1];
                 end
                 if (i_lvl2_bank_swizzle_en && !(|surface_pitch_x16[17:0]))
-                    swizzle_xor[17] = (super_pixel_size == 6'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
+                    swizzle_xor[17] = (super_pixel_size == 8'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
                 if (i_lvl3_bank_swizzle_en && !(|surface_pitch_x16[18:0]))
-                    swizzle_xor[18] = (super_pixel_size == 6'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
+                    swizzle_xor[18] = (super_pixel_size == 8'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
             end
             5'd19: begin
                 if (!(|surface_pitch_x16[17:0]) && (super_pixel_size <= 8'd128)) begin
-                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 6'd32))
+                    if (i_lvl1_bank_swizzle_en && (super_pixel_size >= 8'd32))
                         swizzle_xor[17] = line_ycoord_int[3] ^ active_xcoord[1];
                 end
                 if (i_lvl2_bank_swizzle_en && !(|surface_pitch_x16[18:0]))
-                    swizzle_xor[18] = (super_pixel_size == 6'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
+                    swizzle_xor[18] = (super_pixel_size == 8'd8) ? line_ycoord_int[5] : line_ycoord_int[4];
                 if (i_lvl3_bank_swizzle_en && !(|surface_pitch_x16[19:0]))
-                    swizzle_xor[19] = (super_pixel_size == 6'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
+                    swizzle_xor[19] = (super_pixel_size == 8'd8) ? line_ycoord_int[6] : line_ycoord_int[5];
             end
             default: swizzle_xor = 32'd0;
         endcase
@@ -205,7 +205,7 @@ module ubwc_enc_tile_addr
         !lossy_rgba_2_1_active &&
         (i_co_alen <= 3'd3);
     assign tile_addr_calc =
-        small_payload_bank_spread_en ? (swizzle_addr + {27'd0, swizzle_addr[5] ^ swizzle_addr[4], 3'd0}) : swizzle_addr;
+        small_payload_bank_spread_en ? (swizzle_addr + {24'd0, swizzle_addr[5] ^ swizzle_addr[4], 3'd0}) : swizzle_addr;
     assign tile_addr_with_base = tile_addr_calc + active_base_offset_addr;
 
     always @(posedge i_clk or negedge i_rstn) begin

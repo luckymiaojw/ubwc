@@ -37,12 +37,10 @@ module ubwc_dec_apb_reg_blk #(
     input  wire [6:0]           i_vivo_idle_bits_axi,
     input  wire [6:0]           i_vivo_error_bits_axi,
 
-    output wire                 o_tile_cfg_lvl1_bank_swizzle_en,
     output wire                 o_tile_cfg_lvl2_bank_swizzle_en,
     output wire                 o_tile_cfg_lvl3_bank_swizzle_en,
     output wire [4:0]           o_tile_cfg_highest_bank_bit,
     output wire                 o_tile_cfg_bank_spread_en,
-    output wire                 o_tile_cfg_4line_format,
     output wire                 o_tile_cfg_is_lossy_rgba_2_1_format,
     output wire [11:0]          o_tile_cfg_pitch,
     output wire                 o_tile_cfg_ci_input_type,
@@ -58,8 +56,8 @@ module ubwc_dec_apb_reg_blk #(
     output wire                 o_frame_start_pulse_axi,
     output wire                 o_meta_start_pulse_axi,
     output wire [4:0]           o_meta_base_format,
-    output wire [AXI_AW-1:0]    o_meta_base_addr_rgba_uv,
-    output wire [AXI_AW-1:0]    o_meta_base_addr_y,
+    output wire [AXI_AW-1:0]    o_meta_base_addr_rgba_y,
+    output wire [AXI_AW-1:0]    o_meta_base_addr_uv,
     output wire [15:0]          o_meta_tile_x_numbers,
     output wire [15:0]          o_meta_tile_y_numbers,
 
@@ -122,8 +120,8 @@ module ubwc_dec_apb_reg_blk #(
     reg                 r_vivo_sreset;
     reg                 r_meta_start_toggle;
     reg [4:0]           r_meta_base_format;
-    reg [AXI_AW-1:0]    r_meta_base_addr_rgba_uv;
-    reg [AXI_AW-1:0]    r_meta_base_addr_y;
+    reg [AXI_AW-1:0]    r_meta_base_addr_rgba_y;
+    reg [AXI_AW-1:0]    r_meta_base_addr_uv;
     reg [15:0]          r_meta_tile_x_numbers;
     reg [15:0]          r_meta_tile_y_numbers;
     reg [15:0]          r_otf_cfg_img_width;
@@ -144,9 +142,12 @@ module ubwc_dec_apb_reg_blk #(
 
     reg  [DW-1:0] r_prdata;
 
-    wire       apb_access = PSEL && PENABLE;
-    wire       apb_write  = apb_access && PWRITE;
-    wire [4:0] apb_addr   = PADDR[6:2];
+    wire       apb_access       = PSEL && PENABLE;
+    wire       apb_addr_aligned = (PADDR[1:0] == 2'b00);
+    wire       apb_addr_in_rng  = (PADDR[AW-1:7] == {(AW-7){1'b0}});
+    wire       apb_decode_valid = apb_addr_aligned && apb_addr_in_rng;
+    wire       apb_write        = apb_access && PWRITE && apb_decode_valid;
+    wire [4:0] apb_addr         = PADDR[6:2];
     wire       frame_start_pulse_axi = r_meta_start_sync_ff1 ^ r_meta_start_sync_ff2;
     wire       any_stage_busy_axi    = i_meta_busy_axi | i_tile_busy_axi | i_vivo_busy_axi | i_otf_busy_axi;
     wire       meta_done_next_axi    = r_stage_done_axi[0] | (r_stage_seen_busy_axi[0] && !i_meta_busy_axi);
@@ -177,8 +178,8 @@ module ubwc_dec_apb_reg_blk #(
             r_vivo_sreset                       <= 1'b0;
             r_meta_start_toggle                 <= 1'b0;
             r_meta_base_format                  <= 5'd0;
-            r_meta_base_addr_rgba_uv            <= {AXI_AW{1'b0}};
-            r_meta_base_addr_y                  <= {AXI_AW{1'b0}};
+            r_meta_base_addr_rgba_y             <= {AXI_AW{1'b0}};
+            r_meta_base_addr_uv                 <= {AXI_AW{1'b0}};
             r_meta_tile_x_numbers               <= 16'd0;
             r_meta_tile_y_numbers               <= 16'd0;
             r_otf_cfg_img_width                 <= 16'd0;
@@ -234,16 +235,16 @@ module ubwc_dec_apb_reg_blk #(
                     r_meta_base_format <= PWDATA[8:4];
                 end
                 APB_ADDR_META_CFG1: begin
-                    r_meta_base_addr_rgba_uv[31:0] <= PWDATA;
+                    r_meta_base_addr_rgba_y[31:0] <= PWDATA;
                 end
                 APB_ADDR_META_CFG2: begin
-                    r_meta_base_addr_rgba_uv[AXI_AW-1:32] <= PWDATA[AXI_AW-33:0];
+                    r_meta_base_addr_rgba_y[AXI_AW-1:32] <= PWDATA[AXI_AW-33:0];
                 end
                 APB_ADDR_META_CFG3: begin
-                    r_meta_base_addr_y[31:0] <= PWDATA;
+                    r_meta_base_addr_uv[31:0] <= PWDATA;
                 end
                 APB_ADDR_META_CFG4: begin
-                    r_meta_base_addr_y[AXI_AW-1:32] <= PWDATA[AXI_AW-33:0];
+                    r_meta_base_addr_uv[AXI_AW-1:32] <= PWDATA[AXI_AW-33:0];
                 end
                 APB_ADDR_META_CFG5: begin
                     r_meta_tile_x_numbers <= PWDATA[15:0];
@@ -318,7 +319,7 @@ module ubwc_dec_apb_reg_blk #(
 
     always @(*) begin
         r_prdata = {DW{1'b0}};
-        case (apb_addr)
+        case (apb_decode_valid ? apb_addr : 5'h1f)
             APB_ADDR_VERSION: begin
                 r_prdata = REG_VERSION;
             end
@@ -331,6 +332,7 @@ module ubwc_dec_apb_reg_blk #(
                             r_tile_cfg_4line_format,
                             r_tile_cfg_bank_spread_en,
                             r_tile_cfg_highest_bank_bit,
+                            1'b0,
                             r_tile_cfg_lvl3_bank_swizzle_en,
                             r_tile_cfg_lvl2_bank_swizzle_en,
                             r_tile_cfg_lvl1_bank_swizzle_en};
@@ -339,7 +341,7 @@ module ubwc_dec_apb_reg_blk #(
                 r_prdata = {{(DW-12){1'b0}}, r_tile_cfg_pitch};
             end
             APB_ADDR_TILE_CFG2: begin
-                r_prdata = {{(DW-11-SB_WIDTH){1'b0}},
+                r_prdata = {{(DW-11){1'b0}},
                             r_tile_cfg_ci_alpha_mode,
                             r_tile_cfg_ci_lossy,
                             {(7-SB_WIDTH){1'b0}},
@@ -365,16 +367,16 @@ module ubwc_dec_apb_reg_blk #(
                 r_prdata = {{(DW-9){1'b0}}, r_meta_base_format, 3'b000, 1'b0};
             end
             APB_ADDR_META_CFG1: begin
-                r_prdata = r_meta_base_addr_rgba_uv[31:0];
+                r_prdata = r_meta_base_addr_rgba_y[31:0];
             end
             APB_ADDR_META_CFG2: begin
-                r_prdata = {{(DW-(AXI_AW-32)){1'b0}}, r_meta_base_addr_rgba_uv[AXI_AW-1:32]};
+                r_prdata = {{(DW-(AXI_AW-32)){1'b0}}, r_meta_base_addr_rgba_y[AXI_AW-1:32]};
             end
             APB_ADDR_META_CFG3: begin
-                r_prdata = r_meta_base_addr_y[31:0];
+                r_prdata = r_meta_base_addr_uv[31:0];
             end
             APB_ADDR_META_CFG4: begin
-                r_prdata = {{(DW-(AXI_AW-32)){1'b0}}, r_meta_base_addr_y[AXI_AW-1:32]};
+                r_prdata = {{(DW-(AXI_AW-32)){1'b0}}, r_meta_base_addr_uv[AXI_AW-1:32]};
             end
             APB_ADDR_META_CFG5: begin
                 r_prdata = {r_meta_tile_y_numbers, r_meta_tile_x_numbers};
@@ -423,12 +425,10 @@ module ubwc_dec_apb_reg_blk #(
     assign PSLVERR = 1'b0;
     assign PRDATA  = r_prdata;
 
-    assign o_tile_cfg_lvl1_bank_swizzle_en     = r_tile_cfg_lvl1_bank_swizzle_en;
     assign o_tile_cfg_lvl2_bank_swizzle_en     = r_tile_cfg_lvl2_bank_swizzle_en;
     assign o_tile_cfg_lvl3_bank_swizzle_en     = r_tile_cfg_lvl3_bank_swizzle_en;
     assign o_tile_cfg_highest_bank_bit         = r_tile_cfg_highest_bank_bit;
     assign o_tile_cfg_bank_spread_en           = r_tile_cfg_bank_spread_en;
-    assign o_tile_cfg_4line_format             = r_tile_cfg_4line_format;
     assign o_tile_cfg_is_lossy_rgba_2_1_format = r_tile_cfg_is_lossy_rgba_2_1_format;
     assign o_tile_cfg_pitch                    = r_tile_cfg_pitch;
     assign o_tile_cfg_ci_input_type            = r_tile_cfg_ci_input_type;
@@ -442,8 +442,8 @@ module ubwc_dec_apb_reg_blk #(
     assign o_frame_start_pulse_axi             = frame_start_pulse_axi;
     assign o_meta_start_pulse_axi              = frame_start_pulse_axi;
     assign o_meta_base_format                  = r_meta_base_format;
-    assign o_meta_base_addr_rgba_uv            = r_meta_base_addr_rgba_uv;
-    assign o_meta_base_addr_y                  = r_meta_base_addr_y;
+    assign o_meta_base_addr_rgba_y             = r_meta_base_addr_rgba_y;
+    assign o_meta_base_addr_uv                 = r_meta_base_addr_uv;
     assign o_meta_tile_x_numbers               = r_meta_tile_x_numbers;
     assign o_meta_tile_y_numbers               = r_meta_tile_y_numbers;
     assign o_otf_cfg_img_width                 = r_otf_cfg_img_width;

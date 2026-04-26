@@ -615,10 +615,10 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
             dec_apb_write(16'h0050, 32'd0);
             dec_apb_write(16'h0014, 32'h0000_0001);
 
-            dec_apb_write(16'h001c, META_BASE_ADDR_UV[31:0]);
-            dec_apb_write(16'h0020, META_BASE_ADDR_UV[63:32]);
-            dec_apb_write(16'h0024, META_BASE_ADDR_Y[31:0]);
-            dec_apb_write(16'h0028, META_BASE_ADDR_Y[63:32]);
+            dec_apb_write(16'h001c, META_BASE_ADDR_Y[31:0]);
+            dec_apb_write(16'h0020, META_BASE_ADDR_Y[63:32]);
+            dec_apb_write(16'h0024, META_BASE_ADDR_UV[31:0]);
+            dec_apb_write(16'h0028, META_BASE_ADDR_UV[63:32]);
             dec_apb_write(16'h002c, {16'd80, 16'd128});
 
             dec_apb_write(16'h0030, {11'd0, BASE_FMT_YUV420_8, 16'd4096});
@@ -1022,9 +1022,9 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
             if (enc_i_m_axi_bvalid && enc_o_m_axi_bready)
                 enc_i_m_axi_bvalid <= 1'b0;
 
-            if (enc_dut.tile_coord_vld) begin
+            if (enc_dut.enc_ci_valid && enc_dut.enc_ci_ready) begin
                 if (enc_cmd_wr_ptr < EXPECTED_TILE_CMDS) begin
-                    enc_cmd_fmt_queue[enc_cmd_wr_ptr] <= enc_dut.enc_ci_format;
+                    enc_cmd_fmt_queue[enc_cmd_wr_ptr] <= enc_dut.tile_format;
                     enc_cmd_x_queue[enc_cmd_wr_ptr]   <= enc_dut.tile_xcoord_raw;
                     enc_cmd_y_queue[enc_cmd_wr_ptr]   <= enc_dut.tile_ycoord_raw;
                     enc_cmd_wr_ptr                    <= enc_cmd_wr_ptr + 1;

@@ -3,14 +3,10 @@
 module ubwc_tile_addr #(
     parameter ADDR_W = 64
 )(
-    input  wire                 clk,
-    input  wire                 rst_n,
-    input  wire                 i_cfg_lvl1_bank_swizzle_en,
     input  wire                 i_cfg_lvl2_bank_swizzle_en,
     input  wire                 i_cfg_lvl3_bank_swizzle_en,
     input  wire [4:0]           i_cfg_highest_bank_bit,
     input  wire                 i_cfg_bank_spread_en,
-    input  wire                 i_cfg_4line_format,
     input  wire                 i_cfg_is_lossy_rgba_2_1_format,
     input  wire [11:0]          i_cfg_pitch,
     input  wire [ADDR_W-1:0]    i_cfg_base_addr_rgba_uv,
@@ -208,6 +204,26 @@ module ubwc_tile_addr #(
         tile_width = 16'd16;
         tile_height = 16'd4;
         bytes_per_pixel = 3'd4;
+        addr_bytes = 64'd0;
+        surface_pitch_bytes = 64'd0;
+        macro_tile_base = 64'd0;
+        row_factor = 64'd0;
+        tile_row_pixels = 64'd0;
+        spread_mask = 64'd0;
+        payload_base_addr = 64'd0;
+        eff_tile_y = 16'd0;
+        macro_tile_x = 16'd0;
+        macro_tile_y = 16'd0;
+        temp_tile_x = 3'd0;
+        temp_tile_y = 3'd0;
+        slot = 5'd0;
+        compressed_size_bytes = 9'd0;
+        use_special_swizzle_taps = 1'b0;
+        lossy_rgba_2_1_active = 1'b0;
+        lvl2_cond = 1'b0;
+        lvl3_cond = 1'b0;
+        bank_spread_en = 1'b0;
+        bit_value = 1'b0;
 
         case (i_meta_format)
             META_FMT_RGBA8888,
@@ -289,10 +305,10 @@ module ubwc_tile_addr #(
         end
 
         if (i_cfg_lvl3_bank_swizzle_en && lvl3_cond) begin
-            bit_value = get_bit64(i_cfg_highest_bank_bit, addr_bytes) ^
+            bit_value = get_bit64({1'b0, i_cfg_highest_bank_bit}, addr_bytes) ^
                         (use_special_swizzle_taps ? get_bit64(6'd6, tile_row_pixels)
                                                   : get_bit64(6'd5, tile_row_pixels));
-            addr_bytes = program_bit64(i_cfg_highest_bank_bit, bit_value, addr_bytes);
+            addr_bytes = program_bit64({1'b0, i_cfg_highest_bank_bit}, bit_value, addr_bytes);
         end
 
         if (lossy_rgba_2_1_active) begin
@@ -315,7 +331,5 @@ module ubwc_tile_addr #(
     assign o_cmd_meta        = i_meta_flag;
     assign o_cmd_alen        = i_meta_alen;
     assign o_cmd_has_payload = i_meta_has_payload;
-
-    wire unused_cfg = clk | rst_n | i_cfg_lvl1_bank_swizzle_en | i_cfg_4line_format;
 
 endmodule

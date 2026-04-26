@@ -58,10 +58,26 @@ module ubwc_axi_rd_256to64 #(
     localparam integer RATIO           = CORE_AXI_DW / M_AXI_DW;
     localparam integer RATIO_W         = (RATIO <= 1) ? 1 : $clog2(RATIO);
     localparam integer CORE_BEAT_W     = AXI_LENW + 1;
-    localparam integer EXT_BEAT_BYTES  = M_AXI_DW / 8;
-    localparam integer EXT_SIZE_VALUE  = $clog2(EXT_BEAT_BYTES);
     localparam integer MAX_EXT_BEATS   = 32;
     localparam integer MAX_CORE_BEATS  = MAX_EXT_BEATS / RATIO;
+
+    function [3:0] calc_axi_size;
+        input integer data_width;
+        integer bytes;
+        begin
+            bytes = data_width / 8;
+            calc_axi_size = 4'd0;
+            while (bytes > 1) begin
+                bytes = bytes >> 1;
+                calc_axi_size = calc_axi_size + 4'd1;
+            end
+        end
+    endfunction
+
+    localparam [RATIO_W-1:0] RATIO_LAST = RATIO_W'(RATIO - 1);
+    localparam [CORE_BEAT_W-1:0] MAX_CORE_BEATS_W = CORE_BEAT_W'(MAX_CORE_BEATS);
+    localparam [3:0] CORE_SIZE_VALUE = calc_axi_size(CORE_AXI_DW);
+    localparam [3:0] EXT_SIZE_VALUE_W = calc_axi_size(M_AXI_DW);
 
     reg [ID_WIDTH-1:0]            arid_r;
     reg [ADDR_WIDTH-1:0]          araddr_r;
@@ -79,7 +95,8 @@ module ubwc_axi_rd_256to64 #(
     reg                           rsp_valid_r;
 
     wire [CORE_BEAT_W-1:0]        core_beats_total_w = {{1'b0}, arlen_r} + {{CORE_BEAT_W-1{1'b0}}, 1'b1};
-    wire [AXI_LENW+2:0]           ext_beats_total_w  = core_beats_total_w * RATIO;
+    wire [CORE_BEAT_W-1:0]        s_core_beats_total_w = {{1'b0}, s_axi_arlen} + {{CORE_BEAT_W-1{1'b0}}, 1'b1};
+    wire [AXI_LENW-1:0]           ext_beats_total_w  = core_beats_total_w[AXI_LENW-1:0] << RATIO_W;
     wire                          s_ar_fire_w        = s_axi_arvalid && s_axi_arready;
     wire                          m_ar_fire_w        = arvalid_r && m_axi_arready;
     wire                          m_r_fire_w         = req_active_r && !rsp_valid_r && m_axi_rvalid;
@@ -88,7 +105,7 @@ module ubwc_axi_rd_256to64 #(
     function automatic [CORE_AXI_DW-1:0] write_lane_data;
         input [CORE_AXI_DW-1:0] curr_data;
         input [M_AXI_DW-1:0]    lane_data;
-        input integer           lane_idx;
+        input [RATIO_W-1:0]    lane_idx;
         begin
             write_lane_data = curr_data;
             write_lane_data[lane_idx*M_AXI_DW +: M_AXI_DW] = lane_data;
@@ -103,8 +120,8 @@ module ubwc_axi_rd_256to64 #(
 
     assign m_axi_arid    = arid_r;
     assign m_axi_araddr  = araddr_r;
-    assign m_axi_arlen   = ext_beats_total_w[AXI_LENW-1:0] - {{AXI_LENW-1{1'b0}}, 1'b1};
-    assign m_axi_arsize  = EXT_SIZE_VALUE[3:0];
+    assign m_axi_arlen   = ext_beats_total_w - {{AXI_LENW-1{1'b0}}, 1'b1};
+    assign m_axi_arsize  = EXT_SIZE_VALUE_W;
     assign m_axi_arburst = arburst_r;
     assign m_axi_arvalid = arvalid_r;
     assign m_axi_rready  = req_active_r && !rsp_valid_r;
@@ -139,12 +156,14 @@ module ubwc_axi_rd_256to64 #(
                 arlen_r   <= s_axi_arlen;
                 arburst_r <= s_axi_arburst;
                 arvalid_r <= 1'b1;
-                if (({{1'b0}, s_axi_arlen} + {{AXI_LENW{1'b0}}, 1'b1}) > MAX_CORE_BEATS)
+`ifndef SYNTHESIS
+                if (s_core_beats_total_w > MAX_CORE_BEATS_W)
                     $display("[%0t] WARN: ubwc_axi_rd_256to64 saw core burst len=%0d (> %0d beats), external 64-bit burst may exceed 32 beats.",
                              $time, s_axi_arlen, MAX_CORE_BEATS);
-                if (s_axi_arsize != $clog2(CORE_AXI_DW/8))
+                if (s_axi_arsize != CORE_SIZE_VALUE)
                     $display("[%0t] WARN: ubwc_axi_rd_256to64 core ARSIZE=%0d, expected %0d.",
-                             $time, s_axi_arsize, $clog2(CORE_AXI_DW/8));
+                             $time, s_axi_arsize, CORE_SIZE_VALUE);
+`endif
             end
 
             if (m_ar_fire_w) begin
@@ -157,7 +176,7 @@ module ubwc_axi_rd_256to64 #(
             end
 
             if (m_r_fire_w) begin
-                if (lane_idx_r == (RATIO - 1)) begin
+                if (lane_idx_r == RATIO_LAST) begin
                     rsp_data_r      <= write_lane_data(assemble_data_r, m_axi_rdata, lane_idx_r);
                     rsp_resp_r      <= assemble_resp_r | m_axi_rresp;
                     rsp_last_r      <= (core_beats_left_r == {{CORE_BEAT_W-1{1'b0}}, 1'b1});
@@ -169,8 +188,10 @@ module ubwc_axi_rd_256to64 #(
                     if (core_beats_left_r == {{CORE_BEAT_W-1{1'b0}}, 1'b1}) begin
                         req_active_r      <= 1'b0;
                         core_beats_left_r <= {CORE_BEAT_W{1'b0}};
+`ifndef SYNTHESIS
                         if (!m_axi_rlast)
                             $display("[%0t] WARN: ubwc_axi_rd_256to64 expected external RLAST on final 64-bit beat.", $time);
+`endif
                     end else begin
                         core_beats_left_r <= core_beats_left_r - {{CORE_BEAT_W-1{1'b0}}, 1'b1};
                     end

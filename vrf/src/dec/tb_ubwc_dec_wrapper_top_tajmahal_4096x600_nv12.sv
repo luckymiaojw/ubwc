@@ -548,10 +548,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             end
             apb_write(16'h0014, 32'h0000_0001);
 
-            apb_write(16'h001c, META_BASE_ADDR_UV[31:0]);
-            apb_write(16'h0020, META_BASE_ADDR_UV[63:32]);
-            apb_write(16'h0024, META_BASE_ADDR_Y[31:0]);
-            apb_write(16'h0028, META_BASE_ADDR_Y[63:32]);
+            apb_write(16'h001c, META_BASE_ADDR_Y[31:0]);
+            apb_write(16'h0020, META_BASE_ADDR_Y[63:32]);
+            apb_write(16'h0024, META_BASE_ADDR_UV[31:0]);
+            apb_write(16'h0028, META_BASE_ADDR_UV[63:32]);
             apb_write(16'h002c, {16'd80, 16'd128});
 
             apb_write(16'h0030, {11'd0, BASE_FMT_YUV420_8, 16'd4096});
@@ -1200,20 +1200,20 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         $display("  dbg fifo_rd cnt    : %0d", fifo_rd_cnt);
         $display("  dbg meta_start     : %0b", dut.meta_start_pulse_axi);
         $display("  dbg meta_arvalid   : %0b", dut.meta_m_axi_arvalid);
-        $display("  dbg meta_cmd_valid : %0b", dut.u_meta_data_gen.cmd_valid);
-        $display("  dbg meta_meta_valid: %0b", dut.u_meta_data_gen.meta_valid);
-        $display("  dbg meta_state     : %0d", dut.u_meta_data_gen.u_meta_get_cmd_gen.state);
+        $display("  dbg meta_grp_valid : %0b", dut.u_meta_data_gen.meta_grp_valid);
+        $display("  dbg meta_grp_ready : %0b", dut.u_meta_data_gen.meta_grp_ready);
+        $display("  dbg meta_state     : %0d", dut.u_meta_data_gen.u_meta_get_cmd_gen.frame_done);
         $display("  dbg meta_base_fmt  : 0x%0h", dut.r_meta_base_format);
-        $display("  dbg meta_base_y    : 0x%0h", dut.r_meta_base_addr_y);
-        $display("  dbg meta_base_uv   : 0x%0h", dut.r_meta_base_addr_rgba_uv);
+        $display("  dbg meta_base_y    : 0x%0h", dut.r_meta_base_addr_rgba_y);
+        $display("  dbg meta_base_uv   : 0x%0h", dut.r_meta_base_addr_uv);
         $display("  dbg meta_tile_xy   : x=%0d y=%0d", dut.r_meta_tile_x_numbers, dut.r_meta_tile_y_numbers);
-        $display("  dbg cmd tile/pass  : x=%0d y=%0d pass=%0d meta_ready=%0b",
-                 dut.u_meta_data_gen.u_meta_get_cmd_gen.tile_x_cnt,
-                 dut.u_meta_data_gen.u_meta_get_cmd_gen.tile_y_cnt,
-                 dut.u_meta_data_gen.u_meta_get_cmd_gen.pass_cnt,
-                 dut.u_meta_data_gen.meta_ready);
-        $display("  dbg cmd addr/meta  : addr=0x%0h meta_x=%0d meta_y=%0d",
-                 dut.u_meta_data_gen.cmd_addr,
+        $display("  dbg meta counters  : x=%0d y=%0d uv_y=%0d is_uv=%0b",
+                 dut.u_meta_data_gen.u_meta_get_cmd_gen.xcoord_cnt,
+                 dut.u_meta_data_gen.u_meta_get_cmd_gen.y_row_cnt,
+                 dut.u_meta_data_gen.u_meta_get_cmd_gen.uv_row_cnt,
+                 dut.u_meta_data_gen.u_meta_get_cmd_gen.scan_is_uv_plane);
+        $display("  dbg grp addr/meta  : addr=0x%0h meta_x=%0d meta_y=%0d",
+                 dut.u_meta_data_gen.meta_grp_addr,
                  dut.u_meta_data_gen.meta_xcoord,
                  dut.u_meta_data_gen.meta_ycoord);
         $display("  dbg wrapper ready  : ci_ready=%0b tile_ready=%0b tready=%0b",
@@ -1323,27 +1323,24 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             $display("DBG: meta AR addr=0x%0h len=%0d cycle=%0d", dut.meta_m_axi_araddr, dut.meta_m_axi_arlen, cycle_cnt);
         end
         if (DEBUG_LOG && (dbg_trace_cycles > 0)) begin
-            $display("DBG: cyc=%0d state=%0d meta_ready=%0b cmd_valid=%0b meta_valid=%0b base_fmt=0x%0h base_y=0x%0h base_uv=0x%0h tile_x=%0d tile_y=%0d pass=%0d cmd_addr=0x%0h meta_x=%0d meta_y=%0d",
+            $display("DBG: cyc=%0d done=%0d meta_grp_ready=%0b meta_grp_valid=%0b base_fmt=0x%0h base_y=0x%0h base_uv=0x%0h x=%0d y=%0d uv_y=%0d grp_addr=0x%0h meta_x=%0d meta_y=%0d",
                      cycle_cnt,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.state,
-                     dut.u_meta_data_gen.meta_ready,
-                     dut.u_meta_data_gen.cmd_valid,
-                     dut.u_meta_data_gen.meta_valid,
+                     dut.u_meta_data_gen.u_meta_get_cmd_gen.frame_done,
+                     dut.u_meta_data_gen.meta_grp_ready,
+                     dut.u_meta_data_gen.meta_grp_valid,
                      dut.r_meta_base_format,
-                     dut.r_meta_base_addr_y,
-                     dut.r_meta_base_addr_rgba_uv,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.tile_x_cnt,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.tile_y_cnt,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.pass_cnt,
-                     dut.u_meta_data_gen.cmd_addr,
+                     dut.r_meta_base_addr_rgba_y,
+                     dut.r_meta_base_addr_uv,
+                     dut.u_meta_data_gen.u_meta_get_cmd_gen.xcoord_cnt,
+                     dut.u_meta_data_gen.u_meta_get_cmd_gen.y_row_cnt,
+                     dut.u_meta_data_gen.u_meta_get_cmd_gen.uv_row_cnt,
+                     dut.u_meta_data_gen.meta_grp_addr,
                      dut.u_meta_data_gen.meta_xcoord,
                      dut.u_meta_data_gen.meta_ycoord);
-            $display("DBG: geom pitch=%0d yblk=%0d uvblk=%0d ycmd=0x%0h curr=0x%0h",
+            $display("DBG: geom pitch=%0d current_y=%0d current_addr=0x%0h",
                      dut.u_meta_data_gen.u_meta_get_cmd_gen.meta_pitch_bytes,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.yuv420_y_block_idx,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.yuv420_uv_block_idx,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.yuv420_y_cmd_addr,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.current_cmd_addr);
+                     dut.u_meta_data_gen.u_meta_get_cmd_gen.current_ycoord,
+                     dut.u_meta_data_gen.meta_grp_addr);
             dbg_trace_cycles <= dbg_trace_cycles - 1;
         end
     end
