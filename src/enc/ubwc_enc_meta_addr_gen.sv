@@ -42,7 +42,7 @@ module ubwc_enc_meta_addr_gen
         input   wire    [TW_DW      -1:0]   i_xcoord                    ,
 
         output  logic                       o_meta_data_valid           ,
-        output  logic   [64         -1:0]   o_meta_data                 ,
+        output  logic   [66         -1:0]   o_meta_data                 ,
         input   logic                       i_meta_data_ready           ,
 
         output  logic                       o_meta_addr_valid           ,
@@ -109,9 +109,9 @@ module ubwc_enc_meta_addr_gen
     wire    [7:0]   tile_meta_fill_byte_w   ;
     reg     [2:0]   pop_cnt                 ;
     reg             tile_meta_vld           ;
-    reg     [63:0]  tile_meta_word_w        ;
+    reg     [63:0]  tile_meta_word_data_w   ;
+    wire    [65:0]  tile_meta_word_w        ;
     wire            tile_meta_vld_w         ;
-    wire    [63:0]  pack_reg_r              ;
     wire    [TW_DW-1:0] tile_last_xcoord_w  ;
     wire    [TW_DW-1:0] tile_word_xcoord_w  ;
     wire    [META_AW-1:0] tile_meta_addr_w  ;
@@ -127,7 +127,6 @@ module ubwc_enc_meta_addr_gen
 
     assign tile_meta_fill_byte_w = build_meta_byte(int_co_alen);
     assign tile_meta_vld_w       = tile_meta_vld;
-    assign pack_reg_r            = tile_meta_word_w;
     assign tile_last_xcoord_w    = i_meta_last_xcoord;
     assign tile_word_xcoord_w    = {int_xcoord[TW_DW-1:3], 3'b000};
 
@@ -145,17 +144,17 @@ module ubwc_enc_meta_addr_gen
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
-            tile_meta_word_w    <= 64'd0    ;
+            tile_meta_word_data_w    <= 64'd0    ;
         else if(in_fifo_pop_valid && in_fifo_pop_ready) begin
             case(int_xcoord[2:0])
-                3'd0    :   tile_meta_word_w    <= {56'd0,tile_meta_fill_byte_w                         }    ;
-                3'd1    :   tile_meta_word_w    <= {48'd0,tile_meta_fill_byte_w,tile_meta_word_w[0 +: 8]}    ;
-                3'd2    :   tile_meta_word_w    <= {40'd0,tile_meta_fill_byte_w,tile_meta_word_w[0 +:16]}    ;
-                3'd3    :   tile_meta_word_w    <= {32'd0,tile_meta_fill_byte_w,tile_meta_word_w[0 +:24]}    ;
-                3'd4    :   tile_meta_word_w    <= {24'd0,tile_meta_fill_byte_w,tile_meta_word_w[0 +:32]}    ;
-                3'd5    :   tile_meta_word_w    <= {16'd0,tile_meta_fill_byte_w,tile_meta_word_w[0 +:40]}    ;
-                3'd6    :   tile_meta_word_w    <= { 8'd0,tile_meta_fill_byte_w,tile_meta_word_w[0 +:48]}    ;
-                3'd7    :   tile_meta_word_w    <= {      tile_meta_fill_byte_w,tile_meta_word_w[0 +:56]}    ;
+                3'd0    :   tile_meta_word_data_w    <= {56'd0,tile_meta_fill_byte_w                              }    ;
+                3'd1    :   tile_meta_word_data_w    <= {48'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +: 8]}    ;
+                3'd2    :   tile_meta_word_data_w    <= {40'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:16]}    ;
+                3'd3    :   tile_meta_word_data_w    <= {32'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:24]}    ;
+                3'd4    :   tile_meta_word_data_w    <= {24'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:32]}    ;
+                3'd5    :   tile_meta_word_data_w    <= {16'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:40]}    ;
+                3'd6    :   tile_meta_word_data_w    <= { 8'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:48]}    ;
+                3'd7    :   tile_meta_word_data_w    <= {      tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:56]}    ;
             endcase
         end
     end
@@ -184,7 +183,7 @@ module ubwc_enc_meta_addr_gen
     mg_sync_fifo
     #(
         .PROG_DEPTH             ( 1                     ),
-        .DWIDTH                 ( 8*8                   ),  //8 meta data width
+        .DWIDTH                 ( 66                    ),  // 64-bit meta data + 2-bit 256-bit lane index
         .DEPTH                  ( 32                    ),
         .SHOW_AHEAD             ( 1                     )
     )
@@ -218,6 +217,7 @@ module ubwc_enc_meta_addr_gen
     assign  tile_meta_base_addr     = tile_meta_addr_base_w ? i_meta_uv_base_offset_addr : i_meta_y_base_offset_addr;
     assign  tile_meta_y_base_addr_w = int_ycoord[TH_DW-1:4] * {i_meta_data_plane_pitch,4'd0};
     assign  tile_meta_addr_w        = tile_meta_addr;
+    assign  tile_meta_word_w        = {tile_meta_addr[4:3], tile_meta_word_data_w};
     assign  tile_meta_offset_w      = {int_xcoord[TW_DW-1:4]
                                       ,int_ycoord[3+:1]
                                       ,int_xcoord[3+:1]

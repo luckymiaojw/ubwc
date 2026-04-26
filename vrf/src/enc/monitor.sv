@@ -6,7 +6,7 @@ module tb_ubwc_enc_wrapper_top_monitor #(
 ) (
     input  wire                    meta_data_valid,
     input  wire                    meta_data_ready,
-    input  wire [64-1:0]           meta_data,
+    input  wire [66-1:0]           meta_data,
     input  wire                    meta_addr_valid,
     input  wire                    meta_addr_ready,
     input  wire [AXI_AW-1:0]       meta_addr,
@@ -62,13 +62,13 @@ module tb_ubwc_enc_wrapper_top_monitor #(
     assign y_meta_valid    = meta_valid & meta_sel_y;
     assign y_meta_last     = meta_last;
     assign y_meta_ready    = meta_ready & meta_sel_y;
-    assign y_meta_data     = meta_data;
+    assign y_meta_data     = meta_data[0+:64];
     assign y_meta_addr     = meta_sel_y ? meta_addr : {AXI_AW{1'b0}};
 
     assign uv_meta_valid   = meta_valid & meta_sel_uv;
     assign uv_meta_last    = meta_last;
     assign uv_meta_ready   = meta_ready & meta_sel_uv;
-    assign uv_meta_data    = meta_data;
+    assign uv_meta_data    = meta_data[0+:64];
     assign uv_meta_addr    = meta_sel_uv ? meta_addr : {AXI_AW{1'b0}};
 
     assign meta_aw_fire    = meta_axi_awvalid & meta_axi_awready;

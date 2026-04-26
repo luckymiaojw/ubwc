@@ -94,8 +94,8 @@ module ubwc_enc_wrapper_top
 
     localparam integer                  CORE_AXI_DW                 = 256;
     localparam integer                  COORD_FIFO_DEPTH            = 32;
-    localparam integer                  TH_DW                      = 13;
-    localparam integer                  TW_DW                      = 8;
+    localparam integer                  TH_DW                       = 13;
+    localparam integer                  TW_DW                       = 8;
     localparam integer                  COORD_FIFO_W                = 5 + TH_DW + TW_DW;
 
     wire    [3          -1:0]           otf_cfg_format              ;
@@ -181,7 +181,7 @@ module ubwc_enc_wrapper_top
     wire                                enc_idle                    ;
     wire                                enc_error                   ;
 
-    wire    [ 64        -1:0]           meta_data                   ;
+    wire    [ 66        -1:0]           meta_data                   ;
     wire    [AXI_AW     -1:0]           meta_addr                   ;
     wire                                meta_data_valid             ;
     wire                                meta_data_ready             ;
@@ -252,26 +252,6 @@ module ubwc_enc_wrapper_top
     wire    [2          -1: 0]          meta_axi_bresp              ;
     wire                                meta_axi_bvalid             ;
     wire                                meta_axi_bready             ;
-
-    wire    [AXI_IDW    -1: 0]          meta64_axi_awid             ;
-    wire    [AXI_AW     -1: 0]          meta64_axi_awaddr           ;
-    wire    [AXI_LENW   -1: 0]          meta64_axi_awlen            ;
-    wire    [3          -1: 0]          meta64_axi_awsize           ;
-    wire    [2          -1: 0]          meta64_axi_awburst          ;
-    wire    [2          -1: 0]          meta64_axi_awlock           ;
-    wire    [4          -1: 0]          meta64_axi_awcache          ;
-    wire    [3          -1: 0]          meta64_axi_awprot           ;
-    wire                                meta64_axi_awvalid          ;
-    wire                                meta64_axi_awready          ;
-    wire    [AXI_DW     -1: 0]          meta64_axi_wdata            ;
-    wire    [AXI_DW/8   -1: 0]          meta64_axi_wstrb            ;
-    wire                                meta64_axi_wlast            ;
-    wire                                meta64_axi_wvalid           ;
-    wire                                meta64_axi_wready           ;
-    wire    [AXI_IDW    -1: 0]          meta64_axi_bid              ;
-    wire    [2          -1: 0]          meta64_axi_bresp            ;
-    wire                                meta64_axi_bvalid           ;
-    wire                                meta64_axi_bready           ;
 
     assign coord_fifo_wr_en = enc_ci_valid & enc_ci_ready;
     assign coord_fifo_rd_en = enc_co_valid & enc_co_ready;
@@ -626,9 +606,10 @@ module ubwc_enc_wrapper_top
     ubwc_enc_meta_axi_wcmd_gen
     #(
         .AXI_AW                     ( AXI_AW                        ),
-        .AXI_DW                     ( AXI_DW                        ),
+        .AXI_DW                     ( CORE_AXI_DW                   ),
         .AXI_LENW                   ( AXI_LENW                      ),
-        .AXI_IDW                    ( AXI_IDW                       )
+        .AXI_IDW                    ( AXI_IDW                       ),
+        .META_DW                    ( 66                            )
     )
     ubwc_enc_meta_axi_wcmd_gen_inst
     (
@@ -642,80 +623,27 @@ module ubwc_enc_wrapper_top
         .o_meta_addr_ready          ( meta_addr_ready               ),
         .i_meta_addr                ( meta_addr                     ),
 
-        .o_m_axi_awid               ( meta64_axi_awid               ),
-        .o_m_axi_awaddr             ( meta64_axi_awaddr             ),
-        .o_m_axi_awlen              ( meta64_axi_awlen              ),
-        .o_m_axi_awsize             ( meta64_axi_awsize             ),
-        .o_m_axi_awburst            ( meta64_axi_awburst            ),
-        .o_m_axi_awlock             ( meta64_axi_awlock             ),
-        .o_m_axi_awcache            ( meta64_axi_awcache            ),
-        .o_m_axi_awprot             ( meta64_axi_awprot             ),
-        .o_m_axi_awvalid            ( meta64_axi_awvalid            ),
-        .i_m_axi_awready            ( meta64_axi_awready            ),
+        .o_m_axi_awid               ( meta_axi_awid                 ),
+        .o_m_axi_awaddr             ( meta_axi_awaddr               ),
+        .o_m_axi_awlen              ( meta_axi_awlen                ),
+        .o_m_axi_awsize             ( meta_axi_awsize               ),
+        .o_m_axi_awburst            ( meta_axi_awburst              ),
+        .o_m_axi_awlock             ( meta_axi_awlock               ),
+        .o_m_axi_awcache            ( meta_axi_awcache              ),
+        .o_m_axi_awprot             ( meta_axi_awprot               ),
+        .o_m_axi_awvalid            ( meta_axi_awvalid              ),
+        .i_m_axi_awready            ( meta_axi_awready              ),
 
-        .o_m_axi_wdata              ( meta64_axi_wdata              ),
-        .o_m_axi_wstrb              ( meta64_axi_wstrb              ),
-        .o_m_axi_wvalid             ( meta64_axi_wvalid             ),
-        .o_m_axi_wlast              ( meta64_axi_wlast              ),
-        .i_m_axi_wready             ( meta64_axi_wready             ),
+        .o_m_axi_wdata              ( meta_axi_wdata                ),
+        .o_m_axi_wstrb              ( meta_axi_wstrb                ),
+        .o_m_axi_wvalid             ( meta_axi_wvalid               ),
+        .o_m_axi_wlast              ( meta_axi_wlast                ),
+        .i_m_axi_wready             ( meta_axi_wready               ),
 
-        .i_m_axi_bid                ( meta64_axi_bid                ),
-        .i_m_axi_bresp              ( meta64_axi_bresp              ),
-        .i_m_axi_bvalid             ( meta64_axi_bvalid             ),
-        .o_m_axi_bready             ( meta64_axi_bready             )
-    );
-
-    ubwc_axi_wr_64to256 #(
-        .ADDR_WIDTH                 ( AXI_AW                        ),
-        .ID_WIDTH                   ( AXI_IDW                       ),
-        .AXI_LENW                   ( AXI_LENW                      ),
-        .S_AXI_DW                   ( AXI_DW                        ),
-        .M_AXI_DW                   ( CORE_AXI_DW                   )
-    )
-    u_meta_axi_wr_64to256
-    (
-        .clk                        ( i_clk                         ),
-        .rst_n                      ( i_rstn                        ),
-
-        .s_axi_awid                 ( meta64_axi_awid               ),
-        .s_axi_awaddr               ( meta64_axi_awaddr             ),
-        .s_axi_awlen                ( meta64_axi_awlen              ),
-        .s_axi_awsize               ( meta64_axi_awsize             ),
-        .s_axi_awburst              ( meta64_axi_awburst            ),
-        .s_axi_awlock               ( meta64_axi_awlock             ),
-        .s_axi_awcache              ( meta64_axi_awcache            ),
-        .s_axi_awprot               ( meta64_axi_awprot             ),
-        .s_axi_awvalid              ( meta64_axi_awvalid            ),
-        .s_axi_awready              ( meta64_axi_awready            ),
-        .s_axi_wdata                ( meta64_axi_wdata              ),
-        .s_axi_wstrb                ( meta64_axi_wstrb              ),
-        .s_axi_wlast                ( meta64_axi_wlast              ),
-        .s_axi_wvalid               ( meta64_axi_wvalid             ),
-        .s_axi_wready               ( meta64_axi_wready             ),
-        .s_axi_bid                  ( meta64_axi_bid                ),
-        .s_axi_bresp                ( meta64_axi_bresp              ),
-        .s_axi_bvalid               ( meta64_axi_bvalid             ),
-        .s_axi_bready               ( meta64_axi_bready             ),
-
-        .m_axi_awid                 ( meta_axi_awid                 ),
-        .m_axi_awaddr               ( meta_axi_awaddr               ),
-        .m_axi_awlen                ( meta_axi_awlen                ),
-        .m_axi_awsize               ( meta_axi_awsize               ),
-        .m_axi_awburst              ( meta_axi_awburst              ),
-        .m_axi_awlock               ( meta_axi_awlock               ),
-        .m_axi_awcache              ( meta_axi_awcache              ),
-        .m_axi_awprot               ( meta_axi_awprot               ),
-        .m_axi_awvalid              ( meta_axi_awvalid              ),
-        .m_axi_awready              ( meta_axi_awready              ),
-        .m_axi_wdata                ( meta_axi_wdata                ),
-        .m_axi_wstrb                ( meta_axi_wstrb                ),
-        .m_axi_wlast                ( meta_axi_wlast                ),
-        .m_axi_wvalid               ( meta_axi_wvalid               ),
-        .m_axi_wready               ( meta_axi_wready               ),
-        .m_axi_bid                  ( meta_axi_bid                  ),
-        .m_axi_bresp                ( meta_axi_bresp                ),
-        .m_axi_bvalid               ( meta_axi_bvalid               ),
-        .m_axi_bready               ( meta_axi_bready               )
+        .i_m_axi_bid                ( meta_axi_bid                  ),
+        .i_m_axi_bresp              ( meta_axi_bresp                ),
+        .i_m_axi_bvalid             ( meta_axi_bvalid               ),
+        .o_m_axi_bready             ( meta_axi_bready               )
     );
 
     axi_2t1_int_DW_axi
