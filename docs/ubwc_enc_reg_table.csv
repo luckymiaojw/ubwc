@@ -1,7 +1,7 @@
 Module,Register Address,Register Name,Access,Reset Value,Bit Field,Field Name,Description,Notes
 ubwc_enc_apb_reg_blk,0x0000,REG_VERSION,RO,0x00010000,31:0,version,IP version,Returns fixed value 32'h0001_0000
 ubwc_enc_apb_reg_blk,0x0004,REG_DATE,RO,0x20260406,31:0,date,RTL date,Returns fixed value 32'h2026_0406
-ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,0,enc_ubwc_en,Enable UBWC encoding,Recommended as the final write in the tile address configuration group; writing this register generates a tile_addr_gen_cfg_vld pulse
+ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,0,enc_ubwc_en,Enable UBWC encoding,Recommended as the final write in the tile address configuration group
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,1,lvl1_bank_swizzle_en,Level-1 bank swizzle enable,Same as above
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,2,lvl2_bank_swizzle_en,Level-2 bank swizzle enable,Same as above
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,3,lvl3_bank_swizzle_en,Level-3 bank swizzle enable,Same as above
@@ -10,7 +10,7 @@ ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,16,bank_spread_en,Bank s
 ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,0,four_line_format,4-line tile format enable,Recommended to write this register before committing REG_TILE_CFG0
 ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,1,is_lossy_rgba_2_1_format,RGBA 2:1 lossy format select,Same as above
 ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,26:16,tile_pitch,Tile pitch configuration,The effective width in code is 11 bits
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,0,enc_ci_input_type,Encoded CI input type,Recommended as the final write in the CI configuration group; writing this register generates an o_enc_ci_vld pulse
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,0,enc_ci_input_type,Encoded CI input type,Recommended as the final write in the CI configuration group
 ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,10:8,enc_ci_alen,Encoded CI alen configuration,Same as above
 ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,20:16,enc_ci_format,Encoded CI format,Same as above
 ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,24,reserved,Unused forced PCM configuration bit,Forced PCM is generated dynamically by the OTF path
@@ -28,7 +28,7 @@ ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,27:26,enc_ci_ubwc_cfg_
 ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,30:28,enc_ci_ubwc_cfg_9,UBWC CI configuration 9,
 ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,RW,0x00000000,5:0,enc_ci_ubwc_cfg_10,UBWC CI configuration 10,
 ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,RW,0x00000000,13:8,enc_ci_ubwc_cfg_11,UBWC CI configuration 11,
-ubwc_enc_apb_reg_blk,0x0020,REG_OTF_CFG0,RW,0x00000000,2:0,otf_cfg_format,Input OTF format,Recommended as the final write in the OTF configuration group; writing this register generates an o_otf_cfg_vld pulse
+ubwc_enc_apb_reg_blk,0x0020,REG_OTF_CFG0,RW,0x00000000,2:0,otf_cfg_format,Input OTF format,Recommended as the final write in the OTF configuration group
 ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,RW,0x00000000,15:0,otf_cfg_width,Input image width in pixels,
 ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,RW,0x00000000,31:16,otf_cfg_height,Input image height in pixels,
 ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,RW,0x00000000,15:0,otf_cfg_tile_w,Tile width in pixels,
@@ -54,4 +54,8 @@ ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,4,otf_err_bline,OTF input bad
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,5,otf_err_bframe,OTF input bad-frame error status,
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,6,meta_err_0,Metadata generator error 0 status,Currently tied low
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,7,meta_err_1,Metadata generator error 1 status,Currently tied low
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,8,meta_frame_done,Metadata generator frame done status,Currently tied low
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,8,frame_done,Encoder frame done status,Live frame done input from wrapper
+ubwc_enc_apb_reg_blk,0x005c,REG_STATUS1,RO,dynamic,7:0,stage_done,Encoder stage done bitmap,
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,RW/W1P,0x00000001,0,irq_enable,IRQ enable,Defaults to 1 after reset
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,W1P,0x00000001,1,irq_clear,IRQ clear pulse,Writing 1 generates an irq_clear pulse in the encoder clock domain; readback is 0
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,RO,dynamic,2,irq_pending,IRQ pending status,Synchronized into PCLK domain

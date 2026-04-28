@@ -75,6 +75,9 @@ module otf_driver (
     wire line_has_uv = active_line[0];
     wire is_rgba = (cfg_format == 5'b00000) || (cfg_format == 5'b00001);
     wire is_yuv420_10 = (cfg_format == 5'b00011);
+    reg [1:0] phase;
+    wire active_data_stall = stream_started && is_act && i_otf_ready &&
+                             (phase == 2'd0) && i_fifo_empty;
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n) begin
@@ -95,6 +98,11 @@ module otf_driver (
             if (!i_fifo_empty) begin
                 stream_started <= 1'b1;
             end
+        end else if (active_data_stall) begin
+            o_otf_hsync <= is_hsync;
+            o_otf_vsync <= (v_cnt < cfg_otf_v_sync);
+            o_otf_de    <= 1'b0;
+            o_otf_lcnt  <= active_line;
         end else if (i_otf_ready) begin
             if (h_cnt == h_total_beats - 1'b1) begin
                 h_cnt <= 0;
@@ -116,7 +124,6 @@ module otf_driver (
         end
     end
 
-    reg [1:0] phase;
     reg [255:0] compact_data;
     wire phase_busy = (phase != 2'd0);
     wire fifo_busy = !i_fifo_empty;

@@ -23,7 +23,7 @@ module ubwc_enc_wrapper_top
         parameter   AXI_AW          = 64    ,
         parameter   AXI_DW          = 64    ,
         parameter   AXI_LENW        = 8     ,
-        parameter   AXI_IDW         = 6     ,
+        parameter   AXI_IDW         = 5     ,
         parameter   COM_BUF_AW      = 16    ,
         parameter   COM_BUF_DW      = 128
     )(
@@ -89,7 +89,12 @@ module ubwc_enc_wrapper_top
         input   wire    [AXI_IDW          :0]       i_m_axi_bid         ,
         input   wire    [2              -1:0]       i_m_axi_bresp       ,
         input   wire                                i_m_axi_bvalid      ,
-        output  wire                                o_m_axi_bready
+        output  wire                                o_m_axi_bready      ,
+
+    // done/interrupt
+        output  wire    [8              -1:0]       o_stage_done        ,
+        output  wire                                o_frame_done        ,
+        output  wire                                o_irq
     );
 
     localparam integer                  CORE_AXI_DW                 = 256;
@@ -146,12 +151,18 @@ module ubwc_enc_wrapper_top
     wire                                otf_err_bframe              ;
     wire                                meta_err_0                  ;
     wire                                meta_err_1                  ;
-    wire                                meta_frame_done             ;
+    wire    [8          -1:0]           enc_stage_done              ;
+    wire                                enc_frame_done              ;
+    wire                                enc_irq                     ;
+    wire                                enc_irq_pending             ;
+    wire                                enc_irq_enable              ;
+    wire                                enc_irq_clear_pulse         ;
 
     wire                                rvi_valid				    ;
     wire                                rvi_ready				    ;
     wire	[256        -1:0]           rvi_data				    ;
 	wire	[ 32        -1:0]           rvi_mask				    ;
+    wire                                rvi_last                    ;
     wire                                coord_fifo_wr_en            ;
     wire                                coord_fifo_rd_en            ;
     wire    [COORD_FIFO_W-1:0]          coord_fifo_wdata            ;
@@ -198,6 +209,7 @@ module ubwc_enc_wrapper_top
     wire    [AXI_LENW     -1: 0]        core_m_axi_awlen            ;
     wire    [2            -1: 0]        core_m_axi_awburst          ;
     wire    [2            -1: 0]        core_m_axi_awlock           ;
+    wire                                core_m_axi_awlock_dw        ;
     wire    [4            -1: 0]        core_m_axi_awcache          ;
     wire    [3            -1: 0]        core_m_axi_awprot           ;
     wire    [3            -1: 0]        core_m_axi_awsize           ;
@@ -259,14 +271,65 @@ module ubwc_enc_wrapper_top
     assign b_tile_xcoord   = coord_fifo_rdata[0 +: TW_DW];
     assign b_tile_ycoord   = coord_fifo_rdata[TW_DW +: TH_DW];
     assign b_tile_format   = coord_fifo_rdata[TW_DW+TH_DW +: 5];
+    assign o_stage_done    = enc_stage_done;
+    assign o_frame_done    = enc_frame_done;
+    assign o_irq           = enc_irq;
 
-    ubwc_enc_rst_mdl ubwc_enc_rst_mdl_inst 
+    ubwc_enc_status u_enc_status
     (
         .i_clk                      ( i_clk                         ),
         .i_rstn                     ( i_rstn                        ),
+        .i_enc_ubwc_en              ( enc_ubwc_en                   ),
 
-        .o_rst                      ( rst                           ),
-        .o_srst                     ( srst                          )
+        .i_cfg_height               ( otf_cfg_height                ),
+        .i_cfg_tile_h               ( otf_cfg_tile_h                ),
+        .i_cfg_a_tile_cols          ( otf_cfg_a_tile_cols           ),
+        .i_cfg_b_tile_cols          ( otf_cfg_b_tile_cols           ),
+
+        .i_rvi_valid                ( rvi_valid                     ),
+        .i_rvi_ready                ( rvi_ready                     ),
+        .i_rvi_last                 ( rvi_last                      ),
+        .i_coord_fifo_wr_en         ( coord_fifo_wr_en              ),
+        .i_coord_fifo_rd_en         ( coord_fifo_rd_en              ),
+        .i_tile_addr_vld            ( tile_addr_vld                 ),
+        .i_meta_addr_valid          ( meta_addr_valid               ),
+        .i_meta_addr_ready          ( meta_addr_ready               ),
+
+        .i_tile_axi_awvalid         ( enc_axi_awvalid               ),
+        .i_tile_axi_awready         ( enc_axi_awready               ),
+        .i_tile_axi_wvalid          ( enc_axi_wvalid                ),
+        .i_tile_axi_bvalid          ( enc_axi_bvalid                ),
+        .i_tile_axi_bready          ( enc_axi_bready                ),
+        .i_meta_axi_awvalid         ( meta_axi_awvalid              ),
+        .i_meta_axi_awready         ( meta_axi_awready              ),
+        .i_meta_axi_wvalid          ( meta_axi_wvalid               ),
+        .i_meta_axi_bvalid          ( meta_axi_bvalid               ),
+        .i_meta_axi_bready          ( meta_axi_bready               ),
+
+        .i_core_m_axi_awvalid       ( core_m_axi_awvalid            ),
+        .i_core_m_axi_wvalid        ( core_m_axi_wvalid             ),
+        .i_core_m_axi_bvalid        ( core_m_axi_bvalid             ),
+        .i_m_axi_awvalid            ( o_m_axi_awvalid               ),
+        .i_m_axi_wvalid             ( o_m_axi_wvalid                ),
+        .i_m_axi_bvalid             ( i_m_axi_bvalid                ),
+        .i_irq_enable               ( enc_irq_enable                ),
+        .i_irq_clear                ( enc_irq_clear_pulse           ),
+
+        .o_stage_done               ( enc_stage_done                ),
+        .o_frame_done               ( enc_frame_done                ),
+        .o_irq_pending              ( enc_irq_pending               ),
+        .o_irq                      ( enc_irq                       )
+    );
+
+    ubwc_enc_rstn_gen u_enc_rstn_gen
+    (
+        .i_rstn                     ( i_rstn                        ),
+        .i_clk                      ( i_clk                         ),
+        .i_otf_clk                  ( i_otf_clk                     ),
+        .o_core_rst_n               (                               ),
+        .o_otf_rst_n                (                               ),
+        .o_core_rst                 ( rst                           ),
+        .o_core_srst                ( srst                          )
     );
 
     ubwc_enc_apb_reg_blk
@@ -289,6 +352,8 @@ module ubwc_enc_wrapper_top
         .PREADY				        ( PREADY				        ),
         .PSLVERR				    ( PSLVERR				        ),
         .PRDATA				        ( PRDATA				        ),
+        .i_clk                      ( i_clk                         ),
+        .i_rstn                     ( i_rstn                        ),
 
         .o_otf_cfg_format			( otf_cfg_format			    ),
         .o_otf_cfg_width            ( otf_cfg_width                 ),
@@ -342,7 +407,11 @@ module ubwc_enc_wrapper_top
         .i_otf_err_bframe           ( otf_err_bframe                ),
         .i_meta_err_0               ( meta_err_0                   ),
         .i_meta_err_1               ( meta_err_1                   ),
-        .i_meta_frame_done          ( meta_frame_done              )
+        .i_frame_done               ( enc_frame_done               ),
+        .i_stage_done               ( enc_stage_done               ),
+        .i_irq_pending              ( enc_irq_pending              ),
+        .o_irq_enable               ( enc_irq_enable               ),
+        .o_irq_clear_pulse          ( enc_irq_clear_pulse          )
     );
 
     ubwc_enc_otf_to_tile
@@ -353,7 +422,7 @@ module ubwc_enc_wrapper_top
     (
         .clk						( i_clk						    ),
         .i_otf_clk                  ( i_otf_clk                     ),
-        .rst_n						( i_rstn						),
+        .rst_n						( i_rstn					    ),
 
         .i_cfg_format				( otf_cfg_format				),
         .i_cfg_width                ( otf_cfg_width                 ),
@@ -395,7 +464,7 @@ module ubwc_enc_wrapper_top
         .i_tile_rdy					( rvi_ready                     ),
         .o_tile_data				( rvi_data                      ),
         .o_tile_keep				( rvi_mask                      ),
-        .o_tile_last				(                               ),
+        .o_tile_last				( rvi_last                      ),
 
         .o_ci_valid		            ( enc_ci_valid		            ),
         .i_ci_ready		            ( enc_ci_ready		            ),
@@ -555,7 +624,7 @@ module ubwc_enc_wrapper_top
         .i_meta_addr_ready          ( meta_addr_ready               ),
         .o_meta_err_0               ( meta_err_0                   ),
         .o_meta_err_1               ( meta_err_1                   ),
-        .o_frame_done               ( meta_frame_done              )
+        .o_frame_done               (                               )
     );
 
     ubwc_tile_enc_axi_wcmd_gen
@@ -647,12 +716,6 @@ module ubwc_enc_wrapper_top
     );
 
     axi_2t1_int_DW_axi
-    #(
-        .AXI_AW                     ( AXI_AW                        ),
-        .AXI_DW                     ( CORE_AXI_DW                   ),
-        .AXI_LENW                   ( AXI_LENW                      ),
-        .AXI_IDW                    ( AXI_IDW                       )
-    )
     axi_2t1_int_DW_axi_inst
     (
         .aclk                       ( i_clk                         ),
@@ -664,7 +727,7 @@ module ubwc_enc_wrapper_top
         .awlen_m1				    ( enc_axi_awlen				    ),
         .awsize_m1				    ( enc_axi_awsize			    ),
         .awburst_m1				    ( enc_axi_awburst			    ),
-        .awlock_m1				    ( enc_axi_awlock			    ),
+        .awlock_m1				    ( enc_axi_awlock[0]		    ),
         .awcache_m1				    ( enc_axi_awcache			    ),
         .awprot_m1				    ( enc_axi_awprot			    ),
         .awready_m1				    ( enc_axi_awready			    ),
@@ -672,7 +735,6 @@ module ubwc_enc_wrapper_top
         .wdata_m1				    ( enc_axi_wdata				    ),
         .wstrb_m1				    ( enc_axi_wstrb				    ),
         .wlast_m1				    ( enc_axi_wlast				    ),
-        .wid_m1				        ( {AXI_IDW{1'b0}}                ),
         .wready_m1				    ( enc_axi_wready			    ),
         .bvalid_m1				    ( enc_axi_bvalid			    ),
         .bid_m1				        ( enc_axi_bid				    ),
@@ -685,7 +747,7 @@ module ubwc_enc_wrapper_top
         .arlen_m1				    ( {AXI_LENW{1'b0}}              ),
         .arsize_m1				    ( {3       {1'b0}}              ),
         .arburst_m1				    ( {2       {1'b0}}              ),
-        .arlock_m1				    ( {2       {1'b0}}              ),
+        .arlock_m1				    ( 1'b0                          ),
         .arcache_m1				    ( {4       {1'b0}}              ),
         .arprot_m1				    ( {3       {1'b0}}              ),
         .arready_m1				    ( 			                    ),
@@ -702,7 +764,7 @@ module ubwc_enc_wrapper_top
         .awlen_m2				    ( meta_axi_awlen			    ),
         .awsize_m2				    ( meta_axi_awsize			    ),
         .awburst_m2				    ( meta_axi_awburst			    ),
-        .awlock_m2				    ( meta_axi_awlock			    ),
+        .awlock_m2				    ( meta_axi_awlock[0]		    ),
         .awcache_m2				    ( meta_axi_awcache			    ),
         .awprot_m2				    ( meta_axi_awprot			    ),
         .awready_m2				    ( meta_axi_awready			    ),
@@ -710,7 +772,6 @@ module ubwc_enc_wrapper_top
         .wdata_m2				    ( meta_axi_wdata			    ),
         .wstrb_m2				    ( meta_axi_wstrb			    ),
         .wlast_m2				    ( meta_axi_wlast			    ),
-        .wid_m2				        ( {AXI_IDW{1'b0}}                ),
         .wready_m2				    ( meta_axi_wready			    ),
         .bvalid_m2				    ( meta_axi_bvalid			    ),
         .bid_m2				        ( meta_axi_bid				    ),
@@ -722,7 +783,7 @@ module ubwc_enc_wrapper_top
         .arlen_m2				    ( {AXI_LENW{1'b0}}              ),
         .arsize_m2				    ( {3       {1'b0}}              ),
         .arburst_m2				    ( {2       {1'b0}}              ),
-        .arlock_m2				    ( {2       {1'b0}}              ),
+        .arlock_m2				    ( 1'b0                          ),
         .arcache_m2				    ( {4       {1'b0}}              ),
         .arprot_m2				    ( {3       {1'b0}}              ),
         .arready_m2				    ( 			                    ),
@@ -739,7 +800,7 @@ module ubwc_enc_wrapper_top
         .awlen_s1					( core_m_axi_awlen				),
         .awsize_s1					( core_m_axi_awsize				),
         .awburst_s1					( core_m_axi_awburst			),
-        .awlock_s1					( core_m_axi_awlock				),
+        .awlock_s1					( core_m_axi_awlock_dw			),
         .awcache_s1					( core_m_axi_awcache			),
         .awprot_s1					( core_m_axi_awprot				),
         .awready_s1					( core_m_axi_awready			),
@@ -747,7 +808,6 @@ module ubwc_enc_wrapper_top
         .wdata_s1					( core_m_axi_wdata				),
         .wstrb_s1					( core_m_axi_wstrb				),
         .wlast_s1					( core_m_axi_wlast				),
-        .wid_s1					(                               ),
         .wready_s1					( core_m_axi_wready				),
 
         .bvalid_s1					( core_m_axi_bvalid				),
@@ -810,6 +870,8 @@ module ubwc_enc_wrapper_top
         .dbg_rlast_s0               (                               ),
         .dbg_rready_s0              (                               )
     );
+
+    assign core_m_axi_awlock = {1'b0, core_m_axi_awlock_dw};
 
     ubwc_axi_wr_256to64
     #(

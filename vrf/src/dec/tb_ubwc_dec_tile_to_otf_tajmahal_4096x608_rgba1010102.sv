@@ -50,12 +50,14 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102;
     wire          sram_a_ren;
     wire [12:0]   sram_a_raddr;
     wire [127:0]  sram_a_rdata;
+    reg           sram_a_dout_vld;
     wire          sram_b_wen;
     wire [12:0]   sram_b_waddr;
     wire [127:0]  sram_b_wdata;
     wire          sram_b_ren;
     wire [12:0]   sram_b_raddr;
     wire [127:0]  sram_b_rdata;
+    reg           sram_b_dout_vld;
 
     wire          o_otf_vsync;
     wire          o_otf_hsync;
@@ -153,6 +155,9 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102;
         input [15:0] tile_y;
         begin
             @(negedge clk_sram);
+            s_axis_tvalid    = 1'b0;
+            s_axis_tdata     = 256'd0;
+            s_axis_tlast     = 1'b0;
             s_axis_format     = fmt;
             s_axis_tile_x     = tile_x;
             s_axis_tile_y     = tile_y;
@@ -249,7 +254,8 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102;
     ubwc_dec_tile_to_otf dut (
         .clk_sram        (clk_sram),
         .clk_otf         (clk_otf),
-        .rst_n           (rst_n),
+        .rst_sram_n           (rst_n),
+        .rst_otf_n           (rst_n),
         .cfg_img_width   (cfg_img_width),
         .cfg_format      (cfg_format),
         .cfg_otf_h_total (cfg_otf_h_total),
@@ -275,12 +281,14 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102;
         .sram_a_ren      (sram_a_ren),
         .sram_a_raddr    (sram_a_raddr),
         .sram_a_rdata    (sram_a_rdata),
+        .sram_a_rvalid    (sram_a_dout_vld),
         .sram_b_wen      (sram_b_wen),
         .sram_b_waddr    (sram_b_waddr),
         .sram_b_wdata    (sram_b_wdata),
         .sram_b_ren      (sram_b_ren),
         .sram_b_raddr    (sram_b_raddr),
         .sram_b_rdata    (sram_b_rdata),
+        .sram_b_rvalid    (sram_b_dout_vld),
         .o_otf_vsync     (o_otf_vsync),
         .o_otf_hsync     (o_otf_hsync),
         .o_otf_de        (o_otf_de),
@@ -299,6 +307,17 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102;
         clk_otf = 1'b0;
         forever #3 clk_otf = ~clk_otf;
     end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n) begin
+            sram_a_dout_vld <= 1'b0;
+            sram_b_dout_vld <= 1'b0;
+        end else begin
+            sram_a_dout_vld <= sram_a_ren;
+            sram_b_dout_vld <= sram_b_ren;
+        end
+    end
+
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n) begin

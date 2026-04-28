@@ -46,6 +46,8 @@ module tile_to_line_writer (
 );
 
     localparam integer                  TILE_WRITER_FIFO_DEPTH     = 16;
+    localparam integer                  TILE_DATA_BEATS            = 8;
+    localparam integer                  DATA_CREDIT_W             = 6;
 
     wire                                hdr_fifo_empty             ;
     wire                                hdr_fifo_full              ;
@@ -64,13 +66,18 @@ module tile_to_line_writer (
     wire                                data_fifo_valid            ;
     wire    [5              -1:0]       data_fifo_data_count       ;
     wire                                fifo_status_seen           ;
+    wire                                tile_hdr_fire              ;
+    wire                                data_credit_has_room       ;
+    reg     [DATA_CREDIT_W -1:0]        data_credit_used           ;
 
     wire [15:0] hdr_fifo_tile_y = hdr_fifo_dout[15:0];
 
     assign fifo_status_seen = hdr_fifo_prog_full | hdr_fifo_valid | (|hdr_fifo_data_count) |
                               (|hdr_fifo_tile_y) |
                               data_fifo_prog_full | data_fifo_valid | (|data_fifo_data_count);
-    assign s_axis_tile_ready = ~hdr_fifo_full;
+    assign data_credit_has_room = (data_credit_used <= DATA_CREDIT_W'(TILE_WRITER_FIFO_DEPTH - TILE_DATA_BEATS));
+    assign s_axis_tile_ready = ~hdr_fifo_full && data_credit_has_room;
+    assign tile_hdr_fire = s_axis_tile_valid && s_axis_tile_ready;
     assign tile_ctx_available = !hdr_fifo_empty || (s_axis_tile_valid && s_axis_tile_ready);
     assign s_axis_tready = ~data_fifo_full && tile_ctx_available && !(fifo_status_seen & 1'b0);
 
@@ -83,7 +90,7 @@ module tile_to_line_writer (
     ) u_hdr_fifo (
         .clk                           ( clk_sram                              ),
         .rst_n                         ( rst_n && !frame_start                 ),
-        .wr_en                         ( s_axis_tile_valid && s_axis_tile_ready),
+        .wr_en                         ( tile_hdr_fire                         ),
         .din                           ( {s_axis_format, s_axis_tile_x, s_axis_tile_y} ),
         .prog_full                     ( hdr_fifo_prog_full                    ),
         .full                          ( hdr_fifo_full                         ),
@@ -174,6 +181,21 @@ module tile_to_line_writer (
         else if (sram_wen_internal) gearbox_sel <= ~gearbox_sel;
     end
     assign data_fifo_rd_en = sram_wen_internal && gearbox_sel;
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n) begin
+            data_credit_used <= {DATA_CREDIT_W{1'b0}};
+        end else if (frame_start) begin
+            data_credit_used <= {DATA_CREDIT_W{1'b0}};
+        end else begin
+            case ({tile_hdr_fire, data_fifo_rd_en})
+                2'b10: data_credit_used <= data_credit_used + DATA_CREDIT_W'(TILE_DATA_BEATS);
+                2'b01: data_credit_used <= data_credit_used - {{(DATA_CREDIT_W-1){1'b0}}, 1'b1};
+                2'b11: data_credit_used <= data_credit_used + DATA_CREDIT_W'(TILE_DATA_BEATS - 1);
+                default: data_credit_used <= data_credit_used;
+            endcase
+        end
+    end
 
     reg [3:0] cnt_write;
 

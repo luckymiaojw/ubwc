@@ -20,7 +20,7 @@ module ubwc_wrapper_top #(
     parameter ENC_AXI_AW             = 64,
     parameter ENC_AXI_DW             = 64,
     parameter ENC_AXI_LENW           = 8,
-    parameter ENC_AXI_IDW            = 6,
+    parameter ENC_AXI_IDW            = 5,
     parameter ENC_COM_BUF_AW         = 16,
     parameter ENC_COM_BUF_DW         = 128,
     parameter DEC_SB_WIDTH           = 1,
@@ -28,7 +28,7 @@ module ubwc_wrapper_top #(
     parameter DEC_APB_DW             = 32,
     parameter DEC_AXI_AW             = 64,
     parameter DEC_AXI_DW             = 64,
-    parameter DEC_AXI_IDW            = 6,
+    parameter DEC_AXI_IDW            = 5,
     parameter DEC_AXI_LENW           = 8,
     parameter DEC_COM_BUF_AW         = 13,
     parameter DEC_COM_BUF_DW         = 128,
@@ -108,6 +108,9 @@ module ubwc_wrapper_top #(
     input  wire [1:0]                       enc_i_m_axi_bresp,
     input  wire                             enc_i_m_axi_bvalid,
     output wire                             enc_o_m_axi_bready,
+    output wire [7:0]                       enc_o_stage_done,
+    output wire                             enc_o_frame_done,
+    output wire                             enc_o_irq,
 
     // ---------------------------------------------------------------------
     // Decoder APB slave interface
@@ -167,11 +170,15 @@ module ubwc_wrapper_top #(
     output wire [2:0]                       dec_o_m_axi_arprot,
     output wire                             dec_o_m_axi_arvalid,
     input  wire                             dec_i_m_axi_arready,
+    input  wire [DEC_AXI_IDW:0]             dec_i_m_axi_rid,
     input  wire [DEC_AXI_DW-1:0]            dec_i_m_axi_rdata,
     input  wire                             dec_i_m_axi_rvalid,
     input  wire [1:0]                       dec_i_m_axi_rresp,
     input  wire                             dec_i_m_axi_rlast,
-    output wire                             dec_o_m_axi_rready
+    output wire                             dec_o_m_axi_rready,
+    output wire [4:0]                       dec_o_stage_done,
+    output wire                             dec_o_frame_done,
+    output wire                             dec_o_irq
 );
 
     ubwc_enc_wrapper_top #(
@@ -236,7 +243,10 @@ module ubwc_wrapper_top #(
         .i_m_axi_bid    (enc_i_m_axi_bid),
         .i_m_axi_bresp  (enc_i_m_axi_bresp),
         .i_m_axi_bvalid (enc_i_m_axi_bvalid),
-        .o_m_axi_bready (enc_o_m_axi_bready)
+        .o_m_axi_bready (enc_o_m_axi_bready),
+        .o_stage_done   (enc_o_stage_done),
+        .o_frame_done   (enc_o_frame_done),
+        .o_irq          (enc_o_irq)
     );
 
     ubwc_dec_wrapper_top #(
@@ -294,11 +304,15 @@ module ubwc_wrapper_top #(
         .o_m_axi_arprot     (dec_o_m_axi_arprot),
         .o_m_axi_arvalid    (dec_o_m_axi_arvalid),
         .i_m_axi_arready    (dec_i_m_axi_arready),
+        .i_m_axi_rid        (dec_i_m_axi_rid),
         .i_m_axi_rdata      (dec_i_m_axi_rdata),
         .i_m_axi_rvalid     (dec_i_m_axi_rvalid),
         .i_m_axi_rresp      (dec_i_m_axi_rresp),
         .i_m_axi_rlast      (dec_i_m_axi_rlast),
-        .o_m_axi_rready     (dec_o_m_axi_rready)
+        .o_m_axi_rready     (dec_o_m_axi_rready),
+        .o_stage_done       (dec_o_stage_done),
+        .o_frame_done       (dec_o_frame_done),
+        .o_irq              (dec_o_irq)
     );
 
 endmodule

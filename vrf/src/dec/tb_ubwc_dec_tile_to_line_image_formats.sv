@@ -446,6 +446,7 @@ module tb_ubwc_dec_tile_to_line_image_formats;
     tile_to_line_writer dut_writer (
         .clk_sram       (clk),
         .rst_n          (rst_n),
+        .i_frame_start  (1'b0),
         .cfg_img_width  (cfg_img_width),
         .i_sram_a_free  (sram_a_free),
         .i_sram_b_free  (sram_b_free),

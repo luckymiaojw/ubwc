@@ -218,6 +218,71 @@ It is not recommended to only check `STATUS0[5]` or `STATUS0[6]`, because they m
 - ThenPoll `STATUS1[4]`
 - Finally use `STATUS0[6]` to confirm the pipeline is fully idle
 
+### 2.6 Decoder Usage Flowchart
+
+#### 2.6.1 Software/APB Bring-up Flow
+
+```mermaid
+flowchart TD
+    A[Reset released] --> B[Write TILE_CFG0/1/2]
+    B --> C[Write TILE_BASE0/1/2/3]
+    C --> D[Write VIVO_CFG]
+    D --> E[Write META_CFG1/2/3/4/5]
+    E --> F[Write OTF_CFG0/1/2/3/4]
+    F --> G[Write META_CFG0: bit0=1, base_format in bit8:4]
+    G --> H[APB start toggle crosses to AXI clock]
+    H --> I[Metadata AXI read starts]
+    H --> J[Tile AXI read starts]
+    I --> K[VIVO UBWC decode]
+    J --> K
+    K --> L[tile_to_otf line ring writes external OTF SRAM]
+    L --> M[OTF driver reads line ring and outputs o_otf_*]
+    M --> N{STATUS1[4] frame_done?}
+    N -- No --> N
+    N -- Yes --> O{STATUS0[6] frame_idle_done?}
+    O -- No --> O
+    O -- Yes --> P[Frame complete; next frame can start]
+```
+
+Key usage rule: `META_CFG0[0]` is a start pulse, so write it last for every frame. Do not treat it as a persistent enable bit.
+
+#### 2.6.2 `ubwc_dec_tile_to_otf_line_ring` Data Flow
+
+```mermaid
+flowchart TD
+    A[Tile header: s_axis_tile_*] --> B[Header FIFO]
+    C[Tile payload: s_axis_tdata/tlast] --> D[Data FIFO]
+    B --> E{Header and data ready?}
+    D --> E
+    E -- No --> E
+    E -- Yes --> F[Writer maps tile beat to line slot/address]
+    F --> G{UV plane?}
+    G -- No/Y or RGBA --> H[Write SRAM A]
+    G -- Yes/UV --> I[Write SRAM B]
+    H --> J[Set y_line_ready slot when last tile word of line arrives]
+    I --> K[Set uv_line_ready slot when last tile word of line arrives]
+    J --> L{Reader sees required line slots ready?}
+    K --> L
+    L -- No --> L
+    L -- Yes --> M[Issue SRAM read request]
+    M --> N{Format}
+    N -- RGBA --> O[Read two 128-bit words from SRAM A]
+    N -- YUV with UV line --> P[Read Y from SRAM A and UV from SRAM B]
+    N -- Y-only line --> Q[Read Y from SRAM A; UV data is zero]
+    O --> R[Wait sram_a_rvalid for second word]
+    P --> S[Wait sram_a_rvalid and sram_b_rvalid]
+    Q --> T[Wait sram_a_rvalid]
+    R --> U[Push 256-bit word to output FIFO]
+    S --> U
+    T --> U
+    U --> V{Line finished?}
+    V -- No --> M
+    V -- Yes --> W[Clear consumed line_ready slot and pulse o_fetcher_done]
+    W --> X[Advance rd_line_idx]
+```
+
+In this flow, `sram_b_rvalid` is only required when the current output line has UV data. For RGBA, the second 128-bit half also comes from SRAM A; for Y-only lines in 4:2:0, the UV half is forced to zero.
+
 For video-stream-side detection, you can also use `o_otf_de` valid output to count up to `H_ACT x V_ACT`, but the software-driver layer is better served by direct status-register polling.
 
 Minimal configuration and startup example:

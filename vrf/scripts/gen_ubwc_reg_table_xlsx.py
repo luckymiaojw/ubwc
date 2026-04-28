@@ -14,7 +14,7 @@ from xml.sax.saxutils import escape
 import zipfile
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DOCS_DIR = ROOT / "docs"
 OUTPUT_XLSX = DOCS_DIR / "ubwc_reg_tables.xlsx"
 

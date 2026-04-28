@@ -13,8 +13,13 @@ def unique_paths(paths):
     return sorted(dict.fromkeys(str(path) for path in paths))
 
 
-def parse_flist(flist):
+def parse_flist(flist, seen=None):
     flist = Path(flist).resolve()
+    if seen is None:
+        seen = set()
+    if flist in seen:
+        return [], []
+    seen.add(flist)
     base = flist.parent
     sources = []
     incdirs = []
@@ -27,6 +32,15 @@ def parse_flist(flist):
         if line.startswith("+incdir+"):
             incdir = line[len("+incdir+") :]
             incdirs.append((base / incdir).resolve() if not Path(incdir).is_absolute() else Path(incdir))
+        elif line.startswith("-f "):
+            nested = line[3:].strip()
+            nested_path = Path(nested)
+            nested_sources, nested_incdirs = parse_flist(
+                (base / nested_path).resolve() if not nested_path.is_absolute() else nested_path,
+                seen,
+            )
+            sources.extend(nested_sources)
+            incdirs.extend(nested_incdirs)
         elif line.startswith("+") or line.startswith("-"):
             continue
         else:

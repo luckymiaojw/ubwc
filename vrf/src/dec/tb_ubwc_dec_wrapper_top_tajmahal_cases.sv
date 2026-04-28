@@ -28,7 +28,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     localparam integer AXI_AW   = 64;
     localparam integer AXI_DW   = 256;
     localparam integer M_AXI_DW = 64;
-    localparam integer AXI_IDW  = 6;
+    localparam integer AXI_IDW  = 5;
     localparam integer AXI_LENW = 8;
     localparam integer SB_WIDTH = 3;
 
@@ -235,11 +235,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     wire [2:0]                o_m_axi_arprot;
     wire                      o_m_axi_arvalid;
     reg                       i_m_axi_arready;
+    reg  [AXI_IDW:0]          i_m_axi_rid;
     reg  [M_AXI_DW-1:0]       i_m_axi_rdata;
     reg                       i_m_axi_rvalid;
     reg  [1:0]                i_m_axi_rresp;
     reg                       i_m_axi_rlast;
     wire                      o_m_axi_rready;
+    wire [4:0]                o_stage_done;
+    wire                      o_frame_done;
+    wire                      o_irq;
 
     reg  [63:0]               meta_plane0_words [0:CASE_META0_WORDS64-1];
     reg  [63:0]               meta_plane1_words [0:CASE_META1_WORDS64-1];
@@ -270,6 +274,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     reg                       axi_rsp_is_meta;
     reg                       axi_rsp_meta_plane1;
     reg  [AXI_AW-1:0]         axi_rsp_addr;
+    reg  [AXI_IDW:0]          axi_rsp_id;
     reg  [7:0]                axi_rsp_beats_left;
     reg  [7:0]                axi_rsp_beat_idx;
     reg  [4:0]                axi_rsp_tile_fmt;
@@ -1538,17 +1543,22 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .o_m_axi_arprot    (o_m_axi_arprot),
         .o_m_axi_arvalid   (o_m_axi_arvalid),
         .i_m_axi_arready   (i_m_axi_arready),
+        .i_m_axi_rid       (i_m_axi_rid),
         .i_m_axi_rdata     (i_m_axi_rdata),
         .i_m_axi_rvalid    (i_m_axi_rvalid),
         .i_m_axi_rresp     (i_m_axi_rresp),
         .i_m_axi_rlast     (i_m_axi_rlast),
-        .o_m_axi_rready    (o_m_axi_rready)
+        .o_m_axi_rready    (o_m_axi_rready),
+        .o_stage_done      (o_stage_done),
+        .o_frame_done      (o_frame_done),
+        .o_irq             (o_irq)
     );
 
     ubwc_dec_tile_to_otf u_fake_tile_to_otf (
         .clk_sram         (i_axi_clk),
         .clk_otf          (i_otf_clk),
-        .rst_n            (i_axi_rstn),
+        .rst_sram_n       (i_axi_rstn),
+        .rst_otf_n        (i_otf_rstn),
         .i_frame_start    (1'b0),
         .cfg_img_width    (16'd4096),
         .cfg_format       (CASE_BASE_FORMAT),
@@ -1575,12 +1585,14 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .sram_a_ren       (fake_otf_sram_a_ren),
         .sram_a_raddr     (fake_otf_sram_a_raddr),
         .sram_a_rdata     (fake_otf_sram_a_rdata),
+        .sram_a_rvalid    (1'b1),
         .sram_b_wen       (fake_otf_sram_b_wen),
         .sram_b_waddr     (fake_otf_sram_b_waddr),
         .sram_b_wdata     (fake_otf_sram_b_wdata),
         .sram_b_ren       (fake_otf_sram_b_ren),
         .sram_b_raddr     (fake_otf_sram_b_raddr),
         .sram_b_rdata     (fake_otf_sram_b_rdata),
+        .sram_b_rvalid    (1'b1),
         .o_otf_vsync      (fake_o_otf_vsync),
         .o_otf_hsync      (fake_o_otf_hsync),
         .o_otf_de         (fake_o_otf_de),
@@ -1928,7 +1940,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             if (inject_axis_tvalid && inject_axis_tready) begin
                 fake_data_hs_cnt <= fake_data_hs_cnt + 1;
             end
-            if (u_fake_tile_to_otf.u_writer.sram_wen_internal) begin
+            if (fake_otf_sram_a_wen || fake_otf_sram_b_wen) begin
                 fake_sram_wen_cnt <= fake_sram_wen_cnt + 1;
             end
             if (u_fake_tile_to_otf.u_writer.tile_last_write) begin
@@ -1948,7 +1960,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             end else begin
                 if (has_cccc_lane(dut.i_m_axi_rdata) && !axi_r_cccc_seen_curr_beat) begin
                     axi_rdata_cccc_cnt <= axi_rdata_cccc_cnt + 1;
-                    if (dut.u_axi_rd_interconnect.owner_s0) begin
+                    if ((!dut.core_m_axi_rid_r[AXI_IDW])) begin
                         axi_rdata_cccc_meta_cnt <= axi_rdata_cccc_meta_cnt + 1;
                     end else begin
                         axi_rdata_cccc_tile_cnt <= axi_rdata_cccc_tile_cnt + 1;
@@ -1958,11 +1970,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                         first_axi_rdata_cccc_cycle   <= cycle_cnt;
                         first_axi_rdata_cccc_lane    <= first_cccc_lane_idx(dut.i_m_axi_rdata);
                         first_axi_rdata_cccc_addr    <= axi_rsp_addr + (axi_rsp_beat_idx * (M_AXI_DW / 8));
-                        first_axi_rdata_cccc_is_meta <= dut.u_axi_rd_interconnect.owner_s0;
+                        first_axi_rdata_cccc_is_meta <= (!dut.core_m_axi_rid_r[AXI_IDW]);
                         first_axi_rdata_cccc_data    <= dut.i_m_axi_rdata;
                         $display("WARN: suspicious AXI RDATA contains 64'hcccccccccccccccc while axi_rvalid=1 at cycle=%0d owner=%0s addr=%016h lane=%0d data=%064h",
                                  cycle_cnt,
-                                 dut.u_axi_rd_interconnect.owner_s0 ? "meta" : "tile",
+                                 (!dut.core_m_axi_rid_r[AXI_IDW]) ? "meta" : "tile",
                                  axi_rsp_addr + (axi_rsp_beat_idx * (M_AXI_DW / 8)),
                                  first_cccc_lane_idx(dut.i_m_axi_rdata),
                                  dut.i_m_axi_rdata);
@@ -1978,26 +1990,26 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 if (!(dut.meta_m_axi_rvalid && dut.meta_m_axi_rready) &&
                     !(dut.tile_m_axi_rvalid && dut.tile_m_axi_rready)) begin
                     m_r_nosink_cnt <= m_r_nosink_cnt + 1;
-                    if (dut.u_axi_rd_interconnect.owner_s0) begin
+                    if ((!dut.core_m_axi_rid_r[AXI_IDW])) begin
                         m_r_nosink_meta_cnt <= m_r_nosink_meta_cnt + 1;
                     end else begin
                         m_r_nosink_tile_cnt <= m_r_nosink_tile_cnt + 1;
                     end
                     if (first_m_r_nosink_cycle < 0) begin
                         first_m_r_nosink_cycle      <= cycle_cnt;
-                        first_m_r_nosink_owner_s0   <= dut.u_axi_rd_interconnect.owner_s0;
+                        first_m_r_nosink_owner_s0   <= (!dut.core_m_axi_rid_r[AXI_IDW]);
                         first_m_r_nosink_rlast      <= dut.i_m_axi_rlast;
-                        first_m_r_nosink_rbuf_valid <= dut.u_axi_rd_interconnect.rbuf_valid;
+                        first_m_r_nosink_rbuf_valid <= 1'b0;
                         first_m_r_nosink_payload_left <= dut.u_tile_arcmd_gen.payload_beats_left_reg;
                         first_m_r_nosink_ar_left    <= dut.u_tile_arcmd_gen.ar_req_beats_left_reg;
                     end
                 end
             end
-            if (dut.u_axi_rd_interconnect.rbuf_valid &&
+            if (1'b0 &&
                 dut.meta_m_axi_rvalid && dut.meta_m_axi_rready) begin
                 rbuf_meta_drain_cnt <= rbuf_meta_drain_cnt + 1;
             end
-            if (dut.u_axi_rd_interconnect.rbuf_valid &&
+            if (1'b0 &&
                 dut.tile_m_axi_rvalid && dut.tile_m_axi_rready) begin
                 rbuf_tile_drain_cnt <= rbuf_tile_drain_cnt + 1;
             end
@@ -2106,6 +2118,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     always @(posedge i_axi_clk or negedge i_axi_rstn) begin
         if (!i_axi_rstn) begin
             i_m_axi_arready        <= 1'b1;
+            i_m_axi_rid            <= {(AXI_IDW+1){1'b0}};
             i_m_axi_rvalid         <= 1'b0;
             i_m_axi_rdata          <= {M_AXI_DW{1'b0}};
             i_m_axi_rresp          <= 2'b00;
@@ -2114,6 +2127,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             axi_rsp_is_meta        <= 1'b0;
             axi_rsp_meta_plane1    <= 1'b0;
             axi_rsp_addr           <= {AXI_AW{1'b0}};
+            axi_rsp_id             <= {(AXI_IDW+1){1'b0}};
             axi_rsp_beats_left     <= 8'd0;
             axi_rsp_beat_idx       <= 8'd0;
             axi_rsp_tile_fmt       <= 5'd0;
@@ -2135,7 +2149,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             if (!axi_rsp_active) begin
                 i_m_axi_rvalid <= 1'b0;
                 i_m_axi_rlast  <= 1'b0;
+                i_m_axi_arready <= 1'b1;
                 if (o_m_axi_arvalid && i_m_axi_arready) begin
+                    i_m_axi_arready <= 1'b0;
                     if (((o_m_axi_araddr >= CASE_META_BASE_ADDR_Y) &&
                          (o_m_axi_araddr < (CASE_META_BASE_ADDR_Y + (CASE_META0_WORDS64 * 8)))) ||
                         (CASE_HAS_PLANE1 &&
@@ -2147,6 +2163,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                                (o_m_axi_araddr >= CASE_META_BASE_ADDR_UV) &&
                                                (o_m_axi_araddr < (CASE_META_BASE_ADDR_UV + (CASE_META1_WORDS64 * 8)));
                         axi_rsp_addr        <= o_m_axi_araddr;
+                        axi_rsp_id          <= o_m_axi_arid;
                         axi_rsp_beats_left  <= o_m_axi_arlen + 1'b1;
                         axi_rsp_beat_idx    <= 8'd0;
                         meta_ar_cnt         <= meta_ar_cnt + 1;
@@ -2165,6 +2182,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                             axi_rsp_active     <= 1'b1;
                             axi_rsp_is_meta    <= 1'b0;
                             axi_rsp_addr       <= o_m_axi_araddr;
+                            axi_rsp_id         <= o_m_axi_arid;
                             axi_rsp_beats_left <= ((tile_alen_queue[tile_queue_rd_ptr] + 1) * (AXI_DW / M_AXI_DW));
                             axi_rsp_beat_idx   <= 8'd0;
                             axi_rsp_tile_fmt   <= tile_fmt_queue[tile_queue_rd_ptr];
@@ -2190,7 +2208,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     end
                 end
             end else if (!i_m_axi_rvalid) begin
+                i_m_axi_arready <= 1'b0;
                 i_m_axi_rvalid <= 1'b1;
+                i_m_axi_rid     <= axi_rsp_id;
                 i_m_axi_rresp  <= 2'b00;
                 i_m_axi_rlast  <= (axi_rsp_beats_left == 8'd1);
                 if (axi_rsp_is_meta) begin
@@ -2202,6 +2222,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 axi_rbeat_cnt       <= axi_rbeat_cnt + 1;
                 last_progress_cycle <= cycle_cnt;
                 if (axi_rsp_beats_left == 8'd1) begin
+                    i_m_axi_arready   <= 1'b1;
                     i_m_axi_rvalid     <= 1'b0;
                     i_m_axi_rlast      <= 1'b0;
                     axi_rsp_active     <= 1'b0;
@@ -2211,6 +2232,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     axi_rsp_beats_left <= axi_rsp_beats_left - 1'b1;
                     axi_rsp_beat_idx   <= axi_rsp_beat_idx + 1'b1;
                     i_m_axi_rvalid     <= 1'b1;
+                    i_m_axi_rid        <= axi_rsp_id;
                     i_m_axi_rresp      <= 2'b00;
                     i_m_axi_rlast      <= (axi_rsp_beats_left == 8'd2);
                     if (axi_rsp_is_meta) begin
@@ -2404,6 +2426,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         i_m_axi_rresp   = 2'b00;
         i_m_axi_rlast   = 1'b0;
         axi_rsp_active  = 1'b0;
+        axi_rsp_id      = {(AXI_IDW+1){1'b0}};
         cycle_cnt       = 0;
         last_progress_cycle = 0;
         stream_fd       = 0;
@@ -2591,17 +2614,21 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         end
         $display("  dec meta outputs     : %0d", dec_meta_out_cnt);
         $display("  dec meta mismatches  : %0d", dec_meta_mismatch_cnt);
-        $display("  dbg bank state       : a_free=%0b b_free=%0b pending_a=%0b pending_b=%0b",
+        $display("  dbg bank state       : a_free=%0b b_free=%0b pending_a=%0b pending_b=%0b fetch_req=%0b",
                  dut.u_tile_to_otf.sram_a_free, dut.u_tile_to_otf.sram_b_free,
-                 dut.u_tile_to_otf.pending_a, dut.u_tile_to_otf.pending_b);
-        $display("  dbg writer state     : wr_bank=%0b cnt_write=%0d gearbox_sel=%0b hdr_empty=%0b hdr_full=%0b data_empty=%0b data_full=%0b",
-                 dut.u_tile_to_otf.u_writer.wr_bank, dut.u_tile_to_otf.u_writer.cnt_write,
-                 dut.u_tile_to_otf.u_writer.gearbox_sel, dut.u_tile_to_otf.u_writer.hdr_fifo_empty,
-                 dut.u_tile_to_otf.u_writer.hdr_fifo_full, dut.u_tile_to_otf.u_writer.data_fifo_empty,
+                 dut.u_tile_to_otf.pending_a, dut.u_tile_to_otf.pending_b,
+                 dut.u_tile_to_otf.fetcher_req);
+        $display("  dbg writer state     : cnt_write=%0d gearbox_sel=%0b hdr_empty=%0b hdr_full=%0b data_empty=%0b data_full=%0b",
+                 dut.u_tile_to_otf.u_writer.cnt_write,
+                 dut.u_tile_to_otf.u_writer.gearbox_sel,
+                 dut.u_tile_to_otf.u_writer.hdr_fifo_empty,
+                 dut.u_tile_to_otf.u_writer.hdr_fifo_full,
+                 dut.u_tile_to_otf.u_writer.data_fifo_empty,
                  dut.u_tile_to_otf.u_writer.data_fifo_full);
-        $display("  dbg fetcher state    : state=%0d bank=%0b line=%0d word=%0d fifo_full=%0b",
-                 dut.u_tile_to_otf.u_fetcher.state, dut.u_tile_to_otf.u_fetcher.target_bank,
-                 dut.u_tile_to_otf.u_fetcher.line_idx, dut.u_tile_to_otf.u_fetcher.word_idx,
+        $display("  dbg fetcher state    : state=%0d line=%0d word=%0d fifo_full=%0b",
+                 dut.u_tile_to_otf.u_fetcher.state,
+                 dut.u_tile_to_otf.u_fetcher.line_idx,
+                 dut.u_tile_to_otf.u_fetcher.word_idx,
                  dut.u_tile_to_otf.u_fetcher.i_fifo_full);
         $display("  dbg vivo state       : tile_active=%0b out_left=%0d in_left=%0d ci_ready=%0b cvi_ready=%0b",
                  dut.u_dec_vivo_top.r_tile_active,
@@ -2628,9 +2655,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                  dut.tile_m_axi_rready,
                  dut.tile_m_axi_rlast);
         $display("  dbg axi ic state     : inflight=%0b owner_s0=%0b rbuf_valid=%0b m_rvalid=%0b m_rready=%0b m_rlast=%0b",
-                 dut.u_axi_rd_interconnect.inflight,
-                 dut.u_axi_rd_interconnect.owner_s0,
-                 dut.u_axi_rd_interconnect.rbuf_valid,
+                 dut.rd_interconnect_core_busy_int,
+                 (!dut.core_m_axi_rid_r[AXI_IDW]),
+                 1'b0,
                  dut.i_m_axi_rvalid,
                  dut.o_m_axi_rready,
                  dut.i_m_axi_rlast);
@@ -2640,6 +2667,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         $display("  RVO last mismatches  : %0d", rvo_last_mismatch_cnt);
         $display("  CO mismatches        : %0d", co_mismatch_cnt);
         $display("  Queue underflows     : %0d", tile_queue_underflow_cnt);
+        $display("  dec.stage_done       : 0x%02x", o_stage_done);
+        $display("  dec.frame_done       : %0d", o_frame_done);
+        $display("  dec.irq              : %0d", o_irq);
         if ((rvo_data_mismatch_cnt != 0) || (rvo_last_mismatch_cnt != 0)) begin
             $display("  First RVO mismatch   : fmt=%0d x=%0d y=%0d beat=%0d alen=%0d last=%0d",
                      first_rvo_mismatch_fmt, first_rvo_mismatch_x, first_rvo_mismatch_y,
@@ -2753,6 +2783,18 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         if (tile_queue_underflow_cnt != 0) begin
             fail_check_cnt = fail_check_cnt + 1;
             $display("FAIL: Tile command queue underflows were observed.");
+        end
+        if (o_stage_done !== 5'h1f) begin
+            fail_check_cnt = fail_check_cnt + 1;
+            $display("FAIL: DEC stage done mismatch. got=0x%02x exp=0x1f", o_stage_done);
+        end
+        if (o_frame_done !== 1'b1) begin
+            fail_check_cnt = fail_check_cnt + 1;
+            $display("FAIL: DEC frame_done did not assert.");
+        end
+        if (o_irq !== 1'b1) begin
+            fail_check_cnt = fail_check_cnt + 1;
+            $display("FAIL: DEC irq did not assert.");
         end
 
         if (CASE_HAS_PLANE1) begin

@@ -202,6 +202,7 @@ module tb_ubwc_dec_tile_to_line_path;
     tile_to_line_writer dut_writer (
         .clk_sram       (clk),
         .rst_n          (rst_n),
+        .i_frame_start  (1'b0),
         .cfg_img_width  (cfg_img_width),
         .i_sram_a_free  (sram_a_free),
         .i_sram_b_free  (sram_b_free),
@@ -341,7 +342,7 @@ module tb_ubwc_dec_tile_to_line_path;
         start_fetch_done = fetch_done_count;
         send_tile(FMT_YUV420_Y, 32'h100, 0, 0);
         send_tile(FMT_YUV420_Y, 32'h200, 0, 0);
-        send_tile(FMT_P010_UV, 32'h300, 0, 0);
+        send_tile(FMT_YUV420_UV, 32'h300, 0, 0);
         wait_for_fetch_done(start_fetch_done + 1);
         if ((writer_vld_count - start_writer_done) != 1) begin
             $fatal(1, "YUV420 case writer_vld count mismatch");

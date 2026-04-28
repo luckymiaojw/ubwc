@@ -6,7 +6,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
     localparam integer APB_DW            = 32;
     localparam integer AXI_AW            = 64;
     localparam integer AXI_DW            = 64;
-    localparam integer AXI_IDW           = 6;
+    localparam integer AXI_IDW           = 5;
     localparam integer AXI_LENW          = 8;
     localparam integer SB_WIDTH          = 3;
 
@@ -83,11 +83,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
     wire [2:0]                o_m_axi_arprot;
     wire                      o_m_axi_arvalid;
     reg                       i_m_axi_arready;
+    reg  [AXI_IDW:0]          i_m_axi_rid;
     reg  [AXI_DW-1:0]         i_m_axi_rdata;
     reg                       i_m_axi_rvalid;
     reg  [1:0]                i_m_axi_rresp;
     reg                       i_m_axi_rlast;
     wire                      o_m_axi_rready;
+    wire [4:0]                o_stage_done;
+    wire                      o_frame_done;
+    wire                      o_irq;
     assign o_otf_sram_a_wen   = o_bank0_en && o_bank0_wen;
     assign o_otf_sram_a_waddr = o_bank0_addr;
     assign o_otf_sram_a_wdata = o_bank0_din;
@@ -107,6 +111,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
     reg                       axi_rsp_active;
     reg                       axi_rsp_is_meta;
     reg  [AXI_AW-1:0]         axi_rsp_addr;
+    reg  [AXI_IDW:0]          axi_rsp_id;
     reg  [7:0]                axi_rsp_beats_left;
     reg  [7:0]                axi_rsp_beat_idx;
 
@@ -268,11 +273,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
         .o_m_axi_arprot    (o_m_axi_arprot),
         .o_m_axi_arvalid   (o_m_axi_arvalid),
         .i_m_axi_arready   (i_m_axi_arready),
+        .i_m_axi_rid       (i_m_axi_rid),
         .i_m_axi_rdata     (i_m_axi_rdata),
         .i_m_axi_rvalid    (i_m_axi_rvalid),
         .i_m_axi_rresp     (i_m_axi_rresp),
         .i_m_axi_rlast     (i_m_axi_rlast),
-        .o_m_axi_rready    (o_m_axi_rready)
+        .o_m_axi_rready    (o_m_axi_rready),
+        .o_stage_done      (o_stage_done),
+        .o_frame_done      (o_frame_done),
+        .o_irq             (o_irq)
     );
 
     initial begin
@@ -307,6 +316,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
     always @(posedge i_axi_clk or negedge i_axi_rstn) begin
         if (!i_axi_rstn) begin
             i_m_axi_arready   <= 1'b1;
+            i_m_axi_rid       <= {(AXI_IDW+1){1'b0}};
             i_m_axi_rvalid    <= 1'b0;
             i_m_axi_rdata     <= {AXI_DW{1'b0}};
             i_m_axi_rresp     <= 2'b00;
@@ -314,6 +324,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
             axi_rsp_active    <= 1'b0;
             axi_rsp_is_meta   <= 1'b0;
             axi_rsp_addr      <= {AXI_AW{1'b0}};
+            axi_rsp_id        <= {(AXI_IDW+1){1'b0}};
             axi_rsp_beats_left<= 8'd0;
             axi_rsp_beat_idx  <= 8'd0;
             meta_ar_cnt       <= 0;
@@ -325,10 +336,13 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
             i_m_axi_rlast  <= 1'b0;
 
             if (!axi_rsp_active) begin
+                i_m_axi_arready <= 1'b1;
                 if (o_m_axi_arvalid && i_m_axi_arready) begin
+                    i_m_axi_arready <= 1'b0;
                     axi_rsp_active     <= 1'b1;
                     axi_rsp_is_meta    <= (o_m_axi_araddr >= META_BASE_ADDR);
                     axi_rsp_addr       <= o_m_axi_araddr;
+                    axi_rsp_id         <= o_m_axi_arid;
                     axi_rsp_beats_left <= o_m_axi_arlen + 1'b1;
                     axi_rsp_beat_idx   <= 8'd0;
                     last_progress_cycle <= cycle_cnt;
@@ -339,7 +353,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
                     end
                 end
             end else begin
+                i_m_axi_arready <= 1'b0;
                 i_m_axi_rvalid <= 1'b1;
+                i_m_axi_rid     <= axi_rsp_id;
                 i_m_axi_rdata  <= pack_axi_word(axi_rsp_is_meta, axi_rsp_addr, axi_rsp_beat_idx);
                 i_m_axi_rresp  <= 2'b00;
                 i_m_axi_rlast  <= (axi_rsp_beats_left == 8'd1);
@@ -399,6 +415,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
         axi_rsp_active = 1'b0;
         axi_rsp_is_meta = 1'b0;
         axi_rsp_addr    = {AXI_AW{1'b0}};
+        axi_rsp_id      = {(AXI_IDW+1){1'b0}};
         axi_rsp_beats_left = 8'd0;
         axi_rsp_beat_idx = 8'd0;
         meta_ar_cnt     = 0;

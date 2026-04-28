@@ -29,6 +29,9 @@ module ubwc_enc_apb_reg_blk
         output  wire                    PSLVERR,
         output  wire    [DW-1:0]        PRDATA,
 
+        input   wire                    i_clk,
+        input   wire                    i_rstn,
+
         output  wire    [2:0]           o_otf_cfg_format,
         output  wire    [15:0]          o_otf_cfg_width,
         output  wire    [15:0]          o_otf_cfg_height,
@@ -81,7 +84,11 @@ module ubwc_enc_apb_reg_blk
         input   wire                    i_otf_err_bframe,
         input   wire                    i_meta_err_0,
         input   wire                    i_meta_err_1,
-        input   wire                    i_meta_frame_done
+        input   wire                    i_frame_done,
+        input   wire    [7:0]           i_stage_done,
+        input   wire                    i_irq_pending,
+        output  wire                    o_irq_enable,
+        output  wire                    o_irq_clear_pulse
     );
 
     localparam [DW-1:0] REG_VERSION = 32'h0001_0000;
@@ -110,10 +117,19 @@ module ubwc_enc_apb_reg_blk
     localparam integer REG_META_ACTIVE_SIZE = 20;
     localparam integer REG_META_PITCH       = 21;
     localparam integer REG_STATUS0          = 22;
+    localparam integer REG_STATUS1          = 23;
+    localparam integer REG_IRQ_CTRL         = 24;
     localparam integer REG_IDX_W            = $clog2(NREG);
 
     reg [DW-1:0] regs [0:NREG-1];
     reg [DW-1:0] r_prdata;
+    reg          irq_clear_toggle_pclk;
+    reg          irq_enable_sync_ff1;
+    reg          irq_enable_sync_ff2;
+    reg          irq_clear_sync_ff1;
+    reg          irq_clear_sync_ff2;
+    reg          irq_pending_pclk_ff1;
+    reg          irq_pending_pclk_ff2;
 
     wire apb_access = PSEL && PENABLE;
     wire apb_write  = apb_access && PWRITE;
@@ -123,6 +139,7 @@ module ubwc_enc_apb_reg_blk
     wire [15:0] meta_active_height_px;
     wire [15:0] total_x_units;
     wire [DW-1:0] status0;
+    wire [DW-1:0] status1;
 
     integer i;
 
@@ -137,18 +154,58 @@ module ubwc_enc_apb_reg_blk
                     regs[i] <= REG_VERSION;
                 else if (i == REG_DATE_IDX)
                     regs[i] <= REG_DATE;
+                else if (i == REG_IRQ_CTRL)
+                    regs[i] <= {{(DW-1){1'b0}}, 1'b1};
                 else
                     regs[i] <= {DW{1'b0}};
             end
+            irq_clear_toggle_pclk <= 1'b0;
         end else if (apb_write) begin
-            if ((reg_addr > REG_DATE_IDX[AW-3:0]) && (reg_addr < NREG) && (reg_addr != REG_STATUS0[AW-3:0]))
+            if ((reg_addr > REG_DATE_IDX[AW-3:0]) && (reg_addr < NREG) &&
+                (reg_addr != REG_STATUS0[AW-3:0]) &&
+                (reg_addr != REG_STATUS1[AW-3:0]))
                 regs[reg_idx] <= PWDATA;
+
+            if (reg_addr == REG_IRQ_CTRL[AW-3:0]) begin
+                regs[REG_IRQ_CTRL][0] <= PWDATA[0];
+                if (PWDATA[1]) begin
+                    irq_clear_toggle_pclk <= ~irq_clear_toggle_pclk;
+                end
+            end
+        end
+    end
+
+    always @(posedge PCLK or negedge PRESETn) begin
+        if (!PRESETn) begin
+            irq_pending_pclk_ff1  <= 1'b0;
+            irq_pending_pclk_ff2  <= 1'b0;
+        end else begin
+            irq_pending_pclk_ff1 <= i_irq_pending;
+            irq_pending_pclk_ff2 <= irq_pending_pclk_ff1;
+        end
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn) begin
+            irq_enable_sync_ff1 <= 1'b1;
+            irq_enable_sync_ff2 <= 1'b1;
+            irq_clear_sync_ff1  <= 1'b0;
+            irq_clear_sync_ff2  <= 1'b0;
+        end else begin
+            irq_enable_sync_ff1 <= regs[REG_IRQ_CTRL][0];
+            irq_enable_sync_ff2 <= irq_enable_sync_ff1;
+            irq_clear_sync_ff1  <= irq_clear_toggle_pclk;
+            irq_clear_sync_ff2  <= irq_clear_sync_ff1;
         end
     end
 
     always @(*) begin
         if (reg_addr == REG_STATUS0[AW-3:0])
             r_prdata = status0;
+        else if (reg_addr == REG_STATUS1[AW-3:0])
+            r_prdata = status1;
+        else if (reg_addr == REG_IRQ_CTRL[AW-3:0])
+            r_prdata = {{(DW-3){1'b0}}, irq_pending_pclk_ff2, 1'b0, regs[REG_IRQ_CTRL][0]};
         else if (reg_addr < NREG)
             r_prdata = regs[reg_idx];
         else
@@ -156,7 +213,7 @@ module ubwc_enc_apb_reg_blk
     end
 
     assign status0                    = {{(DW-9){1'b0}},
-                                         i_meta_frame_done,
+                                         i_frame_done,
                                          i_meta_err_1,
                                          i_meta_err_0,
                                          i_otf_err_bframe,
@@ -165,6 +222,7 @@ module ubwc_enc_apb_reg_blk
                                          i_otf_to_tile_busy,
                                          i_enc_error,
                                          i_enc_idle};
+    assign status1                    = {{(DW-8){1'b0}}, i_stage_done};
 
     assign o_enc_ci_input_type         = regs[REG_ENC_CI_CFG0][0];
     assign o_enc_ci_alen               = regs[REG_ENC_CI_CFG0][10:8];
@@ -214,5 +272,7 @@ module ubwc_enc_apb_reg_blk
     assign meta_active_height_px       = regs[REG_META_ACTIVE_SIZE][31:16];
     assign o_meta_active_width_px      = meta_active_width_px;
     assign o_meta_active_height_px     = meta_active_height_px;
+    assign o_irq_enable                = irq_enable_sync_ff2;
+    assign o_irq_clear_pulse           = irq_clear_sync_ff1 ^ irq_clear_sync_ff2;
 
 endmodule

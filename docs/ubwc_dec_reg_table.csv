@@ -55,3 +55,6 @@ ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,7,vivo_seen_busy,VIVO
 ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,RO,0x00000000,8,otf_seen_busy,OTF stage entered busy during this frame,Same as above
 ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS2,RO,dynamic,6:0,vivo_idle_bits,Raw ubwc_dec_vivo_top idle bitmap,Passed through as o_idle[6:0] for software debug
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_STATUS3,RO,dynamic,6:0,vivo_error_bits,Raw ubwc_dec_vivo_top error bitmap,Passed through as o_error[6:0] for software debug
+ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,RW/W1P,0x00000001,0,irq_enable,IRQ enable,Defaults to 1 after reset
+ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,W1P,0x00000001,1,irq_clear,IRQ clear pulse,Writing 1 generates an irq_clear pulse in the AXI clock domain; readback is 0
+ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,RO,dynamic,2,irq_pending,IRQ pending status,Synchronized into PCLK domain

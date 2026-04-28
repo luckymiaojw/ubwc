@@ -437,7 +437,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer AXI_AW          = 64;
     localparam integer AXI_DW          = 256;
     localparam integer AXI_LENW        = 8;
-    localparam integer AXI_IDW         = 6;
+    localparam integer AXI_IDW         = 5;
     localparam integer COM_BUF_AW      = 13;
     localparam integer COM_BUF_DW      = 128;
     localparam integer SB_WIDTH        = 1;
@@ -625,6 +625,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     wire [1:0]                  i_m_axi_bresp;
     wire                        i_m_axi_bvalid;
     wire                        o_m_axi_bready;
+    wire [7:0]                  o_stage_done;
+    wire                        o_frame_done;
+    wire                        o_irq;
 
     reg  [63:0]                 tile_plane0_words [0:CASE_TILE0_WORDS64-1];
     reg  [63:0]                 tile_plane1_words [0:CASE_TILE1_WORDS64-1];
@@ -1849,7 +1852,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .i_m_axi_bid     (i_m_axi_bid),
         .i_m_axi_bresp   (i_m_axi_bresp),
         .i_m_axi_bvalid  (i_m_axi_bvalid),
-        .o_m_axi_bready  (o_m_axi_bready)
+        .o_m_axi_bready  (o_m_axi_bready),
+        .o_stage_done    (o_stage_done),
+        .o_frame_done    (o_frame_done),
+        .o_irq           (o_irq)
     );
 
     tb_ubwc_enc_wrapper_top_monitor #(
@@ -3200,6 +3206,19 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             end
         end
 
+        if (o_stage_done !== 8'hff) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] encoder done stage mismatch: got=0x%02x exp=0xff", o_stage_done);
+        end
+        if (o_frame_done !== 1'b1) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] encoder frame_done did not assert.");
+        end
+        if (o_irq !== 1'b1) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] encoder irq did not assert.");
+        end
+
         if (tb_fake_mode_en) begin
             if (coord_count != expected_tiles_total) begin
                 fail_count = fail_count + 1;
@@ -3361,6 +3380,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         $display("  frames_started      : %0d", frames_started);
         $display("  frames_completed    : %0d", frames_completed);
         $display("  otf_done_count      : %0d", otf_done_count);
+        $display("  dut.stage_done      : 0x%02x", o_stage_done);
+        $display("  dut.frame_done      : %0d", o_frame_done);
+        $display("  dut.irq             : %0d", o_irq);
         $display("  coord_count         : %0d", coord_count);
         $display("  rvi_beat_count      : %0d", rvi_beat_count);
         $display("  rvi_data_mismatch   : %0d", rvi_data_mismatch_count);

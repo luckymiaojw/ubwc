@@ -699,12 +699,14 @@ compare_otf_tajmahal_cases:
 	esac
 
 otf_tajmahal_cases_comp:
+	rm -f build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/simv
 	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_tajmahal_cases CASE_ID=$(EFFECTIVE_CASE_ID) comp
 
 otf_tajmahal_cases_run: prepare_otf_tajmahal_cases
 	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_tajmahal_cases CASE_ID=$(EFFECTIVE_CASE_ID) run
 
 otf_tajmahal_cases_all: prepare_otf_tajmahal_cases
+	rm -f build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/simv
 	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_tajmahal_cases CASE_ID=$(EFFECTIVE_CASE_ID) all
 	$(MAKE) compare_otf_tajmahal_cases CASE_ID=$(EFFECTIVE_CASE_ID)
 

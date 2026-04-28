@@ -42,7 +42,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
     localparam integer AXI_AW   = 64;
     localparam integer AXI_DW   = 256;
     localparam integer AXI_LENW = 8;
-    localparam integer AXI_IDW  = 6;
+    localparam integer AXI_IDW  = 5;
     localparam integer ENC_SB_WIDTH = 1;
     localparam integer DEC_SB_WIDTH = 3;
     localparam integer COM_BUF_AW = 13;
@@ -149,6 +149,9 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
     reg  [1:0]                enc_i_m_axi_bresp;
     reg                       enc_i_m_axi_bvalid;
     wire                      enc_o_m_axi_bready;
+    wire [7:0]                enc_o_stage_done;
+    wire                      enc_o_frame_done;
+    wire                      enc_o_irq;
 
     wire                      dec_o_otf_vsync;
     wire                      dec_o_otf_hsync;
@@ -193,11 +196,15 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
     wire [2:0]                dec_o_m_axi_arprot;
     wire                      dec_o_m_axi_arvalid;
     reg                       dec_i_m_axi_arready;
+    wire [AXI_IDW:0]          dec_i_m_axi_rid;
     wire [AXI_DW-1:0]         dec_i_m_axi_rdata;
     wire                      dec_i_m_axi_rvalid;
     wire [1:0]                dec_i_m_axi_rresp;
     wire                      dec_i_m_axi_rlast;
     wire                      dec_o_m_axi_rready;
+    wire [4:0]                dec_o_stage_done;
+    wire                      dec_o_frame_done;
+    wire                      dec_o_irq;
     assign dec_o_otf_sram_a_wen   = dec_o_bank0_en && dec_o_bank0_wen;
     assign dec_o_otf_sram_a_waddr = dec_o_bank0_addr;
     assign dec_o_otf_sram_a_wdata = dec_o_bank0_din;
@@ -245,6 +252,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
     reg                       dec_axi_rsp_is_meta;
     reg                       dec_axi_rsp_meta_plane1;
     reg  [AXI_AW-1:0]         dec_axi_rsp_addr;
+    reg  [AXI_IDW:0]          dec_axi_rsp_id;
     reg  [7:0]                dec_axi_rsp_beats_left;
     reg  [7:0]                dec_axi_rsp_beat_idx;
     reg  [4:0]                dec_axi_rsp_tile_fmt;
@@ -643,6 +651,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
                               pack_tile_axi_word(dec_axi_rsp_tile_fmt, dec_axi_rsp_addr, dec_axi_rsp_beat_idx);
 
     assign dec_i_m_axi_rvalid = dec_axi_rsp_active;
+    assign dec_i_m_axi_rid    = dec_axi_rsp_active ? dec_axi_rsp_id : {(AXI_IDW+1){1'b0}};
     assign dec_i_m_axi_rdata  = dec_axi_rsp_active ? dec_axi_rsp_rdata : {AXI_DW{1'b0}};
     assign dec_i_m_axi_rresp  = 2'b00;
     assign dec_i_m_axi_rlast  = dec_axi_rsp_active && (dec_axi_rsp_beats_left == 8'd1);
@@ -802,7 +811,10 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         .i_m_axi_bid     (enc_i_m_axi_bid),
         .i_m_axi_bresp   (enc_i_m_axi_bresp),
         .i_m_axi_bvalid  (enc_i_m_axi_bvalid),
-        .o_m_axi_bready  (enc_o_m_axi_bready)
+        .o_m_axi_bready  (enc_o_m_axi_bready),
+        .o_stage_done    (enc_o_stage_done),
+        .o_frame_done    (enc_o_frame_done),
+        .o_irq           (enc_o_irq)
     );
 
     ubwc_dec_wrapper_top #(
@@ -858,11 +870,15 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         .o_m_axi_arprot    (dec_o_m_axi_arprot),
         .o_m_axi_arvalid   (dec_o_m_axi_arvalid),
         .i_m_axi_arready   (dec_i_m_axi_arready),
+        .i_m_axi_rid       (dec_i_m_axi_rid),
         .i_m_axi_rdata     (dec_i_m_axi_rdata),
         .i_m_axi_rvalid    (dec_i_m_axi_rvalid),
         .i_m_axi_rresp     (dec_i_m_axi_rresp),
         .i_m_axi_rlast     (dec_i_m_axi_rlast),
-        .o_m_axi_rready    (dec_o_m_axi_rready)
+        .o_m_axi_rready    (dec_o_m_axi_rready),
+        .o_stage_done      (dec_o_stage_done),
+        .o_frame_done      (dec_o_frame_done),
+        .o_irq             (dec_o_irq)
     );
 
     initial begin
@@ -924,6 +940,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         dec_axi_rsp_is_meta    = 1'b0;
         dec_axi_rsp_meta_plane1= 1'b0;
         dec_axi_rsp_addr       = {AXI_AW{1'b0}};
+        dec_axi_rsp_id         = {(AXI_IDW+1){1'b0}};
         dec_axi_rsp_beats_left = 8'd0;
         dec_axi_rsp_beat_idx   = 8'd0;
         dec_axi_rsp_tile_fmt   = 5'd0;
@@ -1103,6 +1120,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
             dec_axi_rsp_is_meta          <= 1'b0;
             dec_axi_rsp_meta_plane1      <= 1'b0;
             dec_axi_rsp_addr             <= {AXI_AW{1'b0}};
+            dec_axi_rsp_id               <= {(AXI_IDW+1){1'b0}};
             dec_axi_rsp_beats_left       <= 8'd0;
             dec_axi_rsp_beat_idx         <= 8'd0;
             dec_axi_rsp_tile_fmt         <= 5'd0;
@@ -1131,12 +1149,15 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
             end
 
             if (!dec_axi_rsp_active) begin
+                dec_i_m_axi_arready <= 1'b1;
                 if (dec_o_m_axi_arvalid && dec_i_m_axi_arready) begin
+                    dec_i_m_axi_arready <= 1'b0;
                     if (dec_o_m_axi_araddr >= META_BASE_ADDR_Y) begin
                         dec_axi_rsp_active      <= 1'b1;
                         dec_axi_rsp_is_meta     <= 1'b1;
                         dec_axi_rsp_meta_plane1 <= (dec_o_m_axi_araddr >= META_BASE_ADDR_UV);
                         dec_axi_rsp_addr        <= dec_o_m_axi_araddr;
+                        dec_axi_rsp_id          <= dec_o_m_axi_arid;
                         dec_axi_rsp_beats_left  <= dec_o_m_axi_arlen + 1'b1;
                         dec_axi_rsp_beat_idx    <= 8'd0;
                         dec_meta_ar_cnt         <= dec_meta_ar_cnt + 1;
@@ -1151,6 +1172,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
                             dec_axi_rsp_active     <= 1'b1;
                             dec_axi_rsp_is_meta    <= 1'b0;
                             dec_axi_rsp_addr       <= dec_o_m_axi_araddr;
+                            dec_axi_rsp_id         <= dec_o_m_axi_arid;
                             dec_axi_rsp_beats_left <= dec_tile_alen_queue[dec_tile_queue_rd_ptr] + 1;
                             dec_axi_rsp_beat_idx   <= 8'd0;
                             dec_axi_rsp_tile_fmt   <= dec_tile_fmt_queue[dec_tile_queue_rd_ptr];
@@ -1166,6 +1188,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
                     end
                 end
             end else begin
+                dec_i_m_axi_arready <= 1'b0;
                 if (dec_i_m_axi_rvalid && dec_o_m_axi_rready) begin
                     dec_axi_rbeat_cnt <= dec_axi_rbeat_cnt + 1;
                     if (dec_axi_rsp_beats_left == 8'd1) begin

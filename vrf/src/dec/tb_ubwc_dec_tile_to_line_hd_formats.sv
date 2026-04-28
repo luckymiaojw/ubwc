@@ -197,13 +197,26 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
         input [4:0] fmt;
         input [15:0] tile_x;
         input [15:0] tile_y;
+        integer timeout;
         begin
             @(negedge clk);
+            s_axis_tvalid    = 1'b0;
+            s_axis_tdata     = 256'd0;
+            s_axis_tlast     = 1'b0;
             s_axis_format     = fmt;
             s_axis_tile_x     = tile_x;
             s_axis_tile_y     = tile_y;
             s_axis_tile_valid = 1'b1;
-            while (!s_axis_tile_ready) @(negedge clk);
+            timeout = 0;
+            while (!s_axis_tile_ready && (timeout < 10000)) begin
+                @(negedge clk);
+                timeout = timeout + 1;
+            end
+            if (timeout >= 10000) begin
+                $fatal(1, "Timeout waiting tile_ready fmt=%0d x=%0d y=%0d credit=%0d hdr_full=%0b data_full=%0b data_count=%0d",
+                       fmt, tile_x, tile_y, dut_writer.data_credit_used, dut_writer.hdr_fifo_full,
+                       dut_writer.data_fifo_full, dut_writer.data_fifo_data_count);
+            end
             @(negedge clk);
             s_axis_tile_valid = 1'b0;
         end
@@ -216,12 +229,22 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
         input [15:0] tile_x;
         input [15:0] tile_y;
         input is_last;
+        integer timeout;
         begin
             @(negedge clk);
             s_axis_tvalid  = 1'b1;
             s_axis_tdata   = {hi_word, lo_word};
             s_axis_tlast   = is_last;
-            while (!s_axis_tready) @(negedge clk);
+            timeout = 0;
+            while (!s_axis_tready && (timeout < 10000)) begin
+                @(negedge clk);
+                timeout = timeout + 1;
+            end
+            if (timeout >= 10000) begin
+                $fatal(1, "Timeout waiting tready fmt=%0d x=%0d y=%0d last=%0d credit=%0d hdr_empty=%0b data_full=%0b data_count=%0d",
+                       fmt, tile_x, tile_y, is_last, dut_writer.data_credit_used, dut_writer.hdr_fifo_empty,
+                       dut_writer.data_fifo_full, dut_writer.data_fifo_data_count);
+            end
         end
     endtask
 
@@ -504,6 +527,7 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
     tile_to_line_writer dut_writer (
         .clk_sram       (clk),
         .rst_n          (rst_n),
+        .i_frame_start  (1'b0),
         .cfg_img_width  (cfg_img_width),
         .i_sram_a_free  (sram_a_free),
         .i_sram_b_free  (sram_b_free),
