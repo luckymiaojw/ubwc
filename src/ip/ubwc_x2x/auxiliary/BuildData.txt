@@ -1,0 +1,34 @@
+#
+# coreKit Build Information
+#
+
+coreKit Name             : DW_axi_x2x
+coreKit Version          : 1.08a
+Top Level Design Name    : DW_axi_x2x
+Encrypted License        : DesignWare
+Source License           : DWC-AMBA-Fabric-Source
+Restricted License       : 
+
+
+coreBuilder Version      : P-2019.06-SP3
+RCE Version (imported)   : 2019.11
+RCE Version (environment): 2019.11
+Build Date               : Sun Apr  5 13:20:57 2020
+
+#
+# Tool version requirements
+#
+
+Minimum version of MTI_Verilog          : 10.6d
+Minimum version of NC_Verilog           : 15.20.037
+Minimum version of SpyGlass             : P-2019.06-SP2
+Minimum version of SpyGlass_SG_EngCouncil : 2019.09
+Minimum version of SpyGlass_SG_GuideWare : 2019.06
+Minimum version of VCS                  : P-2019.06-SP1
+Minimum version of VC_Static            : P-2019.06-SP2
+Minimum version of dc_shell             : P-2019.03-SP5
+Minimum version of fm_shell             : P-2019.03-SP5
+Minimum version of pt_shell             : P-2019.03-SP5
+Minimum version of synplicity           : P-2019.09
+Minimum version of vip:amba_svt         : P-2019.06
+Minimum version of vip:svt              : P-2019.06

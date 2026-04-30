@@ -17,7 +17,7 @@ module ubwc_dec_wrapper_top #(
     parameter integer APB_DW     = 32,
     parameter integer AXI_AW     = 64,
     parameter integer AXI_DW     = 64,
-    parameter integer AXI_IDW    = 5,
+    parameter integer AXI_IDW    = 4,
     parameter integer AXI_LENW   = 8,
     parameter integer SB_WIDTH   = 1,
     parameter integer COM_BUF_AW = 13,

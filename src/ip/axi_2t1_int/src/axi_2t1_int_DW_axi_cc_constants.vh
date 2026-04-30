@@ -176,15 +176,15 @@
 // This is the ID bus width of all five channels connected to an external master. All masters have the same ID width for 
 // all five AXI channels. If a master's ID width for any channel is less than the configured value, then the unused bits should 
 // be connected externally to 0. For a single master system this parameter will default to 0.
-`define axi_2t1_int_AXI_MIDW 5
+`define axi_2t1_int_AXI_MIDW 4
 
 //Is the pow2 form of the ID bus to or from a master.
 
-`define axi_2t1_int_AXI_POW2_MIDW 32
+`define axi_2t1_int_AXI_POW2_MIDW 16
 
 
 // Name:         AXI_SIDW
-// Default:      6 ([<functionof> AXI_NUM_SYS_MASTERS AXI_MIDW])
+// Default:      5 ([<functionof> AXI_NUM_SYS_MASTERS AXI_MIDW])
 // Values:       1, ..., 20
 // 
 // Read-only parameter. This is the ID bus width of all five AXI channels connected to an external slave. It is a function 
@@ -194,7 +194,7 @@
 // bits because they are a concatenation of the ID bus from the master and the master number from which the transfer 
 // originated. All slaves have the same ID width for all five AXI channels. Fore more information about this feature, see the "ID 
 // Bus" section in the DW_axi Databook.
-`define axi_2t1_int_AXI_SIDW 6
+`define axi_2t1_int_AXI_SIDW 5
 
 
 // Name:         AXI_BLW
@@ -50997,70 +50997,70 @@
 //the Read Address Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_AR_PYLD_M_W 90
+`define axi_2t1_int_AXI_AR_PYLD_M_W 89
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Write Address Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_AW_PYLD_M_W 90
+`define axi_2t1_int_AXI_AW_PYLD_M_W 89
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Write Data Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_W_PYLD_M_W 294
+`define axi_2t1_int_AXI_W_PYLD_M_W 293
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Read Data Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_R_PYLD_M_W 264
+`define axi_2t1_int_AXI_R_PYLD_M_W 263
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Write Response Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_B_PYLD_M_W 7
+`define axi_2t1_int_AXI_B_PYLD_M_W 6
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Read Address Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_AR_PYLD_S_W 91
+`define axi_2t1_int_AXI_AR_PYLD_S_W 90
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Write Address Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_AW_PYLD_S_W 91
+`define axi_2t1_int_AXI_AW_PYLD_S_W 90
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Write Data Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_W_PYLD_S_W 295
+`define axi_2t1_int_AXI_W_PYLD_S_W 294
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Read Data Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_R_PYLD_S_W 265
+`define axi_2t1_int_AXI_R_PYLD_S_W 264
 
 
 //This is the sum of all the pieces that make up the payload of 
 //the Write Response Channel. It does not include the valid or the ready.
 //It does include the width of the sideband signal provided these are
 //required and included by the user.
-`define axi_2t1_int_AXI_B_PYLD_S_W 8
+`define axi_2t1_int_AXI_B_PYLD_S_W 7
 
 
 //  Define for each slave present
@@ -51509,16 +51509,16 @@
 // `define axi_2t1_int_AXI_HAS_ICM4
 
 
-`define axi_2t1_int_AXI_IDW_M1 5
+`define axi_2t1_int_AXI_IDW_M1 4
 
 
-`define axi_2t1_int_AXI_IDW_M2 5
+`define axi_2t1_int_AXI_IDW_M2 4
 
 
-`define axi_2t1_int_AXI_IDW_M3 5
+`define axi_2t1_int_AXI_IDW_M3 4
 
 
-`define axi_2t1_int_AXI_IDW_M4 5
+`define axi_2t1_int_AXI_IDW_M4 4
 
 
 // Name:         AXI_NUM_MST_THRU_ICM1

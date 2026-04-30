@@ -23,7 +23,7 @@ module ubwc_enc_wrapper_top
         parameter   AXI_AW          = 64    ,
         parameter   AXI_DW          = 64    ,
         parameter   AXI_LENW        = 8     ,
-        parameter   AXI_IDW         = 5     ,
+        parameter   AXI_IDW         = 4     ,
         parameter   COM_BUF_AW      = 16    ,
         parameter   COM_BUF_DW      = 128
     )(

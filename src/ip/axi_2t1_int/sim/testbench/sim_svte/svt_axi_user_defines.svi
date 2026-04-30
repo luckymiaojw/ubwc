@@ -19,7 +19,11 @@
 
 
 
+
+
   `ifdef AXI_INC_AWSB
+
+
 
 
 
@@ -31,9 +35,13 @@
 
 
 
+
+
     `define SVT_AXI_MAX_DATA_USER_WIDTH `AXI_W_SBW
   `endif
   `ifdef AXI_INC_BSB
+
+
 
 
 

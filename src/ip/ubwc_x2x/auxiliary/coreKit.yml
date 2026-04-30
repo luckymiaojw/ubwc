@@ -1,0 +1,63 @@
+---
+coreKitBuildInformation:
+   coreKitName: DW_axi_x2x
+   coreKitVersion: 1.08a
+   BuildId: 36.47.25.23
+   Vendor: Synopsys
+   Library: DesignWareLibrary
+   TopLevelDesignName: DW_axi_x2x
+   SourceLicense:
+      - DWC-AMBA-Fabric-Source
+   EncryptedLicense:
+      - DesignWare
+   VersionLicense: []
+   RestrictedLicense: []
+   coreBuilderVersion: P-2019.06-SP3
+   RCEVersionImported: 2019.11
+   RCEVersionEnvironment: 2019.11
+   BuildDate: Sun Apr  5 13:20:57 2020
+   ToolMinVer:
+      -
+         Name: MTI_Verilog
+         Version: 10.6d
+      -
+         Name: NC_Verilog
+         Version: 15.20.037
+      -
+         Name: SpyGlass
+         Version: P-2019.06-SP2
+      -
+         Name: SpyGlass_SG_EngCouncil
+         Version: 2019.09
+      -
+         Name: SpyGlass_SG_GuideWare
+         Version: 2019.06
+      -
+         Name: VCS
+         Version: P-2019.06-SP1
+      -
+         Name: VC_Static
+         Version: P-2019.06-SP2
+      -
+         Name: dc_shell
+         Version: P-2019.03-SP5
+      -
+         Name: fm_shell
+         Version: P-2019.03-SP5
+      -
+         Name: pt_shell
+         Version: P-2019.03-SP5
+      -
+         Name: synplicity
+         Version: P-2019.09
+   VipMinVer:
+      -
+         Name: vip:amba_svt
+         Version: P-2019.06
+      -
+         Name: vip:svt
+         Version: P-2019.06
+   DwhVer: []
+   DwhVe: []
+   TargetToolsetId: 2019.12
+
