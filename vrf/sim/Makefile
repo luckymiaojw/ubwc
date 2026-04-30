@@ -184,6 +184,7 @@ TB_SRC_tb_ubwc_dec_tile_arcmd_gen := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_arcmd_g
 TB_SRC_tb_ubwc_dec_tile_to_line_path := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_to_line_path.sv
 TB_SRC_tb_ubwc_dec_tile_to_line_image_formats := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_to_line_image_formats.sv
 TB_SRC_tb_ubwc_dec_tile_to_line_hd_formats := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_to_line_hd_formats.sv
+TB_SRC_tb_ubwc_dec_tile_to_otf_128x128_rgba8888 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_to_otf_128x128_rgba8888.sv
 TB_SRC_tb_ubwc_dec_tile_to_otf_1080p_rgba := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_to_otf_1080p_rgba.sv
 TB_SRC_tb_ubwc_dec_tile_to_otf_1920x1080_nv12 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_to_otf_1920x1080_nv12.sv
 TB_SRC_tb_ubwc_dec_tile_to_otf_1960x1080_nv12 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_to_otf_1960x1080_nv12.sv
@@ -194,12 +195,14 @@ TB_SRC_tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888 := $(VRF_DEC_SRC_DIR)
 TB_SRC_tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_tile_to_otf_tajmahal_cases.sv
 TB_SRC_tb_ubwc_dec_wrapper_top_tajmahal_cases := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba8888 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_wrapper_top_tajmahal_cases.sv
+TB_SRC_tb_ubwc_dec_wrapper_top_rgba8888_128x128 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba1010102 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_dec_wrapper_top_tajmahal_rgba8888 := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_wrapper_top_tajmahal_rgba8888.sv
 TB_SRC_tb_ubwc_enc_wrapper_top_tajmahal_cases := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
+TB_SRC_tb_ubwc_enc_wrapper_top_rgba8888_128x128 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
@@ -208,6 +211,7 @@ TB_SRC_tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 := $(VRF_DEC_SRC_DIR)/
 ENC_WRAPPER_MONITOR_SRC := $(VRF_ENC_SRC_DIR)/monitor.sv
 TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_tajmahal_cases := $(ENC_WRAPPER_MONITOR_SRC)
 TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 := $(ENC_WRAPPER_MONITOR_SRC)
+TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_rgba8888_128x128 := $(ENC_WRAPPER_MONITOR_SRC)
 TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 := $(ENC_WRAPPER_MONITOR_SRC)
 TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 := $(ENC_WRAPPER_MONITOR_SRC)
 TB_EXTRA_SRC_tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 := $(ENC_WRAPPER_MONITOR_SRC)
@@ -218,6 +222,7 @@ TB_EXTRA_SRC := $(TB_EXTRA_SRC_$(TOP))
 FILELIST_tb_ubwc_dec_tile_to_line_path := $(RTL_FLIST_DIR)/filelist_otf.f
 FILELIST_tb_ubwc_dec_tile_to_line_image_formats := $(RTL_FLIST_DIR)/filelist_otf.f
 FILELIST_tb_ubwc_dec_tile_to_line_hd_formats := $(RTL_FLIST_DIR)/filelist_otf.f
+FILELIST_tb_ubwc_dec_tile_to_otf_128x128_rgba8888 := $(RTL_FLIST_DIR)/filelist_otf.f
 FILELIST_tb_ubwc_dec_tile_to_otf_1080p_rgba := $(RTL_FLIST_DIR)/filelist_otf.f
 FILELIST_tb_ubwc_dec_tile_to_otf_1920x1080_nv12 := $(RTL_FLIST_DIR)/filelist_otf.f
 FILELIST_tb_ubwc_dec_tile_to_otf_1960x1080_nv12 := $(RTL_FLIST_DIR)/filelist_otf.f
@@ -228,6 +233,7 @@ FILELIST_tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888 := $(RTL_FLIST_DIR)
 FILELIST_tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12 := $(RTL_FLIST_DIR)/filelist_otf.f
 FILELIST_tb_ubwc_enc_wrapper_top_tajmahal_cases := $(RTL_FLIST_DIR)/filelist_enc.f
 FILELIST_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 := $(RTL_FLIST_DIR)/filelist_enc.f
+FILELIST_tb_ubwc_enc_wrapper_top_rgba8888_128x128 := $(RTL_FLIST_DIR)/filelist_enc.f
 FILELIST_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 := $(RTL_FLIST_DIR)/filelist_enc.f
 FILELIST_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 := $(RTL_FLIST_DIR)/filelist_enc.f
 FILELIST_tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 := $(RTL_FLIST_DIR)/filelist_enc.f
@@ -364,6 +370,10 @@ VERILATOR_FLAGS := --binary --timing -Wno-fatal \
 	meta_tajmahal_4096x600_nv12_verid \
 	tile_arcmd_comp tile_arcmd_run tile_arcmd_all \
 	tile_arcmd_verdi tile_arcmd_verid \
+	otf_128x128_rgba8888_prepare otf_128x128_rgba8888_comp \
+	otf_128x128_rgba8888_run otf_128x128_rgba8888_all \
+	otf_128x128_rgba8888_verdi otf_128x128_rgba8888_verid \
+	compare_otf_128x128_rgba8888 \
 	otf_1080p_rgba_comp otf_1080p_rgba_run otf_1080p_rgba_all \
 	otf_1080p_rgba_verdi otf_1080p_rgba_verid \
 	otf_1920x1080_nv12_comp otf_1920x1080_nv12_run otf_1920x1080_nv12_all \
@@ -388,6 +398,9 @@ VERILATOR_FLAGS := --binary --timing -Wno-fatal \
 		wrapper_tajmahal_cases_prepare wrapper_tajmahal_cases_comp \
 		wrapper_tajmahal_cases_run wrapper_tajmahal_cases_all \
 		wrapper_tajmahal_cases_verdi wrapper_tajmahal_cases_verid \
+		wrapper_rgba8888_128x128_prepare wrapper_rgba8888_128x128_comp \
+		wrapper_rgba8888_128x128_run wrapper_rgba8888_128x128_all \
+		wrapper_rgba8888_128x128_verdi compare_wrapper_rgba8888_128x128 \
 		wrapper_tajmahal_4096x600_rgba8888_vivo_comp wrapper_tajmahal_4096x600_rgba8888_vivo_run \
 		wrapper_tajmahal_4096x600_rgba8888_vivo_all wrapper_tajmahal_4096x600_rgba8888_vivo_fake_all wrapper_tajmahal_4096x600_rgba8888_vivo_real_all wrapper_tajmahal_4096x600_rgba8888_vivo_verdi \
 		wrapper_tajmahal_4096x600_rgba1010102_vivo_comp wrapper_tajmahal_4096x600_rgba1010102_vivo_run \
@@ -403,6 +416,9 @@ VERILATOR_FLAGS := --binary --timing -Wno-fatal \
 		wrapper_tajmahal_rgba8888_all wrapper_tajmahal_rgba8888_verdi \
 		wrapper_tajmahal_rgba8888_verid \
 		enc_wrapper_tajmahal_cases_prepare \
+		enc_wrapper_rgba8888_128x128_prepare enc_wrapper_rgba8888_128x128_comp \
+		enc_wrapper_rgba8888_128x128_run enc_wrapper_rgba8888_128x128_all \
+		enc_wrapper_rgba8888_128x128_fake_all enc_wrapper_rgba8888_128x128_verdi \
 		enc_wrapper_tajmahal_4096x600_rgba8888_comp enc_wrapper_tajmahal_4096x600_rgba8888_run \
 		enc_wrapper_tajmahal_4096x600_rgba8888_all enc_wrapper_tajmahal_4096x600_rgba8888_fake_all enc_wrapper_tajmahal_4096x600_rgba8888_nonfake_all enc_wrapper_tajmahal_4096x600_rgba8888_verdi \
 		enc_wrapper_tajmahal_4096x600_rgba1010102_comp enc_wrapper_tajmahal_4096x600_rgba1010102_run \
@@ -601,6 +617,39 @@ tile_arcmd_verdi:
 
 tile_arcmd_verid:
 	$(MAKE) TOP=tb_ubwc_dec_tile_arcmd_gen verid
+
+otf_128x128_rgba8888_prepare:
+	$(PYTHON) $(VRF_SCRIPT_DIR)/gen_rgba8888_128x128_vector.py
+	@mkdir -p build/tb_ubwc_dec_tile_to_otf_128x128_rgba8888
+	cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_tiled.memh build/tb_ubwc_dec_tile_to_otf_128x128_rgba8888/input_rgba_tiled.memh
+	cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_linear.memh build/tb_ubwc_dec_tile_to_otf_128x128_rgba8888/golden_rgba_linear.memh
+	cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_expected_otf_stream.txt build/tb_ubwc_dec_tile_to_otf_128x128_rgba8888/expected_otf_stream.txt
+
+compare_otf_128x128_rgba8888:
+	$(OTF_CASE_TOOL) compare \
+		--format rgba8888 \
+		--expected build/tb_ubwc_dec_tile_to_otf_128x128_rgba8888/golden_rgba_linear.memh \
+		--actual build/tb_ubwc_dec_tile_to_otf_128x128_rgba8888/actual_otf_stream.txt \
+		--width 128 \
+		--active-height 128 \
+		--stored-height 128 \
+		--out-dir build/tb_ubwc_dec_tile_to_otf_128x128_rgba8888/compare
+
+otf_128x128_rgba8888_comp:
+	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_128x128_rgba8888 comp
+
+otf_128x128_rgba8888_run: otf_128x128_rgba8888_prepare
+	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_128x128_rgba8888 run
+
+otf_128x128_rgba8888_all: otf_128x128_rgba8888_prepare
+	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_128x128_rgba8888 all
+	$(MAKE) compare_otf_128x128_rgba8888
+
+otf_128x128_rgba8888_verdi:
+	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_128x128_rgba8888 verdi
+
+otf_128x128_rgba8888_verid:
+	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_128x128_rgba8888 verid
 
 otf_1080p_rgba_comp:
 	$(MAKE) TOP=tb_ubwc_dec_tile_to_otf_1080p_rgba comp
@@ -960,6 +1009,38 @@ wrapper_tajmahal_cases_verdi:
 wrapper_tajmahal_cases_verid:
 	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_tajmahal_cases CASE_ID=$(EFFECTIVE_CASE_ID) TB_REAL_VIVO_MODE=$(WRAPPER_CASES_TB_REAL_VIVO_MODE) FORCE_FULL_PAYLOAD_CASE=$(WRAPPER_CASES_FORCE_FULL_PAYLOAD_CASE) verid
 
+wrapper_rgba8888_128x128_prepare:
+	$(PYTHON) $(VRF_SCRIPT_DIR)/gen_rgba8888_128x128_vector.py
+	@mkdir -p build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake
+	cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_meta_dummy.memh build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/input_meta_plane0.txt
+	cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_tiled_mapped.memh build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/input_tile_plane0.txt
+	cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_tiled_mapped.memh build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/inject_tile_plane0.txt
+	cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_expected_otf_stream.txt build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/expected_otf_stream.txt
+	cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_linear.memh build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/golden_rgba_linear.memh
+
+compare_wrapper_rgba8888_128x128:
+	$(OTF_CASE_TOOL) compare \
+		--format rgba8888 \
+		--expected build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/golden_rgba_linear.memh \
+		--actual build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/actual_otf_stream.txt \
+		--width 128 \
+		--active-height 128 \
+		--stored-height 128 \
+		--out-dir build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/compare
+
+wrapper_rgba8888_128x128_comp:
+	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_rgba8888_128x128 FORCE_FULL_PAYLOAD_CASE=1 comp
+
+wrapper_rgba8888_128x128_run: wrapper_rgba8888_128x128_prepare
+	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_rgba8888_128x128 FORCE_FULL_PAYLOAD_CASE=1 run
+
+wrapper_rgba8888_128x128_all: wrapper_rgba8888_128x128_prepare
+	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_rgba8888_128x128 FORCE_FULL_PAYLOAD_CASE=1 all
+	$(MAKE) compare_wrapper_rgba8888_128x128
+
+wrapper_rgba8888_128x128_verdi:
+	$(MAKE) TOP=tb_ubwc_dec_wrapper_top_rgba8888_128x128 FORCE_FULL_PAYLOAD_CASE=1 verdi
+
 define DECLARE_WRAPPER_OPEN_SIM_TARGETS
 .PHONY: $(1)_iverilog_comp $(1)_iverilog_run $(1)_iverilog_all \
 	$(1)_iverilog_fake_all $(1)_iverilog_real_all \
@@ -1159,6 +1240,11 @@ wrapper_tajmahal_rgba8888_verid:
 enc_wrapper_tajmahal_cases_prepare:
 	@mkdir -p $(BUILD_DIR)
 	@case "$(TOP)" in \
+		tb_ubwc_enc_wrapper_top_rgba8888_128x128) \
+			cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_tiled_mapped.memh $(BUILD_DIR)/expected_tile_plane0.memh; \
+			cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_meta_dummy.memh $(BUILD_DIR)/expected_meta_plane0.memh; \
+			cp $(VRF_VECTOR_DIR)/rgba8888_128x128/rgba8888_128x128_expected_otf_stream.txt $(BUILD_DIR)/input_otf_stream.txt; \
+			;; \
 		tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888) \
 			grep -v '^@' $(TAJMAHAL_TILED_SRC) > $(BUILD_DIR)/expected_tile_plane0.memh; \
 			$(OTF_CASE_TOOL) gen-stream --format rgba8888 --expected $(TAJMAHAL_LINEAR_SRC) --width 4096 --stored-height 608 --out $(BUILD_DIR)/input_otf_stream.txt; \
@@ -1182,6 +1268,25 @@ enc_wrapper_tajmahal_cases_prepare:
 			exit 1; \
 			;; \
 	esac
+
+enc_wrapper_rgba8888_128x128_prepare:
+	$(PYTHON) $(VRF_SCRIPT_DIR)/gen_rgba8888_128x128_vector.py
+	$(MAKE) TOP=tb_ubwc_enc_wrapper_top_rgba8888_128x128 enc_wrapper_tajmahal_cases_prepare
+
+enc_wrapper_rgba8888_128x128_comp:
+	$(MAKE) TOP=tb_ubwc_enc_wrapper_top_rgba8888_128x128 comp
+
+enc_wrapper_rgba8888_128x128_run: enc_wrapper_rgba8888_128x128_prepare
+	$(MAKE) TOP=tb_ubwc_enc_wrapper_top_rgba8888_128x128 run
+
+enc_wrapper_rgba8888_128x128_all: enc_wrapper_rgba8888_128x128_prepare
+	$(MAKE) TOP=tb_ubwc_enc_wrapper_top_rgba8888_128x128 all
+
+enc_wrapper_rgba8888_128x128_fake_all:
+	$(MAKE) enc_wrapper_rgba8888_128x128_all
+
+enc_wrapper_rgba8888_128x128_verdi:
+	$(MAKE) TOP=tb_ubwc_enc_wrapper_top_rgba8888_128x128 verdi
 
 enc_wrapper_tajmahal_4096x600_rgba8888_comp:
 	$(MAKE) TOP=tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 RUN_ARGS="+tb_non_fake_mode $(RUN_ARGS)" comp

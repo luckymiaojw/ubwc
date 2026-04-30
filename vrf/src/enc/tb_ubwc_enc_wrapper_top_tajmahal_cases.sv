@@ -417,7 +417,14 @@ module tb_enc_axi_write_sink #(
 endmodule
 
 module tb_ubwc_enc_wrapper_top_tajmahal_core #(
-    parameter integer CASE_ID = 0
+    parameter integer CASE_ID = 0,
+    parameter integer IMG_W = 4096,
+    parameter integer RGBA_ACTIVE_H = 600,
+    parameter integer RGBA_STORED_H = 608,
+    parameter integer RGBA_TILE_PITCH = 16384,
+    parameter integer RGBA_TILE_COLS = 256,
+    parameter integer RGBA_TILE_ROWS = 152,
+    parameter integer RGBA_META_WORDS64 = 5120
 ) ();
     localparam integer CASE_RGBA8888    = 0;
     localparam integer CASE_RGBA1010102 = 1;
@@ -441,13 +448,6 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer COM_BUF_AW      = 13;
     localparam integer COM_BUF_DW      = 128;
     localparam integer SB_WIDTH        = 1;
-
-    localparam integer IMG_W           = 4096;
-    localparam integer RGBA_ACTIVE_H   = 600;
-    localparam integer RGBA_STORED_H   = 608;
-    localparam integer RGBA_TILE_PITCH = 16384;
-    localparam integer RGBA_TILE_COLS  = 256;
-    localparam integer RGBA_TILE_ROWS  = 152;
 
     localparam integer NV12_ACTIVE_H   = 600;
     localparam integer NV12_Y_STORED_H = 640;
@@ -525,7 +525,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                                                                   : (NV12_UV_TILE_COLS * NV12_UV_TILE_ROWS * 32))
                                                                   : 0;
     localparam integer CASE_META0_WORDS64      = CASE_IS_G016 ? 2560 :
-                                                  (CASE_IS_NV12 ? 1536 : 5120);
+                                                  (CASE_IS_NV12 ? 1536 : RGBA_META_WORDS64);
     localparam integer CASE_META1_WORDS64      = CASE_IS_G016 ? 1536 :
                                                   (CASE_IS_NV12 ? 1024 : 1);
     localparam integer CASE_META_TOTAL_WORDS64 = CASE_META0_WORDS64 + (CASE_HAS_PLANE1 ? CASE_META1_WORDS64 : 0);
@@ -2235,8 +2235,13 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         init_ref_word_arrays();
         case (CASE_ID)
             CASE_RGBA8888: begin
-                load_dump64_to_tile_plane("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba8888/visual_from_mdss_writeback_4_wb_2_rec_0_verify_ubwc_enc_in0.txt",
-                                          0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_WORDS64);
+                if (IMG_W == 128) begin
+                    load_dump64_to_tile_plane("../../../vector/rgba8888_128x128/rgba8888_128x128_tiled_mapped.memh",
+                                              0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_WORDS64);
+                end else begin
+                    load_dump64_to_tile_plane("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba8888/visual_from_mdss_writeback_4_wb_2_rec_0_verify_ubwc_enc_in0.txt",
+                                              0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_WORDS64);
+                end
             end
             CASE_RGBA1010102: begin
                 load_dump64_to_tile_plane("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba1010102/visual_from_mdss_writeback_38_wb_2_rec_0_verify_ubwc_enc_in0.txt",
@@ -2257,8 +2262,13 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         endcase
         case (CASE_ID)
             CASE_RGBA8888: begin
-                load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba8888/visual_from_mdss_writeback_4_wb_2_rec_0_verify_ubwc_enc_out2.txt",
-                                   1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
+                if (IMG_W == 128) begin
+                    load_dump64_to_ref("../../../vector/rgba8888_128x128/rgba8888_128x128_meta_dummy.memh",
+                                       1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
+                end else begin
+                    load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba8888/visual_from_mdss_writeback_4_wb_2_rec_0_verify_ubwc_enc_out2.txt",
+                                       1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
+                end
             end
             CASE_RGBA1010102: begin
                 load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba1010102/visual_from_mdss_writeback_38_wb_2_rec_0_verify_ubwc_enc_out2.txt",
@@ -3364,12 +3374,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
         compare_meta_dump_file_to_ref(meta_dump_file,
                                       CASE_META_BASE_Y_ADDR,
-                                      meta_ref_words_plane0,
+                                      (meta_ref_words_plane0 != 0) ? meta_ref_words_plane0 : CASE_META0_WORDS64,
                                       0);
         if (CASE_HAS_PLANE1) begin
             compare_meta_dump_file_to_ref(meta_dump_file_plane1,
                                           CASE_META_BASE_UV_ADDR,
-                                          meta_ref_words_plane1,
+                                          (meta_ref_words_plane1 != 0) ? meta_ref_words_plane1 : CASE_META1_WORDS64,
                                           1);
         end
 
@@ -3585,6 +3595,19 @@ endmodule
 module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .CASE_ID(0)
+    ) u_core ();
+endmodule
+
+module tb_ubwc_enc_wrapper_top_rgba8888_128x128 ();
+    tb_ubwc_enc_wrapper_top_tajmahal_core #(
+        .CASE_ID(0),
+        .IMG_W(128),
+        .RGBA_ACTIVE_H(128),
+        .RGBA_STORED_H(128),
+        .RGBA_TILE_PITCH(512),
+        .RGBA_TILE_COLS(8),
+        .RGBA_TILE_ROWS(32),
+        .RGBA_META_WORDS64(256)
     ) u_core ();
 endmodule
 

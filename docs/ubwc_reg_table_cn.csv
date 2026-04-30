@@ -1,120 +1,119 @@
-﻿模块,寄存器地址,寄存器名称,访问类型,复位值,位域,字段名,中文说明,备注
-ubwc_enc_apb_reg_blk,0x0000,REG_VERSION,只读,0x00010000,31:0,version,IP版本号,返回固定值32'h0001_0000
-ubwc_enc_apb_reg_blk,0x0004,REG_DATE,只读,0x20260406,31:0,date,RTL日期,返回固定值32'h2026_0406
-ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,0,enc_ubwc_en,使能UBWC编码,建议作为tile地址配置组的最后一次写入
-ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,1,lvl1_bank_swizzle_en,一级bank swizzle使能,同上
-ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,2,lvl2_bank_swizzle_en,二级bank swizzle使能,同上
-ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,3,lvl3_bank_swizzle_en,三级bank swizzle使能,同上
-ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,12:8,highest_bank_bit,最高bank位配置,同上
-ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,16,bank_spread_en,bank spread使能,同上
-ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,0,four_line_format,4-line tile格式使能,建议先写该寄存器，再写REG_TILE_CFG0提交tile配置
-ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,1,is_lossy_rgba_2_1_format,RGBA 2:1有损格式选择,同上
-ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,26:16,tile_pitch,tile pitch配置,当前代码中有效宽度为11位
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,0,enc_ci_input_type,编码CI输入类型,建议作为CI配置组的最后一次写入
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,10:8,enc_ci_alen,编码CI ALEN配置,同上
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,20:16,enc_ci_format,编码CI格式,同上
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,24,reserved,未使用的forced PCM配置位,forced PCM由OTF路径动态生成
-ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,读写,0x00000000,SB_WIDTH-1:0,enc_ci_sb,编码CI sideband配置,宽度由SB_WIDTH参数决定
-ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,读写,0x00000000,16,enc_ci_lossy,编码CI有损使能,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,2:0,enc_ci_ubwc_cfg_0,UBWC CI配置0,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,5:3,enc_ci_ubwc_cfg_1,UBWC CI配置1,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,9:6,enc_ci_ubwc_cfg_2,UBWC CI配置2,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,13:10,enc_ci_ubwc_cfg_3,UBWC CI配置3,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,17:14,enc_ci_ubwc_cfg_4,UBWC CI配置4,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,21:18,enc_ci_ubwc_cfg_5,UBWC CI配置5,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,23:22,enc_ci_ubwc_cfg_6,UBWC CI配置6,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,25:24,enc_ci_ubwc_cfg_7,UBWC CI配置7,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,27:26,enc_ci_ubwc_cfg_8,UBWC CI配置8,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,30:28,enc_ci_ubwc_cfg_9,UBWC CI配置9,
-ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,读写,0x00000000,5:0,enc_ci_ubwc_cfg_10,UBWC CI配置10,
-ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,读写,0x00000000,13:8,enc_ci_ubwc_cfg_11,UBWC CI配置11,
-ubwc_enc_apb_reg_blk,0x0020,REG_OTF_CFG0,读写,0x00000000,2:0,otf_cfg_format,输入OTF格式,建议作为OTF配置组的最后一次写入
-ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,读写,0x00000000,15:0,otf_cfg_width,输入图像宽度，单位为像素,
-ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,读写,0x00000000,31:16,otf_cfg_height,输入图像高度，单位为像素,
-ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,读写,0x00000000,15:0,otf_cfg_tile_w,tile宽度，单位为像素,
-ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,读写,0x00000000,19:16,otf_cfg_tile_h,tile高度，单位为像素,
-ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,读写,0x00000000,15:0,otf_cfg_a_tile_cols,A平面tile列数,
-ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,读写,0x00000000,31:16,otf_cfg_b_tile_cols,B平面tile列数,
-ubwc_enc_apb_reg_blk,0x0030,REG_TILE_BASE_Y_LO,读写,0x00000000,31:0,y_base_offset_addr[31:0],Y平面压缩数据基地址低32位,
-ubwc_enc_apb_reg_blk,0x0034,REG_TILE_BASE_Y_HI,读写,0x00000000,31:0,y_base_offset_addr[63:32],Y平面压缩数据基地址高32位,当AXI_AW=64时组成完整64位地址
-ubwc_enc_apb_reg_blk,0x0038,REG_TILE_BASE_UV_LO,读写,0x00000000,31:0,uv_base_offset_addr[31:0],UV或RGBA平面压缩数据基地址低32位,
-ubwc_enc_apb_reg_blk,0x003c,REG_TILE_BASE_UV_HI,读写,0x00000000,31:0,uv_base_offset_addr[63:32],UV或RGBA平面压缩数据基地址高32位,当AXI_AW=64时组成完整64位地址
-ubwc_enc_apb_reg_blk,0x0040,REG_META_BASE_Y_LO,读写,0x00000000,31:0,meta_y_base_offset_addr[31:0],Y平面metadata基地址低32位,
-ubwc_enc_apb_reg_blk,0x0044,REG_META_BASE_Y_HI,读写,0x00000000,31:0,meta_y_base_offset_addr[63:32],Y平面metadata基地址高32位,当AXI_AW=64时组成完整64位地址
-ubwc_enc_apb_reg_blk,0x0048,REG_META_BASE_UV_LO,读写,0x00000000,31:0,meta_uv_base_offset_addr[31:0],UV或RGBA平面metadata基地址低32位,
-ubwc_enc_apb_reg_blk,0x004c,REG_META_BASE_UV_HI,读写,0x00000000,31:0,meta_uv_base_offset_addr[63:32],UV或RGBA平面metadata基地址高32位,当AXI_AW=64时组成完整64位地址
-ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,读写,0x00000000,15:0,meta_active_width_px,metadata有效区域宽度，单位为像素,写0表示使用整帧宽度
-ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,读写,0x00000000,31:16,meta_active_height_px,metadata有效区域高度，单位为像素,写0表示使用整帧高度
-ubwc_enc_apb_reg_blk,0x0054,REG_META_PITCH,读写,0x00000000,31:0,meta_data_plane_pitch,metadata平面pitch，单位为字节,该字段需要与像素数据pitch分开配置
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,0,enc_idle,编码核空闲状态,
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,1,enc_error,编码核错误状态,
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,2,otf_to_tile_busy,OTF到tile阶段忙状态,
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,3,otf_to_tile_overflow,OTF到tile FIFO溢出状态,
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,4,otf_err_bline,OTF输入坏行错误状态,
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,5,otf_err_bframe,OTF输入坏帧错误状态,
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,6,meta_err_0,metadata生成器错误0状态,当前固定为低
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,7,meta_err_1,metadata生成器错误1状态,当前固定为低
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,8,frame_done,编码器帧完成状态,来自wrapper的实时帧完成输入
-ubwc_enc_apb_reg_blk,0x005c,REG_STATUS1,只读,dynamic,7:0,stage_done,编码器阶段完成位图,
-ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,读写/写1产生脉冲,0x00000001,0,irq_enable,中断使能,复位后默认为1
-ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,写1产生脉冲,0x00000001,1,irq_clear,中断清除脉冲,写1会在编码器时钟域产生irq_clear脉冲；读回为0
-ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,只读,dynamic,2,irq_pending,中断挂起状态,已同步到PCLK域
-ubwc_dec_apb_reg_blk,0x0000,REG_VERSION,只读,0x00010000,31:0,version,IP版本号,返回固定值32'h0001_0000
-ubwc_dec_apb_reg_blk,0x0004,REG_DATE,只读,0x20260403,31:0,date,RTL日期,返回固定值32'h2026_0403
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,0,tile_cfg_lvl1_bank_swizzle_en,一级bank swizzle使能,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,1,tile_cfg_lvl2_bank_swizzle_en,二级bank swizzle使能,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,2,tile_cfg_lvl3_bank_swizzle_en,三级bank swizzle使能,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,8:4,tile_cfg_highest_bank_bit,最高bank位配置,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,9,tile_cfg_bank_spread_en,bank spread使能,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,10,tile_cfg_4line_format,4-line tile格式使能,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,11,tile_cfg_is_lossy_rgba_2_1_format,RGBA 2:1有损格式选择,
-ubwc_dec_apb_reg_blk,0x000c,APB_ADDR_TILE_CFG1,读写,0x00000000,11:0,tile_cfg_pitch,tile pitch配置,
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,0,tile_cfg_ci_input_type,CI输入类型,
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,SB_WIDTH:1,tile_cfg_ci_sb,CI sideband配置,宽度由SB_WIDTH参数决定
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,8,tile_cfg_ci_lossy,CI有损使能,
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,10:9,tile_cfg_ci_alpha_mode,CI alpha模式配置,
-ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,读写,0x00000001,0,vivo_ubwc_en,ubwc_dec_vivo_top使能,复位后默认为1
-ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,读写,0x00000001,1,vivo_sreset,VIVO子模块软复位,可用于独立清除VIVO内部状态
-ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,写1产生脉冲/读写,0x00000000,0,meta_start,启动脉冲位,写1会翻转start toggle，并在AXI域产生frame_start_pulse_axi；读回固定为0；建议作为最后一次写入
-ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,读写,0x00000000,8:4,meta_base_format,metadata/base格式配置,通常与start在同一次写入中下发
-ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_META_CFG1,读写,0x00000000,31:0,meta_base_addr_rgba_y[31:0],RGBA或Y metadata基地址低32位,
-ubwc_dec_apb_reg_blk,0x0020,APB_ADDR_META_CFG2,读写,0x00000000,31:0,meta_base_addr_rgba_y[63:32],RGBA或Y metadata基地址高32位,当AXI_AW=64时组成完整64位地址
-ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_META_CFG3,读写,0x00000000,31:0,meta_base_addr_uv[31:0],UV metadata基地址低32位,
-ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_META_CFG4,读写,0x00000000,31:0,meta_base_addr_uv[63:32],UV metadata基地址高32位,当AXI_AW=64时组成完整64位地址
-ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,读写,0x00000000,15:0,meta_tile_x_numbers,metadata水平方向tile数量,
-ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,读写,0x00000000,31:16,meta_tile_y_numbers,metadata垂直方向tile数量,
-ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,读写,0x00000000,15:0,otf_cfg_img_width,输出图像有效宽度，单位为像素,
-ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,读写,0x00000000,20:16,otf_cfg_format,输出OTF格式,
-ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,读写,0x00000000,15:0,otf_cfg_h_total,OTF水平总周期,
-ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,读写,0x00000000,31:16,otf_cfg_h_sync,OTF水平同步宽度,
-ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,读写,0x00000000,15:0,otf_cfg_h_bp,OTF水平后肩,
-ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,读写,0x00000000,31:16,otf_cfg_h_act,OTF水平有效区,
-ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,读写,0x00000000,15:0,otf_cfg_v_total,OTF垂直总周期,
-ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,读写,0x00000000,31:16,otf_cfg_v_sync,OTF垂直同步宽度,
-ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,读写,0x00000000,15:0,otf_cfg_v_bp,OTF垂直后肩,
-ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,读写,0x00000000,31:16,otf_cfg_v_act,OTF垂直有效区,
-ubwc_dec_apb_reg_blk,0x0044,APB_ADDR_TILE_BASE0,读写,0x00000000,31:0,tile_base_addr_rgba_uv[31:0],RGBA或UV tile基地址低32位,
-ubwc_dec_apb_reg_blk,0x0048,APB_ADDR_TILE_BASE1,读写,0x00000000,31:0,tile_base_addr_rgba_uv[63:32],RGBA或UV tile基地址高32位,当AXI_AW=64时组成完整64位地址
-ubwc_dec_apb_reg_blk,0x004c,APB_ADDR_TILE_BASE2,读写,0x00000000,31:0,tile_base_addr_y[31:0],Y tile基地址低32位,
-ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_TILE_BASE3,读写,0x00000000,31:0,tile_base_addr_y[63:32],Y tile基地址高32位,当AXI_AW=64时组成完整64位地址
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,0,frame_active,当前帧是否处于active状态,start后置1，当前帧完全结束后清0
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,1,meta_busy,metadata读取阶段忙,
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,2,tile_busy,tile读取阶段忙,
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,3,vivo_busy,ubwc_dec_vivo_top忙,
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,4,otf_busy,tile_to_otf阶段忙,
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,5,all_stage_idle,所有当前busy输入均为0,start前和完成后都可能为1
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,6,frame_idle_done,当前无busy且frame_active为0,建议结合STATUS1[4]判断帧完成
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,0,meta_done,metadata阶段完成,新帧启动时清除
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,1,tile_done,tile阶段完成,新帧启动时清除
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,2,vivo_done,VIVO阶段完成,新帧启动时清除
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,3,otf_done,OTF输出阶段完成,新帧启动时清除
+﻿模块,寄存器地址,寄存器名称,访问类型,复位值,位域,字段名,说明,备注
+ubwc_dec_apb_reg_blk,0x0000,REG_VERSION,只读,0x00010000,31:0,version,IP版本号,返回固定值 32'h0001_0000
+ubwc_dec_apb_reg_blk,0x0004,REG_DATE,只读,0x20260403,31:0,date,RTL日期,返回固定值 32'h2026_0403
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,0,tile_cfg_lvl1_bank_swizzle_en,一级 bank swizzle 使能,软件默认写 0. Combined bank swizzle default [2:0]=3'b110.
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,1,tile_cfg_lvl2_bank_swizzle_en,二级 bank swizzle 使能,软件默认写 1. Combined bank swizzle default [2:0]=3'b110.
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,2,tile_cfg_lvl3_bank_swizzle_en,三级 bank swizzle 使能,软件默认写 1. Combined bank swizzle default [2:0]=3'b110.
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,8:4,tile_cfg_highest_bank_bit,最高 bank bit 配置,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,9,tile_cfg_bank_spread_en,bank spread 使能,软件默认写 1.
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,11,tile_cfg_is_lossy_rgba_2_1_format,RGBA 2:1 有损格式选择,"仅适用于 RGBA8888 metadata/tile 地址路径. 0=普通 RGBA/无损 layout, 1=RGBA8888 有损 2:1 layout. 写 1 时， decoder 在地址计算时将有效 tile_y 减半, 奇数 tile_y 额外增加 128-byte offset, 该路径关闭 bank spread, and 将 256-byte metadata payload 按 128 bytes 处理."
+ubwc_dec_apb_reg_blk,0x000c,APB_ADDR_TILE_CFG1,读写,0x00000000,11:0,tile_cfg_pitch,tile pitch 配置,"Tile surface pitch，单位 16 字节。 配置 tile_cfg_pitch=align_up(width*bpp, tile_w*4*bpp)/16. bpp: RGBA8888/RGBA1010102=4, YUV420_8=1, YUV420_10=2. tile_w: RGBA=16, YUV=32. RTL 使用 tile_cfg_pitch<<4 作为 byte pitch. 例子 NV12 1996x1074: align_up(1996*1,32*4*1)=2048 bytes, tile_cfg_pitch=2048/16=128."
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,0,tile_cfg_ci_input_type,CI 输入类型,"0=linear data, 1=tiled data. 软件默认写 1."
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,SB_WIDTH:1,tile_cfg_ci_sb,CI sideband 配置,保留位。 软件应写 0.
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,8,tile_cfg_ci_lossy,CI 有损使能,软件写 1 for 有损格式 and 0 for 无损格式.
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,10:9,tile_cfg_ci_alpha_mode,CI alpha mode 配置,保留位。 软件应写 0.
+ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,读写,0x00000001,0,vivo_ubwc_en,ubwc_dec_vivo_top 使能,复位后默认为 1
+ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,读写,0x00000001,1,vivo_sreset,VIVO 子模块软复位,可用于单独清除 VIVO 内部状态
+ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,写1脉冲/读写,0x00000000,0,meta_start,启动脉冲位,写 1 toggles the start toggle and generates frame_start_pulse_axi in the AXI domain; 读回固定为 0; recommended as the final 写
+ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,读写,0x00000000,8:4,meta_base_format,metadata/base 格式配置,Usually issued with start in the same 写
+ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_META_CFG1,读写,0x00000000,31:0,meta_base_addr_rgba_y[31:0],RGBA 或 Y metadata 基地址低 32 位,"对于连续 UBWC buffer， 配置 Y/RGBA metadata 起始地址. metadata size 公式： meta_pitch=align_up(ceil(plane_width/tile_w),64); meta_size=align_up(meta_pitch*align_up(ceil(plane_height/tile_h),16),4KB). 例子 NV12 1996x1074 起始地址=0xA00000: Y meta_起始地址=0xA00000, Y meta_pitch=64, Y meta_size=0x3000."
+ubwc_dec_apb_reg_blk,0x0020,APB_ADDR_META_CFG2,读写,0x00000000,31:0,meta_base_addr_rgba_y[63:32],RGBA 或 Y metadata 基地址高 32 位,AXI_AW=64 时组成完整 64-bit 地址
+ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_META_CFG3,读写,0x00000000,31:0,meta_base_addr_uv[31:0],UV metadata 基地址低 32 位,"对于 YUV 格式， 配置 UV metadata 起始地址. 例子 NV12 1996x1074 连续 layout: meta_base_uv = tile_base_y + Y_pixel_size = 0xA03000 + 0x220000 = 0xC23000; UV meta_pitch=64, UV meta_size=0x2000."
+ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_META_CFG4,读写,0x00000000,31:0,meta_base_addr_uv[63:32],UV metadata 基地址高 32 位,AXI_AW=64 时组成完整 64-bit 地址
+ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,读写,0x00000000,15:0,meta_tile_x_numbers,水平方向 metadata tile 数量,"Y/RGBA 与 UV metadata 扫描共用。 ceil(a/b) 表示向上取整除法。 配置 round_up(width/tile_w): RGBA tile_w=16, YUV tile_w=32. 例子 1996x1074: RGBA8888/RGBA1010102 => round_up(1996/16)=125; YUV420_8/YUV420_10 => round_up(1996/32)=63."
+ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,读写,0x00000000,31:16,meta_tile_y_numbers,垂直方向 metadata tile 数量,"配置 Y/RGBA tile 行数 as round_up(height/tile_h): RGBA tile_h=4, YUV tile_h=8. For YUV420, UV metadata 行数由硬件内部按以下公式得到： round_up(meta_tile_y_numbers/2). 例子 1996x1074: RGBA8888/RGBA1010102 => round_up(1074/4)=269; YUV420_8/YUV420_10 => round_up(1074/8)=135; YUV420 内部 UV 行数=round_up(135/2)=68."
+ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,读写,0x00000000,15:0,otf_cfg_img_width,有效输出图像宽度，单位像素,"配置 active 图像宽度，单位像素. 用于限制 line unpacking： RGBA words=ceil(width/4), YUV420_8/NV12 words=ceil(width/16), YUV420_10/P010 words=ceil(width/8)."
+ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,读写,0x00000000,20:16,otf_cfg_format,输出 OTF 格式,"帧级输出格式。 编码： 0=RGBA8888, 1=RGBA1010102, 2=YUV420_8/NV12, 3=YUV420_10/P010."
+ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,读写,0x00000000,15:0,otf_cfg_h_total,OTF H_TOTAL,水平 total，单位像素。 RTL converts to OTF beats with ceil(h_total/4). 必须覆盖 h_sync + h_bp + h_act.
+ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,读写,0x00000000,31:16,otf_cfg_h_sync,OTF H_SYNC,水平 sync 宽度，单位像素。 RTL converts to OTF beats with ceil(h_sync/4).
+ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,读写,0x00000000,15:0,otf_cfg_h_bp,OTF H_BP,水平 back porch，单位像素。 RTL converts to OTF beats with ceil(h_bp/4). active 窗口开始于 h_sync + h_bp.
+ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,读写,0x00000000,31:16,otf_cfg_h_act,OTF H_ACT,水平 active 宽度，单位像素。 Usually 配置 the visible output width; 应匹配 otf_cfg_img_width 除非有意让 blanking/active 宽度不同.
+ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,读写,0x00000000,15:0,otf_cfg_v_total,OTF V_TOTAL,垂直 total，单位行。 必须覆盖 v_sync + v_bp + v_act.
+ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,读写,0x00000000,31:16,otf_cfg_v_sync,OTF V_SYNC,垂直 sync 宽度，单位行。
+ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,读写,0x00000000,15:0,otf_cfg_v_bp,OTF V_BP,垂直 back porch，单位行。 active 窗口开始于 v_sync + v_bp.
+ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,读写,0x00000000,31:16,otf_cfg_v_act,OTF V_ACT,垂直 active 高度，单位行。 配置 the visible output height.
+ubwc_dec_apb_reg_blk,0x0044,APB_ADDR_TILE_BASE0,读写,0x00000000,31:0,tile_base_addr_rgba_uv[31:0],RGBA 或 UV tile 基地址低 32 位,"对于 RGBA， 配置 RGBA pixel/tile 数据起始地址. 对于 YUV， 配置 UV pixel/tile 数据起始地址. 例子 NV12 1996x1074 连续 layout: UV tile_base = meta_base_uv + UV_meta_size = 0xC23000 + 0x2000 = 0xC25000. UV pixel size example: align_up(2*align_up(998,64)*align_up(537,32),4KB)=0x110000."
+ubwc_dec_apb_reg_blk,0x0048,APB_ADDR_TILE_BASE1,读写,0x00000000,31:0,tile_base_addr_rgba_uv[63:32],RGBA 或 UV tile 基地址高 32 位,AXI_AW=64 时组成完整 64-bit 地址
+ubwc_dec_apb_reg_blk,0x004c,APB_ADDR_TILE_BASE2,读写,0x00000000,31:0,tile_base_addr_y[31:0],Y tile 基地址低 32 位,"对于 YUV 格式， 配置 Y pixel/tile 数据起始地址. pixel size 公式： pixel_pitch=align_up(width*bpp,tile_w*4*bpp); aligned_height=align_up(height,32); pixel_size=align_up(pixel_pitch*aligned_height,4KB). 例子 NV12 1996x1074: Y tile_base = Y_meta_base + Y_meta_size = 0xA00000 + 0x3000 = 0xA03000; Y pixel_pitch=2048, aligned_height=1088, Y_pixel_size=0x220000."
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_TILE_BASE3,读写,0x00000000,31:0,tile_base_addr_y[63:32],Y tile 基地址高 32 位,AXI_AW=64 时组成完整 64-bit 地址
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,0,frame_active,当前帧是否 active,start 后置 1；当前帧完全完成后清 0
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,1,meta_busy,metadata 读阶段 busy,
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,2,tile_busy,tile 读阶段 busy,
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,3,vivo_busy,ubwc_dec_vivo_top busy,
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,4,otf_busy,tile_to_otf 阶段 busy,
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,5,all_stage_idle,当前所有 busy 输入为 0,May be 1 before start and after completion
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,只读,dynamic,6,frame_idle_done,当前无 busy 且 frame_active=0,Recommended to combine with STATUS1[4] to judge frame completion
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,0,meta_done,metadata 阶段完成,新帧开始时清零
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,1,tile_done,tile 阶段完成,新帧开始时清零
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,2,vivo_done,VIVO 阶段完成,新帧开始时清零
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,3,otf_done,OTF 输出阶段完成,新帧开始时清零
 ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,4,frame_done,整帧完成标志,最推荐的软件轮询位
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,5,meta_seen_busy,metadata阶段在本帧曾进入忙状态,用于避免启动前误判完成
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,6,tile_seen_busy,tile阶段在本帧曾进入忙状态,同上
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,7,vivo_seen_busy,VIVO阶段在本帧曾进入忙状态,同上
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,8,otf_seen_busy,OTF阶段在本帧曾进入忙状态,同上
-ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS2,只读,dynamic,6:0,vivo_idle_bits,ubwc_dec_vivo_top原始idle位图,透传o_idle[6:0]，供软件调试
-ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_STATUS3,只读,dynamic,6:0,vivo_error_bits,ubwc_dec_vivo_top原始error位图,透传o_error[6:0]，供软件调试
-ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,读写/写1产生脉冲,0x00000001,0,irq_enable,中断使能,复位后默认为1
-ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,写1产生脉冲,0x00000001,1,irq_clear,中断清除脉冲,写1会在AXI时钟域产生irq_clear脉冲；读回为0
-ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,只读,dynamic,2,irq_pending,中断挂起状态,已同步到PCLK域
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,5,meta_seen_busy,本帧 metadata 阶段曾进入 busy,用于避免 start 前误判 done
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,6,tile_seen_busy,本帧 tile 阶段曾进入 busy,同上
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,7,vivo_seen_busy,本帧 VIVO 阶段曾进入 busy,同上
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS1,只读,0x00000000,8,otf_seen_busy,本帧 OTF 阶段曾进入 busy,同上
+ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS2,只读,dynamic,6:0,vivo_idle_bits,ubwc_dec_vivo_top 原始 idle 位图,透传为 o_idle[6:0] 供软件调试
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_STATUS3,只读,dynamic,6:0,vivo_error_bits,ubwc_dec_vivo_top 原始 error 位图,透传为 o_error[6:0] 供软件调试
+ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,RW/W1P,0x00000001,0,irq_enable,IRQ 使能,复位后默认为 1
+ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,W1P,0x00000001,1,irq_clear,IRQ 清除脉冲,写 1 generates an irq_clear pulse in the AXI clock domain; readback is 0
+ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_IRQ_CTRL,只读,dynamic,2,irq_pending,IRQ pending 状态,同步到 PCLK 域
+ubwc_enc_apb_reg_blk,0x0000,REG_VERSION,只读,0x00010000,31:0,version,IP版本号,返回固定值 32'h0001_0000
+ubwc_enc_apb_reg_blk,0x0004,REG_DATE,只读,0x20260406,31:0,date,RTL日期,返回固定值 32'h2026_0406
+ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,0,enc_ubwc_en,使能 UBWC 编码,Recommended as the final 写 in the tile address configuration group
+ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,1,lvl1_bank_swizzle_en,一级 bank swizzle 使能,同上
+ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,2,lvl2_bank_swizzle_en,二级 bank swizzle 使能,同上
+ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,3,lvl3_bank_swizzle_en,三级 bank swizzle 使能,同上
+ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,12:8,highest_bank_bit,最高 bank bit 配置,同上
+ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,16,bank_spread_en,bank spread 使能,同上
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,0,four_line_format,4-line tile 格式使能,配置 by format: RGBA8888/RGBA1010102=1; YUV420_8/YUV420_10=0. Recommended to 写 this register before committing REG_TILE_CFG0.
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,1,is_lossy_rgba_2_1_format,RGBA 2:1 有损格式选择,同上
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,26:16,tile_pitch,tile pitch，单位 16 字节,"写 pitch_reg=align_up(width*bytes_per_pixel, tile_w*4*bytes_per_pixel)/16. bytes_per_pixel: RGBA8888=4, RGBA1010102=4, YUV420_8=1, YUV420_10=2. 该寄存器值单位为 16 字节，不是字节; 有效字段宽度为 11 位. 例子 NV12 1996x1074: align_up(1996*1,32*4*1)=2048 bytes, tile_pitch=2048/16=128."
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,0,enc_ci_input_type,编码 CI 输入类型,"Encoding: 0=linear data, 1=tiled data. Fixed value for current encoder path: software should 写 1. Recommended as the final 写 in the CI configuration group."
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,10:8,enc_ci_alen,编码 CI ALEN 配置,固定值。 软件应写 3'd7.
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,20:16,reserved,保留位,保留位。 软件应写 0; 当前 encoder 格式由以下寄存器配置： REG_OTF_CFG0.otf_cfg_format.
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,24,reserved,保留位,保留位。 软件应写 0; forced PCM 由 OTF 路径动态生成.
+ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,读写,0x00000000,SB_WIDTH-1:0,enc_ci_sb,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,读写,0x00000000,16,enc_ci_lossy,编码 CI 有损使能,
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,2:0,enc_ci_ubwc_cfg_0,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,5:3,enc_ci_ubwc_cfg_1,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,9:6,enc_ci_ubwc_cfg_2,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,13:10,enc_ci_ubwc_cfg_3,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,17:14,enc_ci_ubwc_cfg_4,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,21:18,enc_ci_ubwc_cfg_5,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,23:22,enc_ci_ubwc_cfg_6,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,25:24,enc_ci_ubwc_cfg_7,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,27:26,enc_ci_ubwc_cfg_8,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,30:28,enc_ci_ubwc_cfg_9,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,读写,0x00000000,5:0,enc_ci_ubwc_cfg_10,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,读写,0x00000000,13:8,enc_ci_ubwc_cfg_11,保留位,保留位。 软件应写 0.
+ubwc_enc_apb_reg_blk,0x0020,REG_OTF_CFG0,读写,0x00000000,2:0,otf_cfg_format,输入 OTF 格式,"Recommended as the final 写 in the OTF configuration group. 格式编码： 0=RGBA8888, 1=RGBA1010102, 2=YUV420_8/NV12, 3=YUV420_10/P010."
+ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,读写,0x00000000,15:0,otf_cfg_width,输入图像宽度，单位像素,软件应使用该宽度计算 tile 列数： ceil(width / tile_w).
+ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,读写,0x00000000,31:16,otf_cfg_height,输入图像高度，单位像素,配置 stored/input frame height. YUV420 时 UV 平面内部使用半高。
+ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,读写,0x00000000,15:0,otf_cfg_tile_w,tile 宽度，单位像素,配置 by format: RGBA8888/RGBA1010102=16; YUV420_8/YUV420_10=32.
+ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,读写,0x00000000,19:16,otf_cfg_tile_h,tile 高度，单位像素,配置 by format: RGBA8888/RGBA1010102=4; YUV420_8/YUV420_10=8.
+ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,读写,0x00000000,15:0,otf_cfg_a_tile_cols,A 平面 tile 列数,配置 by format: RGBA formats=ceil(width/16); YUV formats UV/A plane=ceil(width/32).
+ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,读写,0x00000000,31:16,otf_cfg_b_tile_cols,B 平面 tile 列数,配置 by format: RGBA formats=0; YUV formats Y/B plane=ceil(width/32).
+ubwc_enc_apb_reg_blk,0x0030,REG_TILE_BASE_Y_LO,读写,0x00000000,31:0,y_base_offset_addr[31:0],Y 平面压缩数据基地址低 32 位,"对于 YUV 格式， 配置 Y pixel/tile 数据起始地址. pixel size 公式： pixel_pitch=align_up(width*bpp,tile_w*4*bpp); aligned_height=align_up(height,32); pixel_size=align_up(pixel_pitch*aligned_height,4KB). 例子 NV12 1996x1074 起始地址=0xA00000: Y tile_base = Y_meta_base + Y_meta_size = 0xA00000 + 0x3000 = 0xA03000; Y pixel_pitch=2048, aligned_height=1088, Y_pixel_size=0x220000."
+ubwc_enc_apb_reg_blk,0x0034,REG_TILE_BASE_Y_HI,读写,0x00000000,31:0,y_base_offset_addr[63:32],Y 平面压缩数据基地址高 32 位,AXI_AW=64 时组成完整 64-bit 地址
+ubwc_enc_apb_reg_blk,0x0038,REG_TILE_BASE_UV_LO,读写,0x00000000,31:0,uv_base_offset_addr[31:0],UV 或 RGBA 平面压缩数据基地址低 32 位,"对于 RGBA， 配置 RGBA pixel/tile 数据起始地址. 对于 YUV， 配置 UV pixel/tile 数据起始地址. 例子 NV12 1996x1074 连续 layout: UV tile_base = UV_meta_base + UV_meta_size = 0xC23000 + 0x2000 = 0xC25000. UV pixel size example: align_up(2*align_up(998,64)*align_up(537,32),4KB)=0x110000."
+ubwc_enc_apb_reg_blk,0x003c,REG_TILE_BASE_UV_HI,读写,0x00000000,31:0,uv_base_offset_addr[63:32],UV 或 RGBA 平面压缩数据基地址高 32 位,AXI_AW=64 时组成完整 64-bit 地址
+ubwc_enc_apb_reg_blk,0x0040,REG_META_BASE_Y_LO,读写,0x00000000,31:0,meta_y_base_offset_addr[31:0],Y 平面 metadata 基地址低 32 位,"对于连续 UBWC buffer， 配置 Y metadata 起始地址. metadata size 公式： meta_pitch=align_up(ceil(plane_width/tile_w),64); meta_size=align_up(meta_pitch*align_up(ceil(plane_height/tile_h),16),4KB). 例子 NV12 1996x1074 起始地址=0xA00000: Y meta_起始地址=0xA00000, Y meta_pitch=64, Y meta_size=0x3000."
+ubwc_enc_apb_reg_blk,0x0044,REG_META_BASE_Y_HI,读写,0x00000000,31:0,meta_y_base_offset_addr[63:32],Y 平面 metadata 基地址高 32 位,AXI_AW=64 时组成完整 64-bit 地址
+ubwc_enc_apb_reg_blk,0x0048,REG_META_BASE_UV_LO,读写,0x00000000,31:0,meta_uv_base_offset_addr[31:0],UV 或 RGBA 平面 metadata 基地址低 32 位,"对于 YUV 格式， 配置 UV metadata 起始地址. 例子 NV12 1996x1074 连续 layout: UV_meta_base = Y_tile_base + Y_pixel_size = 0xA03000 + 0x220000 = 0xC23000; UV meta_pitch=64, UV meta_size=0x2000."
+ubwc_enc_apb_reg_blk,0x004c,REG_META_BASE_UV_HI,读写,0x00000000,31:0,meta_uv_base_offset_addr[63:32],UV 或 RGBA 平面 metadata 基地址高 32 位,AXI_AW=64 时组成完整 64-bit 地址
+ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,读写,0x00000000,15:0,meta_active_width_px,metadata 有效区域宽度，单位像素,Writing 0 means using the full-frame width
+ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,读写,0x00000000,31:16,meta_active_height_px,metadata 有效区域高度，单位像素,配置 metadata active height in pixels.
+ubwc_enc_apb_reg_blk,0x0054,REG_META_PITCH,读写,0x00000000,31:0,meta_data_plane_pitch,metadata 平面 pitch,"写 meta_data_plane_pitch=align_up((align_up(width, tile_w*4)+tile_w-1)/tile_w, 64), 与 ubwc_demo.cpp 一致. Current encoder meta address path uses meta_data_plane_pitch<<4 作为 byte stride. 例子 NV12 1996x1074 Y 平面: align_up((align_up(1996,128)+32-1)/32,64)=64. UV 平面 example from 连续 layout also uses meta_pitch=64."
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,0,enc_idle,encoder core idle 状态,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,1,enc_error,encoder core error 状态,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,2,otf_to_tile_busy,OTF-to-tile busy 状态,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,3,otf_to_tile_overflow,OTF-to-tile FIFO overflow 状态,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,4,otf_err_bline,OTF 输入 bad-line 错误状态,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,5,otf_err_bframe,OTF 输入 bad-frame 错误状态,
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,6,meta_err_0,metadata generator error 0 状态,当前固定为低
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,7,meta_err_1,metadata generator error 1 状态,当前固定为低
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,8,frame_done,encoder frame done 状态,来自 wrapper 的实时 frame done 输入
+ubwc_enc_apb_reg_blk,0x005c,REG_STATUS1,只读,dynamic,7:0,stage_done,encoder stage done 位图,
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,RW/W1P,0x00000001,0,irq_enable,IRQ 使能,复位后默认为 1
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,W1P,0x00000001,1,irq_clear,IRQ 清除脉冲,写 1 generates an irq_clear pulse in the encoder clock domain; readback is 0
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,只读,dynamic,2,irq_pending,IRQ pending 状态,同步到 PCLK 域

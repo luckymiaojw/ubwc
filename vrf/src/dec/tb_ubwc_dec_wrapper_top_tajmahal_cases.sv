@@ -3,7 +3,18 @@
 module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     parameter integer CASE_ID = 0,
     parameter integer TB_REAL_VIVO_MODE = 0,
-    parameter integer FORCE_FULL_PAYLOAD_CASE = 0
+    parameter integer FORCE_FULL_PAYLOAD_CASE = 0,
+    parameter integer IMG_W = 4096,
+    parameter integer RGBA_ACTIVE_H = 600,
+    parameter integer RGBA_STORED_H = 608,
+    parameter integer RGBA_TILE_X_COUNT = 256,
+    parameter integer RGBA_TILE_Y_COUNT = 152,
+    parameter integer RGBA_META_PITCH = 256,
+    parameter integer RGBA_META_LINES = 160,
+    parameter integer RGBA_TILE_PITCH = 16384,
+    parameter integer CASE_OTF_H_TOTAL = 4400,
+    parameter integer CASE_OTF_H_SYNC = 44,
+    parameter integer CASE_OTF_H_BP = 148
 );
 
     function automatic integer ceil_div;
@@ -44,15 +55,6 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     localparam [4:0] META_FMT_P010_Y      = 5'b01110;
     localparam [4:0] META_FMT_P010_UV     = 5'b01111;
 
-    localparam integer IMG_W = 4096;
-
-    localparam integer RGBA_ACTIVE_H       = 600;
-    localparam integer RGBA_STORED_H       = 608;
-    localparam integer RGBA_TILE_X_COUNT   = 256;
-    localparam integer RGBA_TILE_Y_COUNT   = 152;
-    localparam integer RGBA_META_PITCH     = 256;
-    localparam integer RGBA_META_LINES     = 160;
-    localparam integer RGBA_TILE_PITCH     = 16384;
     localparam integer RGBA_HIGHEST_BANK   = 16;
     localparam integer RGBA_META_WORDS64   = (RGBA_META_PITCH * RGBA_META_LINES) / 8;
     localparam integer RGBA_TILE_WORDS64   = (RGBA_TILE_PITCH * RGBA_STORED_H) / 8;
@@ -1436,9 +1438,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             apb_write(16'h0028, CASE_META_BASE_ADDR_UV[63:32]);
             apb_write(16'h002c, {CASE_TILE_Y_NUMBERS[15:0], CASE_TILE_X_NUMBERS[15:0]});
 
-            apb_write(16'h0030, {11'd0, CASE_BASE_FORMAT, 16'd4096});
-            apb_write(16'h0034, {16'd44, 16'd4400});
-            apb_write(16'h0038, {16'd4096, 16'd148});
+            apb_write(16'h0030, {11'd0, CASE_BASE_FORMAT, IMG_W[15:0]});
+            apb_write(16'h0034, {CASE_OTF_H_SYNC[15:0], CASE_OTF_H_TOTAL[15:0]});
+            apb_write(16'h0038, {IMG_W[15:0], CASE_OTF_H_BP[15:0]});
             apb_write(16'h003c, {16'd5, CASE_OTF_V_TOTAL[15:0]});
             apb_write(16'h0040, {CASE_OTF_V_ACT[15:0], 16'd36});
             apb_write(16'h0044, CASE_TILE_BASE_ADDR_UV[31:0]);
@@ -1560,12 +1562,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .rst_sram_n       (i_axi_rstn),
         .rst_otf_n        (i_otf_rstn),
         .i_frame_start    (1'b0),
-        .cfg_img_width    (16'd4096),
+        .cfg_img_width    (IMG_W[15:0]),
         .cfg_format       (CASE_BASE_FORMAT),
-        .cfg_otf_h_total  (16'd4400),
-        .cfg_otf_h_sync   (16'd44),
-        .cfg_otf_h_bp     (16'd148),
-        .cfg_otf_h_act    (16'd4096),
+        .cfg_otf_h_total  (CASE_OTF_H_TOTAL[15:0]),
+        .cfg_otf_h_sync   (CASE_OTF_H_SYNC[15:0]),
+        .cfg_otf_h_bp     (CASE_OTF_H_BP[15:0]),
+        .cfg_otf_h_act    (IMG_W[15:0]),
         .cfg_otf_v_total  (CASE_OTF_V_TOTAL[15:0]),
         .cfg_otf_v_sync   (16'd5),
         .cfg_otf_v_bp     (16'd36),
@@ -3011,6 +3013,28 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba8888 #(
         .CASE_ID (0),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
         .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
+    ) u_core ();
+endmodule
+
+module tb_ubwc_dec_wrapper_top_rgba8888_128x128 #(
+    parameter integer TB_REAL_VIVO_MODE = 0,
+    parameter integer FORCE_FULL_PAYLOAD_CASE = 1
+);
+    tb_ubwc_dec_wrapper_top_tajmahal_core #(
+        .CASE_ID (0),
+        .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE),
+        .IMG_W(128),
+        .RGBA_ACTIVE_H(128),
+        .RGBA_STORED_H(128),
+        .RGBA_TILE_X_COUNT(8),
+        .RGBA_TILE_Y_COUNT(32),
+        .RGBA_META_PITCH(64),
+        .RGBA_META_LINES(32),
+        .RGBA_TILE_PITCH(512),
+        .CASE_OTF_H_TOTAL(160),
+        .CASE_OTF_H_SYNC(4),
+        .CASE_OTF_H_BP(8)
     ) u_core ();
 endmodule
 

@@ -7,45 +7,45 @@ ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,2,lvl2_bank_swizzle_en,L
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,3,lvl3_bank_swizzle_en,Level-3 bank swizzle enable,Same as above
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,12:8,highest_bank_bit,Highest bank bit configuration,Same as above
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,RW,0x00000000,16,bank_spread_en,Bank spread enable,Same as above
-ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,0,four_line_format,4-line tile format enable,Recommended to write this register before committing REG_TILE_CFG0
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,0,four_line_format,4-line tile format enable,"Program by format: RGBA8888/RGBA1010102=1; YUV420_8/YUV420_10=0. Recommended to write this register before committing REG_TILE_CFG0."
 ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,1,is_lossy_rgba_2_1_format,RGBA 2:1 lossy format select,Same as above
-ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,26:16,tile_pitch,Tile pitch configuration,The effective width in code is 11 bits
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,0,enc_ci_input_type,Encoded CI input type,Recommended as the final write in the CI configuration group
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,10:8,enc_ci_alen,Encoded CI alen configuration,Same as above
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,20:16,enc_ci_format,Encoded CI format,Same as above
-ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,24,reserved,Unused forced PCM configuration bit,Forced PCM is generated dynamically by the OTF path
-ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,RW,0x00000000,SB_WIDTH-1:0,enc_ci_sb,Encoded CI sideband configuration,Width is determined by the SB_WIDTH parameter
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,RW,0x00000000,26:16,tile_pitch,Tile pitch in 16-byte units,"Write pitch_reg=align_up(width*bytes_per_pixel, tile_w*4*bytes_per_pixel)/16. bytes_per_pixel: RGBA8888=4, RGBA1010102=4, YUV420_8=1, YUV420_10=2. This register value is in 16-byte units, not bytes; effective field width is 11 bits. Example NV12 1996x1074: align_up(1996*1,32*4*1)=2048 bytes, tile_pitch=2048/16=128."
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,0,enc_ci_input_type,Encoded CI input type,"Encoding: 0=linear data, 1=tiled data. Fixed value for current encoder path: software should write 1. Recommended as the final write in the CI configuration group."
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,10:8,enc_ci_alen,Encoded CI alen configuration,"Fixed value. Software should write 3'd7."
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,20:16,reserved,Reserved,"Reserved. Software should write 0; current encoder format is configured by REG_OTF_CFG0.otf_cfg_format."
+ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,RW,0x00000000,24,reserved,Reserved,"Reserved. Software should write 0; forced PCM is generated dynamically by the OTF path."
+ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,RW,0x00000000,SB_WIDTH-1:0,enc_ci_sb,Reserved,"Reserved. Software should write 0."
 ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,RW,0x00000000,16,enc_ci_lossy,Encoded CI lossy enable,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,2:0,enc_ci_ubwc_cfg_0,UBWC CI configuration 0,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,5:3,enc_ci_ubwc_cfg_1,UBWC CI configuration 1,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,9:6,enc_ci_ubwc_cfg_2,UBWC CI configuration 2,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,13:10,enc_ci_ubwc_cfg_3,UBWC CI configuration 3,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,17:14,enc_ci_ubwc_cfg_4,UBWC CI configuration 4,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,21:18,enc_ci_ubwc_cfg_5,UBWC CI configuration 5,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,23:22,enc_ci_ubwc_cfg_6,UBWC CI configuration 6,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,25:24,enc_ci_ubwc_cfg_7,UBWC CI configuration 7,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,27:26,enc_ci_ubwc_cfg_8,UBWC CI configuration 8,
-ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,30:28,enc_ci_ubwc_cfg_9,UBWC CI configuration 9,
-ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,RW,0x00000000,5:0,enc_ci_ubwc_cfg_10,UBWC CI configuration 10,
-ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,RW,0x00000000,13:8,enc_ci_ubwc_cfg_11,UBWC CI configuration 11,
-ubwc_enc_apb_reg_blk,0x0020,REG_OTF_CFG0,RW,0x00000000,2:0,otf_cfg_format,Input OTF format,Recommended as the final write in the OTF configuration group
-ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,RW,0x00000000,15:0,otf_cfg_width,Input image width in pixels,
-ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,RW,0x00000000,31:16,otf_cfg_height,Input image height in pixels,
-ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,RW,0x00000000,15:0,otf_cfg_tile_w,Tile width in pixels,
-ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,RW,0x00000000,19:16,otf_cfg_tile_h,Tile height in pixels,
-ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,RW,0x00000000,15:0,otf_cfg_a_tile_cols,A-plane tile column count,
-ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,RW,0x00000000,31:16,otf_cfg_b_tile_cols,B-plane tile column count,
-ubwc_enc_apb_reg_blk,0x0030,REG_TILE_BASE_Y_LO,RW,0x00000000,31:0,y_base_offset_addr[31:0],Low 32 bits of the Y-plane compressed data base address,
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,2:0,enc_ci_ubwc_cfg_0,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,5:3,enc_ci_ubwc_cfg_1,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,9:6,enc_ci_ubwc_cfg_2,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,13:10,enc_ci_ubwc_cfg_3,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,17:14,enc_ci_ubwc_cfg_4,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,21:18,enc_ci_ubwc_cfg_5,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,23:22,enc_ci_ubwc_cfg_6,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,25:24,enc_ci_ubwc_cfg_7,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,27:26,enc_ci_ubwc_cfg_8,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,RW,0x00000000,30:28,enc_ci_ubwc_cfg_9,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,RW,0x00000000,5:0,enc_ci_ubwc_cfg_10,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,RW,0x00000000,13:8,enc_ci_ubwc_cfg_11,Reserved,"Reserved. Software should write 0."
+ubwc_enc_apb_reg_blk,0x0020,REG_OTF_CFG0,RW,0x00000000,2:0,otf_cfg_format,Input OTF format,"Recommended as the final write in the OTF configuration group. Format code: 0=RGBA8888, 1=RGBA1010102, 2=YUV420_8/NV12, 3=YUV420_10/P010."
+ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,RW,0x00000000,15:0,otf_cfg_width,Input image width in pixels,"Software should use this width to calculate tile columns: ceil(width / tile_w)."
+ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,RW,0x00000000,31:16,otf_cfg_height,Input image height in pixels,"Program stored/input frame height. For YUV420, UV plane uses half-height internally."
+ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,RW,0x00000000,15:0,otf_cfg_tile_w,Tile width in pixels,"Program by format: RGBA8888/RGBA1010102=16; YUV420_8/YUV420_10=32."
+ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,RW,0x00000000,19:16,otf_cfg_tile_h,Tile height in pixels,"Program by format: RGBA8888/RGBA1010102=4; YUV420_8/YUV420_10=8."
+ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,RW,0x00000000,15:0,otf_cfg_a_tile_cols,A-plane tile column count,"Program by format: RGBA formats=ceil(width/16); YUV formats UV/A plane=ceil(width/32)."
+ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,RW,0x00000000,31:16,otf_cfg_b_tile_cols,B-plane tile column count,"Program by format: RGBA formats=0; YUV formats Y/B plane=ceil(width/32)."
+ubwc_enc_apb_reg_blk,0x0030,REG_TILE_BASE_Y_LO,RW,0x00000000,31:0,y_base_offset_addr[31:0],Low 32 bits of the Y-plane compressed data base address,"For YUV formats, program Y pixel/tile data start. Pixel size formula: pixel_pitch=align_up(width*bpp,tile_w*4*bpp); aligned_height=align_up(height,32); pixel_size=align_up(pixel_pitch*aligned_height,4KB). Example NV12 1996x1074 base=0xA00000: Y tile_base = Y_meta_base + Y_meta_size = 0xA00000 + 0x3000 = 0xA03000; Y pixel_pitch=2048, aligned_height=1088, Y_pixel_size=0x220000."
 ubwc_enc_apb_reg_blk,0x0034,REG_TILE_BASE_Y_HI,RW,0x00000000,31:0,y_base_offset_addr[63:32],High 32 bits of the Y-plane compressed data base address,Forms the full 64-bit address when AXI_AW=64
-ubwc_enc_apb_reg_blk,0x0038,REG_TILE_BASE_UV_LO,RW,0x00000000,31:0,uv_base_offset_addr[31:0],Low 32 bits of the UV or RGBA-plane compressed data base address,
+ubwc_enc_apb_reg_blk,0x0038,REG_TILE_BASE_UV_LO,RW,0x00000000,31:0,uv_base_offset_addr[31:0],Low 32 bits of the UV or RGBA-plane compressed data base address,"For RGBA, program RGBA pixel/tile data start. For YUV, program UV pixel/tile data start. Example NV12 1996x1074 contiguous layout: UV tile_base = UV_meta_base + UV_meta_size = 0xC23000 + 0x2000 = 0xC25000. UV pixel size example: align_up(2*align_up(998,64)*align_up(537,32),4KB)=0x110000."
 ubwc_enc_apb_reg_blk,0x003c,REG_TILE_BASE_UV_HI,RW,0x00000000,31:0,uv_base_offset_addr[63:32],High 32 bits of the UV or RGBA-plane compressed data base address,Forms the full 64-bit address when AXI_AW=64
-ubwc_enc_apb_reg_blk,0x0040,REG_META_BASE_Y_LO,RW,0x00000000,31:0,meta_y_base_offset_addr[31:0],Low 32 bits of the Y-plane metadata base address,
+ubwc_enc_apb_reg_blk,0x0040,REG_META_BASE_Y_LO,RW,0x00000000,31:0,meta_y_base_offset_addr[31:0],Low 32 bits of the Y-plane metadata base address,"For contiguous UBWC buffer, program Y metadata start address. Metadata size formula: meta_pitch=align_up(ceil(plane_width/tile_w),64); meta_size=align_up(meta_pitch*align_up(ceil(plane_height/tile_h),16),4KB). Example NV12 1996x1074 base=0xA00000: Y meta_base=0xA00000, Y meta_pitch=64, Y meta_size=0x3000."
 ubwc_enc_apb_reg_blk,0x0044,REG_META_BASE_Y_HI,RW,0x00000000,31:0,meta_y_base_offset_addr[63:32],High 32 bits of the Y-plane metadata base address,Forms the full 64-bit address when AXI_AW=64
-ubwc_enc_apb_reg_blk,0x0048,REG_META_BASE_UV_LO,RW,0x00000000,31:0,meta_uv_base_offset_addr[31:0],Low 32 bits of the UV or RGBA-plane metadata base address,
+ubwc_enc_apb_reg_blk,0x0048,REG_META_BASE_UV_LO,RW,0x00000000,31:0,meta_uv_base_offset_addr[31:0],Low 32 bits of the UV or RGBA-plane metadata base address,"For YUV formats, program UV metadata start address. Example NV12 1996x1074 contiguous layout: UV_meta_base = Y_tile_base + Y_pixel_size = 0xA03000 + 0x220000 = 0xC23000; UV meta_pitch=64, UV meta_size=0x2000."
 ubwc_enc_apb_reg_blk,0x004c,REG_META_BASE_UV_HI,RW,0x00000000,31:0,meta_uv_base_offset_addr[63:32],High 32 bits of the UV or RGBA-plane metadata base address,Forms the full 64-bit address when AXI_AW=64
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,RW,0x00000000,15:0,meta_active_width_px,Metadata active-area width in pixels,Writing 0 means using the full-frame width
-ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,RW,0x00000000,31:16,meta_active_height_px,Metadata active-area height in pixels,Writing 0 means using the full-frame height
-ubwc_enc_apb_reg_blk,0x0054,REG_META_PITCH,RW,0x00000000,31:0,meta_data_plane_pitch,Metadata plane pitch in bytes,Program this separately from the pixel-data pitch
+ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,RW,0x00000000,31:16,meta_active_height_px,Metadata active-area height in pixels,Program metadata active height in pixels.
+ubwc_enc_apb_reg_blk,0x0054,REG_META_PITCH,RW,0x00000000,31:0,meta_data_plane_pitch,Metadata plane pitch,"Write meta_data_plane_pitch=align_up((align_up(width, tile_w*4)+tile_w-1)/tile_w, 64), matching ubwc_demo.cpp. Current encoder meta address path uses meta_data_plane_pitch<<4 as byte stride. Example NV12 1996x1074 Y plane: align_up((align_up(1996,128)+32-1)/32,64)=64. UV plane example from contiguous layout also uses meta_pitch=64."
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,0,enc_idle,Encoder core idle status,
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,1,enc_error,Encoder core error status,
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,2,otf_to_tile_busy,OTF-to-tile busy status,

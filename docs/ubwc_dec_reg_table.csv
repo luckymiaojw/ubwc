@@ -1,41 +1,40 @@
 Module,Register Address,Register Name,Access,Reset Value,Bit Field,Field Name,Description,Notes
 ubwc_dec_apb_reg_blk,0x0000,REG_VERSION,RO,0x00010000,31:0,version,IP version,Returns fixed value 32'h0001_0000
 ubwc_dec_apb_reg_blk,0x0004,REG_DATE,RO,0x20260403,31:0,date,RTL date,Returns fixed value 32'h2026_0403
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,0,tile_cfg_lvl1_bank_swizzle_en,Level-1 bank swizzle enable,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,1,tile_cfg_lvl2_bank_swizzle_en,Level-2 bank swizzle enable,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,2,tile_cfg_lvl3_bank_swizzle_en,Level-3 bank swizzle enable,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,0,tile_cfg_lvl1_bank_swizzle_en,Level-1 bank swizzle enable,"Software default writes 0. Combined bank swizzle default [2:0]=3'b110."
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,1,tile_cfg_lvl2_bank_swizzle_en,Level-2 bank swizzle enable,"Software default writes 1. Combined bank swizzle default [2:0]=3'b110."
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,2,tile_cfg_lvl3_bank_swizzle_en,Level-3 bank swizzle enable,"Software default writes 1. Combined bank swizzle default [2:0]=3'b110."
 ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,8:4,tile_cfg_highest_bank_bit,Highest bank bit configuration,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,9,tile_cfg_bank_spread_en,Bank spread enable,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,10,tile_cfg_4line_format,4-line tile format enable,
-ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,11,tile_cfg_is_lossy_rgba_2_1_format,RGBA 2:1 lossy format select,
-ubwc_dec_apb_reg_blk,0x000c,APB_ADDR_TILE_CFG1,RW,0x00000000,11:0,tile_cfg_pitch,Tile pitch configuration,
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,0,tile_cfg_ci_input_type,CI input type,
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,SB_WIDTH:1,tile_cfg_ci_sb,CI sideband configuration,Width is determined by the SB_WIDTH parameter
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,8,tile_cfg_ci_lossy,CI lossy enable,
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,10:9,tile_cfg_ci_alpha_mode,CI alpha mode configuration,
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,9,tile_cfg_bank_spread_en,Bank spread enable,Software default writes 1.
+ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,11,tile_cfg_is_lossy_rgba_2_1_format,RGBA 2:1 lossy format select,"Only applies to RGBA8888 metadata/tile address path. 0=normal RGBA/lossless layout, 1=RGBA8888 lossy 2:1 layout. When 1, decoder halves the effective tile_y for address calculation, adds a 128-byte offset for odd tile_y, disables bank spread for this path, and treats 256-byte metadata payload as 128 bytes."
+ubwc_dec_apb_reg_blk,0x000c,APB_ADDR_TILE_CFG1,RW,0x00000000,11:0,tile_cfg_pitch,Tile pitch configuration,"Tile surface pitch in 16-byte units. Program tile_cfg_pitch=align_up(width*bpp, tile_w*4*bpp)/16. bpp: RGBA8888/RGBA1010102=4, YUV420_8=1, YUV420_10=2. tile_w: RGBA=16, YUV=32. RTL uses tile_cfg_pitch<<4 as byte pitch. Example NV12 1996x1074: align_up(1996*1,32*4*1)=2048 bytes, tile_cfg_pitch=2048/16=128."
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,0,tile_cfg_ci_input_type,CI input type,"0=linear data, 1=tiled data. Software default writes 1."
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,SB_WIDTH:1,tile_cfg_ci_sb,CI sideband configuration,Reserved. Software should write 0.
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,8,tile_cfg_ci_lossy,CI lossy enable,Software writes 1 for lossy format and 0 for lossless format.
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,10:9,tile_cfg_ci_alpha_mode,CI alpha mode configuration,Reserved. Software should write 0.
 ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000001,0,vivo_ubwc_en,ubwc_dec_vivo_top enable,Defaults to 1 after reset
 ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000001,1,vivo_sreset,VIVO submodule soft reset,Can be used to independently clear VIVO internal state
 ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,W1P/RW,0x00000000,0,meta_start,Start pulse bit,Writing 1 toggles the start toggle and generates frame_start_pulse_axi in the AXI domain; readback is fixed to 0; recommended as the final write
 ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_META_CFG0,RW,0x00000000,8:4,meta_base_format,Metadata/base format configuration,Usually issued with start in the same write
-ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_META_CFG1,RW,0x00000000,31:0,meta_base_addr_rgba_y[31:0],Low 32 bits of the RGBA or Y metadata base address,
+ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_META_CFG1,RW,0x00000000,31:0,meta_base_addr_rgba_y[31:0],Low 32 bits of the RGBA or Y metadata base address,"For contiguous UBWC buffer, program Y/RGBA metadata start address. Metadata size formula: meta_pitch=align_up(ceil(plane_width/tile_w),64); meta_size=align_up(meta_pitch*align_up(ceil(plane_height/tile_h),16),4KB). Example NV12 1996x1074 base=0xA00000: Y meta_base=0xA00000, Y meta_pitch=64, Y meta_size=0x3000."
 ubwc_dec_apb_reg_blk,0x0020,APB_ADDR_META_CFG2,RW,0x00000000,31:0,meta_base_addr_rgba_y[63:32],High 32 bits of the RGBA or Y metadata base address,Forms the full 64-bit address when AXI_AW=64
-ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_META_CFG3,RW,0x00000000,31:0,meta_base_addr_uv[31:0],Low 32 bits of the UV metadata base address,
+ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_META_CFG3,RW,0x00000000,31:0,meta_base_addr_uv[31:0],Low 32 bits of the UV metadata base address,"For YUV formats, program UV metadata start address. Example NV12 1996x1074 contiguous layout: meta_base_uv = tile_base_y + Y_pixel_size = 0xA03000 + 0x220000 = 0xC23000; UV meta_pitch=64, UV meta_size=0x2000."
 ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_META_CFG4,RW,0x00000000,31:0,meta_base_addr_uv[63:32],High 32 bits of the UV metadata base address,Forms the full 64-bit address when AXI_AW=64
-ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,RW,0x00000000,15:0,meta_tile_x_numbers,Metadata tile count in the horizontal direction,
-ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,RW,0x00000000,31:16,meta_tile_y_numbers,Metadata tile count in the vertical direction,
-ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,RW,0x00000000,15:0,otf_cfg_img_width,Valid output image width in pixels,
-ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,RW,0x00000000,20:16,otf_cfg_format,Output OTF format,
-ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,RW,0x00000000,15:0,otf_cfg_h_total,OTF H_TOTAL,
-ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,RW,0x00000000,31:16,otf_cfg_h_sync,OTF H_SYNC,
-ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,RW,0x00000000,15:0,otf_cfg_h_bp,OTF H_BP,
-ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,RW,0x00000000,31:16,otf_cfg_h_act,OTF H_ACT,
-ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,RW,0x00000000,15:0,otf_cfg_v_total,OTF V_TOTAL,
-ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,RW,0x00000000,31:16,otf_cfg_v_sync,OTF V_SYNC,
-ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,RW,0x00000000,15:0,otf_cfg_v_bp,OTF V_BP,
-ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,RW,0x00000000,31:16,otf_cfg_v_act,OTF V_ACT,
-ubwc_dec_apb_reg_blk,0x0044,APB_ADDR_TILE_BASE0,RW,0x00000000,31:0,tile_base_addr_rgba_uv[31:0],Low 32 bits of the RGBA or UV tile base address,
+ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,RW,0x00000000,15:0,meta_tile_x_numbers,Metadata tile count in the horizontal direction,"Shared by Y/RGBA and UV metadata scan. ceil(a/b) means round up division. Program round_up(width/tile_w): RGBA tile_w=16, YUV tile_w=32. Example 1996x1074: RGBA8888/RGBA1010102 => round_up(1996/16)=125; YUV420_8/YUV420_10 => round_up(1996/32)=63."
+ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG5,RW,0x00000000,31:16,meta_tile_y_numbers,Metadata tile count in the vertical direction,"Program Y/RGBA tile rows as round_up(height/tile_h): RGBA tile_h=4, YUV tile_h=8. For YUV420, UV metadata rows are derived internally as round_up(meta_tile_y_numbers/2). Example 1996x1074: RGBA8888/RGBA1010102 => round_up(1074/4)=269; YUV420_8/YUV420_10 => round_up(1074/8)=135; YUV420 internal UV rows=round_up(135/2)=68."
+ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,RW,0x00000000,15:0,otf_cfg_img_width,Valid output image width in pixels,"Program active image width in pixels. Used to limit line unpacking: RGBA words=ceil(width/4), YUV420_8/NV12 words=ceil(width/16), YUV420_10/P010 words=ceil(width/8)."
+ubwc_dec_apb_reg_blk,0x0030,APB_ADDR_OTF_CFG0,RW,0x00000000,20:16,otf_cfg_format,Output OTF format,"Frame-level output format. Codes: 0=RGBA8888, 1=RGBA1010102, 2=YUV420_8/NV12, 3=YUV420_10/P010."
+ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,RW,0x00000000,15:0,otf_cfg_h_total,OTF H_TOTAL,"Horizontal total in pixels. RTL converts to OTF beats with ceil(h_total/4). Must cover h_sync + h_bp + h_act."
+ubwc_dec_apb_reg_blk,0x0034,APB_ADDR_OTF_CFG1,RW,0x00000000,31:16,otf_cfg_h_sync,OTF H_SYNC,"Horizontal sync width in pixels. RTL converts to OTF beats with ceil(h_sync/4)."
+ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,RW,0x00000000,15:0,otf_cfg_h_bp,OTF H_BP,"Horizontal back porch in pixels. RTL converts to OTF beats with ceil(h_bp/4). Active window starts after h_sync + h_bp."
+ubwc_dec_apb_reg_blk,0x0038,APB_ADDR_OTF_CFG2,RW,0x00000000,31:16,otf_cfg_h_act,OTF H_ACT,"Horizontal active width in pixels. Usually program the visible output width; should match otf_cfg_img_width unless blanking/active width is intentionally different."
+ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,RW,0x00000000,15:0,otf_cfg_v_total,OTF V_TOTAL,"Vertical total in lines. Must cover v_sync + v_bp + v_act."
+ubwc_dec_apb_reg_blk,0x003c,APB_ADDR_OTF_CFG3,RW,0x00000000,31:16,otf_cfg_v_sync,OTF V_SYNC,Vertical sync width in lines.
+ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,RW,0x00000000,15:0,otf_cfg_v_bp,OTF V_BP,"Vertical back porch in lines. Active window starts after v_sync + v_bp."
+ubwc_dec_apb_reg_blk,0x0040,APB_ADDR_OTF_CFG4,RW,0x00000000,31:16,otf_cfg_v_act,OTF V_ACT,"Vertical active height in lines. Program the visible output height."
+ubwc_dec_apb_reg_blk,0x0044,APB_ADDR_TILE_BASE0,RW,0x00000000,31:0,tile_base_addr_rgba_uv[31:0],Low 32 bits of the RGBA or UV tile base address,"For RGBA, program RGBA pixel/tile data start. For YUV, program UV pixel/tile data start. Example NV12 1996x1074 contiguous layout: UV tile_base = meta_base_uv + UV_meta_size = 0xC23000 + 0x2000 = 0xC25000. UV pixel size example: align_up(2*align_up(998,64)*align_up(537,32),4KB)=0x110000."
 ubwc_dec_apb_reg_blk,0x0048,APB_ADDR_TILE_BASE1,RW,0x00000000,31:0,tile_base_addr_rgba_uv[63:32],High 32 bits of the RGBA or UV tile base address,Forms the full 64-bit address when AXI_AW=64
-ubwc_dec_apb_reg_blk,0x004c,APB_ADDR_TILE_BASE2,RW,0x00000000,31:0,tile_base_addr_y[31:0],Low 32 bits of the Y tile base address,
+ubwc_dec_apb_reg_blk,0x004c,APB_ADDR_TILE_BASE2,RW,0x00000000,31:0,tile_base_addr_y[31:0],Low 32 bits of the Y tile base address,"For YUV formats, program Y pixel/tile data start. Pixel size formula: pixel_pitch=align_up(width*bpp,tile_w*4*bpp); aligned_height=align_up(height,32); pixel_size=align_up(pixel_pitch*aligned_height,4KB). Example NV12 1996x1074: Y tile_base = Y_meta_base + Y_meta_size = 0xA00000 + 0x3000 = 0xA03000; Y pixel_pitch=2048, aligned_height=1088, Y_pixel_size=0x220000."
 ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_TILE_BASE3,RW,0x00000000,31:0,tile_base_addr_y[63:32],High 32 bits of the Y tile base address,Forms the full 64-bit address when AXI_AW=64
 ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,dynamic,0,frame_active,Whether the current frame is active,Set to 1 after start; cleared to 0 when the current frame fully completes
 ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS0,RO,dynamic,1,meta_busy,Metadata read stage busy,
