@@ -4,7 +4,7 @@ module ubwc_dec_tile_arcmd_gen
     #(
         parameter   AXI_AW          = 64    ,
         parameter   AXI_DW          = 256   ,
-        parameter   AXI_IDW         = 6     ,
+        parameter   AXI_IDW         = 4     ,
         parameter   SB_WIDTH        = 1
     )(
         input   wire                                clk                         ,
@@ -19,11 +19,12 @@ module ubwc_dec_tile_arcmd_gen
         input   wire    [12             -1:0]       i_cfg_pitch                 ,
 
         input   wire                                i_cfg_ci_input_type         ,
-        input   wire    [SB_WIDTH       -1:0]       i_cfg_ci_sb                 ,
         input   wire                                i_cfg_ci_lossy              ,
         input   wire    [2              -1:0]       i_cfg_ci_alpha_mode         ,
-        input   wire    [AXI_AW         -1:0]       i_cfg_base_addr_rgba_uv     ,
-        input   wire    [AXI_AW         -1:0]       i_cfg_base_addr_y           ,
+        input   wire    [AXI_AW         -1:0]       i_cfg_base_addr_rgba_y0     ,
+        input   wire    [AXI_AW         -1:0]       i_cfg_base_addr_uv0         ,
+        input   wire    [AXI_AW         -1:0]       i_cfg_base_addr_rgba_y1     ,
+        input   wire    [AXI_AW         -1:0]       i_cfg_base_addr_uv1         ,
 
     // Decoded metadata stream from ubwc_dec_meta_data_gen
         input   wire                                dec_meta_valid              ,
@@ -34,6 +35,7 @@ module ubwc_dec_tile_arcmd_gen
         input   wire                                dec_meta_has_payload        ,
         input   wire    [12             -1:0]       dec_meta_x                  ,
         input   wire    [10             -1:0]       dec_meta_y                  ,
+        input   wire    [4              -1:0]       dec_meta_fcnt               ,
 
         output  wire                                m_axi_arvalid               ,
         input   wire                                m_axi_arready               ,
@@ -64,6 +66,7 @@ module ubwc_dec_tile_arcmd_gen
         output  wire    [5              -1:0]       o_tile_format               ,
         output  wire    [12             -1:0]       o_tile_x_coord              ,
         output  wire    [10             -1:0]       o_tile_y_coord              ,
+        output  wire    [4              -1:0]       o_tile_fcnt                 ,
 
         output  wire                                o_cvi_valid                 ,
         output  wire    [256            -1:0]       o_cvi_data                  ,
@@ -87,22 +90,13 @@ module ubwc_dec_tile_arcmd_gen
     localparam integer                  CI_PAYLOAD_BIT             = 34;
     localparam integer                  CI_ADDR_LSB                = 35;
     localparam integer                  CI_ADDR_MSB                = CI_ADDR_LSB + AXI_AW - 1;
-    localparam integer                  CI_FIFO_W                  = CI_ADDR_MSB + 1;
+    localparam integer                  CI_ID_LSB                  = CI_ADDR_MSB + 1;
+    localparam integer                  CI_ID_MSB                  = CI_ID_LSB + AXI_IDW - 1;
+    localparam integer                  CI_FCNT_LSB                = CI_ID_MSB + 1;
+    localparam integer                  CI_FCNT_MSB                = CI_FCNT_LSB + 4 - 1;
+    localparam integer                  CI_FIFO_W                  = CI_FCNT_MSB + 1;
     localparam integer                  RDATA_FIFO_W               = AXI_DW + 1;
-    function [3-1:0] calc_axi_size;
-        input integer data_width;
-        integer bytes;
-        begin
-            bytes = data_width / 8;
-            calc_axi_size = 3'd0;
-            while (bytes > 1) begin
-                bytes = bytes >> 1;
-                calc_axi_size = calc_axi_size + 3'd1;
-            end
-        end
-    endfunction
-
-    localparam [3          -1:0]        AXI_ARSIZE                 = calc_axi_size(AXI_DW);
+    localparam [3          -1:0]        AXI_ARSIZE                 = 3'($clog2(AXI_DW >> 3));
 
     wire                                tile_cmd_valid             ;
     wire                                tile_cmd_ready             ;
@@ -111,6 +105,7 @@ module ubwc_dec_tile_arcmd_gen
     wire    [4              -1:0]       tile_cmd_meta              ;
     wire    [3              -1:0]       tile_cmd_alen              ;
     wire                                tile_cmd_has_payload       ;
+    wire    [4              -1:0]       tile_cmd_fcnt              ;
 
     ubwc_tile_addr #(
         .ADDR_W                         ( AXI_AW                                )
@@ -121,8 +116,10 @@ module ubwc_dec_tile_arcmd_gen
         .i_cfg_bank_spread_en            ( i_cfg_bank_spread_en                  ),
         .i_cfg_is_lossy_rgba_2_1_format  ( i_cfg_is_lossy_rgba_2_1_format        ),
         .i_cfg_pitch                     ( i_cfg_pitch                           ),
-        .i_cfg_base_addr_rgba_uv         ( i_cfg_base_addr_rgba_uv               ),
-        .i_cfg_base_addr_y               ( i_cfg_base_addr_y                     ),
+        .i_cfg_base_addr_rgba_y0         ( i_cfg_base_addr_rgba_y0               ),
+        .i_cfg_base_addr_uv0             ( i_cfg_base_addr_uv0                   ),
+        .i_cfg_base_addr_rgba_y1         ( i_cfg_base_addr_rgba_y1               ),
+        .i_cfg_base_addr_uv1             ( i_cfg_base_addr_uv1                   ),
         .i_meta_valid                    ( dec_meta_valid                        ),
         .o_meta_ready                    ( dec_meta_ready                        ),
         .i_meta_format                   ( dec_meta_format                       ),
@@ -131,32 +128,44 @@ module ubwc_dec_tile_arcmd_gen
         .i_meta_has_payload              ( dec_meta_has_payload                  ),
         .i_meta_x                        ( dec_meta_x                            ),
         .i_meta_y                        ( dec_meta_y                            ),
+        .i_meta_fcnt                     ( dec_meta_fcnt                         ),
         .o_cmd_valid                     ( tile_cmd_valid                        ),
         .i_cmd_ready                     ( tile_cmd_ready                        ),
         .o_cmd_addr                      ( tile_cmd_addr                         ),
         .o_cmd_format                    ( tile_cmd_format                       ),
         .o_cmd_meta                      ( tile_cmd_meta                         ),
         .o_cmd_alen                      ( tile_cmd_alen                         ),
-        .o_cmd_has_payload               ( tile_cmd_has_payload                  )
+        .o_cmd_has_payload               ( tile_cmd_has_payload                  ),
+        .o_cmd_fcnt                      ( tile_cmd_fcnt                         )
     );
 
-    wire    [AXI_AW     -1:0]           tile_cmd_addr_full         = {tile_cmd_addr, 4'b0000};
-    wire                                frame_start                = (i_frame_start == 1'b1);
-
-    wire    [CI_FIFO_W  -1:0]           ci_fifo_din                = {tile_cmd_addr_full, tile_cmd_has_payload, tile_cmd_format, tile_cmd_meta, tile_cmd_alen, dec_meta_x, dec_meta_y};
+    wire    [AXI_AW     -1:0]           tile_cmd_addr_full;
+    assign tile_cmd_addr_full = {tile_cmd_addr, 4'b0000};
+    wire    [AXI_IDW    -1:0]           tile_cmd_axi_id;
+    assign tile_cmd_axi_id = tile_cmd_fcnt;
+    wire    [CI_FIFO_W  -1:0]           ci_fifo_din;
+    assign ci_fifo_din = {tile_cmd_fcnt, tile_cmd_axi_id, tile_cmd_addr_full, tile_cmd_has_payload, tile_cmd_format, tile_cmd_meta, tile_cmd_alen, dec_meta_x, dec_meta_y};
     wire    [CI_FIFO_W  -1:0]           ci_fifo_dout               ;
     wire                                ci_fifo_full               ;
     wire                                ci_fifo_prog_full          ;
     wire                                ci_fifo_empty              ;
     wire                                ci_fifo_valid              ;
     wire    [7          -1:0]           ci_fifo_data_count         ;
-    wire                                ci_fifo_wr_en              = tile_cmd_valid && tile_cmd_ready;
+    wire                                ci_fifo_wr_en;
+    assign ci_fifo_wr_en = tile_cmd_valid && tile_cmd_ready;
     wire                                ci_fifo_rd_en              ;
-    wire                                ci_fifo_has_payload        = ci_fifo_dout[CI_PAYLOAD_BIT];
-    wire    [AXI_AW     -1:0]           ci_fifo_addr               = ci_fifo_dout[CI_ADDR_MSB:CI_ADDR_LSB];
-    wire    [3          -1:0]           ci_fifo_alen               = ci_fifo_dout[CI_ALEN_MSB:CI_ALEN_LSB];
-    wire    [4          -1:0]           ci_fifo_payload_beats      = {1'b0, ci_fifo_alen} + 4'd1;
-    wire                                ci_fifo_status_seen        = ci_fifo_prog_full | (|ci_fifo_data_count);
+    wire                                ci_fifo_has_payload;
+    assign ci_fifo_has_payload = ci_fifo_dout[CI_PAYLOAD_BIT];
+    wire    [AXI_AW     -1:0]           ci_fifo_addr;
+    assign ci_fifo_addr = ci_fifo_dout[CI_ADDR_MSB:CI_ADDR_LSB];
+    wire    [AXI_IDW    -1:0]           ci_fifo_axi_id;
+    assign ci_fifo_axi_id = ci_fifo_dout[CI_ID_MSB:CI_ID_LSB];
+    wire    [3          -1:0]           ci_fifo_alen;
+    assign ci_fifo_alen = ci_fifo_dout[CI_ALEN_MSB:CI_ALEN_LSB];
+    wire    [4          -1:0]           ci_fifo_payload_beats;
+    assign ci_fifo_payload_beats = {1'b0, ci_fifo_alen} + 4'd1;
+    wire                                ci_fifo_status_seen;
+    assign ci_fifo_status_seen = ci_fifo_prog_full | (|ci_fifo_data_count);
 
     mg_sync_fifo #(
         .PROG_DEPTH                    ( 1                                     ),
@@ -165,7 +174,8 @@ module ubwc_dec_tile_arcmd_gen
         .SHOW_AHEAD                    ( 1                                     )
     ) u_ci_fifo (
         .clk                           ( clk                                   ),
-        .rst_n                         ( rst_n && !frame_start                 ),
+        .rst_n                         ( rst_n                                 ),
+        .sclr                          ( 1'b0                                  ),
         .wr_en                         ( ci_fifo_wr_en                         ),
         .din                           ( ci_fifo_din                           ),
         .prog_full                     ( ci_fifo_prog_full                     ),
@@ -185,10 +195,14 @@ module ubwc_dec_tile_arcmd_gen
     wire    [7          -1:0]           ci_pending_fifo_data_count ;
     wire                                ci_pending_fifo_wr_en      ;
     wire                                ci_pending_fifo_rd_en      ;
-    wire                                ci_pending_has_payload     = ci_pending_fifo_dout[CI_PAYLOAD_BIT];
-    wire    [3          -1:0]           ci_pending_alen            = ci_pending_fifo_dout[CI_ALEN_MSB:CI_ALEN_LSB];
-    wire    [4          -1:0]           ci_pending_payload_beats   = {1'b0, ci_pending_alen} + 4'd1;
-    wire                                ci_pending_status_seen     = ci_pending_fifo_prog_full | (|ci_pending_fifo_data_count);
+    wire                                ci_pending_has_payload;
+    assign ci_pending_has_payload = ci_pending_fifo_dout[CI_PAYLOAD_BIT];
+    wire    [3          -1:0]           ci_pending_alen;
+    assign ci_pending_alen = ci_pending_fifo_dout[CI_ALEN_MSB:CI_ALEN_LSB];
+    wire    [4          -1:0]           ci_pending_payload_beats;
+    assign ci_pending_payload_beats = {1'b0, ci_pending_alen} + 4'd1;
+    wire                                ci_pending_status_seen;
+    assign ci_pending_status_seen = ci_pending_fifo_prog_full | (|ci_pending_fifo_data_count);
 
     wire    [RDATA_FIFO_W-1:0]          rdata_fifo_din             ;
     wire    [RDATA_FIFO_W-1:0]          rdata_fifo_dout            ;
@@ -199,50 +213,91 @@ module ubwc_dec_tile_arcmd_gen
     wire    [6          -1:0]           rdata_fifo_data_count      ;
     wire                                rdata_fifo_wr_en           ;
     wire                                rdata_fifo_rd_en           ;
-    wire                                rdata_fifo_last            = rdata_fifo_dout[AXI_DW];
-    wire                                rdata_fifo_status_seen     = rdata_fifo_prog_full | (|rdata_fifo_data_count);
+    wire                                rdata_fifo_last;
+    assign rdata_fifo_last = rdata_fifo_dout[AXI_DW];
+    wire                                rdata_fifo_status_seen;
+    assign rdata_fifo_status_seen = rdata_fifo_prog_full | (|rdata_fifo_data_count);
 
     reg     [AXI_AW     -1:0]           ar_req_addr_reg            ;
+    reg     [AXI_IDW    -1:0]           ar_req_axi_id_reg          ;
     reg     [4          -1:0]           ar_req_beats_left_reg      ;
     reg     [4          -1:0]           payload_beats_left_reg     ;
     reg     [CI_FIFO_W  -1:0]           ci_out_data_reg            ;
     reg                                 ci_out_valid_reg           ;
     reg                                 cvi_stream_active_reg      ;
     reg     [4          -1:0]           cvi_stream_beats_left_reg  ;
+    reg                                 ci_pending_payload_done_reg ;
 
-    wire                                ar_split_active            = (ar_req_beats_left_reg != 4'd0);
-    wire    [AXI_AW     -1:0]           ar_req_addr                = ar_split_active ? ar_req_addr_reg : ci_fifo_addr;
-    wire    [4          -1:0]           ar_req_beats_left          = ar_split_active ? ar_req_beats_left_reg : ci_fifo_payload_beats;
-    wire    [8          -1:0]           ar_boundary_beats          = 8'd128 - {1'b0, ar_req_addr[11:5]};
-    wire    [4          -1:0]           ar_issue_beats             = (ar_boundary_beats[7:4] != 4'd0) ? ar_req_beats_left :
+    wire                                ar_split_active;
+    assign ar_split_active = (ar_req_beats_left_reg != 4'd0);
+    wire    [AXI_AW     -1:0]           ar_req_addr;
+    assign ar_req_addr = ar_split_active ? ar_req_addr_reg : ci_fifo_addr;
+    wire    [AXI_IDW    -1:0]           ar_req_axi_id;
+    assign ar_req_axi_id = ar_split_active ? ar_req_axi_id_reg : ci_fifo_axi_id;
+    wire    [4          -1:0]           ar_req_beats_left;
+    assign ar_req_beats_left = ar_split_active ? ar_req_beats_left_reg : ci_fifo_payload_beats;
+    wire    [8          -1:0]           ar_boundary_beats;
+    assign ar_boundary_beats = 8'd128 - {1'b0, ar_req_addr[11:5]};
+    wire    [4          -1:0]           ar_issue_beats;
+    assign ar_issue_beats = (ar_boundary_beats[7:4] != 4'd0) ? ar_req_beats_left :
                                                                      ((ar_req_beats_left <= ar_boundary_beats[3:0]) ? ar_req_beats_left : ar_boundary_beats[3:0]);
-    wire    [4          -1:0]           ar_next_beats_left         = ar_req_beats_left - ar_issue_beats;
-    wire    [AXI_AW     -1:0]           ar_next_addr               = ar_req_addr + {{(AXI_AW-9){1'b0}}, ar_issue_beats, 5'b0};
-    wire                                ar_valid_from_fifo         = ci_fifo_valid && ci_fifo_has_payload && !ci_pending_fifo_full && !ar_split_active;
-    wire                                ar_fire                    = m_axi_arvalid && m_axi_arready;
-    wire                                ar_first_fire              = ar_fire && !ar_split_active;
-    wire                                ci_fifo_no_payload_fire    = ci_fifo_valid && !ci_fifo_has_payload && !ci_pending_fifo_full;
-    wire                                payload_active             = (payload_beats_left_reg != 4'd0);
-    wire                                ci_out_fire                = o_ci_valid && i_ci_ready;
-    wire                                ci_out_has_payload         = ci_out_data_reg[CI_PAYLOAD_BIT];
-    wire    [3          -1:0]           ci_out_alen                = ci_out_data_reg[CI_ALEN_MSB:CI_ALEN_LSB];
-    wire    [4          -1:0]           ci_out_payload_beats       = {1'b0, ci_out_alen} + 4'd1;
-    wire                                ci_out_can_load            = !ci_out_valid_reg;
-    wire                                ci_pending_load_no_payload = ci_pending_fifo_valid && !ci_pending_has_payload && ci_out_can_load;
-    wire                                r_collect_active           = ci_pending_fifo_valid && ci_pending_has_payload;
-    wire    [4          -1:0]           r_collect_beats_left       = payload_active ? payload_beats_left_reg : ci_pending_payload_beats;
-    wire                                r_collect_last             = (r_collect_beats_left <= 4'd1);
-    wire                                r_collect_ready            = !rdata_fifo_full && (!r_collect_last || ci_out_can_load);
-    wire                                r_fire                     = m_axi_rvalid && m_axi_rready && r_collect_active;
-    wire                                r_collect_done             = r_fire && r_collect_last;
-    wire                                cvi_stream_last            = (cvi_stream_beats_left_reg <= 4'd1);
-    wire                                axi_rside_seen             = (|m_axi_rid) | (|m_axi_rresp);
+    wire    [4          -1:0]           ar_next_beats_left;
+    assign ar_next_beats_left = ar_req_beats_left - ar_issue_beats;
+    wire    [AXI_AW     -1:0]           ar_next_addr;
+    assign ar_next_addr = ar_req_addr + {{(AXI_AW-9){1'b0}}, ar_issue_beats, 5'b0};
+    wire                                ar_valid_from_fifo;
+    assign ar_valid_from_fifo = ci_fifo_valid && ci_fifo_has_payload && !ci_pending_fifo_full && !ar_split_active;
+    wire                                ar_fire;
+    assign ar_fire = m_axi_arvalid && m_axi_arready;
+    wire                                ar_first_fire;
+    assign ar_first_fire = ar_fire && !ar_split_active;
+    wire                                ci_fifo_no_payload_fire;
+    assign ci_fifo_no_payload_fire = ci_fifo_valid && !ci_fifo_has_payload && !ci_pending_fifo_full;
+    wire                                payload_active;
+    assign payload_active = (payload_beats_left_reg != 4'd0);
+    wire                                ci_out_fire;
+    assign ci_out_fire = o_ci_valid && i_ci_ready;
+    wire                                ci_out_has_payload;
+    assign ci_out_has_payload = ci_out_data_reg[CI_PAYLOAD_BIT];
+    wire    [4          -1:0]           ci_out_fcnt;
+    assign ci_out_fcnt = ci_out_data_reg[CI_FCNT_MSB:CI_FCNT_LSB];
+    wire    [3          -1:0]           ci_out_alen;
+    assign ci_out_alen = ci_out_data_reg[CI_ALEN_MSB:CI_ALEN_LSB];
+    wire    [4          -1:0]           ci_out_payload_beats;
+    assign ci_out_payload_beats = {1'b0, ci_out_alen} + 4'd1;
+    wire                                ci_out_can_load;
+    assign ci_out_can_load = !ci_out_valid_reg;
+    wire                                ci_pending_done_can_load;
+    assign ci_pending_done_can_load = ci_pending_payload_done_reg && ci_out_can_load;
+    wire                                ci_pending_load_no_payload;
+    assign ci_pending_load_no_payload = ci_pending_fifo_valid && !ci_pending_has_payload && ci_out_can_load;
+    wire                                r_collect_active;
+    assign r_collect_active = ci_pending_fifo_valid && ci_pending_has_payload &&
+                                                                      !ci_pending_payload_done_reg &&
+                                                                      !cvi_stream_active_reg &&
+                                                                      ci_out_can_load;
+    wire    [4          -1:0]           r_collect_beats_left;
+    assign r_collect_beats_left = payload_active ? payload_beats_left_reg : ci_pending_payload_beats;
+    wire                                r_collect_last;
+    assign r_collect_last = (r_collect_beats_left <= 4'd1);
+    wire                                r_collect_ready;
+    assign r_collect_ready = !rdata_fifo_full;
+    wire                                r_fire;
+    assign r_fire = m_axi_rvalid && m_axi_rready && r_collect_active;
+    wire                                r_collect_done;
+    assign r_collect_done = r_fire && r_collect_last;
+    wire                                cvi_stream_last;
+    assign cvi_stream_last = (cvi_stream_beats_left_reg <= 4'd1);
+    wire                                axi_rside_seen;
+    assign axi_rside_seen = (|m_axi_rid) | (|m_axi_rresp);
 
     assign tile_cmd_ready = !ci_fifo_full;
 
     assign ci_fifo_rd_en         = ar_first_fire | ci_fifo_no_payload_fire;
     assign ci_pending_fifo_wr_en = ci_fifo_rd_en;
-    assign ci_pending_fifo_rd_en = r_collect_done | ci_pending_load_no_payload;
+    assign ci_pending_fifo_rd_en = (r_collect_done && ci_out_can_load) |
+                                   ci_pending_done_can_load |
+                                   ci_pending_load_no_payload;
 
     mg_sync_fifo #(
         .PROG_DEPTH                    ( 1                                     ),
@@ -251,7 +306,8 @@ module ubwc_dec_tile_arcmd_gen
         .SHOW_AHEAD                    ( 1                                     )
     ) u_ci_pending_fifo (
         .clk                           ( clk                                   ),
-        .rst_n                         ( rst_n && !frame_start                 ),
+        .rst_n                         ( rst_n                                 ),
+        .sclr                          ( 1'b0                                  ),
         .wr_en                         ( ci_pending_fifo_wr_en                 ),
         .din                           ( ci_fifo_dout                          ),
         .prog_full                     ( ci_pending_fifo_prog_full             ),
@@ -274,7 +330,8 @@ module ubwc_dec_tile_arcmd_gen
         .SHOW_AHEAD                    ( 1                                     )
     ) u_rdata_fifo (
         .clk                           ( clk                                   ),
-        .rst_n                         ( rst_n && !frame_start                 ),
+        .rst_n                         ( rst_n                                 ),
+        .sclr                          ( 1'b0                                  ),
         .wr_en                         ( rdata_fifo_wr_en                      ),
         .din                           ( rdata_fifo_din                        ),
         .prog_full                     ( rdata_fifo_prog_full                  ),
@@ -293,62 +350,86 @@ module ubwc_dec_tile_arcmd_gen
     assign o_ci_alen        = ci_out_data_reg[CI_ALEN_MSB:CI_ALEN_LSB];
     assign o_ci_lossy       = i_cfg_ci_lossy;
     assign o_ci_alpha_mode  = i_cfg_ci_alpha_mode;
-    assign o_ci_sb          = i_cfg_ci_sb;
+    assign o_ci_sb          = {{(SB_WIDTH-1){1'b0}}, ci_out_fcnt[0]};
     assign o_tile_coord_vld = ci_out_fire;
     assign o_tile_format    = ci_out_data_reg[CI_FORMAT_MSB:CI_FORMAT_LSB];
     assign o_tile_x_coord   = ci_out_data_reg[CI_X_MSB:CI_X_LSB];
     assign o_tile_y_coord   = ci_out_data_reg[CI_Y_MSB:CI_Y_LSB];
+    assign o_tile_fcnt      = ci_out_fcnt;
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            ar_req_addr_reg         <= {AXI_AW{1'b0}};
-            ar_req_beats_left_reg   <= 4'd0;
-            payload_beats_left_reg  <= 4'd0;
-            ci_out_data_reg         <= {CI_FIFO_W{1'b0}};
-            ci_out_valid_reg        <= 1'b0;
-            cvi_stream_active_reg   <= 1'b0;
+        if (!rst_n)
+            ar_req_addr_reg <= {AXI_AW{1'b0}};
+        else if (ar_fire)
+            ar_req_addr_reg <= ar_next_addr;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            ar_req_axi_id_reg <= {AXI_IDW{1'b0}};
+        else if (ar_fire)
+            ar_req_axi_id_reg <= ar_req_axi_id;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            ar_req_beats_left_reg <= 4'd0;
+        else if (ar_fire)
+            ar_req_beats_left_reg <= ar_next_beats_left;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            payload_beats_left_reg <= 4'd0;
+        else if (r_collect_done)
+            payload_beats_left_reg <= 4'd0;
+        else if (r_fire)
+            payload_beats_left_reg <= r_collect_beats_left - 4'd1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            ci_out_data_reg <= {CI_FIFO_W{1'b0}};
+        else if (ci_pending_fifo_rd_en)
+            ci_out_data_reg <= ci_pending_fifo_dout;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            ci_out_valid_reg <= 1'b0;
+        else if (ci_pending_fifo_rd_en)
+            ci_out_valid_reg <= 1'b1;
+        else if (ci_out_fire)
+            ci_out_valid_reg <= 1'b0;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            cvi_stream_active_reg <= 1'b0;
+        else if (ci_out_fire && ci_out_has_payload)
+            cvi_stream_active_reg <= 1'b1;
+        else if (rdata_fifo_rd_en && cvi_stream_last)
+            cvi_stream_active_reg <= 1'b0;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
             cvi_stream_beats_left_reg <= 4'd0;
-        end else if (frame_start) begin
-            ar_req_addr_reg         <= {AXI_AW{1'b0}};
-            ar_req_beats_left_reg   <= 4'd0;
-            payload_beats_left_reg  <= 4'd0;
-            ci_out_data_reg         <= {CI_FIFO_W{1'b0}};
-            ci_out_valid_reg        <= 1'b0;
-            cvi_stream_active_reg   <= 1'b0;
+        else if (ci_out_fire && ci_out_has_payload)
+            cvi_stream_beats_left_reg <= ci_out_payload_beats;
+        else if (rdata_fifo_rd_en && cvi_stream_last)
             cvi_stream_beats_left_reg <= 4'd0;
-        end else begin
-            if (ar_fire) begin
-                ar_req_addr_reg       <= ar_next_addr;
-                ar_req_beats_left_reg <= ar_next_beats_left;
-            end
+        else if (rdata_fifo_rd_en)
+            cvi_stream_beats_left_reg <= cvi_stream_beats_left_reg - 4'd1;
+    end
 
-            if (ci_out_fire) begin
-                ci_out_valid_reg <= 1'b0;
-            end
-
-            if (ci_pending_fifo_rd_en) begin
-                ci_out_data_reg  <= ci_pending_fifo_dout;
-                ci_out_valid_reg <= 1'b1;
-            end
-
-            if (ci_out_fire && ci_out_has_payload) begin
-                cvi_stream_active_reg     <= 1'b1;
-                cvi_stream_beats_left_reg <= ci_out_payload_beats;
-            end else if (rdata_fifo_rd_en) begin
-                if (cvi_stream_last) begin
-                    cvi_stream_active_reg     <= 1'b0;
-                    cvi_stream_beats_left_reg <= 4'd0;
-                end else begin
-                    cvi_stream_beats_left_reg <= cvi_stream_beats_left_reg - 4'd1;
-                end
-            end
-
-            if (r_collect_done) begin
-                payload_beats_left_reg <= 4'd0;
-            end else if (r_fire) begin
-                payload_beats_left_reg <= r_collect_beats_left - 4'd1;
-            end
-        end
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            ci_pending_payload_done_reg <= 1'b0;
+        else if (r_collect_done && !ci_out_can_load)
+            ci_pending_payload_done_reg <= 1'b1;
+        else if (ci_pending_done_can_load)
+            ci_pending_payload_done_reg <= 1'b0;
     end
 
     assign m_axi_arvalid    = ar_split_active | ar_valid_from_fifo;
@@ -356,9 +437,9 @@ module ubwc_dec_tile_arcmd_gen
     assign m_axi_arlen      = {4'd0, ar_issue_beats} - 8'd1;
     assign m_axi_arsize     = AXI_ARSIZE;
     assign m_axi_arburst    = 2'b01;
-    assign m_axi_arid       = {AXI_IDW{1'b0}};
+    assign m_axi_arid       = ar_req_axi_id;
 
-    assign m_axi_rready     = r_collect_active ? r_collect_ready : 1'b1;
+    assign m_axi_rready     = r_collect_active && r_collect_ready;
     assign o_cvi_valid      = cvi_stream_active_reg && rdata_fifo_valid;
     assign o_cvi_data       = rdata_fifo_dout[0+:AXI_DW];
     assign o_cvi_last       = o_cvi_valid && rdata_fifo_last;

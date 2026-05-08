@@ -33,12 +33,16 @@ module ubwc_enc_tile_addr
         input   wire                        i_is_lossy_rgba_2_1_format,
         input   wire    [12 -1:0]           i_tile_pitch,
 
-        input   wire    [64 -1:0]           i_y_base_offset_addr    ,
-        input   wire    [64 -1:0]           i_uv_base_offset_addr   ,
+        input   wire    [64 -1:0]           i_y_base_offset_addr0   ,
+        input   wire    [64 -1:0]           i_uv_base_offset_addr0  ,
+        input   wire    [64 -1:0]           i_y_base_offset_addr1   ,
+        input   wire    [64 -1:0]           i_uv_base_offset_addr1  ,
+        input   wire                        i_addr_cfg_valid        ,
 
         input   wire    [TH_DW -1:0]        i_ycoord,
         input   wire    [TW_DW -1:0]        i_xcoord,
         input   wire    [5  -1:0]           i_format,
+        input   wire    [4  -1:0]           i_fcnt,
     
         input   wire                        i_co_valid,
         output  wire                        o_co_ready,
@@ -48,6 +52,7 @@ module ubwc_enc_tile_addr
     
         output  reg     [28 -1:0]           o_tile_addr,
         output  reg     [3  -1:0]           o_tile_alen,
+        output  reg     [4  -1:0]           o_tile_fcnt,
         output  reg                         o_tile_addr_vld
     );
 
@@ -82,9 +87,11 @@ module ubwc_enc_tile_addr
     wire [27:0]             active_xcoord;
     wire [4:0]              active_format;
     wire                    active_is_uv_plane;
+    wire [63:0]             active_y_base_offset_addr;
+    wire [63:0]             active_uv_base_offset_addr;
     wire [27:0]             active_base_offset_addr;
 
-    assign o_co_ready               = 1'b1;
+    assign o_co_ready               = i_addr_cfg_valid;
     assign active_format            = i_format;
     assign active_ycoord            = {{(13-TH_DW){1'b0}}, i_ycoord};
     assign active_xcoord            = {{(28-TW_DW){1'b0}}, i_xcoord};
@@ -92,8 +99,10 @@ module ubwc_enc_tile_addr
                                 (active_format == FMT_NV16_UV)    ||
                                 (active_format == FMT_NV16_10_UV) ||
                                 (active_format == FMT_P010_UV);
-    assign active_base_offset_addr = active_is_uv_plane ? i_uv_base_offset_addr[31:4] :
-                                                          i_y_base_offset_addr[31:4];
+    assign active_y_base_offset_addr  = i_fcnt[0] ? i_y_base_offset_addr1  : i_y_base_offset_addr0;
+    assign active_uv_base_offset_addr = i_fcnt[0] ? i_uv_base_offset_addr1 : i_uv_base_offset_addr0;
+    assign active_base_offset_addr = active_is_uv_plane ? active_uv_base_offset_addr[31:4] :
+                                                          active_y_base_offset_addr[31:4];
     assign lossy_rgba_2_1_active = i_is_lossy_rgba_2_1_format && (active_format == FMT_RGBA8888);
 
     assign ycoord_int_sel   = i_is_lossy_rgba_2_1_format ? {1'b0, active_ycoord[12:1]} : active_ycoord;
@@ -209,19 +218,31 @@ module ubwc_enc_tile_addr
     assign tile_addr_with_base = tile_addr_calc + active_base_offset_addr;
 
     always @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn) begin
-            o_tile_addr     <= '0;
-            o_tile_alen     <= '0;
-            o_tile_addr_vld <= 1'b0;
-        end else begin
-            o_tile_addr_vld <= 1'b0;
+        if (!i_rstn)
+            o_tile_addr <= '0;
+        else if (i_co_valid && i_addr_cfg_valid)
+            o_tile_addr <= tile_addr_with_base;
+    end
 
-            if (i_co_valid) begin
-                o_tile_addr     <= tile_addr_with_base;
-                o_tile_alen     <= i_co_alen;
-                o_tile_addr_vld <= 1'b1;
-            end
-        end
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            o_tile_alen <= '0;
+        else if (i_co_valid && i_addr_cfg_valid)
+            o_tile_alen <= i_co_alen;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            o_tile_fcnt <= '0;
+        else if (i_co_valid && i_addr_cfg_valid)
+            o_tile_fcnt <= i_fcnt;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            o_tile_addr_vld <= 1'b0;
+        else
+            o_tile_addr_vld <= i_co_valid && i_addr_cfg_valid;
     end
 
 endmodule

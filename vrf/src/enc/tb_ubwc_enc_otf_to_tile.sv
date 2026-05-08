@@ -78,8 +78,9 @@ module tb_ubwc_enc_otf_to_tile #(
     logic [15:0]        cfg_active_height;
     logic [15:0]        cfg_tile_w;
     logic [3:0]         cfg_tile_h;
-    logic [15:0]        cfg_a_tile_cols;
-    logic [15:0]        cfg_b_tile_cols;
+    logic [15:0]        cfg_y_tile_cols;
+    logic [15:0]        cfg_uv_tile_cols;
+    logic               err_clear;
 
     logic               otf_vsync;
     logic               otf_hsync;
@@ -147,11 +148,12 @@ module tb_ubwc_enc_otf_to_tile #(
         .i_cfg_active_height(cfg_active_height),
         .i_cfg_tile_w   (cfg_tile_w),
         .i_cfg_tile_h   (cfg_tile_h),
-        .i_cfg_a_tile_cols(cfg_a_tile_cols),
-        .i_cfg_b_tile_cols(cfg_b_tile_cols),
+        .i_cfg_y_tile_cols(cfg_y_tile_cols),
+        .i_cfg_uv_tile_cols(cfg_uv_tile_cols),
         .o_err_bline    (err_bline),
         .o_err_bframe   (err_bframe),
         .o_err_fifo_ovf (err_fifo_ovf),
+        .i_err_clear    (err_clear),
         .i_otf_vsync    (otf_vsync),
         .i_otf_hsync    (otf_hsync),
         .i_otf_de       (otf_de),
@@ -312,8 +314,9 @@ module tb_ubwc_enc_otf_to_tile #(
             cfg_active_height = 16'd0;
             cfg_tile_w      = 16'd0;
             cfg_tile_h      = 4'd0;
-            cfg_a_tile_cols = 16'd0;
-            cfg_b_tile_cols = 16'd0;
+            cfg_y_tile_cols = 16'd0;
+            cfg_uv_tile_cols = 16'd0;
+            err_clear      = 1'b0;
             otf_vsync       = 1'b0;
             otf_hsync       = 1'b0;
             otf_de          = 1'b0;
@@ -458,8 +461,8 @@ module tb_ubwc_enc_otf_to_tile #(
             cfg_active_height = FRAME_H[15:0];
             cfg_tile_w      = 16'd16;
             cfg_tile_h      = 4'd4;
-            cfg_a_tile_cols = TILE_COLS[15:0];
-            cfg_b_tile_cols = 16'd0;
+            cfg_y_tile_cols = TILE_COLS[15:0];
+            cfg_uv_tile_cols = 16'd0;
 
             repeat (8) @(posedge clk);
             send_rgba_frame();
@@ -495,8 +498,8 @@ module tb_ubwc_enc_otf_to_tile #(
             cfg_active_height = FRAME_H[15:0];
             cfg_tile_w      = 16'd16;
             cfg_tile_h      = 4'd8;
-            cfg_a_tile_cols = TILE_COLS[15:0];
-            cfg_b_tile_cols = TILE_COLS[15:0];
+            cfg_y_tile_cols = TILE_COLS[15:0];
+            cfg_uv_tile_cols = TILE_COLS[15:0];
 
             repeat (8) @(posedge clk);
             send_yuv420_frame();

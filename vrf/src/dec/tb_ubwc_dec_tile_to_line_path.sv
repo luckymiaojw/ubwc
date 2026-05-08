@@ -209,6 +209,7 @@ module tb_ubwc_dec_tile_to_line_path;
         .s_axis_format  (s_axis_format),
         .s_axis_tile_x  (s_axis_tile_x),
         .s_axis_tile_y  (s_axis_tile_y),
+        .s_axis_tile_fcnt(4'd0),
         .s_axis_tile_valid(s_axis_tile_valid),
         .s_axis_tile_ready(s_axis_tile_ready),
         .s_axis_tdata   (s_axis_tdata),
@@ -252,6 +253,7 @@ module tb_ubwc_dec_tile_to_line_path;
         .cfg_format     (cfg_format),
         .i_buffer_vld   (writer_vld),
         .i_writer_bank  (writer_bank),
+        .i_buffer_fcnt (4'd0),
         .o_sram_a_ren   (sram_a_ren),
         .o_sram_a_raddr (sram_a_raddr),
         .i_sram_a_rdata (sram_a_rdata),
@@ -260,9 +262,11 @@ module tb_ubwc_dec_tile_to_line_path;
         .i_sram_b_rdata (sram_b_rdata),
         .o_fifo_wr_en   (fifo_wr_en),
         .o_fifo_wdata   (fifo_wdata),
+        .o_fifo_fcnt  (),
         .i_fifo_full    (1'b0),
         .o_fetcher_done (fetcher_done),
-        .o_fetcher_bank (fetcher_bank)
+        .o_fetcher_bank (fetcher_bank),
+        .o_fetcher_fcnt ()
     );
 
     initial begin

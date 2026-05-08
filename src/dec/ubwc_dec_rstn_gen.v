@@ -20,8 +20,10 @@ module ubwc_dec_rstn_gen (
     output wire o_otf_rst_n
 );
 
-    wire       ctrl_rst_n_async = i_presetn & i_axi_rstn;
-    wire       otf_rst_n_async  = i_presetn & i_axi_rstn & i_otf_rstn;
+    wire       ctrl_rst_n_async;
+    assign ctrl_rst_n_async = i_presetn & i_axi_rstn;
+    wire       otf_rst_n_async;
+    assign otf_rst_n_async = i_presetn & i_axi_rstn & i_otf_rstn;
     reg  [1:0] ctrl_rst_n_sync;
     reg  [1:0] otf_rst_n_sync;
 

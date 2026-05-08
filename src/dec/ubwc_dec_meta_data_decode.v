@@ -10,6 +10,7 @@ module ubwc_dec_meta_data_decode #(
     input  wire [7:0]  i_meta_data,
     input  wire [11:0] i_meta_x,
     input  wire [9:0]  i_meta_y,
+    input  wire [3:0]  i_meta_fcnt,
     output wire        o_dec_valid,
     input  wire        i_dec_ready,
     output wire [4:0]  o_dec_format,
@@ -17,7 +18,8 @@ module ubwc_dec_meta_data_decode #(
     output wire [2:0]  o_dec_alen,
     output wire        o_dec_has_payload,
     output wire [11:0] o_dec_x,
-    output wire [9:0]  o_dec_y
+    output wire [9:0]  o_dec_y,
+    output wire [3:0]  o_dec_fcnt
 );
 
     localparam [4:0] META_FMT_RGBA8888    = 5'b00000;
@@ -25,8 +27,10 @@ module ubwc_dec_meta_data_decode #(
     reg [8:0] compressed_size;
     reg [3:0] meta_flag;
     reg [1:0] alpha_mode;
-    wire [3:0] dec_alen_ext = compressed_size[8:5] - 4'd1;
-    wire is_rgba8888_lossy_2_1 = i_cfg_is_lossy_rgba_2_1_format && (i_meta_format == META_FMT_RGBA8888);
+    wire [3:0] dec_alen_ext;
+    assign dec_alen_ext = compressed_size[8:5] - 4'd1;
+    wire is_rgba8888_lossy_2_1;
+    assign is_rgba8888_lossy_2_1 = i_cfg_is_lossy_rgba_2_1_format && (i_meta_format == META_FMT_RGBA8888);
 
     always @(*) begin
         compressed_size = 9'd0;
@@ -66,5 +70,6 @@ module ubwc_dec_meta_data_decode #(
     assign o_dec_has_payload = (compressed_size != 0) | (dec_alen_ext[3] & 1'b0);
     assign o_dec_x           = i_meta_x;
     assign o_dec_y           = i_meta_y;
+    assign o_dec_fcnt        = i_meta_fcnt;
 
 endmodule

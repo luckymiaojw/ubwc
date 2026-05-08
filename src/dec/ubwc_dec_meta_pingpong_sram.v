@@ -63,9 +63,12 @@ module ubwc_dec_meta_pingpong_sram #(
     reg [ADDR_W-1:0]   rd_issue_addr;
     reg                rd_issue_hit;
 
-    integer i;
-    integer j;
-    integer lane;
+`ifndef SYNTHESIS
+    integer bank_a_i;
+    integer bank_a_j;
+    integer bank_b_i;
+    integer bank_b_j;
+`endif
 
     function automatic [LANE_W-1:0] onehot_to_idx;
         input [NUM_LANES-1:0] onehot;
@@ -80,16 +83,40 @@ module ubwc_dec_meta_pingpong_sram #(
         end
     endfunction
 
-    wire                  rd_req_any    = |rd_re_a || |rd_re_b;
-    wire                  rd_req_bank_b = |rd_re_b;
-    wire [LANE_W-1:0]     rd_req_lane   = onehot_to_idx(rd_req_bank_b ? rd_re_b : rd_re_a);
-    wire                  cand_valid    = rd_pending_valid || rd_req_any;
-    wire                  cand_bank_b   = rd_pending_valid ? rd_pending_bank_b : rd_req_bank_b;
-    wire [LANE_W-1:0]     cand_lane     = rd_pending_valid ? rd_pending_lane   : rd_req_lane;
-    wire [ADDR_W-1:0]     cand_addr     = rd_pending_valid ? rd_pending_addr   : rd_addr;
-    wire                  cand_conflict = cand_bank_b ? wr_we_b[cand_lane] : wr_we_a[cand_lane];
-    wire                  issue_now     = cand_valid && !cand_conflict;
-    wire                  store_new_req = !rd_pending_valid && rd_req_any && !issue_now;
+    function automatic [31:0] count_ones;
+        input [NUM_LANES-1:0] bits;
+        integer idx;
+        begin
+            count_ones = 32'd0;
+            for (idx = 0; idx < NUM_LANES; idx = idx + 1) begin
+                if (bits[idx])
+                    count_ones = count_ones + 32'd1;
+            end
+        end
+    endfunction
+
+    wire                  rd_req_any;
+    assign rd_req_any = |rd_re_a || |rd_re_b;
+    wire                  rd_req_bank_b;
+    assign rd_req_bank_b = |rd_re_b;
+    wire [LANE_W-1:0]     rd_req_lane;
+    assign rd_req_lane = onehot_to_idx(rd_req_bank_b ? rd_re_b : rd_re_a);
+    wire                  cand_valid;
+    assign cand_valid = rd_pending_valid || rd_req_any;
+    wire                  cand_bank_b;
+    assign cand_bank_b = rd_pending_valid ? rd_pending_bank_b : rd_req_bank_b;
+    wire [LANE_W-1:0]     cand_lane;
+    assign cand_lane = rd_pending_valid ? rd_pending_lane   : rd_req_lane;
+    wire [ADDR_W-1:0]     cand_addr;
+    assign cand_addr = rd_pending_valid ? rd_pending_addr   : rd_addr;
+    wire                  cand_conflict;
+    assign cand_conflict = cand_bank_b ? wr_we_b[cand_lane] : wr_we_a[cand_lane];
+    wire                  issue_now;
+    assign issue_now = cand_valid && !cand_conflict;
+    wire                  store_new_req;
+    assign store_new_req = !rd_pending_valid && rd_req_any && !issue_now;
+    wire [31:0]           wr_inc;
+    assign wr_inc = count_ones(wr_we_a) + count_ones(wr_we_b);
 
     assign rd_rdata = rd_rsp_hit ? (rd_rsp_bank_b ? bank_b_dout[rd_rsp_lane] : bank_a_dout[rd_rsp_lane]) :
                                   MISS_DATA;
@@ -137,88 +164,136 @@ module ubwc_dec_meta_pingpong_sram #(
     endgenerate
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            rd_rvalid         <= 1'b0;
-            rd_rsp_bank_b     <= 1'b0;
-            rd_rsp_lane       <= {LANE_W{1'b0}};
-            rd_rsp_addr       <= {ADDR_W{1'b0}};
-            rd_rsp_hit        <= 1'b0;
-            wr_cnt            <= 32'd0;
-            rd_req_cnt        <= 32'd0;
-            rd_rsp_cnt        <= 32'd0;
-            rd_miss_cnt       <= 32'd0;
-            rd_pending_valid  <= 1'b0;
-            rd_pending_bank_b <= 1'b0;
-            rd_pending_lane   <= {LANE_W{1'b0}};
-            rd_pending_addr   <= {ADDR_W{1'b0}};
-            rd_issue_valid    <= 1'b0;
-            rd_issue_bank_b   <= 1'b0;
-            rd_issue_lane     <= {LANE_W{1'b0}};
-            rd_issue_addr     <= {ADDR_W{1'b0}};
-            rd_issue_hit      <= 1'b0;
-`ifndef SYNTHESIS
-            for (i = 0; i < NUM_LANES; i = i + 1) begin
-                for (j = 0; j < DEPTH; j = j + 1) begin
-                    bank_a_vld[i][j] <= 1'b0;
-                    bank_b_vld[i][j] <= 1'b0;
-                end
-            end
-`endif
-        end else begin
-            integer wr_inc;
+        if (!rst_n)
+            rd_rvalid <= 1'b0;
+        else
+            rd_rvalid <= rd_issue_valid;
+    end
 
-            rd_rvalid     <= rd_issue_valid;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_rsp_bank_b <= 1'b0;
+        else
             rd_rsp_bank_b <= rd_issue_bank_b;
-            rd_rsp_lane   <= rd_issue_lane;
-            rd_rsp_addr   <= rd_issue_addr;
-            rd_rsp_hit    <= rd_issue_hit;
+    end
 
-            if (rd_issue_valid) begin
-                rd_rsp_cnt <= rd_rsp_cnt + 1'b1;
-                if (!rd_issue_hit) begin
-                    rd_miss_cnt <= rd_miss_cnt + 1'b1;
-                end
-            end
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_rsp_lane <= {LANE_W{1'b0}};
+        else
+            rd_rsp_lane <= rd_issue_lane;
+    end
 
-            wr_inc = 0;
-            for (lane = 0; lane < NUM_LANES; lane = lane + 1) begin
-                if (wr_we_a[lane]) begin
-                    wr_inc = wr_inc + 1;
-`ifndef SYNTHESIS
-                    bank_a_vld[lane][wr_addr] <= 1'b1;
-`endif
-                end
-                if (wr_we_b[lane]) begin
-                    wr_inc = wr_inc + 1;
-`ifndef SYNTHESIS
-                    bank_b_vld[lane][wr_addr] <= 1'b1;
-`endif
-                end
-            end
-            if (wr_inc != 0) begin
-                wr_cnt <= wr_cnt + wr_inc;
-            end
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_rsp_addr <= {ADDR_W{1'b0}};
+        else
+            rd_rsp_addr <= rd_issue_addr;
+    end
 
-            if (rd_req_any) begin
-                rd_req_cnt <= rd_req_cnt + 1'b1;
-            end
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_rsp_hit <= 1'b0;
+        else
+            rd_rsp_hit <= rd_issue_hit;
+    end
 
-            if (store_new_req) begin
-                rd_pending_valid  <= 1'b1;
-                rd_pending_bank_b <= rd_req_bank_b;
-                rd_pending_lane   <= rd_req_lane;
-                rd_pending_addr   <= rd_addr;
-            end else if (issue_now) begin
-                rd_pending_valid  <= 1'b0;
-                rd_pending_bank_b <= 1'b0;
-                rd_pending_lane   <= {LANE_W{1'b0}};
-                rd_pending_addr   <= {ADDR_W{1'b0}};
-            end
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            wr_cnt <= 32'd0;
+        else if (wr_inc != 32'd0)
+            wr_cnt <= wr_cnt + wr_inc;
+    end
 
-            rd_issue_valid  <= issue_now;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_req_cnt <= 32'd0;
+        else if (rd_req_any)
+            rd_req_cnt <= rd_req_cnt + 1'b1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_rsp_cnt <= 32'd0;
+        else if (rd_issue_valid)
+            rd_rsp_cnt <= rd_rsp_cnt + 1'b1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_miss_cnt <= 32'd0;
+        else if (rd_issue_valid && !rd_issue_hit)
+            rd_miss_cnt <= rd_miss_cnt + 1'b1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_pending_valid <= 1'b0;
+        else if (store_new_req)
+            rd_pending_valid <= 1'b1;
+        else if (issue_now)
+            rd_pending_valid <= 1'b0;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_pending_bank_b <= 1'b0;
+        else if (store_new_req)
+            rd_pending_bank_b <= rd_req_bank_b;
+        else if (issue_now)
+            rd_pending_bank_b <= 1'b0;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_pending_lane <= {LANE_W{1'b0}};
+        else if (store_new_req)
+            rd_pending_lane <= rd_req_lane;
+        else if (issue_now)
+            rd_pending_lane <= {LANE_W{1'b0}};
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_pending_addr <= {ADDR_W{1'b0}};
+        else if (store_new_req)
+            rd_pending_addr <= rd_addr;
+        else if (issue_now)
+            rd_pending_addr <= {ADDR_W{1'b0}};
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_issue_valid <= 1'b0;
+        else
+            rd_issue_valid <= issue_now;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_issue_bank_b <= 1'b0;
+        else
             rd_issue_bank_b <= cand_bank_b;
-            rd_issue_lane   <= cand_lane;
-            rd_issue_addr   <= cand_addr;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_issue_lane <= {LANE_W{1'b0}};
+        else
+            rd_issue_lane <= cand_lane;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_issue_addr <= {ADDR_W{1'b0}};
+        else
+            rd_issue_addr <= cand_addr;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rd_issue_hit <= 1'b0;
+        else begin
 `ifndef SYNTHESIS
             if (issue_now) begin
                 rd_issue_hit <= cand_bank_b ? bank_b_vld[cand_lane][cand_addr] :
@@ -231,5 +306,35 @@ module ubwc_dec_meta_pingpong_sram #(
 `endif
         end
     end
+
+`ifndef SYNTHESIS
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            for (bank_a_i = 0; bank_a_i < NUM_LANES; bank_a_i = bank_a_i + 1) begin
+                for (bank_a_j = 0; bank_a_j < DEPTH; bank_a_j = bank_a_j + 1)
+                    bank_a_vld[bank_a_i][bank_a_j] <= 1'b0;
+            end
+        end else begin
+            for (bank_a_i = 0; bank_a_i < NUM_LANES; bank_a_i = bank_a_i + 1) begin
+                if (wr_we_a[bank_a_i])
+                    bank_a_vld[bank_a_i][wr_addr] <= 1'b1;
+            end
+        end
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            for (bank_b_i = 0; bank_b_i < NUM_LANES; bank_b_i = bank_b_i + 1) begin
+                for (bank_b_j = 0; bank_b_j < DEPTH; bank_b_j = bank_b_j + 1)
+                    bank_b_vld[bank_b_i][bank_b_j] <= 1'b0;
+            end
+        end else begin
+            for (bank_b_i = 0; bank_b_i < NUM_LANES; bank_b_i = bank_b_i + 1) begin
+                if (wr_we_b[bank_b_i])
+                    bank_b_vld[bank_b_i][wr_addr] <= 1'b1;
+            end
+        end
+    end
+`endif
 
 endmodule

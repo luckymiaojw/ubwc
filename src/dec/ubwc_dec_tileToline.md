@@ -28,7 +28,7 @@ The core FSM forces a line wrap by checking `(px_cnt + tile_w_pixels >= cfg_img_
 
 ## 4. Multi-Planar Synchronization
 
-For YUV420 and YUV422 formats, multiple planes must be collected before a line can be output.
+For YUV420 formats, multiple planes must be collected before a line can be output. YUV422 is not supported.
 
 The design introduces independent row accumulators, `y_row_cnt` and `uv_row_cnt`. The Format Decoder dynamically emits the completion conditions for the current format: `req_y_rows` and `req_uv_rows`.
 

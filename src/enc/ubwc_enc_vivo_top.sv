@@ -15,7 +15,6 @@ module ubwc_enc_vivo_top #(
     input  wire                  i_ci_forced_pcm,
 
     input  wire                  i_ci_lossy,
-    input  wire [SB_WIDTH-1:0]   i_ci_sb,
     input  wire [2:0]            i_ci_ubwc_cfg_0,
     input  wire [2:0]            i_ci_ubwc_cfg_1,
     input  wire [3:0]            i_ci_ubwc_cfg_2,
@@ -36,9 +35,8 @@ module ubwc_enc_vivo_top #(
 
     output reg                   o_co_valid,
     input  wire                  i_co_ready,
-    output wire [2:0]            o_co_alen,
-    output wire [SB_WIDTH-1:0]   o_co_sb,
-    output wire                  o_co_pcm,
+    output reg  [2:0]            o_co_alen,
+    output reg                   o_co_pcm,
 
     output wire                  o_cvo_valid,
     input  wire                  i_cvo_ready,
@@ -57,19 +55,35 @@ module ubwc_enc_vivo_top #(
     reg  [CI_CNT_W-1:0] ci_ready_cnt_r;
 
     wire ci_period_hit;
+    wire ci_fire;
 
     assign ci_period_hit = (ci_ready_cnt_r == CI_READY_PERIOD_LAST);
+    assign ci_fire       = i_ubwc_en && i_ci_valid && o_ci_ready;
 
     always @(posedge i_clk or posedge i_reset) begin
         if(i_reset)
             o_co_valid  <= 1'b0 ;
         else
-            o_co_valid  <= i_ubwc_en && i_ci_valid && o_ci_ready  ;
+            o_co_valid  <= ci_fire  ;
     end
 
-    assign o_co_alen   = i_ci_alen;
-    assign o_co_sb     = i_ci_sb;
-    assign o_co_pcm    = i_ci_forced_pcm;
+    always @(posedge i_clk or posedge i_reset) begin
+        if (i_reset)
+            o_co_alen <= 3'd0;
+        else if (i_sreset)
+            o_co_alen <= 3'd0;
+        else if (ci_fire)
+            o_co_alen <= i_ci_alen;
+    end
+
+    always @(posedge i_clk or posedge i_reset) begin
+        if (i_reset)
+            o_co_pcm <= 1'b0;
+        else if (i_sreset)
+            o_co_pcm <= 1'b0;
+        else if (ci_fire)
+            o_co_pcm <= i_ci_forced_pcm;
+    end
 
     assign o_cvo_valid = i_ubwc_en && i_rvi_valid;
     assign o_cvo_data  = i_rvi_data;

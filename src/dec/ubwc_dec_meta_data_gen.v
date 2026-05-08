@@ -10,11 +10,14 @@ module ubwc_dec_meta_data_gen
         input   wire                                clk                         ,
         input   wire                                rst_n                       ,
         input   wire                                start                       ,
+        input   wire    [4              -1:0]       i_fcnt                      ,
 
     // External configuration
         input   wire    [5              -1:0]       base_format                 ,
-        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_rgba_y       ,
-        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_uv           ,
+        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_rgba_y0      ,
+        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_uv0          ,
+        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_rgba_y1      ,
+        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_uv1          ,
         input   wire    [16             -1:0]       tile_x_numbers              ,
         input   wire    [16             -1:0]       tile_y_numbers              ,
         input   wire                                i_cfg_is_lossy_rgba_2_1_format ,
@@ -45,6 +48,7 @@ module ubwc_dec_meta_data_gen
         output  wire                                o_dec_has_payload           ,
         output  wire    [12             -1:0]       o_dec_x                     ,
         output  wire    [10             -1:0]       o_dec_y                     ,
+        output  wire    [4              -1:0]       o_dec_fcnt                  ,
 
         output  wire                                o_busy                      ,
 
@@ -66,7 +70,9 @@ module ubwc_dec_meta_data_gen
     wire    [5              -1:0]               meta_data_format           ;
     wire    [12             -1:0]               meta_data_xcoord           ;
     wire    [10             -1:0]               meta_data_ycoord           ;
+    wire    [4              -1:0]               meta_data_fcnt             ;
     wire                                        tile_number_high_seen      ;
+    wire    [4              -1:0]               meta_fcnt                  ;
 
     assign tile_number_high_seen = (|tile_x_numbers[15:12]) | (|tile_y_numbers[15:10]);
 
@@ -78,9 +84,12 @@ module ubwc_dec_meta_data_gen
         .clk                    ( clk                                   ),
         .rst_n                  ( rst_n                                 ),
         .start                  ( start                                 ),
+        .i_fcnt                 ( i_fcnt                                ),
         .base_format            ( base_format                           ),
-        .meta_base_addr_rgba_y  ( meta_base_addr_rgba_y                 ),
-        .meta_base_addr_uv      ( meta_base_addr_uv                     ),
+        .meta_base_addr_rgba_y0 ( meta_base_addr_rgba_y0                ),
+        .meta_base_addr_uv0     ( meta_base_addr_uv0                    ),
+        .meta_base_addr_rgba_y1 ( meta_base_addr_rgba_y1                ),
+        .meta_base_addr_uv1     ( meta_base_addr_uv1                    ),
         .tile_x_numbers         ( tile_x_numbers[11:0]                 ),
         .tile_y_numbers         ( tile_y_numbers[9:0]                  ),
         .meta_grp_valid         ( meta_grp_valid                        ),
@@ -88,7 +97,8 @@ module ubwc_dec_meta_data_gen
         .meta_grp_addr          ( meta_grp_addr                         ),
         .meta_format            ( meta_format                           ),
         .meta_xcoord            ( meta_xcoord                           ),
-        .meta_ycoord            ( meta_ycoord                           )
+        .meta_ycoord            ( meta_ycoord                           ),
+        .meta_fcnt              ( meta_fcnt                             )
     );
 
     ubwc_dec_meta_axi_rcmd_gen #(
@@ -120,12 +130,14 @@ module ubwc_dec_meta_data_gen
         .meta_format            ( meta_format                           ),
         .meta_xcoord            ( meta_xcoord                           ),
         .meta_ycoord            ( meta_ycoord                           ),
+        .meta_fcnt              ( meta_fcnt                             ),
         .meta_data_valid        ( meta_data_valid                       ),
         .meta_data_ready        ( meta_data_ready                       ),
         .meta_data              ( meta_data                             ),
         .meta_data_format       ( meta_data_format                      ),
         .meta_data_xcoord       ( meta_data_xcoord                      ),
         .meta_data_ycoord       ( meta_data_ycoord                      ),
+        .meta_data_fcnt         ( meta_data_fcnt                        ),
         .error_cnt              ( error_cnt                             ),
         .cmd_ok_cnt             ( cmd_ok_cnt                            ),
         .cmd_fail_cnt           ( cmd_fail_cnt                          )
@@ -141,6 +153,7 @@ module ubwc_dec_meta_data_gen
         .i_meta_data            ( meta_data                             ),
         .i_meta_x               ( meta_data_xcoord                      ),
         .i_meta_y               ( meta_data_ycoord                      ),
+        .i_meta_fcnt            ( meta_data_fcnt                        ),
         .o_dec_valid            ( o_dec_valid                           ),
         .i_dec_ready            ( i_dec_ready                           ),
         .o_dec_format           ( o_dec_format                          ),
@@ -148,7 +161,8 @@ module ubwc_dec_meta_data_gen
         .o_dec_alen             ( o_dec_alen                            ),
         .o_dec_has_payload      ( o_dec_has_payload                     ),
         .o_dec_x                ( o_dec_x                               ),
-        .o_dec_y                ( o_dec_y                               )
+        .o_dec_y                ( o_dec_y                               ),
+        .o_dec_fcnt             ( o_dec_fcnt                            )
     );
 
     assign o_busy = meta_grp_valid | m_axi_arvalid | m_axi_rvalid | meta_data_valid |

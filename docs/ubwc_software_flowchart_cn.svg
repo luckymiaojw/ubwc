@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="2070" viewBox="0 0 1200 2070">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#1f2937"/>
+    </marker>
+    <style>
+      .title { font: 700 34px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #111827; }
+      .subtitle { font: 15px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #4b5563; }
+      .panel-title { font: 700 24px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #ffffff; }
+      .box-title { font: 700 19px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #111827; }
+      .box-text { font: 16px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #374151; }
+      .small { font: 14px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #4b5563; }
+      .edge { stroke: #1f2937; stroke-width: 2.1; fill: none; marker-end: url(#arrow); }
+      .edge-soft { stroke: #6b7280; stroke-width: 1.9; fill: none; marker-end: url(#arrow); }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 18; }
+      .header-enc { fill: #1d4ed8; rx: 12; }
+      .header-dec { fill: #7c3aed; rx: 12; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 1.8; rx: 12; }
+      .format { fill: #ecfdf5; stroke: #059669; stroke-width: 1.8; rx: 12; }
+      .frame { fill: #eef6ff; stroke: #2563eb; stroke-width: 1.8; rx: 12; }
+      .decision { fill: #fff7ed; stroke: #c2410c; stroke-width: 2; }
+      .irq { fill: #fffbeb; stroke: #b45309; stroke-width: 1.8; rx: 12; }
+      .error { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.8; rx: 12; }
+      .note { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.3; rx: 10; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="2070" fill="#f3f4f6"/>
+  <text x="600" y="54" text-anchor="middle" class="title">UBWC 软件配置流程图</text>
+  <text x="600" y="84" text-anchor="middle" class="subtitle">ENC 和 DEC 分开绘制；静态配置在格式变化时更新，地址组每帧更新</text>
+
+  <!-- ENC flow -->
+  <rect x="80" y="120" width="1040" height="900" class="panel"/>
+  <rect x="120" y="150" width="960" height="52" class="header-enc"/>
+  <text x="600" y="184" text-anchor="middle" class="panel-title">ENC 软件流程</text>
+
+  <rect x="380" y="240" width="440" height="78" class="box"/>
+  <text x="600" y="270" text-anchor="middle" class="box-title">1. 上电检查</text>
+  <text x="600" y="296" text-anchor="middle" class="box-text">READ VERSION / DATE，确认硬件版本</text>
+
+  <polygon points="600,355 770,425 600,495 430,425" class="decision"/>
+  <text x="600" y="417" text-anchor="middle" class="box-title">2. 图像格式变化?</text>
+  <text x="600" y="443" text-anchor="middle" class="box-text">format / size / layout 是否变化</text>
+
+  <rect x="130" y="550" width="410" height="132" class="format"/>
+  <text x="335" y="581" text-anchor="middle" class="box-title">3. 配置 ENC 静态参数</text>
+  <text x="335" y="608" text-anchor="middle" class="box-text">TILE_CFG / CI_CFG / OTF_CFG</text>
+  <text x="335" y="634" text-anchor="middle" class="box-text">META_ACTIVE_SIZE / META_PITCH</text>
+  <text x="335" y="660" text-anchor="middle" class="box-text">tile_pitch / swizzle / lossy 标志</text>
+
+  <rect x="660" y="540" width="410" height="150" class="frame"/>
+  <text x="865" y="581" text-anchor="middle" class="box-title">4. 配置 ENC 每帧地址</text>
+  <text x="865" y="608" text-anchor="middle" class="box-text">Y meta base: 0x030 / 0x034</text>
+  <text x="865" y="634" text-anchor="middle" class="box-text">Y tile base: 0x038 / 0x03C</text>
+  <text x="865" y="660" text-anchor="middle" class="box-text">UV meta base: 0x040 / 0x044</text>
+  <text x="865" y="686" text-anchor="middle" class="box-text">UV tile base: 0x048 / 0x04C</text>
+
+  <polygon points="865,725 1030,790 865,855 700,790" class="decision"/>
+  <text x="865" y="782" text-anchor="middle" class="box-title">5. 地址 slot 有效?</text>
+  <text x="865" y="808" text-anchor="middle" class="box-text">四个 64-bit base 地址已写完整</text>
+
+  <rect x="130" y="880" width="410" height="92" class="box"/>
+  <text x="335" y="911" text-anchor="middle" class="box-title">6. OTF 输入自动驱动</text>
+  <text x="335" y="938" text-anchor="middle" class="box-text">ENC 无 APB start</text>
+  <text x="335" y="962" text-anchor="middle" class="box-text">vsync / hsync / de / data 进入流水线</text>
+
+  <rect x="660" y="880" width="410" height="74" class="note"/>
+  <text x="865" y="908" text-anchor="middle" class="box-title">等待地址配置</text>
+  <text x="865" y="934" text-anchor="middle" class="box-text">不启动/阻塞当前 fcnt 数据</text>
+
+  <rect x="130" y="995" width="410" height="44" class="irq"/>
+  <text x="335" y="1023" text-anchor="middle" class="box-text">等待 ENC 正确完成中断或错误中断</text>
+
+  <rect x="660" y="995" width="410" height="44" class="note"/>
+  <text x="865" y="1023" text-anchor="middle" class="box-text">下一帧：地址改变时回到步骤 4</text>
+
+  <!-- ENC arrows -->
+  <path class="edge" d="M600,318 L600,352"/>
+  <path class="edge" d="M430,425 C335,445 335,505 335,547"/>
+  <text x="360" y="464" class="small">是，配置静态项</text>
+  <path class="edge-soft" d="M770,425 C865,445 865,505 865,547"/>
+  <text x="805" y="464" class="small">否，跳过静态项</text>
+  <path class="edge" d="M540,616 L657,616"/>
+  <path class="edge" d="M865,690 L865,722"/>
+  <path class="edge" d="M700,790 C620,825 540,880 540,926"/>
+  <text x="650" y="810" class="small">是</text>
+  <path class="edge" d="M335,972 L335,992"/>
+  <path class="edge-soft" d="M1030,790 C1085,830 1085,910 1070,917"/>
+  <text x="1040" y="780" class="small">否，等待地址</text>
+  <path class="edge-soft" d="M540,1017 L657,1017"/>
+
+  <!-- DEC flow -->
+  <rect x="80" y="1120" width="1040" height="830" class="panel"/>
+  <rect x="120" y="1150" width="960" height="52" class="header-dec"/>
+  <text x="600" y="1184" text-anchor="middle" class="panel-title">DEC 软件流程</text>
+
+  <rect x="380" y="1240" width="440" height="78" class="box"/>
+  <text x="600" y="1270" text-anchor="middle" class="box-title">1. 上电检查</text>
+  <text x="600" y="1296" text-anchor="middle" class="box-text">READ VERSION / DATE，确认硬件版本</text>
+
+  <polygon points="600,1355 770,1425 600,1495 430,1425" class="decision"/>
+  <text x="600" y="1417" text-anchor="middle" class="box-title">2. 图像格式变化?</text>
+  <text x="600" y="1443" text-anchor="middle" class="box-text">format / size / timing 是否变化</text>
+
+  <rect x="130" y="1550" width="410" height="132" class="format"/>
+  <text x="335" y="1581" text-anchor="middle" class="box-title">3. 配置 DEC 静态参数</text>
+  <text x="335" y="1608" text-anchor="middle" class="box-text">TILE_CFG / CI_CFG / VIVO_CFG</text>
+  <text x="335" y="1634" text-anchor="middle" class="box-text">META_CFG0 / OTF_CFG0..4</text>
+  <text x="335" y="1660" text-anchor="middle" class="box-text">tile 数量 / active 区域 / timing</text>
+
+  <rect x="660" y="1550" width="410" height="150" class="frame"/>
+  <text x="865" y="1581" text-anchor="middle" class="box-title">4. 配置 DEC 每帧地址</text>
+  <text x="865" y="1608" text-anchor="middle" class="box-text">tile Y: 0x044 / 0x048</text>
+  <text x="865" y="1634" text-anchor="middle" class="box-text">tile Y: 0x04C / 0x050</text>
+  <text x="865" y="1660" text-anchor="middle" class="box-text">meta Y/RGBA: 0x01C / 0x020</text>
+  <text x="865" y="1686" text-anchor="middle" class="box-text">meta UV: 0x024 / 0x028</text>
+
+  <polygon points="865,1740 1030,1805 865,1870 700,1805" class="decision"/>
+  <text x="865" y="1797" text-anchor="middle" class="box-title">5. 四个地址均有效?</text>
+  <text x="865" y="1823" text-anchor="middle" class="box-text">本帧 metadata/tile base 均已配置</text>
+
+  <rect x="130" y="1770" width="410" height="94" class="box"/>
+  <text x="335" y="1802" text-anchor="middle" class="box-title">6. 硬件自动启动 DEC</text>
+  <text x="335" y="1829" text-anchor="middle" class="box-text">pop FIFO，锁存 slot0/slot1</text>
+  <text x="335" y="1853" text-anchor="middle" class="box-text">产生 frame_start，进入 meta/tile/otf 流水线</text>
+
+  <rect x="130" y="1890" width="410" height="44" class="irq"/>
+  <text x="335" y="1918" text-anchor="middle" class="box-text">等待 DEC 正确完成中断或错误中断</text>
+
+  <rect x="660" y="1868" width="410" height="44" class="note"/>
+  <text x="865" y="1896" text-anchor="middle" class="box-text">等待地址配置，不启动新帧</text>
+
+  <rect x="660" y="1930" width="410" height="44" class="note"/>
+  <text x="865" y="1958" text-anchor="middle" class="box-text">下一帧：地址改变时回到步骤 4</text>
+
+  <!-- DEC arrows -->
+  <path class="edge" d="M600,1318 L600,1352"/>
+  <path class="edge" d="M430,1425 C335,1445 335,1505 335,1547"/>
+  <text x="360" y="1464" class="small">是，配置静态项</text>
+  <path class="edge-soft" d="M770,1425 C865,1445 865,1505 865,1547"/>
+  <text x="805" y="1464" class="small">否，跳过静态项</text>
+  <path class="edge" d="M540,1616 L657,1616"/>
+  <path class="edge" d="M865,1700 L865,1737"/>
+  <path class="edge" d="M700,1805 L543,1817"/>
+  <text x="660" y="1794" class="small">是</text>
+  <path class="edge-soft" d="M1030,1805 C1085,1830 1085,1878 1070,1890"/>
+  <text x="1040" y="1794" class="small">否，等待地址</text>
+  <path class="edge" d="M335,1864 L335,1887"/>
+  <path class="edge-soft" d="M540,1912 L657,1952"/>
+
+  <!-- footer -->
+  <rect x="80" y="1985" width="1040" height="52" class="note"/>
+  <text x="105" y="2011" class="small">配置频率：静态/几何/CI/VIVO/OTF timing 在图像格式、尺寸、layout 或 timing 变化时配置。</text>
+  <text x="105" y="2032" class="small">ENC/DEC 地址组每帧都要配置；下一帧通常只更新地址并等待对应中断。</text>
+</svg>

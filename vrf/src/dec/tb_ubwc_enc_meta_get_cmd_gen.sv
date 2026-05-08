@@ -43,6 +43,7 @@ module tb_ubwc_enc_meta_get_cmd_gen();
     wire [4:0]            meta_format;
     wire [15:0]           meta_xcoord;
     wire [15:0]           meta_ycoord;
+    wire [3:0]            meta_fcnt;
 
     ubwc_enc_meta_get_cmd_gen#(
         .ADDR_WIDTH(ADDR_WIDTH)
@@ -50,9 +51,12 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         .clk(clk),
         .rst_n(rst_n),
         .start(start),
+        .i_fcnt(4'd0),
         .base_format(base_format),
-        .meta_base_addr_rgba_y(meta_base_addr_rgba_y),
-        .meta_base_addr_uv(meta_base_addr_uv),
+        .meta_base_addr_rgba_y0(meta_base_addr_rgba_y),
+        .meta_base_addr_uv0(meta_base_addr_uv),
+        .meta_base_addr_rgba_y1(meta_base_addr_rgba_y),
+        .meta_base_addr_uv1(meta_base_addr_uv),
         .tile_x_numbers(tile_x_numbers),
         .tile_y_numbers(tile_y_numbers),
         .meta_grp_valid(meta_grp_valid),
@@ -60,7 +64,8 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         .meta_grp_addr(meta_grp_addr),
         .meta_format(meta_format),
         .meta_xcoord(meta_xcoord),
-        .meta_ycoord(meta_ycoord)
+        .meta_ycoord(meta_ycoord),
+        .meta_fcnt(meta_fcnt)
     );
 
     initial begin

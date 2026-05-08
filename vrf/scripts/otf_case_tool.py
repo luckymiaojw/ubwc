@@ -375,9 +375,15 @@ def nv12_to_rgb(y_plane: bytes, uv_plane: bytes, width: int, active_height: int)
     return rgb
 
 
-def compare_rgba8888(expected_path: Path, actual_path: Path, width: int, active_height: int, stored_height: int, out_dir: Path) -> int:
+def repeat_beats(beats: list[int], frame_repeat: int) -> list[int]:
+    if frame_repeat <= 1:
+        return beats
+    return beats * frame_repeat
+
+
+def compare_rgba8888(expected_path: Path, actual_path: Path, width: int, active_height: int, stored_height: int, out_dir: Path, frame_repeat: int = 1) -> int:
     words64 = parse_memh_words(expected_path)
-    expected_beats = rgba_beats_from_words(words64, width, stored_height)
+    expected_beats = repeat_beats(rgba_beats_from_words(words64, width, stored_height), frame_repeat)
     actual_beats = parse_otf_beats(actual_path)
     mismatch_count, first_mismatch = compare_beats(expected_beats, actual_beats, width)
 
@@ -415,9 +421,9 @@ def compare_rgba8888(expected_path: Path, actual_path: Path, width: int, active_
     return 0 if mismatch_count == 0 and len(expected_beats) == len(actual_beats) else 1
 
 
-def compare_rgba1010102(expected_path: Path, actual_path: Path, width: int, active_height: int, stored_height: int, out_dir: Path) -> int:
+def compare_rgba1010102(expected_path: Path, actual_path: Path, width: int, active_height: int, stored_height: int, out_dir: Path, frame_repeat: int = 1) -> int:
     words64 = parse_memh_words(expected_path)
-    expected_beats = rgba_beats_from_words(words64, width, stored_height)
+    expected_beats = repeat_beats(rgba_beats_from_words(words64, width, stored_height), frame_repeat)
     actual_beats = parse_otf_beats(actual_path)
     mismatch_count, first_mismatch = compare_beats(expected_beats, actual_beats, width)
 
@@ -459,14 +465,14 @@ def compare_rgba1010102(expected_path: Path, actual_path: Path, width: int, acti
     return 0 if mismatch_count == 0 and len(expected_beats) == len(actual_beats) else 1
 
 
-def compare_nv12(expected_y_path: Path, expected_uv_path: Path, actual_path: Path, width: int, active_height: int, stored_y_height: int, stored_uv_height: int, out_dir: Path) -> int:
+def compare_nv12(expected_y_path: Path, expected_uv_path: Path, actual_path: Path, width: int, active_height: int, stored_y_height: int, stored_uv_height: int, out_dir: Path, frame_repeat: int = 1) -> int:
     expected_y_words = parse_memh_words(expected_y_path)
     expected_uv_words = parse_memh_words(expected_uv_path)
     actual_beats = parse_otf_beats(actual_path)
 
     expected_y_plane = words_to_plane(expected_y_words, width, stored_y_height)
     expected_uv_plane = words_to_plane(expected_uv_words, width, stored_uv_height)
-    expected_beats = nv12_expected_beats(expected_y_plane, expected_uv_plane, width, stored_y_height)
+    expected_beats = repeat_beats(nv12_expected_beats(expected_y_plane, expected_uv_plane, width, stored_y_height), frame_repeat)
     actual_y_plane, actual_uv_plane = nv12_planes_from_otf(actual_beats, width, stored_y_height)
 
     mismatch_count, first_mismatch = compare_beats(expected_beats, actual_beats, width)
@@ -519,14 +525,14 @@ def compare_nv12(expected_y_path: Path, expected_uv_path: Path, actual_path: Pat
     return 0 if mismatch_count == 0 and len(expected_beats) == len(actual_beats) else 1
 
 
-def compare_p010(expected_y_path: Path, expected_uv_path: Path, actual_path: Path, width: int, active_height: int, stored_y_height: int, stored_uv_height: int, out_dir: Path) -> int:
+def compare_p010(expected_y_path: Path, expected_uv_path: Path, actual_path: Path, width: int, active_height: int, stored_y_height: int, stored_uv_height: int, out_dir: Path, frame_repeat: int = 1) -> int:
     expected_y_words = parse_memh_words(expected_y_path)
     expected_uv_words = parse_memh_words(expected_uv_path)
     actual_beats = parse_otf_beats(actual_path)
 
     expected_y_plane = words_to_plane(expected_y_words, width * 2, stored_y_height)
     expected_uv_plane = words_to_plane(expected_uv_words, width * 2, stored_uv_height)
-    expected_beats = p010_expected_beats(expected_y_plane, expected_uv_plane, width, stored_y_height, "even")
+    expected_beats = repeat_beats(p010_expected_beats(expected_y_plane, expected_uv_plane, width, stored_y_height, "even"), frame_repeat)
     actual_y_plane, actual_uv_plane = p010_planes_from_otf(actual_beats, width, stored_y_height, "even")
 
     mismatch_count, first_mismatch = compare_beats(expected_beats, actual_beats, width)
@@ -577,6 +583,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     cmp_p.add_argument("--stored-y-height", type=int)
     cmp_p.add_argument("--stored-uv-height", type=int)
     cmp_p.add_argument("--p010-uv-phase", choices=["odd", "even"], default="even")
+    cmp_p.add_argument("--frame-repeat", type=int, default=1)
     cmp_p.add_argument("--out-dir", required=True)
 
     return ap
@@ -620,12 +627,14 @@ def main() -> int:
     if args.format == "rgba8888":
         if not args.expected or args.stored_height is None:
             raise SystemExit("--expected and --stored-height are required for RGBA8888 compare")
-        return compare_rgba8888(Path(args.expected), actual_path, args.width, args.active_height, args.stored_height, out_dir)
+        return compare_rgba8888(Path(args.expected), actual_path, args.width, args.active_height,
+                                args.stored_height, out_dir, args.frame_repeat)
 
     if args.format == "rgba1010102":
         if not args.expected or args.stored_height is None:
             raise SystemExit("--expected and --stored-height are required for RGBA1010102 compare")
-        return compare_rgba1010102(Path(args.expected), actual_path, args.width, args.active_height, args.stored_height, out_dir)
+        return compare_rgba1010102(Path(args.expected), actual_path, args.width, args.active_height,
+                                   args.stored_height, out_dir, args.frame_repeat)
 
     if not args.expected_y or not args.expected_uv or args.stored_y_height is None or args.stored_uv_height is None:
         raise SystemExit("--expected-y/--expected-uv and stored heights are required for NV12/P010 compare")
@@ -636,7 +645,11 @@ def main() -> int:
 
         expected_y_plane = words_to_plane(expected_y_words, args.width * 2, args.stored_y_height)
         expected_uv_plane = words_to_plane(expected_uv_words, args.width * 2, args.stored_uv_height)
-        expected_beats = p010_expected_beats(expected_y_plane, expected_uv_plane, args.width, args.stored_y_height, args.p010_uv_phase)
+        expected_beats = repeat_beats(
+            p010_expected_beats(expected_y_plane, expected_uv_plane, args.width,
+                                args.stored_y_height, args.p010_uv_phase),
+            args.frame_repeat,
+        )
         actual_y_plane, actual_uv_plane = p010_planes_from_otf(actual_beats, args.width, args.stored_y_height, args.p010_uv_phase)
 
         mismatch_count, first_mismatch = compare_beats(expected_beats, actual_beats, args.width)
@@ -656,7 +669,9 @@ def main() -> int:
             print(f"    actual       : {act_word:032x}")
 
         return 0 if mismatch_count == 0 and len(expected_beats) == len(actual_beats) else 1
-    return compare_nv12(Path(args.expected_y), Path(args.expected_uv), actual_path, args.width, args.active_height, args.stored_y_height, args.stored_uv_height, out_dir)
+    return compare_nv12(Path(args.expected_y), Path(args.expected_uv), actual_path, args.width,
+                        args.active_height, args.stored_y_height, args.stored_uv_height,
+                        out_dir, args.frame_repeat)
 
 
 if __name__ == "__main__":

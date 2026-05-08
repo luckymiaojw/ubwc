@@ -179,25 +179,26 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
             // VIVO_CFG: ubwc_en=1, sreset=0
             apb_write(16'h0014, 32'h0000_0001);
 
-            // META base and geometry
-            apb_write(16'h001c, META_BASE_ADDR[31:0]);
-            apb_write(16'h0020, META_BASE_ADDR[63:32]);
-            apb_write(16'h0024, 32'h0000_0000);
-            apb_write(16'h0028, 32'h0000_0000);
+            // OTF timing. Use aligned 608 active lines so the full stored vector can be observed.
+            apb_write(16'h0018, {11'd0, BASE_FMT_RGBA8888, 16'd4096});
+            apb_write(16'h001c, {16'd44, 16'd4400});
+            apb_write(16'h0020, {16'd4096, 16'd148});
+            apb_write(16'h0024, {16'd5, 16'd650});
+            apb_write(16'h0028, {16'd608, 16'd36});
+
             // TajMahal RGBA image tile geometry:
             // - tile width  = 16 pixels  -> 4096 / 16 = 256 tiles
             // - tile height = 4 pixels   -> 608  / 4  = 152 aligned tile rows
             apb_write(16'h002c, {16'd152, 16'd256});
 
-            // OTF timing. Use aligned 608 active lines so the full stored vector can be observed.
-            apb_write(16'h0030, {11'd0, BASE_FMT_RGBA8888, 16'd4096});
-            apb_write(16'h0034, {16'd44, 16'd4400});
-            apb_write(16'h0038, {16'd4096, 16'd148});
-            apb_write(16'h003c, {16'd5, 16'd650});
-            apb_write(16'h0040, {16'd608, 16'd36});
-
-            // META_CFG0: start=1, base_format=RGBA8888
-            apb_write(16'h0018, 32'h0000_0001);
+            apb_write(16'h0030, META_BASE_ADDR[31:0]);
+            apb_write(16'h0034, META_BASE_ADDR[63:32]);
+            apb_write(16'h0038, 32'h0000_0000);
+            apb_write(16'h003c, 32'h0000_0000);
+            apb_write(16'h0040, 32'h0000_0000);
+            apb_write(16'h0044, 32'h0000_0000);
+            apb_write(16'h0048, 32'h0000_0000);
+            apb_write(16'h004c, 32'h0000_0000);
         end
     endtask
 

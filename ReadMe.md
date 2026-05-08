@@ -139,6 +139,8 @@ make encdec_wrapper_tajmahal_4096x600_nv12_verdi
 
 ## 常用文件
 
+- `CODE_STYLE.md`: 项目代码规范；后续所有自有 RTL/验证代码修改必须遵守“一变量一 Always”等规则。
+- `docs/ubwc_rtl_coding_style_cn.md`: RTL 编码规范细则。
 - `vrf/sim/Makefile`: 仿真目标定义。
 - `vrf/sim/run_fake_all.sh`: DEC/ENC fake-mode 批量回归脚本。
 - `vrf/sim/open_wave.sh`: 常用波形打开脚本。

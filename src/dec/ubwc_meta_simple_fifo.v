@@ -13,6 +13,7 @@ module ubwc_meta_simple_fifo #(
 )(
     input  wire              clk,
     input  wire              rst_n,
+    input  wire              sclr,
     input  wire              we,
     input  wire [DWIDTH-1:0] din,
     input  wire              re,
@@ -30,6 +31,8 @@ module ubwc_meta_simple_fifo #(
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             waddr <= {(AWIDTH+1){1'b0}};
+        end else if (sclr) begin
+            waddr <= {(AWIDTH+1){1'b0}};
         end else if (we && !full) begin
             waddr <= waddr + 1'b1;
         end
@@ -38,21 +41,23 @@ module ubwc_meta_simple_fifo #(
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             raddr <= {(AWIDTH+1){1'b0}};
+        end else if (sclr) begin
+            raddr <= {(AWIDTH+1){1'b0}};
         end else if (re && !empty) begin
             raddr <= raddr + 1'b1;
         end
     end
 
     always @(posedge clk) begin
-        if (we && !full) begin
+        if (!sclr && we && !full) begin
             mem[waddr[AWIDTH-1:0]] <= din;
         end
     end
 
     assign dout      = mem[raddr[AWIDTH-1:0]];
-    assign empty     = (waddr == raddr);
-    assign full      = (waddr[AWIDTH-1:0] == raddr[AWIDTH-1:0]) && (waddr[AWIDTH] != raddr[AWIDTH]);
+    assign empty     = sclr || (waddr == raddr);
+    assign full      = !sclr && (waddr[AWIDTH-1:0] == raddr[AWIDTH-1:0]) && (waddr[AWIDTH] != raddr[AWIDTH]);
     assign count     = waddr - raddr;
-    assign prog_full = (count >= PROG_FULL_LEVEL[AWIDTH:0]);
+    assign prog_full = !sclr && (count >= PROG_FULL_LEVEL[AWIDTH:0]);
 
 endmodule

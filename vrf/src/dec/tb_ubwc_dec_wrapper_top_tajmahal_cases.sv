@@ -4,6 +4,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     parameter integer CASE_ID = 0,
     parameter integer TB_REAL_VIVO_MODE = 0,
     parameter integer FORCE_FULL_PAYLOAD_CASE = 0,
+    parameter integer COM_BUF_AW = 12,
     parameter integer IMG_W = 4096,
     parameter integer RGBA_ACTIVE_H = 600,
     parameter integer RGBA_STORED_H = 608,
@@ -29,6 +30,33 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         end
     endfunction
 
+    function automatic [31:0] lfsr_next;
+        input [31:0] state_in;
+        reg feedback;
+        begin
+            feedback = state_in[31] ^ state_in[21] ^ state_in[1] ^ state_in[0];
+            lfsr_next = {state_in[30:0], feedback};
+            if (lfsr_next == 32'd0)
+                lfsr_next = 32'h3c6e_f372;
+        end
+    endfunction
+
+    function automatic ready_from_stall_pct;
+        input [31:0] rand_word;
+        input integer stall_pct;
+        integer pct;
+        begin
+            if (stall_pct <= 0) begin
+                ready_from_stall_pct = 1'b1;
+            end else if (stall_pct >= 100) begin
+                ready_from_stall_pct = 1'b0;
+            end else begin
+                pct = rand_word % 100;
+                ready_from_stall_pct = (pct >= stall_pct);
+            end
+        end
+    endfunction
+
     localparam integer CASE_RGBA8888    = 0;
     localparam integer CASE_RGBA1010102 = 1;
     localparam integer CASE_NV12        = 2;
@@ -42,6 +70,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     localparam integer AXI_IDW  = 4;
     localparam integer AXI_LENW = 8;
     localparam integer SB_WIDTH = 3;
+    localparam integer OTF_SRAM_DEPTH = (1 << COM_BUF_AW);
 
     localparam [4:0] BASE_FMT_RGBA8888    = 5'b00000;
     localparam [4:0] BASE_FMT_RGBA1010102 = 5'b00001;
@@ -110,6 +139,8 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                              : (CASE_IS_NV12
                                                 ? (NV12_TILE_X_COUNT * (NV12_Y_TILE_Y_COUNT + NV12_UV_TILE_Y_COUNT))
                                                 : (RGBA_TILE_X_COUNT * RGBA_TILE_Y_COUNT));
+    localparam integer MAX_FRAME_REPEAT = 4;
+    localparam integer CASE_MAX_EXPECTED_CI_CMDS = CASE_EXPECTED_CI_CMDS * MAX_FRAME_REPEAT;
     localparam integer CASE_EXPECTED_DEC_META_SAMPLES = CASE_EXPECTED_CI_CMDS;
     localparam integer CASE_FULL_TILE_BEATS   = 8;
     localparam integer CASE_TILE_PITCH_BYTES = CASE_IS_G016 ? G016_TILE_PITCH :
@@ -182,41 +213,41 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     reg  [1:0]                otf_ready_div;
 
     wire                      o_otf_sram_a_wen;
-    wire [12:0]               o_otf_sram_a_waddr;
+    wire [COM_BUF_AW-1:0]     o_otf_sram_a_waddr;
     wire [127:0]              o_otf_sram_a_wdata;
     wire                      o_otf_sram_a_ren;
-    wire [12:0]               o_otf_sram_a_raddr;
+    wire [COM_BUF_AW-1:0]     o_otf_sram_a_raddr;
     wire [127:0]              i_otf_sram_a_rdata;
     wire                      o_otf_sram_b_wen;
-    wire [12:0]               o_otf_sram_b_waddr;
+    wire [COM_BUF_AW-1:0]     o_otf_sram_b_waddr;
     wire [127:0]              o_otf_sram_b_wdata;
     wire                      o_otf_sram_b_ren;
-    wire [12:0]               o_otf_sram_b_raddr;
+    wire [COM_BUF_AW-1:0]     o_otf_sram_b_raddr;
     wire [127:0]              i_otf_sram_b_rdata;
     wire                      o_bank0_en;
     wire                      o_bank0_wen;
-    wire [12:0]               o_bank0_addr;
+    wire [COM_BUF_AW-1:0]     o_bank0_addr;
     wire [127:0]              o_bank0_din;
     wire [127:0]              i_bank0_dout;
     reg                       i_bank0_dout_vld;
     wire                      o_bank1_en;
     wire                      o_bank1_wen;
-    wire [12:0]               o_bank1_addr;
+    wire [COM_BUF_AW-1:0]     o_bank1_addr;
     wire [127:0]              o_bank1_din;
     wire [127:0]              i_bank1_dout;
     reg                       i_bank1_dout_vld;
 
     wire                      fake_otf_sram_a_wen;
-    wire [12:0]               fake_otf_sram_a_waddr;
+    wire [COM_BUF_AW-1:0]     fake_otf_sram_a_waddr;
     wire [127:0]              fake_otf_sram_a_wdata;
     wire                      fake_otf_sram_a_ren;
-    wire [12:0]               fake_otf_sram_a_raddr;
+    wire [COM_BUF_AW-1:0]     fake_otf_sram_a_raddr;
     wire [127:0]              fake_otf_sram_a_rdata;
     wire                      fake_otf_sram_b_wen;
-    wire [12:0]               fake_otf_sram_b_waddr;
+    wire [COM_BUF_AW-1:0]     fake_otf_sram_b_waddr;
     wire [127:0]              fake_otf_sram_b_wdata;
     wire                      fake_otf_sram_b_ren;
-    wire [12:0]               fake_otf_sram_b_raddr;
+    wire [COM_BUF_AW-1:0]     fake_otf_sram_b_raddr;
     wire [127:0]              fake_otf_sram_b_rdata;
     wire                      fake_o_otf_vsync;
     wire                      fake_o_otf_hsync;
@@ -257,20 +288,20 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     reg  [63:0]               actual_rvo_plane1_words [0:CASE_TILE1_WORDS64-1];
     reg  [127:0]              expected_otf_beats [0:CASE_EXPECTED_OTF_BEATS-1];
 
-    reg  [4:0]                tile_fmt_queue [0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [11:0]               tile_x_queue   [0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [9:0]                tile_y_queue   [0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [2:0]                tile_alen_queue[0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [AXI_AW-1:0]         tile_addr_queue[0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [4:0]                ci_fmt_queue   [0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [11:0]               ci_x_queue     [0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [9:0]                ci_y_queue     [0:CASE_EXPECTED_CI_CMDS-1];
-    reg                       ci_input_type_queue [0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [2:0]                ci_alen_queue      [0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [3:0]                ci_metadata_queue  [0:CASE_EXPECTED_CI_CMDS-1];
-    reg                       ci_lossy_queue     [0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [1:0]                ci_alpha_mode_queue[0:CASE_EXPECTED_CI_CMDS-1];
-    reg  [SB_WIDTH-1:0]       ci_sb_queue        [0:CASE_EXPECTED_CI_CMDS-1];
+    reg  [4:0]                tile_fmt_queue [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [11:0]               tile_x_queue   [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [9:0]                tile_y_queue   [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [2:0]                tile_alen_queue[0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [AXI_AW-1:0]         tile_addr_queue[0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [4:0]                ci_fmt_queue   [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [11:0]               ci_x_queue     [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [9:0]                ci_y_queue     [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg                       ci_input_type_queue [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [2:0]                ci_alen_queue      [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [3:0]                ci_metadata_queue  [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg                       ci_lossy_queue     [0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [1:0]                ci_alpha_mode_queue[0:CASE_MAX_EXPECTED_CI_CMDS-1];
+    reg  [SB_WIDTH-1:0]       ci_sb_queue        [0:CASE_MAX_EXPECTED_CI_CMDS-1];
 
     reg                       axi_rsp_active;
     reg                       axi_rsp_is_meta;
@@ -298,6 +329,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     integer                   ci_accept_cnt;
     integer                   payload_cmd_cnt;
     integer                   expected_rvo_beats_total;
+    integer                   expected_ci_cmds_total;
+    integer                   expected_dec_meta_samples_total;
+    integer                   expected_otf_beats_total;
+    integer                   expected_rvo_last_total;
     integer                   rvo_beat_cnt;
     integer                   rvo_last_cnt;
     integer                   co_active_cycle_cnt;
@@ -358,6 +393,14 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     integer                   timeout_cycles;
     integer                   tb_timeout_limit_cycles;
     integer                   tb_idle_gap_limit_cycles;
+    integer                   tb_frame_repeat;
+    integer                   tb_otf_ready_random_en;
+    integer                   tb_otf_ready_seed;
+    integer                   tb_otf_ready_stall_pct;
+    integer                   tb_axi_random_en;
+    integer                   tb_axi_seed;
+    integer                   tb_axi_ar_stall_pct;
+    integer                   tb_axi_rvalid_stall_pct;
     reg [4:0]                 first_rvo_mismatch_fmt;
     reg [11:0]                first_rvo_mismatch_x;
     reg [9:0]                 first_rvo_mismatch_y;
@@ -403,6 +446,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     reg [127:0]               first_otf_actual_data;
     integer                   inject_tile_cnt;
     reg                       otf_frame_done;
+    integer                   otf_frame_done_count;
     integer                   otf_active_x;
     integer                   otf_active_y;
     integer                   compressed_tile_hs_cnt;
@@ -415,6 +459,8 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     integer                   cvi_tile_rd_ptr;
     integer                   cvi_tile_beat_idx;
     reg                       axi_r_cccc_seen_curr_beat;
+    reg [31:0]                otf_ready_rand_state;
+    reg [31:0]                axi_rand_state;
 
     reg [4:0]                 inject_axis_format;
     reg [15:0]                inject_axis_tile_x;
@@ -1411,7 +1457,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             PWDATA  <= data;
             @(posedge PCLK);
             PENABLE <= 1'b1;
-            @(posedge PCLK);
+            do begin
+                @(posedge PCLK);
+            end while (!PREADY);
             PSEL    <= 1'b0;
             PENABLE <= 1'b0;
             PWRITE  <= 1'b0;
@@ -1423,6 +1471,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     task automatic program_wrapper_regs;
         reg cfg_4line_format;
         reg [AXI_AW-1:0] meta_plane_rgba_y_base;
+        integer cfg_frame_idx;
         begin
             cfg_4line_format = CASE_IS_NV12 ? 1'b0 : 1'b1;
             meta_plane_rgba_y_base = CASE_META_BASE_ADDR_Y;
@@ -1432,27 +1481,30 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             apb_write(16'h0010, 32'h0000_000f);
             apb_write(16'h0014, 32'h0000_0001);
 
-            apb_write(16'h001c, meta_plane_rgba_y_base[31:0]);
-            apb_write(16'h0020, meta_plane_rgba_y_base[63:32]);
-            apb_write(16'h0024, CASE_META_BASE_ADDR_UV[31:0]);
-            apb_write(16'h0028, CASE_META_BASE_ADDR_UV[63:32]);
+            apb_write(16'h0018, {11'd0, CASE_BASE_FORMAT, IMG_W[15:0]});
+            apb_write(16'h001c, {CASE_OTF_H_SYNC[15:0], CASE_OTF_H_TOTAL[15:0]});
+            apb_write(16'h0020, {IMG_W[15:0], CASE_OTF_H_BP[15:0]});
+            apb_write(16'h0024, {16'd5, CASE_OTF_V_TOTAL[15:0]});
+            apb_write(16'h0028, {CASE_OTF_V_ACT[15:0], 16'd36});
             apb_write(16'h002c, {CASE_TILE_Y_NUMBERS[15:0], CASE_TILE_X_NUMBERS[15:0]});
 
-            apb_write(16'h0030, {11'd0, CASE_BASE_FORMAT, IMG_W[15:0]});
-            apb_write(16'h0034, {CASE_OTF_H_SYNC[15:0], CASE_OTF_H_TOTAL[15:0]});
-            apb_write(16'h0038, {IMG_W[15:0], CASE_OTF_H_BP[15:0]});
-            apb_write(16'h003c, {16'd5, CASE_OTF_V_TOTAL[15:0]});
-            apb_write(16'h0040, {CASE_OTF_V_ACT[15:0], 16'd36});
-            apb_write(16'h0044, CASE_TILE_BASE_ADDR_UV[31:0]);
-            apb_write(16'h0048, CASE_TILE_BASE_ADDR_UV[63:32]);
-            apb_write(16'h004c, CASE_TILE_BASE_ADDR_Y[31:0]);
-            apb_write(16'h0050, CASE_TILE_BASE_ADDR_Y[63:32]);
-
-            apb_write(16'h0018, {23'd0, CASE_BASE_FORMAT, 3'd0, 1'b1});
+            for (cfg_frame_idx = 0; cfg_frame_idx < tb_frame_repeat; cfg_frame_idx = cfg_frame_idx + 1) begin
+                apb_write(16'h0030, meta_plane_rgba_y_base[31:0]);
+                apb_write(16'h0034, meta_plane_rgba_y_base[63:32]);
+                apb_write(16'h0038, CASE_TILE_BASE_ADDR_Y[31:0]);
+                apb_write(16'h003c, CASE_TILE_BASE_ADDR_Y[63:32]);
+                apb_write(16'h0040, CASE_META_BASE_ADDR_UV[31:0]);
+                apb_write(16'h0044, CASE_META_BASE_ADDR_UV[63:32]);
+                apb_write(16'h0048, CASE_TILE_BASE_ADDR_UV[31:0]);
+                apb_write(16'h004c, CASE_TILE_BASE_ADDR_UV[63:32]);
+            end
         end
     endtask
 
-    sram_pdp_8192x128 u_otf_sram_bank_a (
+    sram_pdp_8192x128 #(
+        .ADDR_WIDTH (COM_BUF_AW),
+        .DEPTH      (OTF_SRAM_DEPTH)
+    ) u_otf_sram_bank_a (
         .clk   (i_axi_clk),
         .wen   (o_otf_sram_a_wen),
         .waddr (o_otf_sram_a_waddr),
@@ -1462,7 +1514,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .rdata (i_otf_sram_a_rdata)
     );
 
-    sram_pdp_8192x128 u_otf_sram_bank_b (
+    sram_pdp_8192x128 #(
+        .ADDR_WIDTH (COM_BUF_AW),
+        .DEPTH      (OTF_SRAM_DEPTH)
+    ) u_otf_sram_bank_b (
         .clk   (i_axi_clk),
         .wen   (o_otf_sram_b_wen),
         .waddr (o_otf_sram_b_waddr),
@@ -1472,7 +1527,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .rdata (i_otf_sram_b_rdata)
     );
 
-    sram_pdp_8192x128 u_fake_otf_sram_bank_a (
+    sram_pdp_8192x128 #(
+        .ADDR_WIDTH (COM_BUF_AW),
+        .DEPTH      (OTF_SRAM_DEPTH)
+    ) u_fake_otf_sram_bank_a (
         .clk   (i_axi_clk),
         .wen   (fake_otf_sram_a_wen),
         .waddr (fake_otf_sram_a_waddr),
@@ -1482,7 +1540,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .rdata (fake_otf_sram_a_rdata)
     );
 
-    sram_pdp_8192x128 u_fake_otf_sram_bank_b (
+    sram_pdp_8192x128 #(
+        .ADDR_WIDTH (COM_BUF_AW),
+        .DEPTH      (OTF_SRAM_DEPTH)
+    ) u_fake_otf_sram_bank_b (
         .clk   (i_axi_clk),
         .wen   (fake_otf_sram_b_wen),
         .waddr (fake_otf_sram_b_waddr),
@@ -1500,6 +1561,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .AXI_IDW  (AXI_IDW),
         .AXI_LENW (AXI_LENW),
         .SB_WIDTH (SB_WIDTH),
+        .COM_BUF_AW (COM_BUF_AW),
         .FORCE_FULL_PAYLOAD (FORCE_FULL_PAYLOAD_CASE)
     ) dut (
         .PCLK              (PCLK),
@@ -1556,12 +1618,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .o_irq             (o_irq)
     );
 
-    ubwc_dec_tile_to_otf u_fake_tile_to_otf (
+    ubwc_dec_tile_to_otf #(
+        .SRAM_ADDR_W (COM_BUF_AW)
+    ) u_fake_tile_to_otf (
         .clk_sram         (i_axi_clk),
         .clk_otf          (i_otf_clk),
         .rst_sram_n       (i_axi_rstn),
         .rst_otf_n        (i_otf_rstn),
         .i_frame_start    (1'b0),
+        .i_frame_fcnt     (4'd0),
         .cfg_img_width    (IMG_W[15:0]),
         .cfg_format       (CASE_BASE_FORMAT),
         .cfg_otf_h_total  (CASE_OTF_H_TOTAL[15:0]),
@@ -1575,6 +1640,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .s_axis_format    (inject_axis_format),
         .s_axis_tile_x    (inject_axis_tile_x),
         .s_axis_tile_y    (inject_axis_tile_y),
+        .s_axis_tile_fcnt(4'd0),
         .s_axis_tile_valid(inject_axis_tile_valid),
         .s_axis_tile_ready(inject_axis_tile_ready),
         .s_axis_tdata     (inject_axis_tdata),
@@ -1624,6 +1690,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         if (!i_otf_rstn) begin
             otf_ready_div <= 2'd0;
             i_otf_ready   <= 1'b0;
+            otf_ready_rand_state <= (tb_otf_ready_seed == 0) ? 32'h3c6e_f372 : tb_otf_ready_seed[31:0];
+        end else if (tb_otf_ready_random_en != 0) begin
+            otf_ready_div <= 2'd0;
+            otf_ready_rand_state <= lfsr_next(otf_ready_rand_state);
+            i_otf_ready <= ready_from_stall_pct(otf_ready_rand_state, tb_otf_ready_stall_pct);
         end else if (CASE_IS_G016) begin
             // G016/P010 needs light sink-side backpressure in this TB so the
             // tile-to-OTF path can drain cleanly at the current clock ratio.
@@ -1786,7 +1857,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                     dut.meta_dec_x,
                                     dut.meta_dec_y);
 
-                if ((dec_meta_out_cnt >= CASE_EXPECTED_DEC_META_SAMPLES) ||
+                if ((dec_meta_out_cnt >= expected_dec_meta_samples_total) ||
                     (dut.u_meta_data_gen.meta_data !== exp_raw) ||
                     (dut.meta_dec_format !== exp_fmt) ||
                     (dut.meta_dec_flag !== exp_flag) ||
@@ -1814,27 +1885,35 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     end
                 end
 
-                if (exp_dec_meta_x == (CASE_TILE_X_NUMBERS - 1)) begin
-                    exp_dec_meta_x <= 12'd0;
-                    if (!CASE_HAS_PLANE1) begin
-                        exp_dec_meta_y <= exp_dec_meta_y + 1'b1;
-                    end else if (!exp_dec_meta_is_uv) begin
-                        if (!exp_dec_meta_y[0] && ((exp_dec_meta_y + 1'b1) < CASE_TILE_Y_NUMBERS)) begin
+                if (((dec_meta_out_cnt + 1) % CASE_EXPECTED_DEC_META_SAMPLES) == 0) begin
+                    exp_dec_meta_is_uv <= 1'b0;
+                    exp_dec_meta_x     <= 12'd0;
+                    exp_dec_meta_y     <= 10'd0;
+                    exp_dec_meta_uv_y  <= 10'd0;
+                    exp_dec_meta_done  <= ((dec_meta_out_cnt + 1) >= expected_dec_meta_samples_total);
+                end else begin
+                    if (exp_dec_meta_x == (CASE_TILE_X_NUMBERS - 1)) begin
+                        exp_dec_meta_x <= 12'd0;
+                        if (!CASE_HAS_PLANE1) begin
                             exp_dec_meta_y <= exp_dec_meta_y + 1'b1;
+                        end else if (!exp_dec_meta_is_uv) begin
+                            if (!exp_dec_meta_y[0] && ((exp_dec_meta_y + 1'b1) < CASE_TILE_Y_NUMBERS)) begin
+                                exp_dec_meta_y <= exp_dec_meta_y + 1'b1;
+                            end else begin
+                                exp_dec_meta_is_uv <= 1'b1;
+                            end
                         end else begin
-                            exp_dec_meta_is_uv <= 1'b1;
+                            exp_dec_meta_uv_y <= exp_dec_meta_uv_y + 1'b1;
+                            if ((exp_dec_meta_y + 1'b1) >= CASE_TILE_Y_NUMBERS) begin
+                                exp_dec_meta_done <= 1'b1;
+                            end else begin
+                                exp_dec_meta_y     <= exp_dec_meta_y + 1'b1;
+                                exp_dec_meta_is_uv <= 1'b0;
+                            end
                         end
                     end else begin
-                        exp_dec_meta_uv_y <= exp_dec_meta_uv_y + 1'b1;
-                        if ((exp_dec_meta_y + 1'b1) >= CASE_TILE_Y_NUMBERS) begin
-                            exp_dec_meta_done <= 1'b1;
-                        end else begin
-                            exp_dec_meta_y     <= exp_dec_meta_y + 1'b1;
-                            exp_dec_meta_is_uv <= 1'b0;
-                        end
+                        exp_dec_meta_x <= exp_dec_meta_x + 1'b1;
                     end
-                end else begin
-                    exp_dec_meta_x <= exp_dec_meta_x + 1'b1;
                 end
             end
 
@@ -1908,11 +1987,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             if (dut.u_tile_to_otf.fifo_wr_en) begin
                 fifo_wr_cnt <= fifo_wr_cnt + 1;
             end
-            if (dut.u_tile_to_otf.fifo_rd_en) begin
+            if ((dut.u_tile_to_otf.fifo_rd_en0 | dut.u_tile_to_otf.fifo_rd_en1)) begin
                 fifo_rd_cnt <= fifo_rd_cnt + 1;
             end
             if (dut.u_tile_to_otf.u_otf_driver.need_data &&
-                dut.u_tile_to_otf.fifo_empty) begin
+                (dut.u_tile_to_otf.fifo_empty0 & dut.u_tile_to_otf.fifo_empty1)) begin
                 otf_fifo_empty_need_cnt <= otf_fifo_empty_need_cnt + 1;
                 if (first_otf_fifo_empty_need_beat < 0) begin
                     first_otf_fifo_empty_need_beat <= otf_beat_cnt;
@@ -1927,7 +2006,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             if (u_fake_tile_to_otf.fifo_wr_en) begin
                 fake_fifo_wr_cnt <= fake_fifo_wr_cnt + 1;
             end
-            if (u_fake_tile_to_otf.fifo_rd_en) begin
+            if ((u_fake_tile_to_otf.fifo_rd_en0 | u_fake_tile_to_otf.fifo_rd_en1)) begin
                 fake_fifo_rd_cnt <= fake_fifo_rd_cnt + 1;
             end
             if (inject_axis_tile_valid && inject_axis_tile_ready) begin
@@ -2147,11 +2226,17 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             ar_len_mismatch_cnt    <= 0;
             tile_queue_underflow_cnt <= 0;
             last_progress_cycle    <= 0;
+            axi_rand_state         <= (tb_axi_seed == 0) ? 32'h5eed_0d1a : tb_axi_seed[31:0];
         end else begin
+            if (tb_axi_random_en != 0)
+                axi_rand_state <= lfsr_next(lfsr_next(axi_rand_state));
+            else
+                axi_rand_state <= (tb_axi_seed == 0) ? 32'h5eed_0d1a : tb_axi_seed[31:0];
+
             if (!axi_rsp_active) begin
                 i_m_axi_rvalid <= 1'b0;
                 i_m_axi_rlast  <= 1'b0;
-                i_m_axi_arready <= 1'b1;
+                i_m_axi_arready <= ready_from_stall_pct(axi_rand_state, tb_axi_ar_stall_pct);
                 if (o_m_axi_arvalid && i_m_axi_arready) begin
                     i_m_axi_arready <= 1'b0;
                     if (((o_m_axi_araddr >= CASE_META_BASE_ADDR_Y) &&
@@ -2211,16 +2296,21 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 end
             end else if (!i_m_axi_rvalid) begin
                 i_m_axi_arready <= 1'b0;
-                i_m_axi_rvalid <= 1'b1;
-                i_m_axi_rid     <= axi_rsp_id;
-                i_m_axi_rresp  <= 2'b00;
-                i_m_axi_rlast  <= (axi_rsp_beats_left == 8'd1);
-                if (axi_rsp_is_meta) begin
+                if (!ready_from_stall_pct(lfsr_next(axi_rand_state), tb_axi_rvalid_stall_pct)) begin
+                    i_m_axi_rvalid <= 1'b0;
+                    i_m_axi_rlast  <= 1'b0;
+                end else begin
+                    i_m_axi_rvalid <= 1'b1;
+                    i_m_axi_rid    <= axi_rsp_id;
+                    i_m_axi_rresp  <= 2'b00;
+                    i_m_axi_rlast  <= (axi_rsp_beats_left == 8'd1);
+                    if (axi_rsp_is_meta) begin
                         i_m_axi_rdata <= pack_meta_axi_word(axi_rsp_meta_plane1, axi_rsp_addr, axi_rsp_beat_idx);
                     end else begin
                         i_m_axi_rdata <= pack_raw_tile_axi_word(axi_rsp_tile_fmt, axi_rsp_addr, axi_rsp_beat_idx);
                     end
-                end else if (o_m_axi_rready) begin
+                end
+            end else if (o_m_axi_rready) begin
                 axi_rbeat_cnt       <= axi_rbeat_cnt + 1;
                 last_progress_cycle <= cycle_cnt;
                 if (axi_rsp_beats_left == 8'd1) begin
@@ -2258,15 +2348,16 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             first_otf_expected_data <= 128'd0;
             first_otf_actual_data   <= 128'd0;
             otf_frame_done          <= 1'b0;
+            otf_frame_done_count    <= 0;
             otf_active_x            <= 0;
             otf_active_y            <= 0;
             last_otf_progress_cycle <= 0;
         end else if (i_otf_ready && tb_otf_de && !otf_frame_done) begin
-            if (otf_beat_cnt >= CASE_EXPECTED_OTF_BEATS) begin
+            if (otf_beat_cnt >= expected_otf_beats_total) begin
                 $fatal(1, "Observed extra OTF beat beyond expected stream. beat=%0d data=%032h",
                        otf_beat_cnt, tb_otf_data);
             end
-            exp_data_word = expected_otf_beats[otf_beat_cnt];
+            exp_data_word = expected_otf_beats[otf_beat_cnt % CASE_EXPECTED_OTF_BEATS];
             if (otf_fd != 0) begin
                 $fwrite(otf_fd, "%032h\n", tb_otf_data);
             end
@@ -2288,8 +2379,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             if (otf_active_x == (IMG_W - 4)) begin
                 otf_active_x <= 0;
                 if (otf_active_y == (CASE_OTF_V_ACT - 1)) begin
-                    otf_active_y   <= 0;
-                    otf_frame_done <= 1'b1;
+                    otf_active_y         <= 0;
+                    otf_frame_done_count <= otf_frame_done_count + 1;
+                    otf_frame_done       <= ((otf_frame_done_count + 1) >= tb_frame_repeat);
                 end else begin
                     otf_active_y <= otf_active_y + 1;
                 end
@@ -2427,6 +2519,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         i_m_axi_rvalid  = 1'b0;
         i_m_axi_rresp   = 2'b00;
         i_m_axi_rlast   = 1'b0;
+        tb_otf_ready_random_en  = 0;
+        tb_otf_ready_seed       = 32'h3c6e_f372;
+        tb_otf_ready_stall_pct  = 0;
+        tb_axi_random_en        = 0;
+        tb_axi_seed             = 32'h5eed_0d1a;
+        tb_axi_ar_stall_pct     = 0;
+        tb_axi_rvalid_stall_pct = 0;
+        otf_ready_rand_state    = 32'h3c6e_f372;
+        axi_rand_state          = 32'h5eed_0d1a;
         axi_rsp_active  = 1'b0;
         axi_rsp_id      = {(AXI_IDW+1){1'b0}};
         cycle_cnt       = 0;
@@ -2452,6 +2553,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         summary_fd      = 0;
         tb_timeout_limit_cycles = CASE_TIMEOUT_CYCLES;
         tb_idle_gap_limit_cycles = CASE_IDLE_GAP_CYCLES;
+        tb_frame_repeat = 1;
         cvi_tile_rd_ptr     = 0;
         cvi_tile_beat_idx   = 0;
         cmp_tile_rd_ptr     = 0;
@@ -2466,6 +2568,31 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         inject_axis_tvalid     = 1'b0;
         void'($value$plusargs("tb_timeout_cycles=%d", tb_timeout_limit_cycles));
         void'($value$plusargs("tb_idle_gap_cycles=%d", tb_idle_gap_limit_cycles));
+        void'($value$plusargs("tb_frame_repeat=%d", tb_frame_repeat));
+        if ($test$plusargs("tb_otf_ready_random"))
+            tb_otf_ready_random_en = 1;
+        if ($test$plusargs("tb_axi_random"))
+            tb_axi_random_en = 1;
+        void'($value$plusargs("tb_otf_ready_random=%d", tb_otf_ready_random_en));
+        void'($value$plusargs("tb_otf_ready_seed=%d", tb_otf_ready_seed));
+        void'($value$plusargs("tb_otf_ready_stall_pct=%d", tb_otf_ready_stall_pct));
+        void'($value$plusargs("tb_axi_random=%d", tb_axi_random_en));
+        void'($value$plusargs("tb_axi_seed=%d", tb_axi_seed));
+        void'($value$plusargs("tb_axi_ar_stall_pct=%d", tb_axi_ar_stall_pct));
+        void'($value$plusargs("tb_axi_rvalid_stall_pct=%d", tb_axi_rvalid_stall_pct));
+        otf_ready_rand_state = (tb_otf_ready_seed == 0) ? 32'h3c6e_f372 : tb_otf_ready_seed[31:0];
+        axi_rand_state       = (tb_axi_seed == 0) ? 32'h5eed_0d1a : tb_axi_seed[31:0];
+        if (tb_frame_repeat < 1) begin
+            tb_frame_repeat = 1;
+        end else if (tb_frame_repeat > MAX_FRAME_REPEAT) begin
+            $display("WARN: tb_frame_repeat=%0d exceeds FIFO TB max %0d; clamp to %0d",
+                     tb_frame_repeat, MAX_FRAME_REPEAT, MAX_FRAME_REPEAT);
+            tb_frame_repeat = MAX_FRAME_REPEAT;
+        end
+        expected_ci_cmds_total = CASE_EXPECTED_CI_CMDS * tb_frame_repeat;
+        expected_dec_meta_samples_total = CASE_EXPECTED_DEC_META_SAMPLES * tb_frame_repeat;
+        expected_otf_beats_total = CASE_EXPECTED_OTF_BEATS * tb_frame_repeat;
+        expected_rvo_last_total = CASE_EXPECTED_CI_CMDS * tb_frame_repeat;
 
         repeat (8) @(posedge i_axi_clk);
         PRESETn    = 1'b1;
@@ -2556,6 +2683,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         $display("Expected OTF: expected_otf_stream.txt");
         $display("Summary     : %0s", summary_file);
         $display("Tile counts : x=%0d y=%0d", CASE_TILE_X_NUMBERS, CASE_TILE_Y_NUMBERS);
+        $display("Frame repeat: %0d", tb_frame_repeat);
         $display("==============================================================");
 
         program_wrapper_regs();
@@ -2572,10 +2700,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         fail_check_cnt = 0;
         wait (PRESETn && i_axi_rstn && i_otf_rstn);
         repeat (100) @(posedge i_axi_clk);
-        while ((ci_accept_cnt < CASE_EXPECTED_CI_CMDS ||
+        while ((ci_accept_cnt < expected_ci_cmds_total ||
                 axi_rsp_active ||
                 (tile_queue_rd_ptr < tile_queue_wr_ptr) ||
-                (cmp_tile_rd_ptr < CASE_EXPECTED_CI_CMDS) ||
+                (cmp_tile_rd_ptr < expected_ci_cmds_total) ||
                 ((TB_REAL_VIVO_MODE == 0) && (fake_ci_fifo_rd_cnt < ci_queue_wr_ptr)) ||
                 !otf_frame_done) &&
                ((cycle_cnt - last_progress_cycle) <= tb_idle_gap_limit_cycles) &&
@@ -2638,6 +2766,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                  dut.u_dec_vivo_top.r_in_beats_left,
                  dut.vivo_ci_ready_raw, dut.tile_cvi_ready_int);
         $display("  OTF beat count       : %0d", otf_beat_cnt);
+        $display("  OTF frame done count : %0d", otf_frame_done_count);
         $display("  OTF mismatches       : %0d", otf_mismatch_cnt);
         $display("  dbg arcmd state      : payload_left=%0d ar_left=%0d ci_fifo_empty=%0b ci_fifo_full=%0b",
                  dut.u_tile_arcmd_gen.payload_beats_left_reg,
@@ -2719,14 +2848,14 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             fail_check_cnt = fail_check_cnt + 1;
             $display("FAIL: No tile AXI reads were observed.");
         end
-        if (ci_accept_cnt != CASE_EXPECTED_CI_CMDS) begin
+        if (ci_accept_cnt != expected_ci_cmds_total) begin
             fail_check_cnt = fail_check_cnt + 1;
-            $display("FAIL: Unexpected CI count. got=%0d exp=%0d", ci_accept_cnt, CASE_EXPECTED_CI_CMDS);
+            $display("FAIL: Unexpected CI count. got=%0d exp=%0d", ci_accept_cnt, expected_ci_cmds_total);
         end
-        if (dec_meta_out_cnt != CASE_EXPECTED_DEC_META_SAMPLES) begin
+        if (dec_meta_out_cnt != expected_dec_meta_samples_total) begin
             fail_check_cnt = fail_check_cnt + 1;
             $display("FAIL: Unexpected decoded metadata count. got=%0d exp=%0d",
-                     dec_meta_out_cnt, CASE_EXPECTED_DEC_META_SAMPLES);
+                     dec_meta_out_cnt, expected_dec_meta_samples_total);
         end
         if (dec_meta_mismatch_cnt != 0) begin
             fail_check_cnt = fail_check_cnt + 1;
@@ -2753,9 +2882,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             fail_check_cnt = fail_check_cnt + 1;
             $display("FAIL: Wrapper OTF frame did not finish before timeout.");
         end
-        if (otf_beat_cnt != CASE_EXPECTED_OTF_BEATS) begin
+        if (otf_beat_cnt != expected_otf_beats_total) begin
             fail_check_cnt = fail_check_cnt + 1;
-            $display("FAIL: Unexpected OTF beat count. got=%0d exp=%0d", otf_beat_cnt, CASE_EXPECTED_OTF_BEATS);
+            $display("FAIL: Unexpected OTF beat count. got=%0d exp=%0d", otf_beat_cnt, expected_otf_beats_total);
         end
         if (otf_mismatch_cnt != 0) begin
             fail_check_cnt = fail_check_cnt + 1;
@@ -2766,9 +2895,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             fail_check_cnt = fail_check_cnt + 1;
             $display("FAIL: Unexpected RVO beat count. got=%0d exp=%0d", rvo_beat_cnt, expected_rvo_beats_total);
         end
-        if (rvo_last_cnt != CASE_EXPECTED_CI_CMDS) begin
+        if (rvo_last_cnt != expected_rvo_last_total) begin
             fail_check_cnt = fail_check_cnt + 1;
-            $display("FAIL: Unexpected RVO last count. got=%0d exp=%0d", rvo_last_cnt, CASE_EXPECTED_CI_CMDS);
+            $display("FAIL: Unexpected RVO last count. got=%0d exp=%0d", rvo_last_cnt, expected_rvo_last_total);
         end
         if (rvo_data_mismatch_cnt != 0) begin
             fail_check_cnt = fail_check_cnt + 1;
@@ -2786,9 +2915,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             fail_check_cnt = fail_check_cnt + 1;
             $display("FAIL: Tile command queue underflows were observed.");
         end
-        if (o_stage_done !== 5'h1f) begin
+        if (o_stage_done !== 5'h1b) begin
             fail_check_cnt = fail_check_cnt + 1;
-            $display("FAIL: DEC stage done mismatch. got=0x%02x exp=0x1f", o_stage_done);
+            $display("FAIL: DEC stage done mismatch. got=0x%02x exp=0x1b", o_stage_done);
         end
         if (o_frame_done !== 1'b1) begin
             fail_check_cnt = fail_check_cnt + 1;
@@ -2862,6 +2991,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             $fwrite(summary_fd, "expected_dec_meta=%0s\n", dec_meta_expected_file);
             $fwrite(summary_fd, "actual_otf=actual_otf_stream.txt\n");
             $fwrite(summary_fd, "expected_otf=expected_otf_stream.txt\n");
+            $fwrite(summary_fd, "frame_repeat=%0d\n", tb_frame_repeat);
             $fwrite(summary_fd, "meta_ar_cnt=%0d\n", meta_ar_cnt);
             $fwrite(summary_fd, "tile_ar_cnt=%0d\n", tile_ar_cnt);
             $fwrite(summary_fd, "ci_accept_cnt=%0d\n", ci_accept_cnt);
@@ -2888,6 +3018,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             $fwrite(summary_fd, "rvo_data_mismatch_cnt=%0d\n", rvo_data_mismatch_cnt);
             $fwrite(summary_fd, "rvo_last_mismatch_cnt=%0d\n", rvo_last_mismatch_cnt);
             $fwrite(summary_fd, "otf_beat_cnt=%0d\n", otf_beat_cnt);
+            $fwrite(summary_fd, "otf_frame_done_count=%0d\n", otf_frame_done_count);
             $fwrite(summary_fd, "otf_mismatch_cnt=%0d\n", otf_mismatch_cnt);
             if (first_axi_rdata_cccc_cycle >= 0) begin
                 $fwrite(summary_fd, "first_axi_rdata_cccc=cycle:%0d owner:%0s addr:%016h lane:%0d\n",
@@ -2996,34 +3127,40 @@ endmodule
 module tb_ubwc_dec_wrapper_top_tajmahal_cases #(
     parameter integer CASE_ID = 0,
     parameter integer TB_REAL_VIVO_MODE = 0,
-    parameter integer FORCE_FULL_PAYLOAD_CASE = 0
+    parameter integer FORCE_FULL_PAYLOAD_CASE = 0,
+    parameter integer COM_BUF_AW = 12
 );
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (CASE_ID),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE),
+        .COM_BUF_AW (COM_BUF_AW)
     ) u_core ();
 endmodule
 
 module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba8888 #(
     parameter integer TB_REAL_VIVO_MODE = 0,
-    parameter integer FORCE_FULL_PAYLOAD_CASE = 0
-);
-    tb_ubwc_dec_wrapper_top_tajmahal_core #(
-        .CASE_ID (0),
-        .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
-    ) u_core ();
-endmodule
-
-module tb_ubwc_dec_wrapper_top_rgba8888_128x128 #(
-    parameter integer TB_REAL_VIVO_MODE = 0,
-    parameter integer FORCE_FULL_PAYLOAD_CASE = 1
+    parameter integer FORCE_FULL_PAYLOAD_CASE = 0,
+    parameter integer COM_BUF_AW = 12
 );
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (0),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
         .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE),
+        .COM_BUF_AW (COM_BUF_AW)
+    ) u_core ();
+endmodule
+
+module tb_ubwc_dec_wrapper_top_rgba8888_128x128 #(
+    parameter integer TB_REAL_VIVO_MODE = 0,
+    parameter integer FORCE_FULL_PAYLOAD_CASE = 1,
+    parameter integer COM_BUF_AW = 12
+);
+    tb_ubwc_dec_wrapper_top_tajmahal_core #(
+        .CASE_ID (0),
+        .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE),
+        .COM_BUF_AW (COM_BUF_AW),
         .IMG_W(128),
         .RGBA_ACTIVE_H(128),
         .RGBA_STORED_H(128),
@@ -3040,33 +3177,39 @@ endmodule
 
 module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba1010102 #(
     parameter integer TB_REAL_VIVO_MODE = 0,
-    parameter integer FORCE_FULL_PAYLOAD_CASE = 0
+    parameter integer FORCE_FULL_PAYLOAD_CASE = 0,
+    parameter integer COM_BUF_AW = 12
 );
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (1),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE),
+        .COM_BUF_AW (COM_BUF_AW)
     ) u_core ();
 endmodule
 
 module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
     parameter integer TB_REAL_VIVO_MODE = 0,
-    parameter integer FORCE_FULL_PAYLOAD_CASE = 0
+    parameter integer FORCE_FULL_PAYLOAD_CASE = 0,
+    parameter integer COM_BUF_AW = 12
 );
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (2),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE),
+        .COM_BUF_AW (COM_BUF_AW)
     ) u_core ();
 endmodule
 
 module tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016 #(
     parameter integer TB_REAL_VIVO_MODE = 0,
-    parameter integer FORCE_FULL_PAYLOAD_CASE = 0
+    parameter integer FORCE_FULL_PAYLOAD_CASE = 0,
+    parameter integer COM_BUF_AW = 12
 );
     tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .CASE_ID (3),
         .TB_REAL_VIVO_MODE (TB_REAL_VIVO_MODE),
-        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE)
+        .FORCE_FULL_PAYLOAD_CASE (FORCE_FULL_PAYLOAD_CASE),
+        .COM_BUF_AW (COM_BUF_AW)
     ) u_core ();
 endmodule

@@ -16,17 +16,20 @@
 //////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns / 1ps
 
-module ubwc_dec_tile_to_otf (
+module ubwc_dec_tile_to_otf #(
+    parameter integer SRAM_ADDR_W = 12
+)(
     // --- Clocks and reset ---
     input  wire           clk_sram,      // Write and memory-read clock, for example 200 MHz
     input  wire           clk_otf,       // Pixel output clock, for example 148.5 MHz for 1080p60
     input  wire           rst_sram_n,
     input  wire           rst_otf_n,
     input  wire           i_frame_start,
+    input  wire [3:0]     i_frame_fcnt,
 
     // --- Frame config, keep stable for one frame ---
     input  wire [15:0]    cfg_img_width, // For example 1920
-    input  wire [4:0]     cfg_format,    // Base frame format: RGBA / YUV420 / YUV422
+    input  wire [4:0]     cfg_format,    // Base frame format: RGBA / YUV420
     input  wire [15:0]    cfg_otf_h_total,
     input  wire [15:0]    cfg_otf_h_sync,
     input  wire [15:0]    cfg_otf_h_bp,
@@ -42,6 +45,7 @@ module ubwc_dec_tile_to_otf (
     input  wire [4:0]     s_axis_format,     // Current tile or plane format for writer address mapping
     input  wire [15:0]    s_axis_tile_x,     // Tile x index in the current frame scan order
     input  wire [15:0]    s_axis_tile_y,     // Slice index; YUV420 expects full-width Y upper, then Y lower, then UV
+    input  wire [3:0]     s_axis_tile_fcnt,
     input  wire           s_axis_tile_valid, // One header beat per tile
     output wire           s_axis_tile_ready,
 
@@ -56,17 +60,17 @@ module ubwc_dec_tile_to_otf (
     // --- External SRAM bank interface (clk_sram) ---
     // The ping-pong SRAM instances are provided by the wrapper or testbench.
     output wire           sram_a_wen,
-    output wire [12:0]    sram_a_waddr,
+    output wire [SRAM_ADDR_W-1:0] sram_a_waddr,
     output wire [127:0]   sram_a_wdata,
     output wire           sram_a_ren,
-    output wire [12:0]    sram_a_raddr,
+    output wire [SRAM_ADDR_W-1:0] sram_a_raddr,
     input  wire [127:0]   sram_a_rdata,
     input  wire           sram_a_rvalid,
     output wire           sram_b_wen,
-    output wire [12:0]    sram_b_waddr,
+    output wire [SRAM_ADDR_W-1:0] sram_b_waddr,
     output wire [127:0]   sram_b_wdata,
     output wire           sram_b_ren,
-    output wire [12:0]    sram_b_raddr,
+    output wire [SRAM_ADDR_W-1:0] sram_b_raddr,
     input  wire [127:0]   sram_b_rdata,
     input  wire           sram_b_rvalid,
 
@@ -79,7 +83,10 @@ module ubwc_dec_tile_to_otf (
     output wire [11:0]    o_otf_lcnt,
     input  wire           i_otf_ready,
 
-    output wire           o_busy
+    output wire           o_busy,
+    output wire           o_correct_irq_pulse,
+    output wire [31:0]    o_otf_line_count,
+    output wire [31:0]    o_otf_de_count
 );
 
     // =========================================================================
@@ -88,99 +95,259 @@ module ubwc_dec_tile_to_otf (
     // 1. Ping-pong buffer status
     wire          writer_vld;
     wire          writer_bank;
+    wire [3:0]    writer_fcnt;
     wire          fetcher_req;
     wire          fetcher_done;
     wire          fetcher_bank;
+    wire [3:0]    fetcher_fcnt;
+    wire [3:0]    fetcher_fifo_fcnt;
     reg           sram_a_free;
     reg           sram_b_free;
+    reg  [3:0]    sram_a_fcnt;
+    reg  [3:0]    sram_b_fcnt;
     reg           pending_a;
     reg           pending_b;
 
     // 2. Async FIFO interface
-    wire          fifo_wr_en, fifo_rd_en;
-    wire [255:0]  fifo_wdata, fifo_rdata;
-    wire          fifo_full, fifo_empty;
+    wire          fifo_wr_en, fifo_rd_en0, fifo_rd_en1;
+    wire [255:0]  fifo_wdata, fifo_rdata0, fifo_rdata1;
+    wire          fifo_full0, fifo_full1, fifo_empty0, fifo_empty1;
     wire          otf_driver_busy;
-    wire          frame_start_sram = (i_frame_start == 1'b1);
+    wire          otf_frame_done_pulse;
+    wire          otf_correct_irq_pulse;
+    wire [31:0]   otf_line_count_otf;
+    wire [31:0]   otf_de_count_otf;
+    wire          frame_start_sram;
+    assign frame_start_sram = (i_frame_start == 1'b1);
     reg           frame_start_toggle_sram;
     reg  [1:0]    frame_start_toggle_otf_sync;
+    reg  [3:0]    frame_fcnt_sram;
+    reg  [3:0]    frame_fcnt_otf_meta;
+    reg  [3:0]    frame_fcnt_otf_sync;
+    reg           frame_start_otf_reg;
+    wire          frame_start_otf_raw;
     wire          frame_start_otf;
+    reg           frame_done_toggle_otf;
+    reg  [1:0]    frame_done_toggle_sram_sync;
+    wire          frame_done_sram;
+    reg           correct_irq_toggle_otf;
+    reg  [1:0]    correct_irq_toggle_sram_sync;
+    reg  [31:0]   otf_line_count_sram;
+    reg  [31:0]   otf_de_count_sram;
+    reg           accept_fcnt_valid_sram;
+    reg  [3:0]    accept_fcnt_sram;
+    wire          tile_fcnt_accept;
+    wire          writer_axis_tile_ready;
 
     always @(posedge clk_sram or negedge rst_sram_n) begin
-        if (!rst_sram_n) begin
+        if (!rst_sram_n)
             frame_start_toggle_sram <= 1'b0;
-        end else if (frame_start_sram) begin
+        else if (frame_start_sram)
             frame_start_toggle_sram <= ~frame_start_toggle_sram;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            frame_fcnt_sram <= 4'd0;
+        else if (frame_start_sram)
+            frame_fcnt_sram <= i_frame_fcnt;
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n)
+            frame_start_toggle_otf_sync <= 2'b00;
+        else
+            frame_start_toggle_otf_sync <= {frame_start_toggle_otf_sync[0],
+                                            frame_start_toggle_sram};
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n)
+            frame_fcnt_otf_meta <= 4'd0;
+        else
+            frame_fcnt_otf_meta <= frame_fcnt_sram;
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n)
+            frame_fcnt_otf_sync <= 4'd0;
+        else
+            frame_fcnt_otf_sync <= frame_fcnt_otf_meta;
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n)
+            frame_start_otf_reg <= 1'b0;
+        else
+            frame_start_otf_reg <= frame_start_otf_raw;
+    end
+
+    assign frame_start_otf_raw = frame_start_toggle_otf_sync[1] ^ frame_start_toggle_otf_sync[0];
+    assign frame_start_otf = frame_start_otf_reg;
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n) begin
+            frame_done_toggle_otf <= 1'b0;
+        end else if (otf_frame_done_pulse) begin
+            frame_done_toggle_otf <= ~frame_done_toggle_otf;
         end
     end
 
     always @(posedge clk_otf or negedge rst_otf_n) begin
         if (!rst_otf_n) begin
-            frame_start_toggle_otf_sync <= 2'b00;
-        end else begin
-            frame_start_toggle_otf_sync <= {frame_start_toggle_otf_sync[0], frame_start_toggle_sram};
+            correct_irq_toggle_otf <= 1'b0;
+        end else if (otf_correct_irq_pulse) begin
+            correct_irq_toggle_otf <= ~correct_irq_toggle_otf;
         end
     end
 
-    assign frame_start_otf = frame_start_toggle_otf_sync[1] ^ frame_start_toggle_otf_sync[0];
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            frame_done_toggle_sram_sync <= 2'b00;
+        else
+            frame_done_toggle_sram_sync <= {frame_done_toggle_sram_sync[0],
+                                            frame_done_toggle_otf};
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            correct_irq_toggle_sram_sync <= 2'b00;
+        else
+            correct_irq_toggle_sram_sync <= {correct_irq_toggle_sram_sync[0],
+                                             correct_irq_toggle_otf};
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            otf_line_count_sram <= 32'd0;
+        else
+            otf_line_count_sram <= otf_line_count_otf;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            otf_de_count_sram <= 32'd0;
+        else
+            otf_de_count_sram <= otf_de_count_otf;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            accept_fcnt_valid_sram <= 1'b0;
+        else if (!accept_fcnt_valid_sram && frame_start_sram)
+            accept_fcnt_valid_sram <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            accept_fcnt_sram <= 4'd0;
+        else if (!accept_fcnt_valid_sram && frame_start_sram)
+            accept_fcnt_sram <= i_frame_fcnt;
+        else if (frame_done_sram)
+            accept_fcnt_sram <= accept_fcnt_sram + 4'd1;
+    end
+
+    assign frame_done_sram = frame_done_toggle_sram_sync[1] ^ frame_done_toggle_sram_sync[0];
+    assign o_correct_irq_pulse = correct_irq_toggle_sram_sync[1] ^ correct_irq_toggle_sram_sync[0];
+    assign o_otf_line_count = otf_line_count_sram;
+    assign o_otf_de_count = otf_de_count_sram;
+    assign tile_fcnt_accept = !accept_fcnt_valid_sram || (s_axis_tile_fcnt == accept_fcnt_sram);
+    assign s_axis_tile_ready = writer_axis_tile_ready && tile_fcnt_accept;
 
     // =========================================================================
     // Module instances
     // =========================================================================
 
-    wire fetcher_done_a = fetcher_done && (fetcher_bank == 1'b0);
-    wire fetcher_done_b = fetcher_done && (fetcher_bank == 1'b1);
-    wire pending_a_avail = pending_a && !fetcher_done_a;
-    wire pending_b_avail = pending_b && !fetcher_done_b;
-    wire fetcher_bank_sel = pending_a_avail ? 1'b0 : 1'b1;
+    wire fetcher_done_a;
+    assign fetcher_done_a = fetcher_done && (fetcher_bank == 1'b0);
+    wire fetcher_done_b;
+    assign fetcher_done_b = fetcher_done && (fetcher_bank == 1'b1);
+    wire pending_a_avail;
+    assign pending_a_avail = pending_a && !fetcher_done_a;
+    wire pending_b_avail;
+    assign pending_b_avail = pending_b && !fetcher_done_b;
+    wire pending_a_fifo_full;
+    assign pending_a_fifo_full = fifo_full0;
+    wire pending_b_fifo_full;
+    assign pending_b_fifo_full = fifo_full0;
+    wire pending_a_can_fetch;
+    assign pending_a_can_fetch = pending_a_avail && !pending_a_fifo_full;
+    wire pending_b_can_fetch;
+    assign pending_b_can_fetch = pending_b_avail && !pending_b_fifo_full;
+    wire fetcher_bank_sel;
+    assign fetcher_bank_sel = pending_a_can_fetch ? 1'b0 : 1'b1;
+    wire [3:0] fetcher_req_fcnt;
+    assign fetcher_req_fcnt = pending_a_can_fetch ? sram_a_fcnt : sram_b_fcnt;
+    wire fetcher_req_fifo_full;
+    assign fetcher_req_fifo_full = fifo_full0;
 
-    assign fetcher_req = pending_a_avail | pending_b_avail;
+    assign fetcher_req = pending_a_can_fetch | pending_b_can_fetch;
 
     always @(posedge clk_sram or negedge rst_sram_n) begin
-        if (!rst_sram_n) begin
+        if (!rst_sram_n)
             sram_a_free <= 1'b1;
-            sram_b_free <= 1'b1;
-            pending_a   <= 1'b0;
-            pending_b   <= 1'b0;
-        end else if (frame_start_sram) begin
+        else if (fetcher_done_a)
             sram_a_free <= 1'b1;
-            sram_b_free <= 1'b1;
-            pending_a   <= 1'b0;
-            pending_b   <= 1'b0;
-        end else begin
-            if (writer_vld) begin
-                if (writer_bank == 1'b0) begin
-                    sram_a_free <= 1'b0;
-                    pending_a   <= 1'b1;
-                end else begin
-                    sram_b_free <= 1'b0;
-                    pending_b   <= 1'b1;
-                end
-            end
-
-            if (fetcher_done_a) begin
-                sram_a_free <= 1'b1;
-                pending_a   <= 1'b0;
-            end
-            if (fetcher_done_b) begin
-                sram_b_free <= 1'b1;
-                pending_b   <= 1'b0;
-            end
-        end
+        else if (writer_vld && (writer_bank == 1'b0))
+            sram_a_free <= 1'b0;
     end
 
-    tile_to_line_writer u_writer (
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_b_free <= 1'b1;
+        else if (fetcher_done_b)
+            sram_b_free <= 1'b1;
+        else if (writer_vld && (writer_bank == 1'b1))
+            sram_b_free <= 1'b0;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_a_fcnt <= 4'd0;
+        else if (writer_vld && (writer_bank == 1'b0))
+            sram_a_fcnt <= writer_fcnt;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_b_fcnt <= 4'd0;
+        else if (writer_vld && (writer_bank == 1'b1))
+            sram_b_fcnt <= writer_fcnt;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            pending_a <= 1'b0;
+        else if (fetcher_done_a)
+            pending_a <= 1'b0;
+        else if (writer_vld && (writer_bank == 1'b0))
+            pending_a <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            pending_b <= 1'b0;
+        else if (fetcher_done_b)
+            pending_b <= 1'b0;
+        else if (writer_vld && (writer_bank == 1'b1))
+            pending_b <= 1'b1;
+    end
+
+    tile_to_line_writer #(
+        .SRAM_ADDR_W                   ( SRAM_ADDR_W                          )
+    ) u_writer (
         .clk_sram                      ( clk_sram                              ),
         .rst_n                         ( rst_sram_n                            ),
-        .i_frame_start                 ( frame_start_sram                      ),
+        .i_frame_start                 ( 1'b0                                  ),
         .cfg_img_width                 ( cfg_img_width                         ),
         .i_sram_a_free                 ( sram_a_free                           ),
         .i_sram_b_free                 ( sram_b_free                           ),
         .s_axis_format                 ( s_axis_format                         ),
         .s_axis_tile_x                 ( s_axis_tile_x                         ),
         .s_axis_tile_y                 ( s_axis_tile_y                         ),
-        .s_axis_tile_valid             ( s_axis_tile_valid                     ),
-        .s_axis_tile_ready             ( s_axis_tile_ready                     ),
+        .s_axis_tile_fcnt              ( s_axis_tile_fcnt                      ),
+        .s_axis_tile_valid             ( s_axis_tile_valid && tile_fcnt_accept ),
+        .s_axis_tile_ready             ( writer_axis_tile_ready                ),
         .s_axis_tdata                  ( s_axis_tdata                          ),
         .s_axis_tlast                  ( s_axis_tlast                          ),
         .s_axis_tvalid                 ( s_axis_tvalid                         ),
@@ -192,17 +359,21 @@ module ubwc_dec_tile_to_otf (
         .sram_b_waddr                  ( sram_b_waddr                          ),
         .sram_b_wdata                  ( sram_b_wdata                          ),
         .o_writer_bank                 ( writer_bank                           ),
+        .o_writer_fcnt                 ( writer_fcnt                           ),
         .o_buffer_vld                  ( writer_vld                            )
     );
 
-    sram_read_fetcher u_fetcher (
+    sram_read_fetcher #(
+        .SRAM_ADDR_W                   ( SRAM_ADDR_W                          )
+    ) u_fetcher (
         .clk_sram                      ( clk_sram                              ),
         .rst_n                         ( rst_sram_n                            ),
-        .i_frame_start                 ( frame_start_sram                      ),
+        .i_frame_start                 ( 1'b0                                  ),
         .cfg_img_width                 ( cfg_img_width                         ),
         .cfg_format                    ( cfg_format                            ),
         .i_buffer_vld                  ( fetcher_req                           ),
         .i_writer_bank                 ( fetcher_bank_sel                      ),
+        .i_buffer_fcnt                 ( fetcher_req_fcnt                      ),
         .o_sram_a_ren                  ( sram_a_ren                            ),
         .o_sram_a_raddr                ( sram_a_raddr                          ),
         .i_sram_a_rdata                ( sram_a_rdata                          ),
@@ -211,36 +382,67 @@ module ubwc_dec_tile_to_otf (
         .i_sram_b_rdata                ( sram_b_rdata                          ),
         .o_fifo_wr_en                  ( fifo_wr_en                            ),
         .o_fifo_wdata                  ( fifo_wdata                            ),
-        .i_fifo_full                   ( fifo_full                             ),
+        .o_fifo_fcnt                   ( fetcher_fifo_fcnt                     ),
+        .i_fifo_full                   ( fetcher_req_fifo_full                 ),
         .o_fetcher_done                ( fetcher_done                          ),
-        .o_fetcher_bank                ( fetcher_bank                          )
+        .o_fetcher_bank                ( fetcher_bank                          ),
+        .o_fetcher_fcnt                ( fetcher_fcnt                          )
     );
 
     // Async FIFO across clock domains.
-    // It must use FWFT (First-Word Fall-Through) mode.
-    async_fifo_fwft_256w #(
-        .DATA_WIDTH (256),
-        .ADDR_WIDTH (5),
-        .DEPTH      (32)
-    ) u_cdc_fifo (
-        .wr_clk     (clk_sram),
-        .wr_rst_n   (rst_sram_n),
-        .wr_clr     (frame_start_sram),
-        .wr_en      (fifo_wr_en),
-        .din        (fifo_wdata),
-        .full       (fifo_full),
-        .rd_clk     (clk_otf),
-        .rd_rst_n   (rst_otf_n),
-        .rd_clr     (frame_start_otf),
-        .rd_en      (fifo_rd_en),
-        .dout       (fifo_rdata),
-        .empty      (fifo_empty)
+    mg_async_fifo #(
+        .AF         (1),
+        .DATA_BITS  (256),
+        .DEPTH_BITS (5),
+        .SHOW_AHEAD (1),
+        .RAM_STYLE  ("block")
+    ) u_cdc_fifo0 (
+        .wr_clk        (clk_sram),
+        .wr_rstn       (rst_sram_n),
+        .wr_en         (fifo_wr_en),
+        .din           (fifo_wdata),
+        .wr_data_count (),
+        .prog_full     (),
+        .full          (fifo_full0),
+        .rd_clk        (clk_otf),
+        .rd_rstn       (rst_otf_n),
+        .rd_en         (fifo_rd_en0),
+        .dout          (fifo_rdata0),
+        .valid         (),
+        .rd_data_count (),
+        .pre_empty     (),
+        .empty         (fifo_empty0)
+    );
+
+    mg_async_fifo #(
+        .AF         (1),
+        .DATA_BITS  (256),
+        .DEPTH_BITS (5),
+        .SHOW_AHEAD (1),
+        .RAM_STYLE  ("block")
+    ) u_cdc_fifo1 (
+        .wr_clk        (clk_sram),
+        .wr_rstn       (rst_sram_n),
+        .wr_en         (1'b0),
+        .din           (fifo_wdata),
+        .wr_data_count (),
+        .prog_full     (),
+        .full          (fifo_full1),
+        .rd_clk        (clk_otf),
+        .rd_rstn       (rst_otf_n),
+        .rd_en         (fifo_rd_en1),
+        .dout          (fifo_rdata1),
+        .valid         (),
+        .rd_data_count (),
+        .pre_empty     (),
+        .empty         (fifo_empty1)
     );
 
     otf_driver u_otf_driver (
         .clk_otf        (clk_otf),
         .rst_n          (rst_otf_n),
         .i_frame_start  (frame_start_otf),
+        .i_frame_fcnt   (frame_fcnt_otf_sync),
         .cfg_format     (cfg_format),
         .cfg_otf_h_total(cfg_otf_h_total),
         .cfg_otf_h_sync (cfg_otf_h_sync),
@@ -251,10 +453,18 @@ module ubwc_dec_tile_to_otf (
         .cfg_otf_v_bp   (cfg_otf_v_bp),
         .cfg_otf_v_act  (cfg_otf_v_act),
         .i_otf_ready    (i_otf_ready),
-        .i_fifo_empty   (fifo_empty),
-        .i_fifo_rdata   (fifo_rdata),
-        .o_fifo_rd_en   (fifo_rd_en),
+        .i_fifo_empty0  (fifo_empty0),
+        .i_fifo_rdata0  (fifo_rdata0),
+        .o_fifo_rd_en0  (fifo_rd_en0),
+        .i_fifo_empty1  (fifo_empty1),
+        .i_fifo_rdata1  (fifo_rdata1),
+        .o_fifo_rd_en1  (fifo_rd_en1),
         .o_busy         (otf_driver_busy),
+        .o_active_fcnt  (),
+        .o_frame_done_pulse(otf_frame_done_pulse),
+        .o_correct_irq_pulse(otf_correct_irq_pulse),
+        .o_otf_line_count(otf_line_count_otf),
+        .o_otf_de_count (otf_de_count_otf),
         .o_otf_vsync    (o_otf_vsync),
         .o_otf_hsync    (o_otf_hsync),
         .o_otf_de       (o_otf_de),
@@ -264,7 +474,7 @@ module ubwc_dec_tile_to_otf (
     );
 
     assign o_busy = s_axis_tile_valid | s_axis_tvalid | writer_vld | fetcher_req |
-                    !fifo_empty | pending_a | pending_b |
+                    !fifo_empty0 | !fifo_empty1 | pending_a | pending_b |
                     !sram_a_free | !sram_b_free | otf_driver_busy;
 
 endmodule

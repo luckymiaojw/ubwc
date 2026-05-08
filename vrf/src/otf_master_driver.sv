@@ -40,10 +40,11 @@ module enc_otf_driver
     wire    [15:0]  BEATS_PER_LINE = (img_width + 3) / 4;
 
     // FSM States
-    localparam ST_IDLE  = 3'd0;
-    localparam ST_VSYNC = 3'd1;
-    localparam ST_HSYNC = 3'd2;
-    localparam ST_DATA  = 3'd3;
+    localparam ST_IDLE     = 3'd0;
+    localparam ST_VSYNC    = 3'd1;
+    localparam ST_HSYNC    = 3'd2;
+    localparam ST_DATA     = 3'd3;
+    localparam ST_LINE_GAP = 3'd4;
 
     reg [2:0] state_r;
     
@@ -51,10 +52,50 @@ module enc_otf_driver
     integer r;
     integer beat_idx_r;
     integer line_idx_r;
+    integer line_gap_r;
+    integer next_line_gap;
+    integer tb_otf_random_en;
+    integer tb_otf_gap_seed;
+    integer tb_otf_hblank_gap_max;
+    reg [3:0] frame_cnt_r;
+    reg [31:0] otf_rand_state;
 
     reg [1023:0] line_buf;
     reg load_ok;
     reg [127:0] load_data;
+
+    function automatic [31:0] lfsr_next;
+        input [31:0] state_in;
+        reg feedback;
+        begin
+            feedback = state_in[31] ^ state_in[21] ^ state_in[1] ^ state_in[0];
+            lfsr_next = {state_in[30:0], feedback};
+            if (lfsr_next == 32'd0)
+                lfsr_next = 32'h1ace_5eed;
+        end
+    endfunction
+
+    function automatic integer calc_gap;
+        input [31:0] rand_word;
+        input integer gap_max;
+        begin
+            if ((tb_otf_random_en == 0) || (gap_max <= 0))
+                calc_gap = 0;
+            else
+                calc_gap = rand_word % (gap_max + 1);
+        end
+    endfunction
+
+    initial begin
+        tb_otf_random_en      = 0;
+        tb_otf_gap_seed       = 32'h1234_5678;
+        tb_otf_hblank_gap_max = 0;
+        if ($test$plusargs("tb_otf_random"))
+            tb_otf_random_en = 1;
+        void'($value$plusargs("tb_otf_random=%d", tb_otf_random_en));
+        void'($value$plusargs("tb_otf_gap_seed=%d", tb_otf_gap_seed));
+        void'($value$plusargs("tb_otf_hblank_gap_max=%d", tb_otf_hblank_gap_max));
+    end
 
     // ------------------------------------------------------------
     // Read the next beat (Task)
@@ -92,6 +133,9 @@ module enc_otf_driver
             error_flag   <= 1'b0;
             beat_idx_r   <= 0;
             line_idx_r   <= 0;
+            line_gap_r   <= 0;
+            frame_cnt_r  <= 4'd0;
+            otf_rand_state <= (tb_otf_gap_seed == 0) ? 32'h1ace_5eed : tb_otf_gap_seed[31:0];
             state_r      <= ST_IDLE;
             fin          <= 0;
         end else begin
@@ -119,6 +163,8 @@ module enc_otf_driver
                             error_flag <= 1'b0;
                             beat_idx_r <= 0;
                             line_idx_r <= 0;
+                            otf_fcnt   <= frame_cnt_r;
+                            otf_lcnt   <= 12'd0;
                             
                             // Switch to the frame-sync state and assert the vsync pulse early
                             state_r   <= ST_VSYNC;
@@ -156,7 +202,7 @@ module enc_otf_driver
                         otf_de   <= 1'b1;
                         otf_data <= load_data;
                         otf_lcnt <= line_idx_r[11:0];
-                        otf_fcnt <= 4'd0;
+                        otf_fcnt <= frame_cnt_r;
                         state_r  <= ST_DATA;
                     end
                 end
@@ -177,17 +223,25 @@ module enc_otf_driver
                                     $fclose(fin);
                                     fin = 0;
                                 end
+                                frame_cnt_r <= frame_cnt_r + 4'd1;
                                 state_r   <= ST_IDLE;
                             end else begin
                                 // Start the next line, deassert DE, and trigger a clean HSYNC
                                 beat_idx_r <= 0;
                                 line_idx_r <= line_idx_r + 1;
                                 otf_de     <= 1'b0;
-                                otf_hsync  <= 1'b1;
                                 // The HSYNC pulse beat must carry the "next line" index;
                                 // otherwise downstream logic that latches lcnt on HSYNC will lag by one line.
                                 otf_lcnt   <= line_idx_r + 1;
-                                state_r    <= ST_HSYNC;
+                                next_line_gap = calc_gap(otf_rand_state, tb_otf_hblank_gap_max);
+                                otf_rand_state <= lfsr_next(otf_rand_state);
+                                if (next_line_gap > 0) begin
+                                    line_gap_r <= next_line_gap;
+                                    state_r    <= ST_LINE_GAP;
+                                end else begin
+                                    otf_hsync  <= 1'b1;
+                                    state_r    <= ST_HSYNC;
+                                end
                             end
                         end else begin
                             // --- Advance within the current line ---
@@ -208,6 +262,19 @@ module enc_otf_driver
                         end
                     end
                     // If ready is 0, hold the current state (otf_de=1 and previous data) unchanged
+                end
+
+                ST_LINE_GAP: begin
+                    otf_vsync <= 1'b0;
+                    otf_hsync <= 1'b0;
+                    otf_de    <= 1'b0;
+                    if (line_gap_r <= 1) begin
+                        line_gap_r <= 0;
+                        otf_hsync  <= 1'b1;
+                        state_r    <= ST_HSYNC;
+                    end else begin
+                        line_gap_r <= line_gap_r - 1;
+                    end
                 end
 
                 default: state_r <= ST_IDLE;

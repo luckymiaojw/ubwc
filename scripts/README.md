@@ -1,5 +1,7 @@
 # HDL style helpers
 
+Coding style is defined in `../CODE_STYLE.md` and `../docs/ubwc_rtl_coding_style_cn.md`. In particular, project-owned RTL must follow the "one variable, one always block" rule for sequential registers, and wire declarations must be separated from continuous assignments.
+
 `align_hdl_style.py` aligns simple Verilog/SystemVerilog declarations and module instance parameter/port lists to the column style used by `src/enc/ubwc_enc_wrapper_top.sv`.
 
 Usage:

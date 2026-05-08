@@ -42,6 +42,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
     localparam integer MAX_FRAME_REPEAT   = 8;
     localparam integer TILE_QUEUE_CAPACITY= EXPECTED_TILE_CMDS * MAX_FRAME_REPEAT;
     localparam integer TIMEOUT_CYCLES     = 40000000;
+    localparam integer NO_PROGRESS_CYCLES = 2000000;
     localparam integer DEBUG_LOG          = 0;
 
     localparam [4:0] BASE_FMT_YUV420_8 = 5'b00010;
@@ -195,6 +196,8 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
     integer                   fetcher_done_cnt;
     integer                   fifo_wr_cnt;
     integer                   fifo_rd_cnt;
+    integer                   fifo_rd_otf_cnt;
+    integer                   active_data_stall_cnt;
     integer                   dbg_tile_idx_started;
     integer                   dbg_tile_beats_seen;
     integer                   dbg_stuck_tile_x;
@@ -504,7 +507,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             PWDATA  <= data;
             @(posedge PCLK);
             PENABLE <= 1'b1;
-            @(posedge PCLK);
+            do begin
+                @(posedge PCLK);
+            end while (PREADY !== 1'b1);
             PSEL    <= 1'b0;
             PENABLE <= 1'b0;
             PWRITE  <= 1'b0;
@@ -525,7 +530,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             PWDATA  <= {APB_DW{1'b0}};
             @(posedge PCLK);
             PENABLE <= 1'b1;
-            @(posedge PCLK);
+            do begin
+                @(posedge PCLK);
+            end while (PREADY !== 1'b1);
             data    = PRDATA;
             PSEL    <= 1'b0;
             PENABLE <= 1'b0;
@@ -533,7 +540,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         end
     endtask
 
-    task automatic program_wrapper_cfg;
+    task automatic program_wrapper_static_cfg;
         begin
             // TILE_CFG0:
             // lvl1=0, lvl2=1, lvl3=1, highest_bank_bit=16,
@@ -541,39 +548,46 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             apb_write(16'h0008, 32'h0000_0306);
             apb_write(16'h000c, 32'd256);
             apb_write(16'h0010, 32'h0000_000f);
-            if (TB_REAL_VIVO_MODE != 0) begin
-                apb_write(16'h0044, TILE_BASE_ADDR_UV[31:0]);
-                apb_write(16'h0048, TILE_BASE_ADDR_UV[63:32]);
-                apb_write(16'h004c, TILE_BASE_ADDR_Y[31:0]);
-                apb_write(16'h0050, TILE_BASE_ADDR_Y[63:32]);
-            end else begin
-                apb_write(16'h0044, 32'd0);
-                apb_write(16'h0048, 32'd0);
-                apb_write(16'h004c, 32'd0);
-                apb_write(16'h0050, 32'd0);
-            end
             apb_write(16'h0014, 32'h0000_0001);
 
-            apb_write(16'h001c, META_BASE_ADDR_Y[31:0]);
-            apb_write(16'h0020, META_BASE_ADDR_Y[63:32]);
-            apb_write(16'h0024, META_BASE_ADDR_UV[31:0]);
-            apb_write(16'h0028, META_BASE_ADDR_UV[63:32]);
+            apb_write(16'h0018, {11'd0, BASE_FMT_YUV420_8, 16'd4096});
+            apb_write(16'h001c, {16'd44, 16'd4400});
+            apb_write(16'h0020, {16'd4096, 16'd148});
+            apb_write(16'h0024, {16'd5, 16'd682});
+            apb_write(16'h0028, {16'd640, 16'd36});
             apb_write(16'h002c, {16'd80, 16'd128});
-
-            apb_write(16'h0030, {11'd0, BASE_FMT_YUV420_8, 16'd4096});
-            apb_write(16'h0034, {16'd44, 16'd4400});
-            apb_write(16'h0038, {16'd4096, 16'd148});
-            apb_write(16'h003c, {16'd5, 16'd682});
-            apb_write(16'h0040, {16'd640, 16'd36});
-
-            apb_write(16'h0018, 32'h0000_0020);
         end
     endtask
 
-    task automatic trigger_meta_start;
+    task automatic push_wrapper_base_cfg;
         begin
-            repeat (16) @(posedge i_axi_clk);
-            apb_write(16'h0018, 32'h0000_0021);
+            apb_write(16'h0030, META_BASE_ADDR_Y[31:0]);
+            apb_write(16'h0034, META_BASE_ADDR_Y[63:32]);
+            if (TB_REAL_VIVO_MODE != 0) begin
+                apb_write(16'h0038, TILE_BASE_ADDR_Y[31:0]);
+                apb_write(16'h003c, TILE_BASE_ADDR_Y[63:32]);
+                apb_write(16'h0040, META_BASE_ADDR_UV[31:0]);
+                apb_write(16'h0044, META_BASE_ADDR_UV[63:32]);
+                apb_write(16'h0048, TILE_BASE_ADDR_UV[31:0]);
+                apb_write(16'h004c, TILE_BASE_ADDR_UV[63:32]);
+            end else begin
+                apb_write(16'h0038, 32'd0);
+                apb_write(16'h003c, 32'd0);
+                apb_write(16'h0040, META_BASE_ADDR_UV[31:0]);
+                apb_write(16'h0044, META_BASE_ADDR_UV[63:32]);
+                apb_write(16'h0048, 32'd0);
+                apb_write(16'h004c, 32'd0);
+            end
+        end
+    endtask
+
+    task automatic program_wrapper_cfg;
+        integer cfg_frame_idx;
+        begin
+            program_wrapper_static_cfg();
+            for (cfg_frame_idx = 0; cfg_frame_idx < tb_frame_repeat; cfg_frame_idx = cfg_frame_idx + 1) begin
+                push_wrapper_base_cfg();
+            end
         end
     endtask
 
@@ -586,8 +600,8 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             status0 = 32'd0;
             status1 = 32'd0;
             while (settle_cycles < 200000) begin
-                apb_read(16'h0054, status0);
-                apb_read(16'h0058, status1);
+                apb_read(16'h0050, status0);
+                apb_read(16'h0054, status1);
                 if (status0[6] && status1[4] && !axi_rsp_active && !i_m_axi_rvalid) begin
                     settle_cycles = 200000;
                 end else begin
@@ -794,20 +808,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             dbg_stuck_tile_y         <= 0;
             dbg_stuck_tile_fmt       <= 0;
             dbg_frame_start_cnt      <= 0;
-        end else if (dut.frame_start_pulse_axi) begin
-            i_m_axi_arready          <= 1'b1;
-            axi_rsp_active           <= 1'b0;
-            axi_rsp_is_meta          <= 1'b0;
-            axi_rsp_meta_plane1      <= 1'b0;
-            axi_rsp_addr             <= {AXI_AW{1'b0}};
-            axi_rsp_id               <= {(AXI_IDW+1){1'b0}};
-            axi_rsp_beats_left       <= 8'd0;
-            axi_rsp_beat_idx         <= 8'd0;
-            axi_rsp_tile_fmt         <= 5'd0;
-            axi_rsp_tile_x           <= 12'd0;
-            axi_rsp_tile_y           <= 10'd0;
-            dbg_frame_start_cnt      <= dbg_frame_start_cnt + 1;
         end else begin
+            if (dut.frame_start_pulse_axi) begin
+                dbg_frame_start_cnt <= dbg_frame_start_cnt + 1;
+            end
             if (dut.tile_ci_valid_int && dut.tile_ci_ready_int) begin
                 ci_fire_cnt <= ci_fire_cnt + 1;
                 dbg_tile_idx_started <= dbg_tile_idx_started + 1;
@@ -872,7 +876,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             if (dut.u_tile_to_otf.fifo_wr_en) begin
                 fifo_wr_cnt <= fifo_wr_cnt + 1;
             end
-            if (dut.u_tile_to_otf.fifo_rd_en) begin
+            if ((dut.u_tile_to_otf.fifo_rd_en0 | dut.u_tile_to_otf.fifo_rd_en1)) begin
                 fifo_rd_cnt <= fifo_rd_cnt + 1;
             end
             if (DEBUG_LOG && (cycle_cnt >= 3329) && (cycle_cnt <= 3346)) begin
@@ -997,44 +1001,73 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             otf_mismatch_cnt   <= 0;
             first_mismatch_x   <= -1;
             first_mismatch_y   <= -1;
+            fifo_rd_otf_cnt    <= 0;
+            active_data_stall_cnt <= 0;
             active_x           <= 0;
             active_y           <= 0;
             frame_done         <= 1'b0;
             last_otf_progress_cycle <= 0;
-        end else if (i_otf_ready && o_otf_de && !frame_done) begin
-            exp_word = expected_otf_word(active_x, active_y);
-            if (o_otf_data !== exp_word) begin
-                otf_mismatch_cnt <= otf_mismatch_cnt + 1;
-                if (first_mismatch_x < 0) begin
-                    first_mismatch_x <= active_x;
-                    first_mismatch_y <= active_y;
-                end
+        end else begin
+            if ((dut.u_tile_to_otf.fifo_rd_en0 | dut.u_tile_to_otf.fifo_rd_en1)) begin
+                fifo_rd_otf_cnt <= fifo_rd_otf_cnt + 1;
             end
-            if (otf_fd != 0) begin
-                $fwrite(otf_fd, "%032h\n", o_otf_data);
+            if (dut.u_tile_to_otf.u_otf_driver.active_data_stall) begin
+                active_data_stall_cnt <= active_data_stall_cnt + 1;
             end
-            otf_beat_cnt <= otf_beat_cnt + 1;
-            last_progress_cycle <= cycle_cnt;
-            last_otf_progress_cycle <= cycle_cnt;
-
-            if (active_x == (IMG_W - 4)) begin
-                active_x <= 0;
-                if (active_y == (Y_H_STORED - 1)) begin
-                    active_y         <= 0;
-                    frames_completed <= frames_completed + 1;
-                    if ((frames_completed + 1) >= tb_frame_repeat) begin
-                        frame_done <= 1'b1;
+            if (i_otf_ready && o_otf_de && !frame_done) begin
+                exp_word = expected_otf_word(active_x, active_y);
+                if (o_otf_data !== exp_word) begin
+                    otf_mismatch_cnt <= otf_mismatch_cnt + 1;
+                    if (first_mismatch_x < 0) begin
+                        first_mismatch_x <= active_x;
+                        first_mismatch_y <= active_y;
+                        $display("DBG: first OTF mismatch at frame=%0d x=%0d y=%0d fcnt=%0d lcnt=%0d phase=%0d got=%032h exp=%032h",
+                                 frames_completed,
+                                 active_x,
+                                 active_y,
+                                 o_otf_fcnt,
+                                 o_otf_lcnt,
+                                 dut.u_tile_to_otf.u_otf_driver.phase,
+                                 o_otf_data,
+                                 exp_word);
+                    end else if (otf_mismatch_cnt < 8) begin
+                        $display("DBG: OTF mismatch sample at frame=%0d x=%0d y=%0d fcnt=%0d lcnt=%0d phase=%0d got=%032h exp=%032h",
+                                 frames_completed,
+                                 active_x,
+                                 active_y,
+                                 o_otf_fcnt,
+                                 o_otf_lcnt,
+                                 dut.u_tile_to_otf.u_otf_driver.phase,
+                                 o_otf_data,
+                                 exp_word);
                     end
-                    -> frame_complete_ev;
-                end else begin
-                    active_y <= active_y + 1;
                 end
-            end else begin
-                active_x <= active_x + 4;
-            end
+                if (otf_fd != 0) begin
+                    $fwrite(otf_fd, "%032h\n", o_otf_data);
+                end
+                otf_beat_cnt <= otf_beat_cnt + 1;
+                last_progress_cycle <= cycle_cnt;
+                last_otf_progress_cycle <= cycle_cnt;
 
-            if ((active_y[5:0] == 6'd0) && (active_x == 0)) begin
-                $display("Wrapper OTF progress: line %0d / %0d", active_y, Y_H_STORED);
+                if (active_x == (IMG_W - 4)) begin
+                    active_x <= 0;
+                    if (active_y == (Y_H_STORED - 1)) begin
+                        active_y         <= 0;
+                        frames_completed <= frames_completed + 1;
+                        if ((frames_completed + 1) >= tb_frame_repeat) begin
+                            frame_done <= 1'b1;
+                        end
+                        -> frame_complete_ev;
+                    end else begin
+                        active_y <= active_y + 1;
+                    end
+                end else begin
+                    active_x <= active_x + 4;
+                end
+
+                if ((active_y[5:0] == 6'd0) && (active_x == 0)) begin
+                    $display("Wrapper OTF progress: line %0d / %0d", active_y, Y_H_STORED);
+                end
             end
         end
     end
@@ -1043,7 +1076,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         if (!i_axi_rstn) begin
         end else if ((frames_started > frames_completed) &&
                      (frames_completed > 0) &&
-                     ((cycle_cnt - last_otf_progress_cycle) > 400000)) begin
+                     ((cycle_cnt - last_otf_progress_cycle) > NO_PROGRESS_CYCLES)) begin
             $display("TB: multiframe OTF restart timeout at cycle=%0d", cycle_cnt);
             $display("  frames started     : %0d", frames_started);
             $display("  frames completed   : %0d", frames_completed);
@@ -1055,13 +1088,24 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             $display("  dbg vivo state     : tile_active=%0b out_left=%0d in_left=%0d ci_ready_raw=%0b cvi_ready=%0b",
                      dut.u_dec_vivo_top.r_tile_active, dut.u_dec_vivo_top.r_out_beats_left, dut.u_dec_vivo_top.r_in_beats_left,
                      dut.vivo_ci_ready_raw, dut.tile_cvi_ready_int);
-            $display("  dbg otf core       : writer_vld=%0b fetcher_req=%0b fetcher_done=%0b fifo_empty=%0b stream_started=%0b phase=%0d",
-                     dut.u_tile_to_otf.writer_vld, dut.u_tile_to_otf.fetcher_req, dut.u_tile_to_otf.fetcher_done,
-                     dut.u_tile_to_otf.fifo_empty, dut.u_tile_to_otf.u_otf_driver.stream_started,
-                     dut.u_tile_to_otf.u_otf_driver.phase);
-            $display("  dbg otf hv         : h_cnt=%0d v_cnt=%0d",
-                     dut.u_tile_to_otf.u_otf_driver.h_cnt,
-                     dut.u_tile_to_otf.u_otf_driver.v_cnt);
+        $display("  dbg otf core       : writer_vld=%0b fetcher_req=%0b fetcher_done=%0b fifo_empty=%0b stream_started=%0b phase=%0d",
+                 dut.u_tile_to_otf.writer_vld, dut.u_tile_to_otf.fetcher_req, dut.u_tile_to_otf.fetcher_done,
+                 (dut.u_tile_to_otf.fifo_empty0 & dut.u_tile_to_otf.fifo_empty1), dut.u_tile_to_otf.u_otf_driver.stream_started,
+                 dut.u_tile_to_otf.u_otf_driver.phase);
+        $display("  dbg otf cfg        : fmt=0x%0h h_total=%0d h_sync=%0d h_bp=%0d h_act=%0d v_total=%0d v_sync=%0d v_bp=%0d v_act=%0d",
+                 dut.r_otf_cfg_format, dut.r_otf_cfg_h_total, dut.r_otf_cfg_h_sync,
+                 dut.r_otf_cfg_h_bp, dut.r_otf_cfg_h_act, dut.r_otf_cfg_v_total,
+                 dut.r_otf_cfg_v_sync, dut.r_otf_cfg_v_bp, dut.r_otf_cfg_v_act);
+        $display("  dbg otf active     : h_start=%0d h_end=%0d v_start=%0d v_end=%0d is_act=%0b ready=%0b",
+                 dut.u_tile_to_otf.u_otf_driver.h_act_start,
+                 dut.u_tile_to_otf.u_otf_driver.h_act_end,
+                 dut.u_tile_to_otf.u_otf_driver.v_act_start,
+                 dut.u_tile_to_otf.u_otf_driver.v_act_end,
+                 dut.u_tile_to_otf.u_otf_driver.is_act,
+                 i_otf_ready);
+        $display("  dbg otf hv         : h_cnt=%0d v_cnt=%0d",
+                 dut.u_tile_to_otf.u_otf_driver.h_cnt,
+                 dut.u_tile_to_otf.u_otf_driver.v_cnt);
             $display("  dbg tile axi       : arvalid=%0b arready=%0b rvalid=%0b rready=%0b rlast=%0b",
                      dut.tile_m_axi_arvalid, dut.tile_m_axi_arready, dut.tile_m_axi_rvalid,
                      dut.tile_m_axi_rready, dut.tile_m_axi_rlast);
@@ -1160,8 +1204,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         $display("==============================================================");
 
         program_wrapper_cfg();
-        trigger_meta_start();
-        frames_started = 1;
+        frames_started = tb_frame_repeat;
     end
 
     initial begin : multi_frame_driver
@@ -1170,10 +1213,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         wait (frames_started > 0);
         for (frame_idx = 1; frame_idx < tb_frame_repeat; frame_idx = frame_idx + 1) begin
             @(frame_complete_ev);
-            wait_wrapper_idle();
-            $display("TB: frame %0d / %0d complete, scheduling next frame.", frame_idx, tb_frame_repeat);
-            trigger_meta_start();
-            frames_started = frames_started + 1;
+            $display("TB: frame %0d / %0d complete.", frame_idx, tb_frame_repeat);
         end
     end
 
@@ -1182,7 +1222,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         wait (PRESETn && i_axi_rstn && i_otf_rstn);
         repeat (100) @(posedge i_axi_clk);
         while (!frame_done &&
-               ((cycle_cnt - last_progress_cycle) <= 200000) &&
+               ((cycle_cnt - last_progress_cycle) <= NO_PROGRESS_CYCLES) &&
                (timeout_cycles < TIMEOUT_CYCLES)) begin
             @(posedge i_axi_clk);
             timeout_cycles = timeout_cycles + 1;
@@ -1215,14 +1255,16 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         $display("  dbg fetcher_done   : %0d", fetcher_done_cnt);
         $display("  dbg fifo_wr cnt    : %0d", fifo_wr_cnt);
         $display("  dbg fifo_rd cnt    : %0d", fifo_rd_cnt);
+        $display("  dbg fifo_rd otf cnt: %0d", fifo_rd_otf_cnt);
+        $display("  dbg act stall cnt  : %0d", active_data_stall_cnt);
         $display("  dbg meta_start     : %0b", dut.meta_start_pulse_axi);
         $display("  dbg meta_arvalid   : %0b", dut.meta_m_axi_arvalid);
         $display("  dbg meta_grp_valid : %0b", dut.u_meta_data_gen.meta_grp_valid);
         $display("  dbg meta_grp_ready : %0b", dut.u_meta_data_gen.meta_grp_ready);
-        $display("  dbg meta_state     : %0d", dut.u_meta_data_gen.u_meta_get_cmd_gen.frame_done);
+        $display("  dbg meta_state     : %0d", 1'b0);
         $display("  dbg meta_base_fmt  : 0x%0h", dut.r_meta_base_format);
-        $display("  dbg meta_base_y    : 0x%0h", dut.r_meta_base_addr_rgba_y);
-        $display("  dbg meta_base_uv   : 0x%0h", dut.r_meta_base_addr_uv);
+        $display("  dbg meta_base_y    : 0x%0h", dut.r_meta_base_addr_rgba_y0);
+        $display("  dbg meta_base_uv   : 0x%0h", dut.r_meta_base_addr_uv0);
         $display("  dbg meta_tile_xy   : x=%0d y=%0d", dut.r_meta_tile_x_numbers, dut.r_meta_tile_y_numbers);
         $display("  dbg meta counters  : x=%0d y=%0d uv_y=%0d is_uv=%0b",
                  dut.u_meta_data_gen.u_meta_get_cmd_gen.xcoord_cnt,
@@ -1252,9 +1294,44 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                  dut.u_tile_to_otf.writer_vld,
                  dut.u_tile_to_otf.fetcher_req,
                  dut.u_tile_to_otf.fetcher_done,
-                 dut.u_tile_to_otf.fifo_empty,
+                 (dut.u_tile_to_otf.fifo_empty0 & dut.u_tile_to_otf.fifo_empty1),
                  dut.u_tile_to_otf.u_otf_driver.stream_started,
                  dut.u_tile_to_otf.u_otf_driver.phase);
+        $display("  dbg otf buffers    : a_free=%0b b_free=%0b pending_a=%0b pending_b=%0b fifo_full=%0b fifo_wr=%0b fifo_rd=%0b",
+                 dut.u_tile_to_otf.sram_a_free,
+                 dut.u_tile_to_otf.sram_b_free,
+                 dut.u_tile_to_otf.pending_a,
+                 dut.u_tile_to_otf.pending_b,
+                 (dut.u_tile_to_otf.fifo_full0 | dut.u_tile_to_otf.fifo_full1),
+                 dut.u_tile_to_otf.fifo_wr_en,
+                 (dut.u_tile_to_otf.fifo_rd_en0 | dut.u_tile_to_otf.fifo_rd_en1));
+        $display("  dbg writer         : hdr_empty=%0b hdr_full=%0b data_empty=%0b data_full=%0b credit=%0d target_free=%0b wen=%0b cnt_write=%0d y420_stage=%0d",
+                 dut.u_tile_to_otf.u_writer.hdr_fifo_empty,
+                 dut.u_tile_to_otf.u_writer.hdr_fifo_full,
+                 dut.u_tile_to_otf.u_writer.data_fifo_empty,
+                 dut.u_tile_to_otf.u_writer.data_fifo_full,
+                 dut.u_tile_to_otf.u_writer.data_credit_used,
+                 dut.u_tile_to_otf.u_writer.target_bank_free,
+                 dut.u_tile_to_otf.u_writer.sram_wen_internal,
+                 dut.u_tile_to_otf.u_writer.cnt_write,
+                 dut.u_tile_to_otf.u_writer.y420_stage);
+        $display("  dbg otf cfg        : fmt=0x%0h h_total=%0d h_sync=%0d h_bp=%0d h_act=%0d v_total=%0d v_sync=%0d v_bp=%0d v_act=%0d",
+                 dut.r_otf_cfg_format,
+                 dut.r_otf_cfg_h_total,
+                 dut.r_otf_cfg_h_sync,
+                 dut.r_otf_cfg_h_bp,
+                 dut.r_otf_cfg_h_act,
+                 dut.r_otf_cfg_v_total,
+                 dut.r_otf_cfg_v_sync,
+                 dut.r_otf_cfg_v_bp,
+                 dut.r_otf_cfg_v_act);
+        $display("  dbg otf active     : h_start=%0d h_end=%0d v_start=%0d v_end=%0d is_act=%0b ready=%0b",
+                 dut.u_tile_to_otf.u_otf_driver.h_act_start,
+                 dut.u_tile_to_otf.u_otf_driver.h_act_end,
+                 dut.u_tile_to_otf.u_otf_driver.v_act_start,
+                 dut.u_tile_to_otf.u_otf_driver.v_act_end,
+                 dut.u_tile_to_otf.u_otf_driver.is_act,
+                 i_otf_ready);
         $display("  dbg otf hv         : h_cnt=%0d v_cnt=%0d",
                  dut.u_tile_to_otf.u_otf_driver.h_cnt,
                  dut.u_tile_to_otf.u_otf_driver.v_cnt);
@@ -1278,6 +1355,37 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                  dut.u_tile_arcmd_gen.o_ci_valid,
                  dut.u_tile_arcmd_gen.tile_cmd_valid,
                  dut.u_tile_arcmd_gen.tile_cmd_ready);
+        $display("  dbg tile fifos     : ci_full=%0b ci_valid=%0b ci_has_payload=%0b pending_full=%0b pending_empty=%0b pending_valid=%0b rdata_full=%0b rdata_empty=%0b rdata_valid=%0b",
+                 dut.u_tile_arcmd_gen.ci_fifo_full,
+                 dut.u_tile_arcmd_gen.ci_fifo_valid,
+                 dut.u_tile_arcmd_gen.ci_fifo_has_payload,
+                 dut.u_tile_arcmd_gen.ci_pending_fifo_full,
+                 dut.u_tile_arcmd_gen.ci_pending_fifo_empty,
+                 dut.u_tile_arcmd_gen.ci_pending_fifo_valid,
+                 dut.u_tile_arcmd_gen.rdata_fifo_full,
+                 dut.u_tile_arcmd_gen.rdata_fifo_empty,
+                 dut.u_tile_arcmd_gen.rdata_fifo_valid);
+        $display("  dbg tile state     : ar_split=%0b ar_valid_from_fifo=%0b ar_fire=%0b r_collect_active=%0b r_collect_ready=%0b r_collect_done=%0b ci_pending_rd=%0b ci_out_has_payload=%0b cvi_active=%0b cvi_left=%0d",
+                 dut.u_tile_arcmd_gen.ar_split_active,
+                 dut.u_tile_arcmd_gen.ar_valid_from_fifo,
+                 dut.u_tile_arcmd_gen.ar_fire,
+                 dut.u_tile_arcmd_gen.r_collect_active,
+                 dut.u_tile_arcmd_gen.r_collect_ready,
+                 dut.u_tile_arcmd_gen.r_collect_done,
+                 dut.u_tile_arcmd_gen.ci_pending_fifo_rd_en,
+                 dut.u_tile_arcmd_gen.ci_out_has_payload,
+                 dut.u_tile_arcmd_gen.cvi_stream_active_reg,
+                 dut.u_tile_arcmd_gen.cvi_stream_beats_left_reg);
+        $display("  dbg tile beats     : pending_alen=%0d pending_payload=%0d r_left=%0d r_last=%0b done_wait=%0b ci_out_can_load=%0b rdata_count=%0d pending_count=%0d ci_count=%0d",
+                 dut.u_tile_arcmd_gen.ci_pending_alen,
+                 dut.u_tile_arcmd_gen.ci_pending_payload_beats,
+                 dut.u_tile_arcmd_gen.r_collect_beats_left,
+                 dut.u_tile_arcmd_gen.r_collect_last,
+                 dut.u_tile_arcmd_gen.ci_pending_payload_done_reg,
+                 dut.u_tile_arcmd_gen.ci_out_can_load,
+                 dut.u_tile_arcmd_gen.rdata_fifo_data_count,
+                 dut.u_tile_arcmd_gen.ci_pending_fifo_data_count,
+                 dut.u_tile_arcmd_gen.ci_fifo_data_count);
         $display("  dbg stuck tile     : idx=%0d fmt=0x%0h x=%0d y=%0d beats_seen=%0d",
                  dbg_tile_idx_started,
                  dbg_stuck_tile_fmt,
@@ -1342,12 +1450,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         if (DEBUG_LOG && (dbg_trace_cycles > 0)) begin
             $display("DBG: cyc=%0d done=%0d meta_grp_ready=%0b meta_grp_valid=%0b base_fmt=0x%0h base_y=0x%0h base_uv=0x%0h x=%0d y=%0d uv_y=%0d grp_addr=0x%0h meta_x=%0d meta_y=%0d",
                      cycle_cnt,
-                     dut.u_meta_data_gen.u_meta_get_cmd_gen.frame_done,
+                     1'b0,
                      dut.u_meta_data_gen.meta_grp_ready,
                      dut.u_meta_data_gen.meta_grp_valid,
                      dut.r_meta_base_format,
-                     dut.r_meta_base_addr_rgba_y,
-                     dut.r_meta_base_addr_uv,
+                     dut.r_meta_base_addr_rgba_y0,
+                     dut.r_meta_base_addr_uv0,
                      dut.u_meta_data_gen.u_meta_get_cmd_gen.xcoord_cnt,
                      dut.u_meta_data_gen.u_meta_get_cmd_gen.y_row_cnt,
                      dut.u_meta_data_gen.u_meta_get_cmd_gen.uv_row_cnt,

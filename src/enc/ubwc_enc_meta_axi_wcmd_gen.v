@@ -23,8 +23,7 @@ module ubwc_enc_meta_axi_wcmd_gen
         parameter   META_DW         = 66,
         parameter   IN_FIFO_DEPTH   = 64,
         parameter   BEAT_FIFO_DEPTH = 32,
-        parameter   PKT_FIFO_DEPTH  = 8,
-        parameter   AXI_ID_VALUE    = 0
+        parameter   PKT_FIFO_DEPTH  = 8
     )(
         input   wire                                i_aclk,
         input   wire                                i_aresetn,
@@ -36,6 +35,7 @@ module ubwc_enc_meta_axi_wcmd_gen
         input   wire    [AXI_AW-1:0]                i_meta_addr,
         input   wire                                i_meta_addr_valid,
         output  wire                                o_meta_addr_ready,
+        input   wire    [AXI_IDW-1:0]               i_axi_id,
 
         output  wire    [AXI_IDW-1:0]               o_m_axi_awid,
         output  wire    [AXI_AW-1:0]                o_m_axi_awaddr,
@@ -66,7 +66,7 @@ module ubwc_enc_meta_axi_wcmd_gen
 
     assign  meta_w_lane_sel     = i_meta_data[64+:2];
 
-    assign  o_m_axi_awid        = AXI_ID_VALUE[AXI_IDW-1:0] ;
+    assign  o_m_axi_awid        = i_axi_id                  ;
     assign  o_m_axi_awaddr      = {i_meta_addr[AXI_AW-1:5], 5'd0};
     assign  o_m_axi_awlen       = {AXI_LENW{1'b0}}          ;
     assign  o_m_axi_awsize      = AXI_SIZE_W                ;

@@ -74,44 +74,59 @@ module ubwc_dec_vivo_top #(
     end
 
     always @(posedge i_clk or posedge i_reset) begin
-        if (i_reset) begin
-            r_tile_active   <= 1'b0;
-            r_out_beats_left<= 4'd0;
-            r_in_beats_left <= 4'd0;
-            r_ci_alen       <= 3'd0;
-            r_ci_sb         <= {SB_WIDTH{1'b0}};
-        end else if (r_reset_sync || !i_ubwc_en) begin
-            r_tile_active   <= 1'b0;
-            r_out_beats_left<= 4'd0;
-            r_in_beats_left <= 4'd0;
-            r_ci_alen       <= 3'd0;
-            r_ci_sb         <= {SB_WIDTH{1'b0}};
-        end else begin
-            if (ci_fire) begin
-                // Fake decompressor/packer:
-                // - Always produces a fixed 256B tile payload to the downstream tile_to_otf writer.
-                // - For compressed tiles with <256B payload, pads remaining beats with zeros.
-                // - For "no-payload" tiles (metadata[3]==1), outputs all-zero tile data.
-                r_tile_active    <= 1'b1;
-                r_out_beats_left <= TILE_OUT_BEATS;
-                r_in_beats_left  <= i_ci_metadata[3] ? 4'd0 : ({1'b0, i_ci_alen} + 4'd1);
-                r_ci_alen       <= i_ci_alen;
-                r_ci_sb         <= i_ci_sb;
-            end
+        if (i_reset)
+            r_tile_active <= 1'b0;
+        else if (r_reset_sync || !i_ubwc_en)
+            r_tile_active <= 1'b0;
+        else if (ci_fire)
+            r_tile_active <= 1'b1;
+        else if (out_fire && r_tile_active && (r_out_beats_left <= 4'd1))
+            r_tile_active <= 1'b0;
+    end
 
-            if (out_fire && r_tile_active) begin
-                if (r_out_beats_left <= 4'd1) begin
-                    r_tile_active    <= 1'b0;
-                    r_out_beats_left <= 4'd0;
-                    r_in_beats_left  <= 4'd0;
-                end else begin
-                    r_out_beats_left <= r_out_beats_left - 4'd1;
-                    if (r_in_beats_left != 4'd0) begin
-                        r_in_beats_left <= r_in_beats_left - 4'd1;
-                    end
-                end
-            end
-        end
+    always @(posedge i_clk or posedge i_reset) begin
+        if (i_reset)
+            r_out_beats_left <= 4'd0;
+        else if (r_reset_sync || !i_ubwc_en)
+            r_out_beats_left <= 4'd0;
+        else if (ci_fire)
+            r_out_beats_left <= TILE_OUT_BEATS;
+        else if (out_fire && r_tile_active && (r_out_beats_left <= 4'd1))
+            r_out_beats_left <= 4'd0;
+        else if (out_fire && r_tile_active)
+            r_out_beats_left <= r_out_beats_left - 4'd1;
+    end
+
+    always @(posedge i_clk or posedge i_reset) begin
+        if (i_reset)
+            r_in_beats_left <= 4'd0;
+        else if (r_reset_sync || !i_ubwc_en)
+            r_in_beats_left <= 4'd0;
+        else if (ci_fire)
+            r_in_beats_left <= i_ci_metadata[3] ? 4'd0 :
+                               ({1'b0, i_ci_alen} + 4'd1);
+        else if (out_fire && r_tile_active && (r_out_beats_left <= 4'd1))
+            r_in_beats_left <= 4'd0;
+        else if (out_fire && r_tile_active && (r_in_beats_left != 4'd0))
+            r_in_beats_left <= r_in_beats_left - 4'd1;
+    end
+
+    always @(posedge i_clk or posedge i_reset) begin
+        if (i_reset)
+            r_ci_alen <= 3'd0;
+        else if (r_reset_sync || !i_ubwc_en)
+            r_ci_alen <= 3'd0;
+        else if (ci_fire)
+            r_ci_alen <= i_ci_alen;
+    end
+
+    always @(posedge i_clk or posedge i_reset) begin
+        if (i_reset)
+            r_ci_sb <= {SB_WIDTH{1'b0}};
+        else if (r_reset_sync || !i_ubwc_en)
+            r_ci_sb <= {SB_WIDTH{1'b0}};
+        else if (ci_fire)
+            r_ci_sb <= i_ci_sb;
     end
 
     assign ci_period_hit = (r_ci_period_cnt == CI_READY_PERIOD_M1);
@@ -133,8 +148,10 @@ module ubwc_dec_vivo_top #(
     assign o_co_alen  = r_ci_alen;
     assign o_co_sb    = r_ci_sb;
 
-    wire need_input_beat = r_tile_active && (r_in_beats_left != 4'd0);
-    wire pad_active      = r_tile_active && (r_in_beats_left == 4'd0) && (r_out_beats_left != 4'd0);
+    wire need_input_beat;
+    assign need_input_beat = r_tile_active && (r_in_beats_left != 4'd0);
+    wire pad_active;
+    assign pad_active = r_tile_active && (r_in_beats_left == 4'd0) && (r_out_beats_left != 4'd0);
 
     assign o_rvo_valid = i_ubwc_en && !r_reset_sync && r_tile_active &&
                          (need_input_beat ? i_cvi_valid : pad_active);

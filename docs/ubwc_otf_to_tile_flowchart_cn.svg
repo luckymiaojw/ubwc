@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120">
+  <defs>
+    <style>
+      .title { font: 700 30px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#111827; }
+      .lane { fill:#f8fafc; stroke:#cbd5e1; stroke-width:1.5; }
+      .lane-title { font: 700 18px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#334155; }
+      .box { fill:#ffffff; stroke:#2563eb; stroke-width:2; rx:10; ry:10; }
+      .box2 { fill:#ecfdf5; stroke:#059669; stroke-width:2; rx:10; ry:10; }
+      .box3 { fill:#fff7ed; stroke:#ea580c; stroke-width:2; rx:10; ry:10; }
+      .box4 { fill:#f5f3ff; stroke:#7c3aed; stroke-width:2; rx:10; ry:10; }
+      .decision { fill:#ffffff; stroke:#dc2626; stroke-width:2; }
+      .small { font: 500 14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#334155; }
+      .text { font: 700 17px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#111827; }
+      .muted { font: 500 13px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#64748b; }
+      .edge { stroke:#334155; stroke-width:2; fill:none; marker-end:url(#arrow); }
+      .edge2 { stroke:#64748b; stroke-width:2; fill:none; stroke-dasharray:6 5; marker-end:url(#arrow2); }
+      .badge { fill:#dbeafe; stroke:#93c5fd; stroke-width:1; rx:12; ry:12; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrow2" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="1120" fill="#f1f5f9"/>
+  <text x="56" y="56" class="title">ENC OTF TO TILE 数据流程图</text>
+  <text x="56" y="84" class="small">对应模块：ubwc_enc_otf_to_tile / ubwc_enc_otf_data_packer / ubwc_enc_line_to_tile</text>
+
+  <rect x="40" y="115" width="1520" height="245" class="lane"/>
+  <text x="60" y="145" class="lane-title">i_otf_clk 域：OTF 输入采样与基础检查</text>
+
+  <rect x="70" y="178" width="210" height="112" class="box"/>
+  <text x="95" y="210" class="text">OTF 输入</text>
+  <text x="95" y="236" class="small">vsync / hsync / de</text>
+  <text x="95" y="258" class="small">data[127:0]</text>
+  <text x="95" y="280" class="small">fcnt / lcnt</text>
+
+  <polygon points="355,178 490,234 355,290 220,234" class="decision"/>
+  <text x="302" y="226" class="text">de &amp; ready?</text>
+  <text x="305" y="251" class="small">ready = !input_fifo_full</text>
+
+  <rect x="565" y="178" width="240" height="112" class="box2"/>
+  <text x="598" y="207" class="text">异步输入 FIFO</text>
+  <text x="598" y="233" class="small">写入 OTF beat</text>
+  <text x="598" y="255" class="small">携带 fcnt/lcnt/vsync/hsync</text>
+  <text x="598" y="277" class="small">跨到 core clk 域</text>
+
+  <rect x="900" y="168" width="260" height="132" class="box3"/>
+  <text x="925" y="198" class="text">错误检查</text>
+  <text x="925" y="224" class="small">短行：err_bline</text>
+  <text x="925" y="246" class="small">短帧：err_bframe</text>
+  <text x="925" y="268" class="small">ready 无效仍 de：err_fifo_ovf</text>
+
+  <rect x="1240" y="168" width="250" height="132" class="box4"/>
+  <text x="1268" y="198" class="text">OTF 统计 / 正确中断</text>
+  <text x="1268" y="224" class="small">按 fcnt[0] 分 slot0/1</text>
+  <text x="1268" y="246" class="small">de_count / line_count</text>
+  <text x="1268" y="268" class="small">倒数第 4 行 correct_irq</text>
+
+  <path d="M280 234 H220" class="edge"/>
+  <path d="M490 234 H565" class="edge"/>
+  <path d="M690 290 V338" class="edge"/>
+  <path d="M805 234 H900" class="edge2"/>
+  <path d="M1160 234 H1240" class="edge2"/>
+
+  <rect x="40" y="390" width="1520" height="350" class="lane"/>
+  <text x="60" y="420" class="lane-title">core clk 域：格式拆分、行缓冲、tile 重排</text>
+
+  <rect x="90" y="465" width="250" height="125" class="box2"/>
+  <text x="118" y="495" class="text">读取 input FIFO</text>
+  <text x="118" y="521" class="small">pipe_stall 时停止读取</text>
+  <text x="118" y="543" class="small">保留 sideband</text>
+  <text x="118" y="565" class="small">{fcnt,lcnt,vsync,hsync,last}</text>
+
+  <rect x="420" y="450" width="300" height="160" class="box"/>
+  <text x="448" y="482" class="text">格式拆分与重打包</text>
+  <text x="448" y="510" class="small">RGBA：128b 直接进入 RGBA/Y path</text>
+  <text x="448" y="532" class="small">YUV420_8：Y/UV 32b 拼 128b</text>
+  <text x="448" y="554" class="small">YUV420_10：Y/UV 64b 拼 128b</text>
+  <text x="448" y="576" class="small">YUV420 UV 只在偶数输入行产生</text>
+
+  <rect x="805" y="425" width="245" height="105" class="box2"/>
+  <text x="835" y="456" class="text">RGBA/Y FIFO</text>
+  <text x="835" y="482" class="small">pack_fifo_a</text>
+  <text x="835" y="504" class="small">128b data + keep/last + sideband</text>
+
+  <rect x="805" y="585" width="245" height="105" class="box2"/>
+  <text x="835" y="616" class="text">UV FIFO</text>
+  <text x="835" y="642" class="small">pack_fifo_b</text>
+  <text x="835" y="664" class="small">YUV 格式使用，RGBA 不需要</text>
+
+  <rect x="1135" y="470" width="300" height="170" class="box"/>
+  <text x="1162" y="502" class="text">ubwc_enc_line_to_tile</text>
+  <text x="1162" y="530" class="small">按 y_tile_cols / uv_tile_cols 组织行组</text>
+  <text x="1162" y="552" class="small">bank0/bank1 ping-pong 工作区</text>
+  <text x="1162" y="574" class="small">写入行数据，再按 tile 顺序读出</text>
+  <text x="1162" y="596" class="small">输出 128b tile beat + plane/x/y/fcnt</text>
+
+  <path d="M690 338 V465 H90" class="edge"/>
+  <path d="M340 528 H420" class="edge"/>
+  <path d="M720 500 H805" class="edge"/>
+  <path d="M720 565 C760 565 760 638 805 638" class="edge"/>
+  <path d="M1050 478 H1135" class="edge"/>
+  <path d="M1050 638 H1090 C1120 638 1120 555 1135 555" class="edge"/>
+
+  <rect x="40" y="770" width="1520" height="270" class="lane"/>
+  <text x="60" y="800" class="lane-title">core clk 域：tile/CI/coord 三条输出路径</text>
+
+  <rect x="120" y="850" width="265" height="120" class="box"/>
+  <text x="148" y="880" class="text">128b → 256b 聚合</text>
+  <text x="148" y="906" class="small">两拍 128b 拼一拍 256b</text>
+  <text x="148" y="928" class="small">奇数半 tile 用 flush 补齐</text>
+  <text x="148" y="950" class="small">写 data_fifo</text>
+
+  <rect x="465" y="850" width="255" height="120" class="box2"/>
+  <text x="495" y="880" class="text">Tile Data 输出</text>
+  <text x="495" y="906" class="small">o_tile_vld / i_tile_rdy</text>
+  <text x="495" y="928" class="small">o_tile_data[255:0]</text>
+  <text x="495" y="950" class="small">o_tile_keep / o_tile_last / fcnt</text>
+
+  <rect x="820" y="835" width="265" height="135" class="box"/>
+  <text x="850" y="865" class="text">CI FIFO</text>
+  <text x="850" y="891" class="small">每个 tile 第一拍写入</text>
+  <text x="850" y="913" class="small">format / fcnt / tile_x / tile_y</text>
+  <text x="850" y="935" class="small">forced_pcm 由边缘 tile 判断</text>
+  <text x="850" y="957" class="small">输出 o_ci_valid</text>
+
+  <rect x="1180" y="835" width="270" height="135" class="box4"/>
+  <text x="1210" y="865" class="text">Coord FIFO</text>
+  <text x="1210" y="891" class="small">CI 被 VIVO 接收时写入</text>
+  <text x="1210" y="913" class="small">CO valid/ready 时读出</text>
+  <text x="1210" y="935" class="small">输出 co_tile_x/y/fcnt/format</text>
+  <text x="1210" y="957" class="small">o_co_sb = fcnt[0]</text>
+
+  <path d="M1285 640 V730 H252 V850" class="edge"/>
+  <path d="M385 910 H465" class="edge"/>
+  <path d="M1285 640 V780 H952 V835" class="edge"/>
+  <path d="M1085 904 H1180" class="edge"/>
+
+  <rect x="1160" y="1030" width="330" height="54" class="badge"/>
+  <text x="1188" y="1063" class="small">主数据路径：OTF → FIFO → RGBA/Y/UV → bank0/1 → tile data / CI / coord</text>
+  <rect x="80" y="1030" width="410" height="54" class="badge"/>
+  <text x="108" y="1063" class="small">旁路状态：err_bline / err_bframe / err_fifo_ovf / correct_irq / count</text>
+</svg>

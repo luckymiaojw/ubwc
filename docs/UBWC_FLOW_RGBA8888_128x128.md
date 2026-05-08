@@ -39,8 +39,8 @@ OTF-related information used in this example:
 - `height = 128`
 - `tile_w = 16`
 - `tile_h = 4`
-- `a_tile_cols = 8`
-- `b_tile_cols = 0`
+- `y_tile_cols = 8`
+- `uv_tile_cols = 0`
 - `meta_active_width_px = 128`
 - `meta_active_height_px = 128`
 
@@ -83,13 +83,13 @@ The `dec` startup flow is:
 3. Write the VIVO configuration
 4. Write the metadata configuration
 5. Write the OTF configuration
-6. Finally write META_CFG0[0]=1 to issue start
+6. Write all four base address high words; DEC auto-starts when the address set is complete
 7. Poll STATUS1[4] and STATUS0[6]
 ```
 
 The most important points are:
 
-- `dec` must be started by writing `META_CFG0[0]=1` last
+- `dec` auto-starts after the complete per-frame address set is valid
 - For completion, check `STATUS1[4] = frame_done` first
 - Then check `STATUS0[6] = frame_idle_done`
 
@@ -99,7 +99,7 @@ The most important points are:
 - `pitch` is measured in **bytes**, so `128x128 RGBA8888` needs `512`
 - For `RGBA8888` on `enc`, the current address-selection logic uses `Y base / META_Y base`
 - For `RGBA8888` on `dec`, the current address-selection logic uses `RGBA_UV base / META_RGBA_UV base`
-- `dec` must be started by writing `META_CFG0[0]=1` last
+- `dec` auto-starts after the complete per-frame address set is valid
 - `enc` has no APB start; it starts from the OTF input stream
 
 ### 3.2 Part 2: Register Read/Write Information
@@ -144,15 +144,15 @@ An APB write sequence that can be copied directly:
 write(0x000c, 0x02000001);  // REG_TILE_CFG1
 write(0x0008, 0x0001100d);  // REG_TILE_CFG0
 
-write(0x0030, 0x81000000);  // REG_TILE_BASE_Y_LO
-write(0x0034, 0x00000000);  // REG_TILE_BASE_Y_HI
-write(0x0038, 0x00000000);  // REG_TILE_BASE_UV_LO
-write(0x003c, 0x00000000);  // REG_TILE_BASE_UV_HI
+write(0x0030, 0x82000000);  // REG_META_BASE_Y_LO
+write(0x0034, 0x00000000);  // REG_META_BASE_Y_HI
+write(0x0038, 0x81000000);  // REG_TILE_BASE_Y_LO
+write(0x003c, 0x00000000);  // REG_TILE_BASE_Y_HI
 
-write(0x0040, 0x82000000);  // REG_META_BASE_Y_LO
-write(0x0044, 0x00000000);  // REG_META_BASE_Y_HI
-write(0x0048, 0x00000000);  // REG_META_BASE_UV_LO
-write(0x004c, 0x00000000);  // REG_META_BASE_UV_HI
+write(0x0040, 0x00000000);  // REG_META_BASE_UV_LO
+write(0x0044, 0x00000000);  // REG_META_BASE_UV_HI
+write(0x0048, 0x00000000);  // REG_TILE_BASE_UV_LO
+write(0x004c, 0x00000000);  // REG_TILE_BASE_UV_HI, commit
 
 write(0x0014, 0x00000000);  // REG_ENC_CI_CFG1
 write(0x0018, 0x00000000);  // REG_ENC_CI_CFG2
@@ -180,7 +180,7 @@ Key register values used in this example:
   - `pitch = 512`
 - `TILE_CFG2 = 0x0000_000f`
 - `VIVO_CFG = 0x0000_0001`
-- `META_CFG5 = 0x0020_0008`
+- `APB_ADDR_META_CFG0 = 0x0020_0008`
   - `meta_tile_x_numbers = 8`
   - `meta_tile_y_numbers = 32`
 - `OTF_CFG0 = 0x0000_0080`
@@ -193,11 +193,11 @@ Recommended register write order:
 
 ```text
 1. Write TILE_CFG0/1/2
-2. Write TILE_BASE0/1/2/3
-3. Write VIVO_CFG
-4. Write META_CFG1/2/3/4/5
-5. Write OTF_CFG0/1/2/3/4
-6. Finally write META_CFG0 = (base_format << 4) | 1
+2. Write VIVO_CFG
+3. Write OTF_CFG0/1/2/3/4
+4. Write APB_ADDR_META_CFG0 tile count
+5. Write REG_META_BASE_Y/UV and REG_TILE_BASE_Y/UV address pairs
+6. Hardware auto-starts when the complete per-frame address set is valid
 7. Poll STATUS1[4], then poll STATUS0[6]
 ```
 
@@ -209,24 +209,21 @@ write(0x000c, 0x00000200);  // TILE_CFG1
 write(0x0010, 0x0000000f);  // TILE_CFG2
 write(0x0014, 0x00000001);  // VIVO_CFG
 
-write(0x001c, 0x82000000);  // META_CFG1
-write(0x0020, 0x00000000);  // META_CFG2
-write(0x0024, 0x00000000);  // META_CFG3
-write(0x0028, 0x00000000);  // META_CFG4
-write(0x002c, 0x00200008);  // META_CFG5
+write(0x0018, 0x00000080);  // OTF_CFG0
+write(0x001c, 0x000400a0);  // OTF_CFG1
+write(0x0020, 0x00800008);  // OTF_CFG2
+write(0x0024, 0x0002008c);  // OTF_CFG3
+write(0x0028, 0x00800004);  // OTF_CFG4
+write(0x002c, 0x00200008);  // APB_ADDR_META_CFG0
 
-write(0x0030, 0x00000080);  // OTF_CFG0
-write(0x0034, 0x000400a0);  // OTF_CFG1
-write(0x0038, 0x00800008);  // OTF_CFG2
-write(0x003c, 0x0002008c);  // OTF_CFG3
-write(0x0040, 0x00800004);  // OTF_CFG4
+write(0x0030, 0x82000000);  // REG_META_BASE_Y_LO
+write(0x0034, 0x00000000);  // REG_META_BASE_Y_HI
+write(0x0038, 0x81000000);  // REG_TILE_BASE_Y_LO
+write(0x003c, 0x00000000);  // REG_TILE_BASE_Y_HI
+write(0x0040, 0x00000000);  // REG_META_BASE_UV_LO
+write(0x0044, 0x00000000);  // REG_META_BASE_UV_HI
+write(0x0048, 0x00000000);  // REG_TILE_BASE_UV_LO
+write(0x004c, 0x00000000);  // REG_TILE_BASE_UV_HI
 
-write(0x0044, 0x81000000);  // TILE_BASE0
-write(0x0048, 0x00000000);  // TILE_BASE1
-write(0x004c, 0x00000000);  // TILE_BASE2
-write(0x0050, 0x00000000);  // TILE_BASE3
-
-write(0x0018, 0x00000001);  // META_CFG0: base_format=RGBA8888, start=1
-
-poll_until((read(0x0058) & (1 << 4)) != 0);  // STATUS1.frame_done
-poll_until((read(0x0054) & (1 << 6)) != 0);  // STATUS0.frame_idle_done
+poll_until((read(0x0054) & (1 << 4)) != 0);  // STATUS1.frame_done
+poll_until((read(0x0050) & (1 << 6)) != 0);  // STATUS0.frame_idle_done

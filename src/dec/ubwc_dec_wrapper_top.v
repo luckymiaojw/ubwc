@@ -20,7 +20,7 @@ module ubwc_dec_wrapper_top #(
     parameter integer AXI_IDW    = 4,
     parameter integer AXI_LENW   = 8,
     parameter integer SB_WIDTH   = 1,
-    parameter integer COM_BUF_AW = 13,
+    parameter integer COM_BUF_AW = 12,
     parameter integer COM_BUF_DW = 128,
     parameter integer FORCE_FULL_PAYLOAD = 0
 )(
@@ -109,18 +109,21 @@ module ubwc_dec_wrapper_top #(
     wire                                r_tile_cfg_is_lossy_rgba_2_1_format;
     wire    [12             -1:0]       r_tile_cfg_pitch            ;
     wire                                r_tile_cfg_ci_input_type    ;
-    wire    [SB_WIDTH       -1:0]       r_tile_cfg_ci_sb            ;
     wire                                r_tile_cfg_ci_lossy         ;
     wire    [2              -1:0]       r_tile_cfg_ci_alpha_mode    ;
-    wire    [AXI_AW         -1:0]       r_tile_base_addr_rgba_uv    ;
-    wire    [AXI_AW         -1:0]       r_tile_base_addr_y          ;
+    wire    [AXI_AW         -1:0]       r_tile_base_addr_rgba_y0    ;
+    wire    [AXI_AW         -1:0]       r_tile_base_addr_uv0        ;
+    wire    [AXI_AW         -1:0]       r_tile_base_addr_rgba_y1    ;
+    wire    [AXI_AW         -1:0]       r_tile_base_addr_uv1        ;
     wire                                r_vivo_ubwc_en              ;
     wire                                r_vivo_sreset               ;
     wire                                frame_start_pulse_axi       ;
     wire                                meta_start_pulse_axi        ;
     wire    [5              -1:0]       r_meta_base_format          ;
-    wire    [AXI_AW         -1:0]       r_meta_base_addr_rgba_y     ;
-    wire    [AXI_AW         -1:0]       r_meta_base_addr_uv         ;
+    wire    [AXI_AW         -1:0]       r_meta_base_addr_rgba_y0    ;
+    wire    [AXI_AW         -1:0]       r_meta_base_addr_uv0        ;
+    wire    [AXI_AW         -1:0]       r_meta_base_addr_rgba_y1    ;
+    wire    [AXI_AW         -1:0]       r_meta_base_addr_uv1        ;
     wire    [16             -1:0]       r_meta_tile_x_numbers       ;
     wire    [16             -1:0]       r_meta_tile_y_numbers       ;
     wire    [16             -1:0]       r_otf_cfg_img_width         ;
@@ -148,6 +151,8 @@ module ubwc_dec_wrapper_top #(
     wire                                dec_frame_done_int         ;
     wire                                dec_irq_int                ;
     wire                                dec_irq_pending_int        ;
+    wire                                dec_irq_correct_pending_int;
+    wire                                dec_irq_error_pending_int  ;
     wire                                dec_irq_enable_axi         ;
     wire                                dec_irq_clear_pulse_axi    ;
     wire    [7              -1:0]       vivo_idle_bits_int          ;
@@ -156,6 +161,34 @@ module ubwc_dec_wrapper_top #(
     wire    [32             -1:0]       meta_cmd_ok_cnt_int         ;
     wire    [32             -1:0]       meta_cmd_fail_cnt_int       ;
     wire                                meta_status_seen            ;
+    wire                                dec_correct_irq_event_int   ;
+    wire                                dec_error_irq_event_int     ;
+    wire                                stat_meta_tile_fire_int     ;
+    wire                                stat_tile_addr_fire_int     ;
+    wire                                stat_otf_tile_fire_int      ;
+    wire    [32             -1:0]       stat_meta_tile_cnt_int      ;
+    wire    [32             -1:0]       stat_tile_addr_cnt_int      ;
+    wire    [32             -1:0]       stat_otf_tile_cnt_int       ;
+    wire    [32             -1:0]       stat_otf_line_cnt_int       ;
+    wire    [32             -1:0]       stat_otf_de_cnt_int         ;
+    wire    [32             -1:0]       otf_line_cnt_raw_int        ;
+    wire    [32             -1:0]       otf_de_cnt_raw_int          ;
+    reg     [32             -1:0]       meta_error_cnt_d            ;
+    reg     [32             -1:0]       meta_cmd_fail_cnt_d         ;
+    reg     [7              -1:0]       vivo_error_bits_d           ;
+    reg     [4              -1:0]       dec_frame_fcnt              ;
+    wire    [4              -1:0]       dec_frame_fcnt_active       ;
+    wire    [4              -1:0]       meta_dec_fcnt               ;
+
+    assign dec_frame_fcnt_active = dec_frame_fcnt;
+
+    always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
+        if (!ctrl_rst_n) begin
+            dec_frame_fcnt <= 4'd0;
+        end else if (frame_start_pulse_axi) begin
+            dec_frame_fcnt <= dec_frame_fcnt + 4'd1;
+        end
+    end
 
     ubwc_dec_rstn_gen u_dec_rstn_gen (
         .i_presetn   (PRESETn),
@@ -194,6 +227,13 @@ module ubwc_dec_wrapper_top #(
         .i_vivo_idle_bits_axi                 (vivo_idle_bits_int),
         .i_vivo_error_bits_axi                (vivo_error_bits_int),
         .i_irq_pending_axi                    (dec_irq_pending_int),
+        .i_irq_correct_pending_axi            (dec_irq_correct_pending_int),
+        .i_irq_error_pending_axi              (dec_irq_error_pending_int),
+        .i_stat_meta_tile_cnt_axi             (stat_meta_tile_cnt_int),
+        .i_stat_tile_addr_cnt_axi             (stat_tile_addr_cnt_int),
+        .i_stat_otf_tile_cnt_axi              (stat_otf_tile_cnt_int),
+        .i_stat_otf_line_cnt_axi              (stat_otf_line_cnt_int),
+        .i_stat_otf_de_cnt_axi                (stat_otf_de_cnt_int),
         .PREADY                               (PREADY),
         .PSLVERR                              (PSLVERR),
         .PRDATA                               (PRDATA),
@@ -204,18 +244,21 @@ module ubwc_dec_wrapper_top #(
         .o_tile_cfg_is_lossy_rgba_2_1_format  (r_tile_cfg_is_lossy_rgba_2_1_format),
         .o_tile_cfg_pitch                     (r_tile_cfg_pitch),
         .o_tile_cfg_ci_input_type             (r_tile_cfg_ci_input_type),
-        .o_tile_cfg_ci_sb                     (r_tile_cfg_ci_sb),
         .o_tile_cfg_ci_lossy                  (r_tile_cfg_ci_lossy),
         .o_tile_cfg_ci_alpha_mode             (r_tile_cfg_ci_alpha_mode),
-        .o_tile_base_addr_rgba_uv             (r_tile_base_addr_rgba_uv),
-        .o_tile_base_addr_y                   (r_tile_base_addr_y),
+        .o_tile_base_addr_rgba_y0             (r_tile_base_addr_rgba_y0),
+        .o_tile_base_addr_uv0                 (r_tile_base_addr_uv0),
+        .o_tile_base_addr_rgba_y1             (r_tile_base_addr_rgba_y1),
+        .o_tile_base_addr_uv1                 (r_tile_base_addr_uv1),
         .o_vivo_ubwc_en                       (r_vivo_ubwc_en),
         .o_vivo_sreset                        (r_vivo_sreset),
         .o_frame_start_pulse_axi              (frame_start_pulse_axi),
         .o_meta_start_pulse_axi               (meta_start_pulse_axi),
         .o_meta_base_format                   (r_meta_base_format),
-        .o_meta_base_addr_rgba_y              (r_meta_base_addr_rgba_y),
-        .o_meta_base_addr_uv                  (r_meta_base_addr_uv),
+        .o_meta_base_addr_rgba_y0             (r_meta_base_addr_rgba_y0),
+        .o_meta_base_addr_uv0                 (r_meta_base_addr_uv0),
+        .o_meta_base_addr_rgba_y1             (r_meta_base_addr_rgba_y1),
+        .o_meta_base_addr_uv1                 (r_meta_base_addr_uv1),
         .o_meta_tile_x_numbers                (r_meta_tile_x_numbers),
         .o_meta_tile_y_numbers                (r_meta_tile_y_numbers),
         .o_otf_cfg_img_width                  (r_otf_cfg_img_width),
@@ -280,9 +323,12 @@ module ubwc_dec_wrapper_top #(
         .clk                    ( i_axi_clk                             ),
         .rst_n                  ( ctrl_rst_n                            ),
         .start                  ( meta_start_pulse_axi                  ),
+        .i_fcnt                 ( dec_frame_fcnt_active                 ),
         .base_format            ( r_meta_base_format                    ),
-        .meta_base_addr_rgba_y  ( r_meta_base_addr_rgba_y               ),
-        .meta_base_addr_uv      ( r_meta_base_addr_uv                   ),
+        .meta_base_addr_rgba_y0 ( r_meta_base_addr_rgba_y0              ),
+        .meta_base_addr_uv0     ( r_meta_base_addr_uv0                  ),
+        .meta_base_addr_rgba_y1 ( r_meta_base_addr_rgba_y1              ),
+        .meta_base_addr_uv1     ( r_meta_base_addr_uv1                  ),
         .tile_x_numbers         ( r_meta_tile_x_numbers                 ),
         .tile_y_numbers         ( r_meta_tile_y_numbers                 ),
         .i_cfg_is_lossy_rgba_2_1_format  ( r_tile_cfg_is_lossy_rgba_2_1_format ),
@@ -307,6 +353,7 @@ module ubwc_dec_wrapper_top #(
         .o_dec_has_payload      ( meta_dec_has_payload                  ),
         .o_dec_x                ( meta_dec_x                            ),
         .o_dec_y                ( meta_dec_y                            ),
+        .o_dec_fcnt             ( meta_dec_fcnt                         ),
         .o_busy                 ( meta_stage_busy_core_int              ),
         .error_cnt              ( meta_error_cnt_int                    ),
         .cmd_ok_cnt             ( meta_cmd_ok_cnt_int                   ),
@@ -340,6 +387,7 @@ module ubwc_dec_wrapper_top #(
     wire    [5              -1:0]       tile_format_int            ;
     wire    [12             -1:0]       tile_x_coord_int           ;
     wire    [10             -1:0]       tile_y_coord_int           ;
+    wire    [4              -1:0]       tile_fcnt_int              ;
     wire                                tile_cvi_valid_int         ;
     wire    [256            -1:0]       tile_cvi_data_int          ;
     wire                                tile_cvi_last_int          ;
@@ -353,7 +401,7 @@ module ubwc_dec_wrapper_top #(
     ) u_tile_arcmd_gen (
         .clk                             ( i_axi_clk                             ),
         .rst_n                           ( ctrl_rst_n                            ),
-        .i_frame_start                   ( frame_start_pulse_axi                 ),
+        .i_frame_start                   ( 1'b0                                  ),
         .i_cfg_lvl2_bank_swizzle_en      ( r_tile_cfg_lvl2_bank_swizzle_en        ),
         .i_cfg_lvl3_bank_swizzle_en      ( r_tile_cfg_lvl3_bank_swizzle_en        ),
         .i_cfg_highest_bank_bit          ( r_tile_cfg_highest_bank_bit            ),
@@ -361,11 +409,12 @@ module ubwc_dec_wrapper_top #(
         .i_cfg_is_lossy_rgba_2_1_format  ( r_tile_cfg_is_lossy_rgba_2_1_format    ),
         .i_cfg_pitch                     ( r_tile_cfg_pitch                       ),
         .i_cfg_ci_input_type             ( r_tile_cfg_ci_input_type               ),
-        .i_cfg_ci_sb                     ( r_tile_cfg_ci_sb                       ),
         .i_cfg_ci_lossy                  ( r_tile_cfg_ci_lossy                    ),
         .i_cfg_ci_alpha_mode             ( r_tile_cfg_ci_alpha_mode               ),
-        .i_cfg_base_addr_rgba_uv         ( r_tile_base_addr_rgba_uv               ),
-        .i_cfg_base_addr_y               ( r_tile_base_addr_y                     ),
+        .i_cfg_base_addr_rgba_y0         ( r_tile_base_addr_rgba_y0               ),
+        .i_cfg_base_addr_uv0             ( r_tile_base_addr_uv0                   ),
+        .i_cfg_base_addr_rgba_y1         ( r_tile_base_addr_rgba_y1               ),
+        .i_cfg_base_addr_uv1             ( r_tile_base_addr_uv1                   ),
         .dec_meta_valid                  ( meta_dec_valid                        ),
         .dec_meta_ready                  ( meta_dec_ready                        ),
         .dec_meta_format                 ( meta_dec_format                       ),
@@ -374,6 +423,7 @@ module ubwc_dec_wrapper_top #(
         .dec_meta_has_payload            ( meta_dec_has_payload                  ),
         .dec_meta_x                      ( meta_dec_x                            ),
         .dec_meta_y                      ( meta_dec_y                            ),
+        .dec_meta_fcnt                   ( meta_dec_fcnt                         ),
         .m_axi_arvalid                   ( tile_m_axi_arvalid                    ),
         .m_axi_arready                   ( tile_m_axi_arready                    ),
         .m_axi_araddr                    ( tile_m_axi_araddr                     ),
@@ -400,6 +450,7 @@ module ubwc_dec_wrapper_top #(
         .o_tile_format                   ( tile_format_int                       ),
         .o_tile_x_coord                  ( tile_x_coord_int                      ),
         .o_tile_y_coord                  ( tile_y_coord_int                      ),
+        .o_tile_fcnt                     ( tile_fcnt_int                         ),
         .o_cvi_valid                     ( tile_cvi_valid_int                    ),
         .o_cvi_data                      ( tile_cvi_data_int                     ),
         .o_cvi_last                      ( tile_cvi_last_int                     ),
@@ -668,9 +719,35 @@ module ubwc_dec_wrapper_top #(
     assign meta_stage_busy_int = meta_stage_busy_core_int | rd_interconnect_busy_int |
                                  (meta_status_seen & 1'b0);
     assign tile_stage_busy_int = tile_stage_busy_core_int | rd_interconnect_busy_int;
+    assign stat_meta_tile_fire_int = meta_dec_valid & meta_dec_ready;
+    assign stat_tile_addr_fire_int = tile_coord_vld_int;
+    assign dec_error_irq_event_int = ((meta_error_cnt_int != meta_error_cnt_d) && (|meta_error_cnt_int)) ||
+                                     ((meta_cmd_fail_cnt_int != meta_cmd_fail_cnt_d) && (|meta_cmd_fail_cnt_int)) ||
+                                     (|(vivo_error_bits_int & ~vivo_error_bits_d));
     assign o_stage_done        = dec_stage_done_int;
     assign o_frame_done        = dec_frame_done_int;
     assign o_irq               = dec_irq_int;
+
+    always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
+        if (!ctrl_rst_n)
+            meta_error_cnt_d <= 32'd0;
+        else
+            meta_error_cnt_d <= meta_error_cnt_int;
+    end
+
+    always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
+        if (!ctrl_rst_n)
+            meta_cmd_fail_cnt_d <= 32'd0;
+        else
+            meta_cmd_fail_cnt_d <= meta_cmd_fail_cnt_int;
+    end
+
+    always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
+        if (!ctrl_rst_n)
+            vivo_error_bits_d <= 7'd0;
+        else
+            vivo_error_bits_d <= vivo_error_bits_int;
+    end
 
     ubwc_dec_status u_dec_status
     (
@@ -682,6 +759,13 @@ module ubwc_dec_wrapper_top #(
         .i_tile_busy            ( tile_stage_busy_int       ),
         .i_vivo_busy            ( vivo_stage_busy_int       ),
         .i_otf_busy             ( otf_stage_busy_int        ),
+        .i_correct_irq_event    ( dec_correct_irq_event_int ),
+        .i_error_irq_event      ( dec_error_irq_event_int   ),
+        .i_meta_tile_fire       ( stat_meta_tile_fire_int   ),
+        .i_tile_addr_fire       ( stat_tile_addr_fire_int   ),
+        .i_otf_tile_fire        ( stat_otf_tile_fire_int    ),
+        .i_otf_line_count       ( otf_line_cnt_raw_int      ),
+        .i_otf_de_count         ( otf_de_cnt_raw_int        ),
         .i_irq_enable           ( dec_irq_enable_axi        ),
         .i_irq_clear            ( dec_irq_clear_pulse_axi   ),
 
@@ -690,8 +774,15 @@ module ubwc_dec_wrapper_top #(
         .o_stage_seen           ( dec_stage_seen_int        ),
         .o_stage_done           ( dec_stage_done_int        ),
         .o_frame_done           ( dec_frame_done_int        ),
+        .o_irq_correct_pending  ( dec_irq_correct_pending_int ),
+        .o_irq_error_pending    ( dec_irq_error_pending_int ),
         .o_irq_pending          ( dec_irq_pending_int       ),
-        .o_irq                  ( dec_irq_int               )
+        .o_irq                  ( dec_irq_int               ),
+        .o_meta_tile_count      ( stat_meta_tile_cnt_int    ),
+        .o_tile_addr_count      ( stat_tile_addr_cnt_int    ),
+        .o_otf_tile_count       ( stat_otf_tile_cnt_int     ),
+        .o_otf_line_count       ( stat_otf_line_cnt_int     ),
+        .o_otf_de_count         ( stat_otf_de_cnt_int       )
     );
 
     // ---------------------------------------------------------------------
@@ -712,22 +803,25 @@ module ubwc_dec_wrapper_top #(
     wire [4:0]               otf_axis_format;
     wire [15:0]              otf_axis_tile_x;
     wire [15:0]              otf_axis_tile_y;
+    wire [3:0]               otf_axis_tile_fcnt;
     wire                     otf_axis_tile_valid;
     wire [255:0]             otf_axis_tdata;
     wire                     otf_axis_tlast;
     wire                     otf_axis_tvalid;
     wire                     otf_sram_a_wen_int;
-    wire [12:0]              otf_sram_a_waddr_int;
+    wire [COM_BUF_AW-1:0]    otf_sram_a_waddr_int;
     wire [127:0]             otf_sram_a_wdata_int;
     wire                     otf_sram_a_ren_int;
-    wire [12:0]              otf_sram_a_raddr_int;
+    wire [COM_BUF_AW-1:0]    otf_sram_a_raddr_int;
     wire [127:0]             otf_sram_a_rdata_int;
     wire                     otf_sram_b_wen_int;
-    wire [12:0]              otf_sram_b_waddr_int;
+    wire [COM_BUF_AW-1:0]    otf_sram_b_waddr_int;
     wire [127:0]             otf_sram_b_wdata_int;
     wire                     otf_sram_b_ren_int;
-    wire [12:0]              otf_sram_b_raddr_int;
+    wire [COM_BUF_AW-1:0]    otf_sram_b_raddr_int;
     wire [127:0]             otf_sram_b_rdata_int;
+
+    assign stat_otf_tile_fire_int = otf_axis_tile_valid & otf_axis_tile_ready_int;
 
     // Tile header and CI command now share the same ready chain. This keeps
     // format/x/y aligned with the CI acceptance point and removes the need
@@ -737,6 +831,7 @@ module ubwc_dec_wrapper_top #(
     assign otf_axis_format     = tile_format_int;
     assign otf_axis_tile_x     = {4'd0, tile_x_coord_int};
     assign otf_axis_tile_y     = {6'd0, tile_y_coord_int};
+    assign otf_axis_tile_fcnt  = tile_fcnt_int;
     assign otf_axis_tile_valid = tile_coord_vld_int;
     assign otf_axis_tdata      = vivo_rvo_data;
     assign otf_axis_tlast      = vivo_rvo_last;
@@ -761,7 +856,7 @@ module ubwc_dec_wrapper_top #(
     ) u_dec_vivo_top (
         .i_clk            (i_axi_clk),
         .i_reset          (~ctrl_rst_n),
-        .i_sreset         (r_vivo_sreset | frame_start_pulse_axi),
+        .i_sreset         (r_vivo_sreset),
         .i_ubwc_en        (r_vivo_ubwc_en),
         .i_ci_valid       (vivo_ci_valid_int),
         .o_ci_ready       (vivo_ci_ready_raw),
@@ -788,12 +883,15 @@ module ubwc_dec_wrapper_top #(
         .o_error          (vivo_error_bits_int)
     );
 
-    ubwc_dec_tile_to_otf u_tile_to_otf (
+    ubwc_dec_tile_to_otf #(
+        .SRAM_ADDR_W      (COM_BUF_AW)
+    ) u_tile_to_otf (
         .clk_sram          (i_axi_clk),
         .clk_otf           (i_otf_clk),
         .rst_sram_n        (sram_rst_n),
         .rst_otf_n         (otf_rst_n),
         .i_frame_start     (frame_start_pulse_axi),
+        .i_frame_fcnt      (dec_frame_fcnt_active),
         .cfg_img_width     (r_otf_cfg_img_width),
         .cfg_format        (r_otf_cfg_format),
         .cfg_otf_h_total   (r_otf_cfg_h_total),
@@ -807,6 +905,7 @@ module ubwc_dec_wrapper_top #(
         .s_axis_format     (otf_axis_format),
         .s_axis_tile_x     (otf_axis_tile_x),
         .s_axis_tile_y     (otf_axis_tile_y),
+        .s_axis_tile_fcnt  (otf_axis_tile_fcnt),
         .s_axis_tile_valid (otf_axis_tile_valid),
         .s_axis_tile_ready (otf_axis_tile_ready_int),
         .s_axis_tdata      (otf_axis_tdata),
@@ -834,7 +933,10 @@ module ubwc_dec_wrapper_top #(
         .o_otf_fcnt        (o_otf_fcnt),
         .o_otf_lcnt        (o_otf_lcnt),
         .i_otf_ready       (i_otf_ready),
-        .o_busy            (otf_stage_busy_int)
+        .o_busy            (otf_stage_busy_int),
+        .o_correct_irq_pulse(dec_correct_irq_event_int),
+        .o_otf_line_count  (otf_line_cnt_raw_int),
+        .o_otf_de_count    (otf_de_cnt_raw_int)
     );
 
 endmodule

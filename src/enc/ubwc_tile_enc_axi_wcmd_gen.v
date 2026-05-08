@@ -29,6 +29,7 @@ module ubwc_tile_enc_axi_wcmd_gen #(
     input   wire    [28 -1:0]           i_tile_addr,
     input   wire    [3  -1:0]           i_tile_alen,
     input   wire                        i_tile_addr_vld,
+    input   wire    [AXI_IDW-1:0]       i_axi_id,
 
     input   wire                        i_cvo_valid,
     output  wire                        o_cvo_ready,
@@ -72,52 +73,79 @@ module ubwc_tile_enc_axi_wcmd_gen #(
 
     reg [27:0] cmd_addr_mem [0:CMD_DEPTH-1];
     reg [3:0]  cmd_len_mem  [0:CMD_DEPTH-1];
+    reg [AXI_IDW-1:0] cmd_id_mem [0:CMD_DEPTH-1];
     reg [CMD_PTR_W:0] cmd_count_r;
-    reg [CMD_PTR_W-1:0] cmd_wr_ptr_r, cmd_rd_ptr_r;
+    reg [CMD_PTR_W-1:0] cmd_wr_ptr_r;
+    reg [CMD_PTR_W-1:0] cmd_rd_ptr_r;
 
     reg [255:0] data_mem [0:DATA_DEPTH-1];
     reg [31:0]  strb_mem [0:DATA_DEPTH-1];
     reg [DATA_PTR_W:0] data_count_r;
-    reg [DATA_PTR_W-1:0] data_wr_ptr_r, data_rd_ptr_r;
+    reg [DATA_PTR_W-1:0] data_wr_ptr_r;
+    reg [DATA_PTR_W-1:0] data_rd_ptr_r;
 
     reg [1:0]               state_r;
     reg [AXI_AW-1:0]        burst_addr_r;
+    reg [AXI_IDW-1:0]       burst_id_r;
     reg [BEATCNT_W-1:0]     burst_beats_r;
     reg [BEATCNT_W-1:0]     burst_sent_beats_r;
     reg                     split_pending_r;
     reg [AXI_AW-1:0]        second_burst_addr_r;
     reg [BEATCNT_W-1:0]     second_burst_beats_r;
 
-    wire cmd_push  = i_tile_addr_vld && (cmd_count_r < CMD_DEPTH);
-    wire data_push = i_cvo_valid && o_cvo_ready;
+    wire cmd_push;
 
-    wire cmd_avail  = (cmd_count_r != 0);
-    wire data_avail = (data_count_r != 0);
+    assign cmd_push = i_tile_addr_vld && (cmd_count_r < CMD_DEPTH);
+    wire data_push;
+    assign data_push = i_cvo_valid && o_cvo_ready;
 
-    wire [AXI_AW-1:0]    cmd_start_addr_w  = {{(AXI_AW-32){1'b0}}, cmd_addr_mem[cmd_rd_ptr_r], 4'b0000};
-    wire [BEATCNT_W-1:0] cmd_total_beats_w = {{(BEATCNT_W-4){1'b0}}, cmd_len_mem[cmd_rd_ptr_r]} +
+    wire cmd_avail;
+
+    assign cmd_avail = (cmd_count_r != 0);
+    wire data_avail;
+    assign data_avail = (data_count_r != 0);
+
+    wire [AXI_AW-1:0]    cmd_start_addr_w;
+
+    assign cmd_start_addr_w = {{(AXI_AW-32){1'b0}}, cmd_addr_mem[cmd_rd_ptr_r], 4'b0000};
+    wire [BEATCNT_W-1:0] cmd_total_beats_w;
+    assign cmd_total_beats_w = {{(BEATCNT_W-4){1'b0}}, cmd_len_mem[cmd_rd_ptr_r]} +
                                              {{(BEATCNT_W-1){1'b0}}, 1'b1};
 
-    wire aw_fire_w = (state_r == ST_AW) && i_m_axi_awready;
-    wire w_fire_w  = (state_r == ST_W)  && data_avail && i_m_axi_wready;
+    wire aw_fire_w;
 
-    wire [BEATCNT_W-1:0] one_beat_w             = {{(BEATCNT_W-1){1'b0}}, 1'b1};
-    wire [13:0]          cmd_total_bytes_w      = {cmd_total_beats_w, {BEAT_BYTE_LG2{1'b0}}};
-    wire [12:0]          bytes_to_4k_w          = 13'd4096 - {1'b0, cmd_start_addr_w[11:0]};
-    wire [12:0]          bytes_to_4k_ceil_w     = bytes_to_4k_w + BEAT_BYTES_M1_W;
-    wire [12:0]          first_burst_beats_calc_w =
-                                                  (({1'b0, cmd_start_addr_w[11:0]} + cmd_total_bytes_w) > 14'd4096) ?
+    assign aw_fire_w = (state_r == ST_AW) && i_m_axi_awready;
+    wire w_fire_w;
+    assign w_fire_w = (state_r == ST_W)  && data_avail && i_m_axi_wready;
+
+    wire [BEATCNT_W-1:0] one_beat_w;
+
+    assign one_beat_w = {{(BEATCNT_W-1){1'b0}}, 1'b1};
+    wire [13:0]          cmd_total_bytes_w;
+    assign cmd_total_bytes_w = {cmd_total_beats_w, {BEAT_BYTE_LG2{1'b0}}};
+    wire [12:0]          bytes_to_4k_w;
+    assign bytes_to_4k_w = 13'd4096 - {1'b0, cmd_start_addr_w[11:0]};
+    wire [12:0]          bytes_to_4k_ceil_w;
+    assign bytes_to_4k_ceil_w = bytes_to_4k_w + BEAT_BYTES_M1_W;
+    wire [12:0]          first_burst_beats_calc_w;
+    assign first_burst_beats_calc_w = (({1'b0, cmd_start_addr_w[11:0]} + cmd_total_bytes_w) > 14'd4096) ?
                                                   (bytes_to_4k_ceil_w >> BEAT_BYTE_LG2) :
                                                   {{(13-BEATCNT_W){1'b0}}, cmd_total_beats_w};
-    wire [BEATCNT_W-1:0] first_burst_beats_w    = first_burst_beats_calc_w[BEATCNT_W-1:0];
-    wire [BEATCNT_W-1:0] second_burst_beats_w   = cmd_total_beats_w - first_burst_beats_w;
-    wire [AXI_AW-1:0]    first_burst_bytes_w    = {{(AXI_AW-BEATCNT_W){1'b0}}, first_burst_beats_w} << BEAT_BYTE_LG2;
-    wire [AXI_AW-1:0]    second_burst_addr_w    = cmd_start_addr_w + first_burst_bytes_w;
-    wire                 cmd_crosses_4k_w       = (second_burst_beats_w != {BEATCNT_W{1'b0}});
-    wire                 burst_last_beat_w      = (burst_sent_beats_r == (burst_beats_r - one_beat_w));
+    wire [BEATCNT_W-1:0] first_burst_beats_w;
+    assign first_burst_beats_w = first_burst_beats_calc_w[BEATCNT_W-1:0];
+    wire [BEATCNT_W-1:0] second_burst_beats_w;
+    assign second_burst_beats_w = cmd_total_beats_w - first_burst_beats_w;
+    wire [AXI_AW-1:0]    first_burst_bytes_w;
+    assign first_burst_bytes_w = {{(AXI_AW-BEATCNT_W){1'b0}}, first_burst_beats_w} << BEAT_BYTE_LG2;
+    wire [AXI_AW-1:0]    second_burst_addr_w;
+    assign second_burst_addr_w = cmd_start_addr_w + first_burst_bytes_w;
+    wire                 cmd_crosses_4k_w;
+    assign cmd_crosses_4k_w = (second_burst_beats_w != {BEATCNT_W{1'b0}});
+    wire                 burst_last_beat_w;
+    assign burst_last_beat_w = (burst_sent_beats_r == (burst_beats_r - one_beat_w));
 
     assign o_cvo_ready     = (data_count_r < DATA_DEPTH);
-    assign o_m_axi_awid    = {AXI_IDW{1'b0}};
+    assign o_m_axi_awid    = burst_id_r;
     assign o_m_axi_awaddr  = burst_addr_r;
     assign o_m_axi_awlen   = burst_beats_r[AXI_LENW-1:0] - {{(AXI_LENW-1){1'b0}}, 1'b1};
     assign o_m_axi_awsize  = AXI_SIZE_W;
@@ -133,97 +161,168 @@ module ubwc_tile_enc_axi_wcmd_gen #(
     assign o_m_axi_wlast   = (state_r == ST_W) && data_avail && burst_last_beat_w;
     assign o_m_axi_bready  = 1'b1;
 
-    always @(posedge i_aclk or negedge i_aresetn) begin
-        if (!i_aresetn) begin
-            cmd_count_r        <= '0;
-            cmd_wr_ptr_r       <= '0;
-            cmd_rd_ptr_r       <= '0;
-            data_count_r       <= '0;
-            data_wr_ptr_r      <= '0;
-            data_rd_ptr_r      <= '0;
-            state_r            <= ST_IDLE;
-            burst_addr_r       <= '0;
-            burst_beats_r      <= '0;
-            burst_sent_beats_r <= '0;
-            split_pending_r    <= 1'b0;
-            second_burst_addr_r<= '0;
-            second_burst_beats_r <= '0;
-        end else begin
-            if (cmd_push) begin
-                cmd_addr_mem[cmd_wr_ptr_r] <= i_tile_addr;
-                cmd_len_mem [cmd_wr_ptr_r] <= {1'b0, i_tile_alen};
-                cmd_wr_ptr_r               <= cmd_wr_ptr_r + 1'b1;
-            end
-            if ((state_r == ST_IDLE) && cmd_avail) begin
-                cmd_rd_ptr_r <= cmd_rd_ptr_r + 1'b1;
-            end
+    always @(posedge i_aclk) begin
+        if (cmd_push)
+            cmd_addr_mem[cmd_wr_ptr_r] <= i_tile_addr;
+    end
 
+    always @(posedge i_aclk) begin
+        if (cmd_push)
+            cmd_len_mem[cmd_wr_ptr_r] <= {1'b0, i_tile_alen};
+    end
+
+    always @(posedge i_aclk) begin
+        if (cmd_push)
+            cmd_id_mem[cmd_wr_ptr_r] <= i_axi_id;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            cmd_wr_ptr_r <= '0;
+        else if (cmd_push)
+            cmd_wr_ptr_r <= cmd_wr_ptr_r + 1'b1;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            cmd_rd_ptr_r <= '0;
+        else if ((state_r == ST_IDLE) && cmd_avail)
+            cmd_rd_ptr_r <= cmd_rd_ptr_r + 1'b1;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            cmd_count_r <= '0;
+        else begin
             case ({cmd_push, ((state_r == ST_IDLE) && cmd_avail)})
                 2'b10: cmd_count_r <= cmd_count_r + 1'b1;
                 2'b01: cmd_count_r <= cmd_count_r - 1'b1;
                 default: cmd_count_r <= cmd_count_r;
             endcase
+        end
+    end
 
-            if (data_push) begin
-                data_mem [data_wr_ptr_r] <= i_cvo_data;
-                strb_mem [data_wr_ptr_r] <= i_cvo_mask;
-                data_wr_ptr_r            <= data_wr_ptr_r + 1'b1;
-            end
-            if (w_fire_w) begin
-                data_rd_ptr_r <= data_rd_ptr_r + 1'b1;
-            end
+    always @(posedge i_aclk) begin
+        if (data_push)
+            data_mem[data_wr_ptr_r] <= i_cvo_data;
+    end
 
+    always @(posedge i_aclk) begin
+        if (data_push)
+            strb_mem[data_wr_ptr_r] <= i_cvo_mask;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            data_wr_ptr_r <= '0;
+        else if (data_push)
+            data_wr_ptr_r <= data_wr_ptr_r + 1'b1;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            data_rd_ptr_r <= '0;
+        else if (w_fire_w)
+            data_rd_ptr_r <= data_rd_ptr_r + 1'b1;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            data_count_r <= '0;
+        else begin
             case ({data_push, w_fire_w})
                 2'b10: data_count_r <= data_count_r + 1'b1;
                 2'b01: data_count_r <= data_count_r - 1'b1;
                 default: data_count_r <= data_count_r;
             endcase
+        end
+    end
 
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            state_r <= ST_IDLE;
+        else begin
             case (state_r)
                 ST_IDLE: begin
-                    burst_sent_beats_r <= '0;
-                    if (cmd_avail) begin
-                        burst_addr_r         <= cmd_start_addr_w;
-                        burst_beats_r        <= first_burst_beats_w;
-                        split_pending_r      <= cmd_crosses_4k_w;
-                        second_burst_addr_r  <= second_burst_addr_w;
-                        second_burst_beats_r <= second_burst_beats_w;
-                        state_r              <= ST_AW;
-                    end
+                    if (cmd_avail)
+                        state_r <= ST_AW;
                 end
-
                 ST_AW: begin
-                    if (aw_fire_w) begin
-                        burst_sent_beats_r <= '0;
-                        state_r            <= ST_W;
-                    end
+                    if (aw_fire_w)
+                        state_r <= ST_W;
                 end
-
                 ST_W: begin
-                    if (w_fire_w) begin
-                        if (burst_last_beat_w) begin
-                            if (split_pending_r) begin
-                                burst_addr_r       <= second_burst_addr_r;
-                                burst_beats_r      <= second_burst_beats_r;
-                                burst_sent_beats_r <= '0;
-                                split_pending_r    <= 1'b0;
-                                state_r            <= ST_AW;
-                            end else begin
-                                burst_beats_r      <= '0;
-                                burst_sent_beats_r <= '0;
-                                state_r            <= ST_IDLE;
-                            end
-                        end else begin
-                            burst_sent_beats_r <= burst_sent_beats_r + one_beat_w;
-                        end
-                    end
+                    if (w_fire_w && burst_last_beat_w)
+                        state_r <= split_pending_r ? ST_AW : ST_IDLE;
                 end
-
                 default: begin
                     state_r <= ST_IDLE;
                 end
             endcase
         end
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            burst_addr_r <= '0;
+        else if ((state_r == ST_IDLE) && cmd_avail)
+            burst_addr_r <= cmd_start_addr_w;
+        else if ((state_r == ST_W) && w_fire_w && burst_last_beat_w && split_pending_r)
+            burst_addr_r <= second_burst_addr_r;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            burst_id_r <= '0;
+        else if ((state_r == ST_IDLE) && cmd_avail)
+            burst_id_r <= cmd_id_mem[cmd_rd_ptr_r];
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            burst_beats_r <= '0;
+        else if ((state_r == ST_IDLE) && cmd_avail)
+            burst_beats_r <= first_burst_beats_w;
+        else if ((state_r == ST_W) && w_fire_w && burst_last_beat_w && split_pending_r)
+            burst_beats_r <= second_burst_beats_r;
+        else if ((state_r == ST_W) && w_fire_w && burst_last_beat_w)
+            burst_beats_r <= '0;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            burst_sent_beats_r <= '0;
+        else if (state_r == ST_IDLE)
+            burst_sent_beats_r <= '0;
+        else if ((state_r == ST_AW) && aw_fire_w)
+            burst_sent_beats_r <= '0;
+        else if ((state_r == ST_W) && w_fire_w && burst_last_beat_w)
+            burst_sent_beats_r <= '0;
+        else if ((state_r == ST_W) && w_fire_w)
+            burst_sent_beats_r <= burst_sent_beats_r + one_beat_w;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            split_pending_r <= 1'b0;
+        else if ((state_r == ST_IDLE) && cmd_avail)
+            split_pending_r <= cmd_crosses_4k_w;
+        else if ((state_r == ST_W) && w_fire_w && burst_last_beat_w && split_pending_r)
+            split_pending_r <= 1'b0;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            second_burst_addr_r <= '0;
+        else if ((state_r == ST_IDLE) && cmd_avail)
+            second_burst_addr_r <= second_burst_addr_w;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            second_burst_beats_r <= '0;
+        else if ((state_r == ST_IDLE) && cmd_avail)
+            second_burst_beats_r <= second_burst_beats_w;
     end
 
 endmodule

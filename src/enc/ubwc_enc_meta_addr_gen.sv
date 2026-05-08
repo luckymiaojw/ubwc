@@ -30,14 +30,17 @@ module ubwc_enc_meta_addr_gen
         input   wire    [32         -1:0]   i_meta_data_plane_pitch     ,
         input   wire    [TW_DW      -1:0]   i_meta_last_xcoord          ,
 
-        input   wire    [64         -1:0]   i_meta_y_base_offset_addr   ,
-        input   wire    [64         -1:0]   i_meta_uv_base_offset_addr  ,
+        input   wire    [64         -1:0]   i_meta_y_base_offset_addr0  ,
+        input   wire    [64         -1:0]   i_meta_uv_base_offset_addr0 ,
+        input   wire    [64         -1:0]   i_meta_y_base_offset_addr1  ,
+        input   wire    [64         -1:0]   i_meta_uv_base_offset_addr1 ,
 
         input   wire                        i_co_valid                  ,
         input   wire    [3          -1:0]   i_co_alen                   ,
         input   wire    [SB_WIDTH   -1:0]   i_co_sb                     ,
         input   wire                        i_co_pcm                    ,
         input   wire    [5          -1:0]   i_format                    ,
+        input   wire    [4          -1:0]   i_fcnt                      ,
         input   wire    [TH_DW      -1:0]   i_ycoord                    ,
         input   wire    [TW_DW      -1:0]   i_xcoord                    ,
 
@@ -47,6 +50,7 @@ module ubwc_enc_meta_addr_gen
 
         output  logic                       o_meta_addr_valid           ,
         output  logic   [META_AW    -1:0]   o_meta_addr                 ,
+        output  logic   [4          -1:0]   o_meta_fcnt                 ,
         input   logic                       i_meta_addr_ready           ,
 
         output  logic                       o_meta_err_0                ,   // co_buffer_overflow
@@ -55,13 +59,14 @@ module ubwc_enc_meta_addr_gen
     );
 
     //i_co_singals ...........
-    localparam      IN_DATA_W   = 3+SB_WIDTH+1+5+TH_DW+TW_DW    ;
+    localparam      IN_DATA_W   = 3+SB_WIDTH+1+5+4+TH_DW+TW_DW  ;
 
     wire                         co_buf_full        ;
     wire    [3          -1:0]    int_co_alen        ;
     wire    [SB_WIDTH   -1:0]    int_co_sb          ;
     wire                         int_co_pcm         ;
     wire    [5          -1:0]    int_format         ;
+    wire    [4          -1:0]    int_fcnt           ;
     wire    [TH_DW      -1:0]    int_ycoord         ;
     wire    [TW_DW      -1:0]    int_xcoord         ;
 
@@ -72,14 +77,15 @@ module ubwc_enc_meta_addr_gen
     wire    [IN_DATA_W  -1:0]   in_fifo_pop_data    ;
 
 
-    assign  in_fifo_push_data   = {i_co_alen, i_co_sb, i_co_pcm, i_format, i_ycoord, i_xcoord};
+    assign  in_fifo_push_data   = {i_co_alen, i_co_sb, i_co_pcm, i_format, i_fcnt, i_ycoord, i_xcoord};
     assign  in_fifo_push_ready  = ~co_buf_full  ;
     assign  int_xcoord          = in_fifo_pop_data[0                        +:TW_DW     ];
     assign  int_ycoord          = in_fifo_pop_data[TW_DW                    +:TH_DW     ];
-    assign  int_format          = in_fifo_pop_data[TH_DW+TW_DW              +:5         ];
-    assign  int_co_pcm          = in_fifo_pop_data[TH_DW+TW_DW+5            +:1         ];
-    assign  int_co_sb           = in_fifo_pop_data[TH_DW+TW_DW+5+1          +:SB_WIDTH  ];
-    assign  int_co_alen         = in_fifo_pop_data[TH_DW+TW_DW+5+1+SB_WIDTH +:3         ];
+    assign  int_fcnt            = in_fifo_pop_data[TH_DW+TW_DW              +:4         ];
+    assign  int_format          = in_fifo_pop_data[TH_DW+TW_DW+4            +:5         ];
+    assign  int_co_pcm          = in_fifo_pop_data[TH_DW+TW_DW+4+5          +:1         ];
+    assign  int_co_sb           = in_fifo_pop_data[TH_DW+TW_DW+4+5+1        +:SB_WIDTH  ];
+    assign  int_co_alen         = in_fifo_pop_data[TH_DW+TW_DW+4+5+1+SB_WIDTH +:3       ];
 
     mg_sync_fifo
     #(
@@ -92,6 +98,7 @@ module ubwc_enc_meta_addr_gen
     (
         .clk                    ( i_clk                 ),
         .rst_n                  ( i_rstn                ),
+        .sclr                   ( !i_srstn              ),
         .wr_en                  ( i_co_valid            ),
         .din                    ( in_fifo_push_data     ),
         .prog_full              (                       ),
@@ -109,6 +116,7 @@ module ubwc_enc_meta_addr_gen
     wire    [7:0]   tile_meta_fill_byte_w   ;
     reg     [2:0]   pop_cnt                 ;
     reg             tile_meta_vld           ;
+    reg     [3:0]   tile_meta_fcnt          ;
     reg     [63:0]  tile_meta_word_data_w   ;
     wire    [65:0]  tile_meta_word_w        ;
     wire            tile_meta_vld_w         ;
@@ -117,6 +125,7 @@ module ubwc_enc_meta_addr_gen
     wire    [META_AW-1:0] tile_meta_addr_w  ;
     wire            meta_data_buf_pfull     ;
     wire            meta_addr_buf_pfull     ;
+    wire            co_buffer_overflow      ;
 
     function automatic [7:0] build_meta_byte;
         input [2:0] alen;
@@ -129,6 +138,7 @@ module ubwc_enc_meta_addr_gen
     assign tile_meta_vld_w       = tile_meta_vld;
     assign tile_last_xcoord_w    = i_meta_last_xcoord;
     assign tile_word_xcoord_w    = {int_xcoord[TW_DW-1:3], 3'b000};
+    assign co_buffer_overflow    = i_co_valid & co_buf_full;
 
     //pop_cnt
     always @(posedge i_clk or negedge i_rstn) begin
@@ -180,6 +190,13 @@ module ubwc_enc_meta_addr_gen
             tile_meta_vld   <= 1'b0 ;
     end
 
+    always @(posedge i_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            tile_meta_fcnt  <= 4'd0 ;
+        else if(in_fifo_pop_valid && in_fifo_pop_ready && ((pop_cnt == 3'd7) || (int_xcoord == i_meta_last_xcoord)))
+            tile_meta_fcnt  <= int_fcnt ;
+    end
+
     mg_sync_fifo
     #(
         .PROG_DEPTH             ( 1                     ),
@@ -191,6 +208,7 @@ module ubwc_enc_meta_addr_gen
     (
         .clk                    ( i_clk                 ),
         .rst_n                  ( i_rstn                ),
+        .sclr                   ( !i_srstn              ),
         .wr_en                  ( tile_meta_vld         ),
         .din                    ( tile_meta_word_w      ),
         .prog_full              ( meta_data_buf_pfull   ),
@@ -205,17 +223,39 @@ module ubwc_enc_meta_addr_gen
     //logic for meta addr
     localparam [4:0] FMT_NV12_UV    = 5'd9;
     localparam [4:0] FMT_P010_UV    = 5'd15;
+    localparam integer META_Y_GROUP_W = TH_DW - 4;
 
     reg     [META_AW  -1:0]     tile_meta_addr          ;
-    wire    [META_AW  -1:0]     tile_meta_y_base_addr_w ;
+    reg     [META_AW  -1:0]     tile_meta_y_base_addr_r ;
+    reg     [META_Y_GROUP_W-1:0] tile_meta_y_group_r     ;
+    reg                         tile_meta_y_base_valid_r ;
+    reg                         tile_meta_y_base_plane_r ;
+    reg                         tile_meta_y_base_slot_r  ;
+    reg                         tile_meta_order_err_r    ;
     wire                        tile_meta_addr_base_w   ;
+    wire    [64       -1:0]     tile_meta_y_base_sel    ;
+    wire    [64       -1:0]     tile_meta_uv_base_sel   ;
     wire    [META_AW  -1:0]     tile_meta_base_addr     ;
+    wire    [META_AW  -1:0]     tile_meta_pitch_stride_w;
+    wire    [META_AW  -1:0]     tile_meta_y_base_addr_next;
+    wire    [META_Y_GROUP_W-1:0] tile_meta_y_group_w    ;
+    wire    [META_Y_GROUP_W-1:0] tile_meta_y_group_inc_w;
+    wire                        tile_meta_addr_fire     ;
+    wire                        tile_meta_same_stream_w ;
+    wire                        tile_meta_group_restart_w;
+    wire                        tile_meta_group_same_w  ;
+    wire                        tile_meta_group_next_w  ;
+    wire                        tile_meta_order_err_w   ;
     localparam integer          META_TILE_OFFSET_W      = TW_DW + 4;
+    localparam integer          META_ADDR_FIFO_W        = META_AW + 4;
     wire    [META_TILE_OFFSET_W-1:0] tile_meta_offset_w ;
+    wire    [META_ADDR_FIFO_W-1:0] meta_addr_fifo_dout  ;
 
     assign  tile_meta_addr_base_w   = ((int_format == FMT_NV12_UV) || (int_format == FMT_P010_UV)) ? 1'b1 : 1'b0;
-    assign  tile_meta_base_addr     = tile_meta_addr_base_w ? i_meta_uv_base_offset_addr : i_meta_y_base_offset_addr;
-    assign  tile_meta_y_base_addr_w = int_ycoord[TH_DW-1:4] * {i_meta_data_plane_pitch,4'd0};
+    assign  tile_meta_y_base_sel    = int_fcnt[0] ? i_meta_y_base_offset_addr1  : i_meta_y_base_offset_addr0;
+    assign  tile_meta_uv_base_sel   = int_fcnt[0] ? i_meta_uv_base_offset_addr1 : i_meta_uv_base_offset_addr0;
+    assign  tile_meta_base_addr     = tile_meta_addr_base_w ? tile_meta_uv_base_sel : tile_meta_y_base_sel;
+    assign  tile_meta_pitch_stride_w = {{(META_AW-36){1'b0}}, i_meta_data_plane_pitch, 4'd0};
     assign  tile_meta_addr_w        = tile_meta_addr;
     assign  tile_meta_word_w        = {tile_meta_addr[4:3], tile_meta_word_data_w};
     assign  tile_meta_offset_w      = {int_xcoord[TW_DW-1:4]
@@ -223,20 +263,93 @@ module ubwc_enc_meta_addr_gen
                                       ,int_xcoord[3+:1]
                                       ,int_ycoord[0+:3]
                                       ,int_xcoord[0+:3]};
+    assign  tile_meta_addr_fire     = in_fifo_pop_valid && in_fifo_pop_ready && (int_xcoord[2:0] == 3'd0);
+    assign  tile_meta_y_group_w     = int_ycoord[TH_DW-1:4];
+    assign  tile_meta_y_group_inc_w = tile_meta_y_group_r + {{(META_Y_GROUP_W-1){1'b0}}, 1'b1};
+    assign  tile_meta_same_stream_w = tile_meta_y_base_valid_r &&
+                                      (tile_meta_y_base_slot_r == int_fcnt[0]) &&
+                                      (tile_meta_y_base_plane_r == tile_meta_addr_base_w);
+    assign  tile_meta_group_restart_w = !tile_meta_same_stream_w ||
+                                        (tile_meta_y_group_w == {META_Y_GROUP_W{1'b0}});
+    assign  tile_meta_group_same_w = tile_meta_same_stream_w &&
+                                     (tile_meta_y_group_w == tile_meta_y_group_r);
+    assign  tile_meta_group_next_w = tile_meta_same_stream_w &&
+                                     (tile_meta_y_group_w == tile_meta_y_group_inc_w);
+    assign  tile_meta_y_base_addr_next = tile_meta_group_restart_w ? {META_AW{1'b0}} :
+                                         tile_meta_group_same_w    ? tile_meta_y_base_addr_r :
+                                                                    (tile_meta_y_base_addr_r + tile_meta_pitch_stride_w);
+    assign  tile_meta_order_err_w = tile_meta_addr_fire &&
+                                    !tile_meta_group_restart_w &&
+                                    !tile_meta_group_same_w &&
+                                    !tile_meta_group_next_w;
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
             tile_meta_addr  <= {META_AW{1'd0}}    ;
-        else if(in_fifo_pop_valid && in_fifo_pop_ready && (int_xcoord[2:0] == 3'd0))
+        else if(tile_meta_addr_fire)
                 tile_meta_addr  <= tile_meta_base_addr
-                                 + tile_meta_y_base_addr_w
+                                 + tile_meta_y_base_addr_next
                                  + {{(META_AW-META_TILE_OFFSET_W){1'b0}}, tile_meta_offset_w};
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            tile_meta_y_base_addr_r <= {META_AW{1'b0}};
+        else if(!i_srstn)
+            tile_meta_y_base_addr_r <= {META_AW{1'b0}};
+        else if(tile_meta_addr_fire)
+            tile_meta_y_base_addr_r <= tile_meta_y_base_addr_next;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            tile_meta_y_group_r <= {META_Y_GROUP_W{1'b0}};
+        else if(!i_srstn)
+            tile_meta_y_group_r <= {META_Y_GROUP_W{1'b0}};
+        else if(tile_meta_addr_fire)
+            tile_meta_y_group_r <= tile_meta_y_group_w;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            tile_meta_y_base_valid_r <= 1'b0;
+        else if(!i_srstn)
+            tile_meta_y_base_valid_r <= 1'b0;
+        else if(tile_meta_addr_fire)
+            tile_meta_y_base_valid_r <= 1'b1;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            tile_meta_y_base_plane_r <= 1'b0;
+        else if(!i_srstn)
+            tile_meta_y_base_plane_r <= 1'b0;
+        else if(tile_meta_addr_fire)
+            tile_meta_y_base_plane_r <= tile_meta_addr_base_w;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            tile_meta_y_base_slot_r <= 1'b0;
+        else if(!i_srstn)
+            tile_meta_y_base_slot_r <= 1'b0;
+        else if(tile_meta_addr_fire)
+            tile_meta_y_base_slot_r <= int_fcnt[0];
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            tile_meta_order_err_r <= 1'b0;
+        else if(!i_srstn)
+            tile_meta_order_err_r <= 1'b0;
+        else
+            tile_meta_order_err_r <= tile_meta_order_err_w;
     end
 
     mg_sync_fifo
     #(
         .PROG_DEPTH                 ( 1                         ),
-        .DWIDTH                     ( META_AW                   ),
+        .DWIDTH                     ( META_ADDR_FIFO_W          ),
         .DEPTH                      ( 32                        ),
         .SHOW_AHEAD                 ( 1                         )
     )
@@ -244,19 +357,22 @@ module ubwc_enc_meta_addr_gen
     (
         .clk                        ( i_clk                     ),
         .rst_n                      ( i_rstn                    ),
+        .sclr                       ( !i_srstn                  ),
         .wr_en                      ( tile_meta_vld             ),
-        .din                        ( tile_meta_addr            ),
+        .din                        ( {tile_meta_fcnt, tile_meta_addr}),
         .prog_full                  ( meta_addr_buf_pfull       ),
         .full                       (                           ),
         .rd_en                      ( i_meta_addr_ready         ),
         .empty                      (                           ),
-        .dout                       ( o_meta_addr               ),
+        .dout                       ( meta_addr_fifo_dout       ),
         .valid                      ( o_meta_addr_valid         ),
         .data_count                 (                           )
     );
 
-    assign  o_meta_err_0   = 1'b0;
-    assign  o_meta_err_1   = 1'b0;
+    assign  {o_meta_fcnt, o_meta_addr} = meta_addr_fifo_dout;
+
+    assign  o_meta_err_0   = co_buffer_overflow;
+    assign  o_meta_err_1   = tile_meta_order_err_r;
     assign  o_frame_done   = 1'b0;
 
 endmodule

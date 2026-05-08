@@ -92,8 +92,15 @@ module tb_enc_axi_write_sink #(
     integer b_rd_ptr;
     integer b_count;
     integer idx;
+    integer tb_axi_random_en;
+    integer tb_axi_seed;
+    integer tb_axi_aw_stall_pct;
+    integer tb_axi_w_stall_pct;
     reg dbg_meta_sink_en;
     reg dbg_meta_sink_fatal_en;
+    reg [31:0] axi_rand_state;
+    reg        axi_awready_gate;
+    reg        axi_wready_gate;
 
     wire aw_is_meta_w;
     wire aw_fire_w;
@@ -123,6 +130,33 @@ module tb_enc_axi_write_sink #(
             beat_bytes     = {{(AXI_ADDR_WIDTH-1){1'b0}}, 1'b1};
             beat_bytes     = beat_bytes << beat_size;
             calc_beat_addr = base_addr + (beat_idx * beat_bytes);
+        end
+    endfunction
+
+    function automatic [31:0] lfsr_next;
+        input [31:0] state_in;
+        reg feedback;
+        begin
+            feedback = state_in[31] ^ state_in[21] ^ state_in[1] ^ state_in[0];
+            lfsr_next = {state_in[30:0], feedback};
+            if (lfsr_next == 32'd0)
+                lfsr_next = 32'h6d2b_79f5;
+        end
+    endfunction
+
+    function automatic ready_from_stall_pct;
+        input [31:0] rand_word;
+        input integer stall_pct;
+        integer pct;
+        begin
+            if (stall_pct <= 0) begin
+                ready_from_stall_pct = 1'b1;
+            end else if (stall_pct >= 100) begin
+                ready_from_stall_pct = 1'b0;
+            end else begin
+                pct = rand_word % 100;
+                ready_from_stall_pct = (pct >= stall_pct);
+            end
         end
     endfunction
 
@@ -256,8 +290,9 @@ module tb_enc_axi_write_sink #(
     assign b_fifo_pop_w        = bvalid && bready;
 
     always @(*) begin
-        awready = aresetn && !aw_fifo_full_w;
-        wready  = aresetn && (burst_active || aw_fifo_valid_w || (awvalid && awready));
+        awready = aresetn && !aw_fifo_full_w && axi_awready_gate;
+        wready  = aresetn && axi_wready_gate &&
+                  (burst_active || aw_fifo_valid_w || (awvalid && awready));
 
         bresp = 2'b00;
         if (aresetn && (b_count != 0)) begin
@@ -283,8 +318,22 @@ module tb_enc_axi_write_sink #(
         b_wr_ptr          = 0;
         b_rd_ptr          = 0;
         b_count           = 0;
+        tb_axi_random_en  = 0;
+        tb_axi_seed       = 32'h6d2b_79f5;
+        tb_axi_aw_stall_pct = 0;
+        tb_axi_w_stall_pct  = 0;
+        axi_rand_state      = 32'h6d2b_79f5;
+        axi_awready_gate    = 1'b1;
+        axi_wready_gate     = 1'b1;
         dbg_meta_sink_en        = 1'b0;
         dbg_meta_sink_fatal_en  = 1'b0;
+        if ($test$plusargs("tb_axi_random"))
+            tb_axi_random_en = 1;
+        void'($value$plusargs("tb_axi_random=%d", tb_axi_random_en));
+        void'($value$plusargs("tb_axi_seed=%d", tb_axi_seed));
+        void'($value$plusargs("tb_axi_aw_stall_pct=%d", tb_axi_aw_stall_pct));
+        void'($value$plusargs("tb_axi_w_stall_pct=%d", tb_axi_w_stall_pct));
+        axi_rand_state = (tb_axi_seed == 0) ? 32'h6d2b_79f5 : tb_axi_seed[31:0];
         if ($test$plusargs("dbg_meta_sink"))
             dbg_meta_sink_en = 1'b1;
         if ($test$plusargs("dbg_meta_sink_fatal"))
@@ -307,7 +356,19 @@ module tb_enc_axi_write_sink #(
             b_wr_ptr          <= 0;
             b_rd_ptr          <= 0;
             b_count           <= 0;
+            axi_rand_state    <= (tb_axi_seed == 0) ? 32'h6d2b_79f5 : tb_axi_seed[31:0];
+            axi_awready_gate  <= 1'b1;
+            axi_wready_gate   <= 1'b1;
         end else begin
+            if (tb_axi_random_en != 0) begin
+                axi_rand_state   <= lfsr_next(lfsr_next(axi_rand_state));
+                axi_awready_gate <= ready_from_stall_pct(axi_rand_state, tb_axi_aw_stall_pct);
+                axi_wready_gate  <= ready_from_stall_pct(lfsr_next(axi_rand_state), tb_axi_w_stall_pct);
+            end else begin
+                axi_awready_gate <= 1'b1;
+                axi_wready_gate  <= 1'b1;
+            end
+
             if (aw_queue_push_w) begin
                 aw_fifo_is_meta[aw_wr_ptr] <= aw_is_meta_w;
                 aw_fifo_id[aw_wr_ptr]      <= awid;
@@ -424,7 +485,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     parameter integer RGBA_TILE_PITCH = 16384,
     parameter integer RGBA_TILE_COLS = 256,
     parameter integer RGBA_TILE_ROWS = 152,
-    parameter integer RGBA_META_WORDS64 = 5120
+    parameter integer RGBA_META_WORDS64 = 5120,
+    parameter integer COM_BUF_AW = 12
 ) ();
     localparam integer CASE_RGBA8888    = 0;
     localparam integer CASE_RGBA1010102 = 1;
@@ -443,9 +505,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer APB_DW          = 32;
     localparam integer AXI_AW          = 64;
     localparam integer AXI_DW          = 256;
+    localparam integer M_AXI_DW        = 64;
     localparam integer AXI_LENW        = 8;
     localparam integer AXI_IDW         = 4;
-    localparam integer COM_BUF_AW      = 13;
     localparam integer COM_BUF_DW      = 128;
     localparam integer SB_WIDTH        = 1;
 
@@ -616,8 +678,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     wire [2:0]                  o_m_axi_awprot;
     wire                        o_m_axi_awvalid;
     wire                        i_m_axi_awready;
-    wire [AXI_DW-1:0]           o_m_axi_wdata;
-    wire [(AXI_DW/8)-1:0]       o_m_axi_wstrb;
+    wire [M_AXI_DW-1:0]         o_m_axi_wdata;
+    wire [(M_AXI_DW/8)-1:0]     o_m_axi_wstrb;
     wire                        o_m_axi_wvalid;
     wire                        o_m_axi_wlast;
     wire                        i_m_axi_wready;
@@ -1699,6 +1761,72 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          dut.meta_data_valid & dut.meta_addr_valid,
                          {dut.b_tile_xcoord[7:3], 3'b000},
                          dut.meta_addr);
+                $display("[TB][ERROR] line_to_tile state: rd_state=%0d wr_bank=%0b rd_bank=%0b grp_y_cnt=%0d grp_y=%0d plane=%0b subrow=%0b",
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_state,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.wr_bank_sel,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_bank_sel_act,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_tile_grp_y_cnt,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_group_y,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_plane,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_y_subrow);
+                $display("[TB][ERROR] line_to_tile banks: b0(a_line=%0d b_line=%0d a_x=%0d b_x=%0d a_done=%0b b_done=%0b ready=%0b safe=%0b) b1(a_line=%0d b_line=%0d a_x=%0d b_x=%0d a_done=%0b b_done=%0b ready=%0b safe=%0b)",
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_a_line_idx,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_b_line_idx,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_a_tile_x,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_b_tile_x,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_a_done,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_b_done,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_ready_for_read,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_safe_for_read,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_a_line_idx,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_b_line_idx,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_a_tile_x,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_b_tile_x,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_a_done,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_b_done,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_ready_for_read,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_safe_for_read);
+                $display("[TB][ERROR] packer state: in_empty=%0b a_vld=%0b a_rdy=%0b b_vld=%0b b_rdy=%0b a_cnt=%0d b_cnt=%0d write_seen=%0b",
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.in_fifo_empty,
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.fifo_a_vld,
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.fifo_a_rdy,
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.fifo_b_vld,
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.fifo_b_rdy,
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.a_pack32_cnt,
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.b_pack32_cnt,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.write_input_seen);
+                $display("[TB][ERROR] packer sb: a32(fcnt=%0d lcnt=%0d) a64(fcnt=%0d lcnt=%0d) b32(fcnt=%0d lcnt=%0d) b64(fcnt=%0d lcnt=%0d)",
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.a_pack32_sb[17:14],
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.a_pack32_sb[13:2],
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.a_pack64_sb[17:14],
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.a_pack64_sb[13:2],
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.b_pack32_sb[17:14],
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.b_pack32_sb[13:2],
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.b_pack64_sb[17:14],
+                         dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.b_pack64_sb[13:2]);
+                $display("[TB][ERROR] line_to_tile fire: a=%0b a_fcnt=%0d a_tlast=%0b b=%0b b_fcnt=%0d b_tlast=%0b bank_fcnt b0=%0d b1=%0d",
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.fire_a,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.a_fcnt,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.a_tlast,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.fire_b,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.b_fcnt,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.b_tlast,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_fcnt,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_fcnt);
+                $display("[TB][ERROR] line_to_tile group: eff=%0b sel_vld=%0b sel_id=%0d a_lcnt=%0d a_gid=%0d a_ok=%0b b_lcnt=%0d b_gid=%0d b_ok=%0b b0(v=%0b id=%0d) b1(v=%0b id=%0d)",
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.wr_bank_sel_eff,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.sel_group_vld,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.sel_group_id,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.a_lcnt,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.a_group_id,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.fifo_a_group_ok,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.b_lcnt,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.b_group_id,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.fifo_b_group_ok,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_group_vld,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_group_id,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_group_vld,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_group_id);
                 $fatal(1, "Encoder wrapper did not become idle before next frame start.");
             end
 
@@ -1737,6 +1865,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         reg [31:0] reg11_data;
         reg [31:0] reg20_data;
         reg [31:0] reg21_data;
+        integer addr_cfg_idx;
         begin
             reg2_data = 32'd0;
             reg2_data[0]     = 1'b1;
@@ -1770,14 +1899,16 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
             apb_write(16'h000c, reg3_data);
             apb_write(16'h0008, reg2_data);
-            apb_write(16'h0030, CASE_TILE_BASE_Y_ADDR[31:0]);
-            apb_write(16'h0034, CASE_TILE_BASE_Y_ADDR[63:32]);
-            apb_write(16'h0038, CASE_TILE_BASE_UV_ADDR[31:0]);
-            apb_write(16'h003c, CASE_TILE_BASE_UV_ADDR[63:32]);
-            apb_write(16'h0040, CASE_META_BASE_Y_ADDR[31:0]);
-            apb_write(16'h0044, CASE_META_BASE_Y_ADDR[63:32]);
-            apb_write(16'h0048, CASE_META_BASE_UV_ADDR[31:0]);
-            apb_write(16'h004c, CASE_META_BASE_UV_ADDR[63:32]);
+            for (addr_cfg_idx = 0; addr_cfg_idx < tb_frame_repeat; addr_cfg_idx = addr_cfg_idx + 1) begin
+                apb_write(16'h0030, CASE_META_BASE_Y_ADDR[31:0]);
+                apb_write(16'h0034, CASE_META_BASE_Y_ADDR[63:32]);
+                apb_write(16'h0038, CASE_TILE_BASE_Y_ADDR[31:0]);
+                apb_write(16'h003c, CASE_TILE_BASE_Y_ADDR[63:32]);
+                apb_write(16'h0040, CASE_META_BASE_UV_ADDR[31:0]);
+                apb_write(16'h0044, CASE_META_BASE_UV_ADDR[63:32]);
+                apb_write(16'h0048, CASE_TILE_BASE_UV_ADDR[31:0]);
+                apb_write(16'h004c, CASE_TILE_BASE_UV_ADDR[63:32]);
+            end
             apb_write(16'h0014, 32'd0);
             apb_write(16'h0018, 32'd0);
             apb_write(16'h001c, 32'd0);
@@ -1796,7 +1927,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .APB_AW      (APB_AW),
         .APB_DW      (APB_DW),
         .AXI_AW      (AXI_AW),
-        .AXI_DW      (AXI_DW),
+        .AXI_DW      (M_AXI_DW),
         .AXI_LENW    (AXI_LENW),
         .AXI_IDW     (AXI_IDW),
         .COM_BUF_AW  (COM_BUF_AW),
@@ -1867,11 +1998,11 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .meta_addr_valid          (dut.meta_addr_valid),
         .meta_addr_ready          (dut.meta_addr_ready),
         .meta_addr                (dut.meta_addr),
-        .meta_uv_base_offset_addr (dut.meta_uv_base_offset_addr),
+        .meta_uv_base_offset_addr (dut.meta_uv_base_offset_addr0),
         .meta_axi_awvalid         (dut.meta_axi_awvalid),
         .meta_axi_awready         (dut.meta_axi_awready),
         .meta_axi_awaddr          (dut.meta_axi_awaddr),
-        .b_tile_info_vld          (dut.u_coord_fifo.valid),
+        .b_tile_info_vld          (dut.enc_co_valid),
         .enc_co_ready             (dut.enc_co_ready),
         .otf_tile_last            (dut.ubwc_enc_otf_to_tile_inst.o_tile_last),
         .otf_tile_fcnt            (dut.ubwc_enc_otf_to_tile_inst.o_tile_fcnt),
@@ -1952,7 +2083,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     tb_enc_axi_write_sink #(
         .AXI_ID_WIDTH   (AXI_IDW + 1),
         .AXI_ADDR_WIDTH (AXI_AW),
-        .AXI_DATA_WIDTH (AXI_DW),
+        .AXI_DATA_WIDTH (M_AXI_DW),
         .MEM_BASE_ADDR  (CASE_META_BASE_MIN),
         .MEM_WORDS64    (CASE_OUTPUT_MEM_WORDS64)
     ) u_axi_mem (
@@ -1979,8 +2110,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     assign dbg_otf_to_tile_ci_valid  = dut.enc_ci_valid;
     assign dbg_otf_to_tile_ci_ready  = dut.enc_ci_ready;
     assign dbg_otf_to_tile_coord_vld = dut.enc_ci_valid && dut.enc_ci_ready;
-    assign dbg_otf_to_tile_x         = dut.tile_xcoord_raw;
-    assign dbg_otf_to_tile_y         = dut.tile_ycoord_raw;
+    assign dbg_otf_to_tile_x         = dut.ubwc_enc_otf_to_tile_inst.o_tile_x;
+    assign dbg_otf_to_tile_y         = dut.ubwc_enc_otf_to_tile_inst.o_tile_y;
     assign dbg_otf_to_tile_format    = dut.tile_format;
     assign meta_aw_fire_w            = dut.meta_axi_awvalid && dut.meta_axi_awready;
     assign meta_w_fire_w             = dut.meta_axi_wvalid && dut.meta_axi_wready;
@@ -2517,8 +2648,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 if (tb_fake_mode_en) begin
                     if (cmd_wr_ptr < TILE_QUEUE_CAPACITY) begin
                         cmd_fmt_queue[cmd_wr_ptr] <= dut.tile_format;
-                        cmd_x_queue[cmd_wr_ptr]   <= dut.tile_xcoord_raw;
-                        cmd_y_queue[cmd_wr_ptr]   <= dut.tile_ycoord_raw;
+                        cmd_x_queue[cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.o_tile_x;
+                        cmd_y_queue[cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.o_tile_y;
                         cmd_wr_ptr                <= cmd_wr_ptr + 1;
                     end
                 end
@@ -3032,8 +3163,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                     if (!first_meta_aw_seen) begin
                         first_meta_aw_seen        <= 1'b1;
                         first_meta_aw_addr        <= dut.meta_axi_awaddr;
-                        first_meta_aw_y_base      <= dut.meta_y_base_offset_addr;
-                        first_meta_aw_uv_base     <= dut.meta_uv_base_offset_addr;
+                        first_meta_aw_y_base      <= dut.meta_y_base_offset_addr0;
+                        first_meta_aw_uv_base     <= dut.meta_uv_base_offset_addr0;
                         first_meta_aw_sel_uv      <= mon_meta_aw_sel_uv;
                         first_meta_aw_y_meta_addr <= mon_meta_aw_y_addr;
                         first_meta_aw_uv_meta_addr<= mon_meta_aw_uv_addr;
@@ -3585,20 +3716,27 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 endmodule
 
 module tb_ubwc_enc_wrapper_top_tajmahal_cases #(
-    parameter integer CASE_ID = 0
+    parameter integer CASE_ID = 0,
+    parameter integer COM_BUF_AW = 12
 ) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
-        .CASE_ID(CASE_ID)
+        .CASE_ID(CASE_ID),
+        .COM_BUF_AW(COM_BUF_AW)
     ) u_core ();
 endmodule
 
-module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 ();
+module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 #(
+    parameter integer COM_BUF_AW = 12
+) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
-        .CASE_ID(0)
+        .CASE_ID(0),
+        .COM_BUF_AW(COM_BUF_AW)
     ) u_core ();
 endmodule
 
-module tb_ubwc_enc_wrapper_top_rgba8888_128x128 ();
+module tb_ubwc_enc_wrapper_top_rgba8888_128x128 #(
+    parameter integer COM_BUF_AW = 12
+) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .CASE_ID(0),
         .IMG_W(128),
@@ -3607,25 +3745,35 @@ module tb_ubwc_enc_wrapper_top_rgba8888_128x128 ();
         .RGBA_TILE_PITCH(512),
         .RGBA_TILE_COLS(8),
         .RGBA_TILE_ROWS(32),
-        .RGBA_META_WORDS64(256)
+        .RGBA_META_WORDS64(256),
+        .COM_BUF_AW(COM_BUF_AW)
     ) u_core ();
 endmodule
 
-module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 ();
+module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 #(
+    parameter integer COM_BUF_AW = 12
+) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
-        .CASE_ID(1)
+        .CASE_ID(1),
+        .COM_BUF_AW(COM_BUF_AW)
     ) u_core ();
 endmodule
 
-module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 ();
+module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 #(
+    parameter integer COM_BUF_AW = 12
+) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
-        .CASE_ID(2)
+        .CASE_ID(2),
+        .COM_BUF_AW(COM_BUF_AW)
     ) u_core ();
 endmodule
 
-module tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 ();
+module tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 #(
+    parameter integer COM_BUF_AW = 12
+) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
-        .CASE_ID(3)
+        .CASE_ID(3),
+        .COM_BUF_AW(COM_BUF_AW)
     ) u_core ();
 endmodule
 

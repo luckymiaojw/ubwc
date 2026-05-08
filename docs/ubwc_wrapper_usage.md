@@ -155,45 +155,47 @@ It also depends on two external ping-pong SRAM blocks:
 
 - Tile configuration:`0x0008`, `0x000c`, `0x0010`
 - VIVO configuration:`0x0014`
-- Metadata configuration:`0x0018` ~ `0x002c`
-- OTF output timing:`0x0030` ~ `0x0040`
-- Tile base address:`0x0044` ~ `0x0050`
-- Status registers:`0x0054`, `0x0058`
+- OTF output timing:`0x0018` ~ `0x0028`
+- Metadata tile count:`0x002c`
+- Per-frame base address:`0x0030` ~ `0x004c`
+- Status registers:`0x0050`, `0x0054`
 
 ### 2.3 Recommended Configuration Order
 
 Recommended write order:
 
 1. Write `TILE_CFG0/1/2`
-2. Write `TILE_BASE0/1/2/3`
-3. Write `VIVO_CFG`
-4. Write `META_CFG1/2/3/4/5`
-5. Write `OTF_CFG0/1/2/3/4`
-6. write last `META_CFG0`, while setting `start` to 1
+2. Write `VIVO_CFG`
+3. Write `OTF_CFG0/1/2/3/4`
+4. Write `APB_ADDR_META_CFG0` tile count
+5. Write all four per-frame base address pairs; hardware auto-starts when they are all valid
 
-The key point is that `META_CFG0[0]` is not a normal hold bit; it is a start pulse bit.
+The key point is that software no longer writes a `meta_start` pulse. DEC starts automatically after the complete per-frame address set is valid.
 
 ### 2.4 Startup Method
 
-`ubwc_dec_wrapper_top.v` starts with the final write to `META_CFG0 (0x0018)`:
+`ubwc_dec_wrapper_top.v` starts automatically after software writes a complete set of per-frame base addresses:
 
 ```text
-write(0x0018, (base_format << 4) | 1);
+write META RGBA/Y low/high
+write META UV low/high
+write TILE RGBA/Y low/high
+write TILE UV low/high
 ```
 
 Meaning:
 
-- `bit[0] = 1`:Trigger one start
-- `bit[8:4]`:Write at the same time `meta_base_format`
+- `META_CFG0[8:4]`: metadata/base format
+- `META_CFG0[0]`: reserved, readback fixed to `0`
 
 RTL behavior:
 
-- The APB side writes `META_CFG0[0]=1`
-- Internal `r_meta_start_toggle` toggles
-- generates in the AXI clock domain `frame_start_pulse_axi`
+- APB high-word writes complete each 64-bit base address entry
+- When the complete address set is valid and the metadata stage can accept a new frame, hardware locks one address set
+- That auto-launch generates `frame_start_pulse_axi` in the AXI clock domain
 - Metadata read, tile read, VIVO decode, and tile_to_otf output all start together
 
-To run multiple frames continuously, write `META_CFG0[0]=1` once again for each frame.
+To run multiple frames continuously, software writes the next frame address set. No APB start pulse is required.
 
 ### 2.5 Completion Detection
 
@@ -225,9 +227,9 @@ It is not recommended to only check `STATUS0[5]` or `STATUS0[6]`, because they m
 ```mermaid
 flowchart TD
     A[Reset released] --> B[Write TILE_CFG0/1/2]
-    B --> C[Write TILE_BASE0/1/2/3]
+    B --> C[Write REG_META_BASE_Y/UV and REG_TILE_BASE_Y/UV]
     C --> D[Write VIVO_CFG]
-    D --> E[Write META_CFG1/2/3/4/5]
+    D --> E[Write APB_ADDR_META_CFG0 tile count]
     E --> F[Write OTF_CFG0/1/2/3/4]
     F --> G[Write META_CFG0: bit0=1, base_format in bit8:4]
     G --> H[APB start toggle crosses to AXI clock]
@@ -244,7 +246,7 @@ flowchart TD
     O -- Yes --> P[Frame complete; next frame can start]
 ```
 
-Key usage rule: `META_CFG0[0]` is a start pulse, so write it last for every frame. Do not treat it as a persistent enable bit.
+Key usage rule: `META_CFG0[0]` is reserved. DEC frame start is driven by address availability, not by a software start pulse.
 
 #### 2.6.2 `ubwc_dec_tile_to_otf_line_ring` Data Flow
 
@@ -291,30 +293,26 @@ Minimal configuration and startup example:
 write(0x0008, tile_cfg0);
 write(0x000c, tile_cfg1);
 write(0x0010, tile_cfg2);
-
-write(0x0044, tile_base_rgba_uv_lo);
-write(0x0048, tile_base_rgba_uv_hi);
-write(0x004c, tile_base_y_lo);
-write(0x0050, tile_base_y_hi);
-
 write(0x0014, vivo_cfg);
 
-write(0x001c, meta_base_rgba_uv_lo);
-write(0x0020, meta_base_rgba_uv_hi);
-write(0x0024, meta_base_y_lo);
-write(0x0028, meta_base_y_hi);
+write(0x0018, otf_cfg0);
+write(0x001c, otf_cfg1);
+write(0x0020, otf_cfg2);
+write(0x0024, otf_cfg3);
+write(0x0028, otf_cfg4);
 write(0x002c, meta_tile_num);
 
-write(0x0030, otf_cfg0);
-write(0x0034, otf_cfg1);
-write(0x0038, otf_cfg2);
-write(0x003c, otf_cfg3);
-write(0x0040, otf_cfg4);
+write(0x0030, meta_base_rgba_y_lo);
+write(0x0034, meta_base_rgba_y_hi);
+write(0x0038, tile_base_rgba_y_lo);
+write(0x003c, tile_base_rgba_y_hi);
+write(0x0040, meta_base_uv_lo);
+write(0x0044, meta_base_uv_hi);
+write(0x0048, tile_base_uv_lo);
+write(0x004c, tile_base_uv_hi);
 
-write(0x0018, (base_format << 4) | 1);
-
-poll_until((read(0x0058) & (1 << 4)) != 0);
-poll_until((read(0x0054) & (1 << 6)) != 0);
+poll_until((read(0x0054) & (1 << 4)) != 0);
+poll_until((read(0x0050) & (1 << 6)) != 0);
 ```
 
 ## 3. 128x128 RGBA8888 Complete Configuration Example
@@ -358,8 +356,8 @@ OTF-related information used in this example:
 - `height = 128`
 - `tile_w = 16`
 - `tile_h = 4`
-- `a_tile_cols = 8`
-- `b_tile_cols = 0`
+- `y_tile_cols = 8`
+- `uv_tile_cols = 0`
 - `meta_active_width_px = 128`
 - `meta_active_height_px = 128`
 
@@ -402,13 +400,13 @@ This example uses a simplified OTF timing setup for bring-up:
 3. Write the VIVO configuration
 4. Write the metadata configuration
 5. Write the OTF configuration
-6. write last META_CFG0[0]=1 to issue start
+6. write the four per-frame base address pairs; DEC auto-starts when they are all valid
 7. Poll STATUS1[4] and STATUS0[6]
 ```
 
 The most important points are:
 
-- `dec` must be started by writing `META_CFG0[0]=1` last
+- `dec` auto-starts after the complete per-frame address set is valid
 - For completion, check `STATUS1[4] = frame_done`
 - then check `STATUS0[6] = frame_idle_done`
 
@@ -418,7 +416,7 @@ The most important points are:
 - `tile_pitch` is measured in **bytes**, `128x128 RGBA8888` needs `512`
 - For `RGBA8888` on `enc`, the current address-selection logic uses `Y base / META_Y base`
 - For `RGBA8888` on `dec`, the current address-selection logic uses `RGBA_UV base / META_RGBA_UV base`
-- `dec` must be started by writing `META_CFG0[0]=1` last
+- `dec` auto-starts after the complete per-frame address set is valid
 - `enc` has no APB start, it starts from the OTF input stream
 
 ### 3.2 Part 2: Register Read/Write Information
@@ -463,15 +461,15 @@ An APB write sequence that can be copied directly:
 write(0x000c, 0x02000001);  // REG_TILE_CFG1
 write(0x0008, 0x0001100d);  // REG_TILE_CFG0
 
-write(0x0030, 0x81000000);  // REG_TILE_BASE_Y_LO
-write(0x0034, 0x00000000);  // REG_TILE_BASE_Y_HI
-write(0x0038, 0x00000000);  // REG_TILE_BASE_UV_LO
-write(0x003c, 0x00000000);  // REG_TILE_BASE_UV_HI
+write(0x0030, 0x82000000);  // REG_META_BASE_Y_LO
+write(0x0034, 0x00000000);  // REG_META_BASE_Y_HI
+write(0x0038, 0x81000000);  // REG_TILE_BASE_Y_LO
+write(0x003c, 0x00000000);  // REG_TILE_BASE_Y_HI
 
-write(0x0040, 0x82000000);  // REG_META_BASE_Y_LO
-write(0x0044, 0x00000000);  // REG_META_BASE_Y_HI
-write(0x0048, 0x00000000);  // REG_META_BASE_UV_LO
-write(0x004c, 0x00000000);  // REG_META_BASE_UV_HI
+write(0x0040, 0x00000000);  // REG_META_BASE_UV_LO
+write(0x0044, 0x00000000);  // REG_META_BASE_UV_HI
+write(0x0048, 0x00000000);  // REG_TILE_BASE_UV_LO
+write(0x004c, 0x00000000);  // REG_TILE_BASE_UV_HI, commit
 
 write(0x0014, 0x00000000);  // REG_ENC_CI_CFG1
 write(0x0018, 0x00000000);  // REG_ENC_CI_CFG2
@@ -499,7 +497,7 @@ Key register values used in this example:
   - `tile_pitch = 512`
 - `TILE_CFG2 = 0x0000_000f`
 - `VIVO_CFG = 0x0000_0001`
-- `META_CFG5 = 0x0020_0008`
+- `APB_ADDR_META_CFG0 = 0x0020_0008`
   - `meta_tile_x_numbers = 8`
   - `meta_tile_y_numbers = 32`
 - `OTF_CFG0 = 0x0000_0080`
@@ -512,11 +510,11 @@ Recommended register write order:
 
 ```text
 1. Write TILE_CFG0/1/2
-2. Write TILE_BASE0/1/2/3
+2. Write REG_META_BASE_Y/UV and REG_TILE_BASE_Y/UV address pairs
 3. Write VIVO_CFG
-4. Write META_CFG1/2/3/4/5
-5. Write OTF_CFG0/1/2/3/4
-6. write last META_CFG0 = (base_format << 4) | 1
+4. Write OTF_CFG0/1/2/3/4
+5. Write APB_ADDR_META_CFG0 tile count
+6. Write REG_META_BASE_Y/UV and REG_TILE_BASE_Y/UV address pairs
 7. Poll STATUS1[4], then poll STATUS0[6]
 ```
 
@@ -528,27 +526,24 @@ write(0x000c, 0x00000200);  // TILE_CFG1
 write(0x0010, 0x0000000f);  // TILE_CFG2
 write(0x0014, 0x00000001);  // VIVO_CFG
 
-write(0x001c, 0x82000000);  // META_CFG1
-write(0x0020, 0x00000000);  // META_CFG2
-write(0x0024, 0x00000000);  // META_CFG3
-write(0x0028, 0x00000000);  // META_CFG4
-write(0x002c, 0x00200008);  // META_CFG5
+write(0x0018, 0x00000080);  // OTF_CFG0
+write(0x001c, 0x000400a0);  // OTF_CFG1
+write(0x0020, 0x00800008);  // OTF_CFG2
+write(0x0024, 0x0002008c);  // OTF_CFG3
+write(0x0028, 0x00800004);  // OTF_CFG4
+write(0x002c, 0x00200008);  // APB_ADDR_META_CFG0
 
-write(0x0030, 0x00000080);  // OTF_CFG0
-write(0x0034, 0x000400a0);  // OTF_CFG1
-write(0x0038, 0x00800008);  // OTF_CFG2
-write(0x003c, 0x0002008c);  // OTF_CFG3
-write(0x0040, 0x00800004);  // OTF_CFG4
+write(0x0030, 0x82000000);  // REG_META_BASE_Y_LO
+write(0x0034, 0x00000000);  // REG_META_BASE_Y_HI
+write(0x0038, 0x81000000);  // REG_TILE_BASE_Y_LO
+write(0x003c, 0x00000000);  // REG_TILE_BASE_Y_HI
+write(0x0040, 0x00000000);  // REG_META_BASE_UV_LO
+write(0x0044, 0x00000000);  // REG_META_BASE_UV_HI
+write(0x0048, 0x00000000);  // REG_TILE_BASE_UV_LO
+write(0x004c, 0x00000000);  // REG_TILE_BASE_UV_HI
 
-write(0x0044, 0x81000000);  // TILE_BASE0
-write(0x0048, 0x00000000);  // TILE_BASE1
-write(0x004c, 0x00000000);  // TILE_BASE2
-write(0x0050, 0x00000000);  // TILE_BASE3
-
-write(0x0018, 0x00000001);  // META_CFG0: base_format=RGBA8888, start=1
-
-poll_until((read(0x0058) & (1 << 4)) != 0);  // STATUS1.frame_done
-poll_until((read(0x0054) & (1 << 6)) != 0);  // STATUS0.frame_idle_done
+poll_until((read(0x0054) & (1 << 4)) != 0);  // STATUS1.frame_done
+poll_until((read(0x0050) & (1 << 6)) != 0);  // STATUS0.frame_idle_done
 ```
 
 ## 4. Current Register Table
@@ -573,15 +568,15 @@ The following is a concise table based on the **current RTL**; see the detailed 
 | `0x0020` | `REG_OTF_CFG0` | `otf_cfg_format` | Writing this register emits `o_otf_cfg_vld` |
 | `0x0024` | `REG_OTF_CFG1` | `width`, `height` | Pixel units |
 | `0x0028` | `REG_OTF_CFG2` | `tile_w`, `tile_h` | Pixel units |
-| `0x002c` | `REG_OTF_CFG3` | `a_tile_cols`, `b_tile_cols` | `RGBA8888` is commonly `a=tile_cols, b=0` |
-| `0x0030` | `REG_TILE_BASE_Y_LO` | Low 32 bits of the main-image base address | Current `RGBA8888` uses this base |
-| `0x0034` | `REG_TILE_BASE_Y_HI` | High 32 bits of the main-image base address |  |
-| `0x0038` | `REG_TILE_BASE_UV_LO` | Low 32 bits of the UV base address | Single-plane `RGBA8888` can write `0` |
-| `0x003c` | `REG_TILE_BASE_UV_HI` | High 32 bits of the UV base address | Single-plane `RGBA8888` can write `0` |
-| `0x0040` | `REG_META_BASE_Y_LO` | Low 32 bits of the metadata base address | Current `RGBA8888` uses this base |
-| `0x0044` | `REG_META_BASE_Y_HI` | High 32 bits of the metadata base address |  |
-| `0x0048` | `REG_META_BASE_UV_LO` | Low 32 bits of the UV metadata base address | Single-plane `RGBA8888` can write `0` |
-| `0x004c` | `REG_META_BASE_UV_HI` | High 32 bits of the UV metadata base address | Single-plane `RGBA8888` can write `0` |
+| `0x002c` | `REG_OTF_CFG3` | `y_tile_cols`, `uv_tile_cols` | `RGBA8888` is commonly `y=tile_cols, uv=0` |
+| `0x0030` | `REG_META_BASE_Y_LO` | Low 32 bits of the metadata base address | Current `RGBA8888` uses this slot |
+| `0x0034` | `REG_META_BASE_Y_HI` | High 32 bits of the metadata base address |  |
+| `0x0038` | `REG_TILE_BASE_Y_LO` | Low 32 bits of the main-image base address | Current `RGBA8888` uses this slot |
+| `0x003c` | `REG_TILE_BASE_Y_HI` | High 32 bits of the main-image base address |  |
+| `0x0040` | `REG_META_BASE_UV_LO` | Low 32 bits of the UV metadata base address | Single-plane `RGBA8888` can write `0` |
+| `0x0044` | `REG_META_BASE_UV_HI` | High 32 bits of the UV metadata base address | Single-plane `RGBA8888` can write `0` |
+| `0x0048` | `REG_TILE_BASE_UV_LO` | Low 32 bits of the UV base address | Single-plane `RGBA8888` can write `0` |
+| `0x004c` | `REG_TILE_BASE_UV_HI` | High 32 bits of the UV base address | Last write commits this frame address set |
 | `0x0050` | `REG_META_ACTIVE_SIZE` | `active_width_px`, `active_height_px` | Writing `0` means using the full frame |
 | `0x0054` | `REG_META_PITCH` | `meta_data_plane_pitch` | Metadata pitch in bytes, separate from pixel-data pitch |
 | `0x0058` | `REG_STATUS0` | `enc/otf/meta` live status bits | Metadata bits are currently tied low |
@@ -596,29 +591,30 @@ The following is a concise table based on the **current RTL**; see the detailed 
 | `0x000c` | `TILE_CFG1` | `tile_pitch` | Unit is bytes |
 | `0x0010` | `TILE_CFG2` | `ci_input_type`, `ci_sb`, `ci_lossy`, `ci_alpha_mode` | This example keeps the TB default value |
 | `0x0014` | `VIVO_CFG` | `vivo_ubwc_en`, `vivo_sreset` | Usually `vivo_ubwc_en=1` |
-| `0x0018` | `META_CFG0` | `start(W1P)`, `meta_base_format` | Write last; `bit0` is the start pulse |
-| `0x001c` | `META_CFG1` | `meta_base_addr_rgba_y[31:0]` | `RGBA8888/NV12/P010 Y` uses this base |
-| `0x0020` | `META_CFG2` | `meta_base_addr_rgba_y[63:32]` |  |
-| `0x0024` | `META_CFG3` | `meta_base_addr_uv[31:0]` | `NV12/P010 UV` uses this base |
-| `0x0028` | `META_CFG4` | `meta_base_addr_uv[63:32]` |  |
-| `0x002c` | `META_CFG5` | `meta_tile_x_numbers`, `meta_tile_y_numbers` | This example uses `8 x 32` |
-| `0x0030` | `OTF_CFG0` | `img_width`, `format` | `format=0` means `RGBA8888` |
-| `0x0034` | `OTF_CFG1` | `h_total`, `h_sync` | OTF timing |
-| `0x0038` | `OTF_CFG2` | `h_bp`, `h_act` | OTF timing |
-| `0x003c` | `OTF_CFG3` | `v_total`, `v_sync` | OTF timing |
-| `0x0040` | `OTF_CFG4` | `v_bp`, `v_act` | OTF timing |
-| `0x0044` | `TILE_BASE0` | `tile_base_addr_rgba_uv[31:0]` | `RGBA8888` uses this base |
-| `0x0048` | `TILE_BASE1` | `tile_base_addr_rgba_uv[63:32]` |  |
-| `0x004c` | `TILE_BASE2` | `tile_base_addr_y[31:0]` | `NV12/P010 Y` uses this base |
-| `0x0050` | `TILE_BASE3` | `tile_base_addr_y[63:32]` |  |
-| `0x0054` | `STATUS0` | `frame_active`, `meta/tile/vivo/otf_busy`, `frame_idle_done` | Recommended to use together with `STATUS1`  |
-| `0x0058` | `STATUS1` | `meta_done`, `tile_done`, `vivo_done`, `otf_done`, `frame_done` | `bit4 frame_done` is the best polling bit |
+| `0x0018` | `OTF_CFG0` | `img_width`, `format` | `format=0` means `RGBA8888` |
+| `0x001c` | `OTF_CFG1` | `h_total`, `h_sync` | OTF timing |
+| `0x0020` | `OTF_CFG2` | `h_bp`, `h_act` | OTF timing |
+| `0x0024` | `OTF_CFG3` | `v_total`, `v_sync` | OTF timing |
+| `0x0028` | `OTF_CFG4` | `v_bp`, `v_act` | OTF timing |
+| `0x002c` | `APB_ADDR_META_CFG0` | `meta_tile_x_numbers`, `meta_tile_y_numbers` | This example uses `8 x 32` |
+| `0x0030` | `REG_META_BASE_Y_LO` | `meta_base_addr_rgba_y[31:0]` | `RGBA8888/NV12/P010 Y` uses this base |
+| `0x0034` | `REG_META_BASE_Y_HI` | `meta_base_addr_rgba_y[63:32]` |  |
+| `0x0038` | `REG_TILE_BASE_Y_LO` | `tile_base_addr_rgba_y[31:0]` | `RGBA8888` / `NV12/P010 Y` uses this base |
+| `0x003c` | `REG_TILE_BASE_Y_HI` | `tile_base_addr_rgba_y[63:32]` |  |
+| `0x0040` | `REG_META_BASE_UV_LO` | `meta_base_addr_uv[31:0]` | `NV12/P010 UV` uses this base; RGBA does not care |
+| `0x0044` | `REG_META_BASE_UV_HI` | `meta_base_addr_uv[63:32]` |  |
+| `0x0048` | `REG_TILE_BASE_UV_LO` | `tile_base_addr_uv[31:0]` | `NV12/P010 UV` uses this base; RGBA does not care |
+| `0x004c` | `REG_TILE_BASE_UV_HI` | `tile_base_addr_uv[63:32]` |  |
+| `0x0050` | `STATUS0` | `frame_active`, `meta/tile/vivo/otf_busy`, `frame_idle_done` | Recommended to use together with `STATUS1` |
+| `0x0054` | `STATUS1` | `meta_done`, `tile_done`, `bit2 reserved`, `otf_done`, `frame_done` | `bit4 frame_done` is the best polling bit |
+| `0x0060` | `IRQ_CTRL` | `irq_enable`, `irq_clear`, `irq_pending` | Correct/error IRQ latch control |
+| `0x0068` ~ `0x0078` | `STAT_*` | stage counters | Metadata/tile/OTF line and data counters |
 
 ## 5. Summary of Differences Between the Two Wrappers
 
 - `enc`: the APB side mainly provides configuration registers plus a basic live `REG_STATUS0`
 - `dec`: the APB side has both configuration registers and complete `STATUS0/STATUS1` registers
 - `enc` starts from"the input frame beginning to arrive"
-- `dec` starts from"writing `META_CFG0[0]=1`"
+- `dec` starts automatically after the complete address set is written
 - `enc` can add sticky frame-done/status registers later for long-term software-driver use
 - `dec` can already poll registers directly for completion

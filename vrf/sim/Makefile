@@ -5,6 +5,15 @@ VERDI ?= verdi
 IVERILOG ?= iverilog
 VVP ?= vvp
 VERILATOR ?= verilator
+SRAM_PROFILE ?= 4096
+
+ifeq ($(strip $(SRAM_PROFILE)),2048)
+SRAM_PROFILE_COM_BUF_AW := 12
+else ifeq ($(strip $(SRAM_PROFILE)),4096)
+SRAM_PROFILE_COM_BUF_AW := 13
+else
+$(error Unsupported SRAM_PROFILE=$(SRAM_PROFILE), expected 2048 or 4096)
+endif
 
 SIM_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 PROJECT_ROOT := $(abspath $(SIM_DIR)/../..)
@@ -48,6 +57,9 @@ SIMV := $(BUILD_DIR)/simv
 COMP_LOG := $(BUILD_DIR)/comp.log
 RUN_LOG := $(BUILD_DIR)/run.log
 SIM_PARAM_SUFFIX :=
+ifneq ($(strip $(SRAM_PROFILE)),)
+SIM_PARAM_SUFFIX := $(SIM_PARAM_SUFFIX)_sram$(SRAM_PROFILE)
+endif
 ifneq ($(strip $(CASE_ID)),)
 SIM_PARAM_SUFFIX := $(SIM_PARAM_SUFFIX)_case$(CASE_ID)
 endif
@@ -114,6 +126,8 @@ OTF_CASE_TOOL = $(PYTHON) $(VRF_SCRIPT_DIR)/otf_case_tool.py
 META_CASE_TOOL = $(PYTHON) $(VRF_SCRIPT_DIR)/gen_expected_meta_fifo.py
 
 RUN_ARGS ?=
+TB_FRAME_REPEAT_ARG := $(shell printf '%s\n' '$(RUN_ARGS)' | sed -n 's/.*+tb_frame_repeat=\([0-9][0-9]*\).*/\1/p')
+TB_FRAME_REPEAT := $(if $(strip $(TB_FRAME_REPEAT_ARG)),$(TB_FRAME_REPEAT_ARG),1)
 WRAPPER_NV12_VIVO_MODE ?= fake
 WRAPPER_CASES_VIVO_MODE ?= $(WRAPPER_NV12_VIVO_MODE)
 
@@ -249,6 +263,27 @@ endif
 TB_PARAM_FLAGS :=
 IVERILOG_PARAM_FLAGS :=
 VERILATOR_PARAM_FLAGS :=
+
+COM_BUF_AW_PARAM_TOPS := \
+	tb_ubwc_dec_wrapper_top_tajmahal_cases \
+	tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba8888 \
+	tb_ubwc_dec_wrapper_top_rgba8888_128x128 \
+	tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba1010102 \
+	tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 \
+	tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016 \
+	tb_ubwc_enc_wrapper_top_tajmahal_cases \
+	tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 \
+	tb_ubwc_enc_wrapper_top_rgba8888_128x128 \
+	tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 \
+	tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 \
+	tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 \
+	tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12
+
+ifneq ($(filter $(TOP),$(COM_BUF_AW_PARAM_TOPS)),)
+TB_PARAM_FLAGS += -pvalue+$(TOP).COM_BUF_AW=$(SRAM_PROFILE_COM_BUF_AW)
+IVERILOG_PARAM_FLAGS += -P$(TOP).COM_BUF_AW=$(SRAM_PROFILE_COM_BUF_AW)
+VERILATOR_PARAM_FLAGS += -GCOM_BUF_AW=$(SRAM_PROFILE_COM_BUF_AW)
+endif
 
 ifneq ($(strip $(CASE_BASE_FORMAT)),)
 TB_PARAM_FLAGS += -pvalue+$(TOP).CASE_BASE_FORMAT=$(CASE_BASE_FORMAT)
@@ -432,7 +467,8 @@ VERILATOR_FLAGS := --binary --timing -Wno-fatal \
 		encdec_wrapper_tajmahal_4096x600_nv12_run \
 		encdec_wrapper_tajmahal_4096x600_nv12_all \
 		encdec_wrapper_tajmahal_4096x600_nv12_verdi \
-		compare_encdec_wrapper_tajmahal_4096x600_nv12_otf
+		compare_encdec_wrapper_tajmahal_4096x600_nv12_otf \
+		random_if_fake_all random_if_dec_fake_all random_if_enc_fake_all
 
 comp: $(SIMV)
 
@@ -1026,6 +1062,7 @@ compare_wrapper_rgba8888_128x128:
 		--width 128 \
 		--active-height 128 \
 		--stored-height 128 \
+		--frame-repeat $(TB_FRAME_REPEAT) \
 		--out-dir build/tb_ubwc_dec_wrapper_top_rgba8888_128x128_fake/compare
 
 wrapper_rgba8888_128x128_comp:
@@ -1189,6 +1226,7 @@ compare_wrapper_tajmahal_4096x600_nv12_otf_inner:
 		--active-height 600 \
 		--stored-y-height 640 \
 		--stored-uv-height 320 \
+		--frame-repeat $(TB_FRAME_REPEAT) \
 		--out-dir $(BUILD_DIR)/compare
 
 wrapper_tajmahal_4096x600_nv12_otf_all: wrapper_tajmahal_4096x600_nv12_otf_prepare
@@ -1405,6 +1443,15 @@ encdec_wrapper_tajmahal_4096x600_nv12_all:
 
 encdec_wrapper_tajmahal_4096x600_nv12_verdi:
 	$(MAKE) TOP=tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 verdi
+
+random_if_fake_all:
+	./run_random_if_cases.sh all
+
+random_if_dec_fake_all:
+	./run_random_if_cases.sh dec
+
+random_if_enc_fake_all:
+	./run_random_if_cases.sh enc
 
 clean:
 	rm -rf $(BUILD_ROOT) csrc simv* *.daidir DVEfiles novas* verdiLog ucli.key *.vpd *.vcd *.fsdb

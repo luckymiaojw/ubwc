@@ -11,8 +11,8 @@ module tb_ubwc_dec_tile_arcmd_gen;
     localparam [4:0] META_FMT_NV12_Y      = 5'b01000;
     localparam [4:0] META_FMT_NV12_UV     = 5'b01001;
     localparam [4:0] META_FMT_NV16_10_Y   = 5'b01100;
-    localparam [AXI_AW-1:0] TEST_BASE_ADDR_RGBA_UV = 64'h0000_0000_8028_5000;
-    localparam [AXI_AW-1:0] TEST_BASE_ADDR_Y       = 64'h0000_0000_8000_3000;
+    localparam [AXI_AW-1:0] TEST_BASE_ADDR_RGBA_Y = 64'h0000_0000_8000_3000;
+    localparam [AXI_AW-1:0] TEST_BASE_ADDR_UV     = 64'h0000_0000_8028_5000;
 
     reg                      clk;
     reg                      rst_n;
@@ -28,8 +28,8 @@ module tb_ubwc_dec_tile_arcmd_gen;
     reg  [SB_WIDTH-1:0]      i_cfg_ci_sb;
     reg                      i_cfg_ci_lossy;
     reg  [1:0]               i_cfg_ci_alpha_mode;
-    reg  [AXI_AW-1:0]        i_cfg_base_addr_rgba_uv;
-    reg  [AXI_AW-1:0]        i_cfg_base_addr_y;
+    reg  [AXI_AW-1:0]        i_cfg_base_addr_rgba_y;
+    reg  [AXI_AW-1:0]        i_cfg_base_addr_uv;
 
     reg  [37:0]              fifo_wdata;
     reg                      fifo_vld;
@@ -135,8 +135,10 @@ module tb_ubwc_dec_tile_arcmd_gen;
         .i_cfg_ci_sb                     (i_cfg_ci_sb),
         .i_cfg_ci_lossy                  (i_cfg_ci_lossy),
         .i_cfg_ci_alpha_mode             (i_cfg_ci_alpha_mode),
-        .i_cfg_base_addr_rgba_uv         (i_cfg_base_addr_rgba_uv),
-        .i_cfg_base_addr_y               (i_cfg_base_addr_y),
+        .i_cfg_base_addr_rgba_y0         (i_cfg_base_addr_rgba_y),
+        .i_cfg_base_addr_uv0             (i_cfg_base_addr_uv),
+        .i_cfg_base_addr_rgba_y1         (i_cfg_base_addr_rgba_y),
+        .i_cfg_base_addr_uv1             (i_cfg_base_addr_uv),
         .dec_meta_valid                  (dec_meta_valid),
         .dec_meta_ready                  (dec_meta_ready),
         .dec_meta_format                 (dec_meta_format),
@@ -145,6 +147,7 @@ module tb_ubwc_dec_tile_arcmd_gen;
         .dec_meta_has_payload            (dec_meta_has_payload),
         .dec_meta_x                      (dec_meta_x),
         .dec_meta_y                      (dec_meta_y),
+        .dec_meta_fcnt                   (4'd0),
         .m_axi_arvalid                   (m_axi_arvalid),
         .m_axi_arready                   (m_axi_arready),
         .m_axi_araddr                    (m_axi_araddr),
@@ -339,8 +342,8 @@ module tb_ubwc_dec_tile_arcmd_gen;
         i_cfg_ci_sb = '0;
         i_cfg_ci_lossy = 1'b0;
         i_cfg_ci_alpha_mode = 2'd0;
-        i_cfg_base_addr_rgba_uv = TEST_BASE_ADDR_RGBA_UV;
-        i_cfg_base_addr_y = TEST_BASE_ADDR_Y;
+        i_cfg_base_addr_rgba_y = TEST_BASE_ADDR_RGBA_Y;
+        i_cfg_base_addr_uv = TEST_BASE_ADDR_UV;
 
         fifo_wdata = 38'd0;
         fifo_vld = 1'b0;
@@ -359,8 +362,8 @@ module tb_ubwc_dec_tile_arcmd_gen;
         rst_n = 1'b1;
         repeat (2) @(posedge clk);
 
-        if (i_cfg_base_addr_rgba_uv == i_cfg_base_addr_y) begin
-            $fatal(1, "TB config error: rgba_uv and y base addresses must differ");
+        if (i_cfg_base_addr_rgba_y == i_cfg_base_addr_uv) begin
+            $fatal(1, "TB config error: rgba_y and uv base addresses must differ");
         end
 
         $display("TB: ubwc_dec_tile_arcmd_gen smoke");
@@ -377,7 +380,7 @@ module tb_ubwc_dec_tile_arcmd_gen;
             $fatal(1, "YUV420 tile header mismatch. fmt=%0h x=%0d y=%0d",
                    last_tile_format, last_tile_x_coord, last_tile_y_coord);
         end
-        if (last_ar_addr != TEST_BASE_ADDR_Y || last_ar_len != 8'd0) begin
+        if (last_ar_addr != TEST_BASE_ADDR_RGBA_Y || last_ar_len != 8'd0) begin
             $fatal(1, "YUV420 AR mismatch. addr=0x%0h len=%0d", last_ar_addr, last_ar_len);
         end
         send_r_burst(256'h0123_4567_89ab_cdef_fedc_ba98_7654_3210_0011_2233_4455_6677_8899_aabb_ccdd_eeff, 1);
@@ -396,7 +399,7 @@ module tb_ubwc_dec_tile_arcmd_gen;
             $fatal(1, "Lossy RGBA tile header mismatch. fmt=%0h x=%0d y=%0d",
                    last_tile_format, last_tile_x_coord, last_tile_y_coord);
         end
-        if (last_ar_addr != (TEST_BASE_ADDR_RGBA_UV + 64'h80) || last_ar_len != 8'd3) begin
+        if (last_ar_addr != (TEST_BASE_ADDR_RGBA_Y + 64'h80) || last_ar_len != 8'd3) begin
             $fatal(1, "Lossy RGBA AR mismatch. addr=0x%0h len=%0d", last_ar_addr, last_ar_len);
         end
         send_r_burst(256'h1000_0000_0000_0000_2000_0000_0000_0000_3000_0000_0000_0000_4000_0000_0000_0000, 4);
@@ -416,7 +419,7 @@ module tb_ubwc_dec_tile_arcmd_gen;
             $fatal(1, "Real RGBA tile header mismatch. fmt=%0h x=%0d y=%0d",
                    last_tile_format, last_tile_x_coord, last_tile_y_coord);
         end
-        if (ar_addr_hist[2] != 64'h0000_0000_8029_db00 || ar_len_hist[2] != 8'd4) begin
+        if (ar_addr_hist[2] != 64'h0000_0000_8001_bb00 || ar_len_hist[2] != 8'd4) begin
             $fatal(1, "Real RGBA AR mismatch. addr=0x%0h len=%0d",
                    ar_addr_hist[2], ar_len_hist[2]);
         end
@@ -449,7 +452,7 @@ module tb_ubwc_dec_tile_arcmd_gen;
         wait_ci_count(5);
         wait_ar_count(4);
         wait_tile_coord_count(5);
-        if (last_ar_addr != TEST_BASE_ADDR_RGBA_UV || last_ar_len != 8'd0) begin
+        if (last_ar_addr != TEST_BASE_ADDR_UV || last_ar_len != 8'd0) begin
             $fatal(1, "Tile base AR mismatch. addr=0x%0h len=%0d", last_ar_addr, last_ar_len);
         end
         send_r_burst(256'hd000_0000_0000_0000_e000_0000_0000_0000_f000_0000_0000_0000_1111_0000_0000_0000, 1);

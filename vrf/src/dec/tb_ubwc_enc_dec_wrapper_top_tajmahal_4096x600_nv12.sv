@@ -36,7 +36,9 @@ module tb_enc_sync_sram_1rw #(
     end
 endmodule
 
-module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
+module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
+    parameter integer COM_BUF_AW = 12
+);
     localparam integer APB_AW   = 16;
     localparam integer APB_DW   = 32;
     localparam integer AXI_AW   = 64;
@@ -45,7 +47,6 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
     localparam integer AXI_IDW  = 4;
     localparam integer ENC_SB_WIDTH = 1;
     localparam integer DEC_SB_WIDTH = 3;
-    localparam integer COM_BUF_AW = 13;
     localparam integer COM_BUF_DW = 128;
 
     localparam integer IMG_W           = 4096;
@@ -617,32 +618,29 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
             dec_apb_write(16'h0008, 32'h0000_0306);
             dec_apb_write(16'h000c, 32'd256);
             dec_apb_write(16'h0010, 32'h0000_000f);
-            dec_apb_write(16'h0044, 32'd0);
-            dec_apb_write(16'h0048, 32'd0);
-            dec_apb_write(16'h004c, 32'd0);
-            dec_apb_write(16'h0050, 32'd0);
             dec_apb_write(16'h0014, 32'h0000_0001);
 
-            dec_apb_write(16'h001c, META_BASE_ADDR_Y[31:0]);
-            dec_apb_write(16'h0020, META_BASE_ADDR_Y[63:32]);
-            dec_apb_write(16'h0024, META_BASE_ADDR_UV[31:0]);
-            dec_apb_write(16'h0028, META_BASE_ADDR_UV[63:32]);
+            dec_apb_write(16'h0018, {11'd0, BASE_FMT_YUV420_8, 16'd4096});
+            dec_apb_write(16'h001c, {16'd44, 16'd4400});
+            dec_apb_write(16'h0020, {16'd4096, 16'd148});
+            dec_apb_write(16'h0024, {16'd5, 16'd682});
+            dec_apb_write(16'h0028, {16'd640, 16'd36});
             dec_apb_write(16'h002c, {16'd80, 16'd128});
 
-            dec_apb_write(16'h0030, {11'd0, BASE_FMT_YUV420_8, 16'd4096});
-            dec_apb_write(16'h0034, {16'd44, 16'd4400});
-            dec_apb_write(16'h0038, {16'd4096, 16'd148});
-            dec_apb_write(16'h003c, {16'd5, 16'd682});
-            dec_apb_write(16'h0040, {16'd640, 16'd36});
-
-            dec_apb_write(16'h0018, 32'h0000_0020);
+            dec_apb_write(16'h0030, META_BASE_ADDR_Y[31:0]);
+            dec_apb_write(16'h0034, META_BASE_ADDR_Y[63:32]);
+            dec_apb_write(16'h0038, 32'd0);
+            dec_apb_write(16'h003c, 32'd0);
+            dec_apb_write(16'h0040, META_BASE_ADDR_UV[31:0]);
+            dec_apb_write(16'h0044, META_BASE_ADDR_UV[63:32]);
+            dec_apb_write(16'h0048, 32'd0);
+            dec_apb_write(16'h004c, 32'd0);
         end
     endtask
 
     task automatic trigger_dec_meta_start;
         begin
             repeat (16) @(posedge clk);
-            dec_apb_write(16'h0018, 32'h0000_0021);
         end
     endtask
 
@@ -825,6 +823,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
         .AXI_IDW  (AXI_IDW),
         .AXI_LENW (AXI_LENW),
         .SB_WIDTH (DEC_SB_WIDTH),
+        .COM_BUF_AW (COM_BUF_AW),
         .FORCE_FULL_PAYLOAD (0)
     ) dec_dut (
         .PCLK              (pclk),
@@ -1042,8 +1041,8 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12;
             if (enc_dut.enc_ci_valid && enc_dut.enc_ci_ready) begin
                 if (enc_cmd_wr_ptr < EXPECTED_TILE_CMDS) begin
                     enc_cmd_fmt_queue[enc_cmd_wr_ptr] <= enc_dut.tile_format;
-                    enc_cmd_x_queue[enc_cmd_wr_ptr]   <= enc_dut.tile_xcoord_raw;
-                    enc_cmd_y_queue[enc_cmd_wr_ptr]   <= enc_dut.tile_ycoord_raw;
+                    enc_cmd_x_queue[enc_cmd_wr_ptr]   <= enc_dut.ubwc_enc_otf_to_tile_inst.o_tile_x;
+                    enc_cmd_y_queue[enc_cmd_wr_ptr]   <= enc_dut.ubwc_enc_otf_to_tile_inst.o_tile_y;
                     enc_cmd_wr_ptr                    <= enc_cmd_wr_ptr + 1;
                 end
                 enc_coord_count <= enc_coord_count + 1;

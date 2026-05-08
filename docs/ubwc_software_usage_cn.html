@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UBWC ENC/DEC 软件使用说明</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #4b5563;
+      --line: #d6dde8;
+      --blue: #1d4ed8;
+      --purple: #7c3aed;
+      --green: #059669;
+      --amber: #b45309;
+      --bg: #f6f7fb;
+      --card: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.65 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    main { max-width: 1120px; margin: 0 auto; padding: 34px 28px 56px; }
+    header { margin-bottom: 26px; }
+    h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.2; }
+    .subtitle { color: var(--muted); margin: 0; }
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 22px 0 28px;
+    }
+    nav a {
+      color: var(--blue);
+      text-decoration: none;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 22px 24px;
+      margin: 18px 0;
+    }
+    h2 { margin: 0 0 14px; font-size: 23px; }
+    h3 { margin: 22px 0 10px; font-size: 18px; }
+    .callout {
+      border-left: 5px solid var(--green);
+      background: #ecfdf5;
+      padding: 12px 14px;
+      margin: 14px 0;
+      border-radius: 8px;
+    }
+    .warn { border-left-color: var(--amber); background: #fffbeb; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; }
+    th, td { border: 1px solid var(--line); padding: 9px 10px; vertical-align: top; }
+    th { background: #eef2ff; text-align: left; font-weight: 700; }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+    }
+    code { padding: 1px 4px; }
+    pre { padding: 12px 14px; overflow: auto; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; background: #dbeafe; color: #1e40af; font-weight: 700; font-size: 12px; }
+    footer { color: var(--muted); margin-top: 24px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>UBWC ENC/DEC 软件使用说明</h1>
+    <p class="subtitle">生成时间：2026-05-07 08:53:34。说明软件首次配置、后续帧配置、中断处理和 DEC OTF timing 参数填写方式。</p>
+  </header>
+  <nav>
+    <a href="#basic">基础约定</a>
+    <a href="#ram">Bank SRAM</a>
+    <a href="#freq">配置频率</a>
+    <a href="#enc">ENC 使用流程</a>
+    <a href="#dec">DEC 使用流程</a>
+    <a href="#otf">DEC OTF timing</a>
+    <a href="#irq">状态与中断</a>
+  </nav>
+
+  <section id="basic">
+    <h2>1. 基础约定</h2>
+    <p>APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base address 都按低 32 bit、高 32 bit 的顺序写入。</p>
+    <table><thead><tr><th>格式</th><th>编码</th><th>tile_w</th><th>tile_h</th><th>说明</th></tr></thead><tbody><tr><td>RGBA8888</td><td>0</td><td>16</td><td>4</td><td>单平面 RGBA，4 byte/pixel</td></tr>
+<tr><td>RGBA1010102</td><td>1</td><td>16</td><td>4</td><td>单平面 RGBA，4 byte/pixel</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>2</td><td>32</td><td>8</td><td>Y + UV 双平面</td></tr>
+<tr><td>YUV420_10 / P010</td><td>3</td><td>32</td><td>4</td><td>Y + UV 双平面，16 bit component 存储</td></tr></tbody></table>
+    <div class="callout">连续帧模式下，如果格式、分辨率、tile layout 和 OTF timing 不变，软件通常只需要每帧更新 UBWC buffer base address。</div>
+  </section>
+
+  <section id="ram">
+    <h2>2. Bank0/Bank1 SRAM 容量要求</h2>
+    <p>ENC 和 DEC wrapper 都把 bank0/bank1 SRAM 留在模块外部实现。两个 bank 的接口都是 128 bit 数据宽度，即每个地址 word 为 16 byte。bank0 和 bank1 是同规格的工作 buffer，软件不需要配置它们的大小，但集成顶层时需要按下面容量提供 SRAM。</p>
+    <table><thead><tr><th>模块</th><th>bank</th><th>当前 RTL 参数/端口</th><th>按当前默认参数需要的 RAM</th><th>说明</th></tr></thead><tbody>
+<tr><td>ENC</td><td>bank0</td><td><code>COM_BUF_AW=16</code>, <code>COM_BUF_DW=128</code></td><td>65536 x 128 bit = 1 MiB = 8 Mbit</td><td>与 bank1 对称，是 line-to-tile 的 ping-pong 工作区，不固定对应 Y/UV。</td></tr>
+<tr><td>ENC</td><td>bank1</td><td><code>COM_BUF_AW=16</code>, <code>COM_BUF_DW=128</code></td><td>65536 x 128 bit = 1 MiB = 8 Mbit</td><td>与 bank0 对称。当前默认 ENC 两个 bank 合计 2 MiB。</td></tr>
+<tr><td>DEC</td><td>bank0</td><td><code>COM_BUF_AW=13</code>, <code>COM_BUF_DW=128</code></td><td>8192 x 128 bit = 128 KiB = 1 Mbit</td><td>与 bank1 对称，是 tile-to-OTF 的 ping-pong 工作区，不固定对应 Y/UV。</td></tr>
+<tr><td>DEC</td><td>bank1</td><td><code>COM_BUF_AW=13</code>, <code>COM_BUF_DW=128</code></td><td>8192 x 128 bit = 128 KiB = 1 Mbit</td><td>与 bank0 对称。当前默认 DEC 两个 bank 合计 256 KiB。</td></tr>
+    </tbody></table>
+    <div class="callout warn">如果不改 RTL 参数，ENC 请按每个 bank 1 MiB 实现；DEC 请按每个 bank 128 KiB 实现。这里的 SRAM 是 wrapper 外部的临时工作 RAM，不是压缩后 UBWC frame buffer。</div>
+    <h3>2.1 ENC bank 容量计算</h3>
+    <p>ENC 的 bank0/bank1 用在 <code>ubwc_enc_line_to_tile</code>，作用是把 OTF 输入行数据重排成 tile 输出。两个 bank 轮流写入/读出，所以每个 bank 都要能容纳一个完整工作组。</p>
+    <pre>// 128 bit word, 1 word = 16 byte
+y_tile_cols  = ceil_div(aligned_width_px, tile_w)
+uv_tile_cols = 0 for RGBA; otherwise y_tile_cols
+
+// 每个 ENC bank 的最小 word 数
+RGBA8888 / RGBA10:
+    enc_bank_words = y_tile_cols * 16
+
+YUV420_8 / NV12:
+YUV420_10 / P010:
+    enc_bank_words = (2 * y_tile_cols + uv_tile_cols) * 16
+    // 通常 uv_tile_cols == y_tile_cols，所以等价于 y_tile_cols * 48
+
+// 参数化实现时
+enc_bank_addr_width = ceil_log2(enc_bank_words)
+enc_bank_bytes      = 2^enc_bank_addr_width * 16</pre>
+    <table><thead><tr><th>最大宽度场景</th><th>格式</th><th>y_tile_cols</th><th>最小有效 word 数</th><th>建议地址宽度</th><th>每个 bank 容量</th></tr></thead><tbody>
+<tr><td>4096 px</td><td>RGBA8888/RGBA10</td><td>256</td><td>4096</td><td>12 bit</td><td>64 KiB</td></tr>
+<tr><td>4096 px</td><td>YUV420_8/NV12</td><td>128</td><td>6144</td><td>13 bit</td><td>128 KiB</td></tr>
+<tr><td>4096 px</td><td>YUV420_10/P010</td><td>128</td><td>6144</td><td>13 bit</td><td>128 KiB</td></tr>
+    </tbody></table>
+    <p>因此如果 ENC 只需要支持本文参考配置中的最大 4096 像素宽度，<code>COM_BUF_AW=13</code>、每个 bank 128 KiB 已经足够；当前顶层默认 <code>COM_BUF_AW=16</code> 是更保守的配置。</p>
+    <h3>2.2 DEC bank 容量计算</h3>
+    <p>DEC 的 bank0/bank1 用在 <code>ubwc_dec_tile_to_otf</code>，作用是把 VIVO 解出的 tile 数据重组成 OTF 输出行。当前 RTL 内部读写地址为 13 bit，因此外部每个 bank 直接按 8192 x 128 bit 实现。</p>
+    <pre>// DEC 当前地址空间，128 bit word
+dec_bank_words = 8192
+dec_bank_bytes = 8192 * 16 = 128 KiB
+
+// 4096 像素宽度下的有效地址使用范围
+RGBA8888 / RGBA10:
+    word 0 .. 4095
+
+YUV420_8 / NV12:
+YUV420_10 / P010:
+    Y upper region : word 0    .. 2047
+    Y lower region : word 2048 .. 4095
+    UV region      : word 4096 .. 6143
+    word 6144 .. 8191 为余量</pre>
+    <p>DEC 的 bank0 和 bank1 是双 buffer 关系：一个 bank 可以保存当前已解好的工作组，另一个 bank 可以继续接收下一组数据。它们不是固定的 Y bank / UV bank，软件也不需要关心 bank 选择。</p>
+  </section>
+
+  <section id="freq">
+    <h2>3. 首次配置和后续配置</h2>
+    <table><thead><tr><th>场景</th><th>软件动作</th></tr></thead><tbody><tr><td>首次配置</td><td>读取 VERSION/DATE；使能中断；配置格式、尺寸、tile layout、CI/VIVO、metadata geometry、DEC OTF timing；写入第一帧 ENC/DEC 地址。</td></tr>
+<tr><td>后续帧配置</td><td>如果格式、尺寸、layout、timing 不变，只写新一帧的 base address；ENC 等上游 OTF 输入，DEC 地址写好后硬件按配置自动处理。</td></tr>
+<tr><td>重新配置静态项</td><td>只有格式、分辨率、layout 或 DEC OTF timing 变化时才重写静态项；应先确认当前帧处理完成，再切换静态配置。</td></tr></tbody></table>
+    <h3>3.1 ENC 配置清单</h3>
+    <table><thead><tr><th>寄存器地址</th><th>寄存器功能</th><th>配置模式</th><th>默认配置/说明</th></tr></thead><tbody><tr><td>0x000</td><td>VERSION</td><td>上电后读取一次</td><td>只读</td></tr>
+<tr><td>0x004</td><td>DATE</td><td>上电后读取一次</td><td>只读</td></tr>
+<tr><td>0x060[0]</td><td>IRQ enable</td><td>上电后或中断策略变化时配置</td><td>1</td></tr>
+<tr><td>0x00C</td><td>REG_TILE_CFG1: 4-line/lossy/tile_pitch</td><td>更改图像格式时配置</td><td>按格式计算</td></tr>
+<tr><td>0x008</td><td>REG_TILE_CFG0: ubwc/bank/swizzle</td><td>更改图像格式时配置</td><td>按系统策略</td></tr>
+<tr><td>0x014</td><td>REG_ENC_CI_CFG1: lossy</td><td>更改图像格式时配置</td><td>0 或按格式</td></tr>
+<tr><td>0x018</td><td>REG_ENC_CI_CFG2: reserved cfg</td><td>更改图像格式时配置</td><td>0</td></tr>
+<tr><td>0x01C</td><td>REG_ENC_CI_CFG3: reserved cfg</td><td>更改图像格式时配置</td><td>0</td></tr>
+<tr><td>0x010</td><td>REG_ENC_CI_CFG0: input_type/alen</td><td>更改图像格式时配置</td><td>input_type=1, alen=7</td></tr>
+<tr><td>0x024</td><td>REG_OTF_CFG1: width/height</td><td>更改图像格式时配置</td><td>按图像尺寸</td></tr>
+<tr><td>0x028</td><td>REG_OTF_CFG2: tile_w/tile_h</td><td>更改图像格式时配置</td><td>RGBA=16x4; YUV420_8=32x8; YUV420_10=32x4</td></tr>
+<tr><td>0x02C</td><td>REG_OTF_CFG3: tile columns</td><td>更改图像格式时配置</td><td>[15:0] y_tile_cols；[31:16] uv_tile_cols，RGBA 的 uv 写 0</td></tr>
+<tr><td>0x050</td><td>REG_META_ACTIVE_SIZE</td><td>更改图像格式时配置</td><td>按图像尺寸</td></tr>
+<tr><td>0x054</td><td>REG_META_PITCH</td><td>更改图像格式时配置</td><td>按格式/宽度计算</td></tr>
+<tr><td>0x020</td><td>REG_OTF_CFG0: format</td><td>更改图像格式时配置</td><td>0/1/2/3</td></tr>
+<tr><td>0x030</td><td>REG_META_BASE_Y_LO</td><td>每次配置</td><td>压缩后 Y metadata 存储基地址低 32 bit；RGBA 使用该槽位</td></tr>
+<tr><td>0x034</td><td>REG_META_BASE_Y_HI</td><td>每次配置</td><td>压缩后 Y metadata 存储基地址高 32 bit；RGBA 使用该槽位</td></tr>
+<tr><td>0x038</td><td>REG_TILE_BASE_Y_LO</td><td>每次配置</td><td>压缩后 Y 压缩数据存储基地址低 32 bit；RGBA 使用该槽位</td></tr>
+<tr><td>0x03C</td><td>REG_TILE_BASE_Y_HI</td><td>每次配置</td><td>压缩后 Y 压缩数据存储基地址高 32 bit；RGBA 使用该槽位</td></tr>
+<tr><td>0x040</td><td>REG_META_BASE_UV_LO</td><td>每次配置</td><td>压缩后 UV metadata 存储基地址低 32 bit；RGBA 写 0</td></tr>
+<tr><td>0x044</td><td>REG_META_BASE_UV_HI</td><td>每次配置</td><td>压缩后 UV metadata 存储基地址高 32 bit；RGBA 写 0</td></tr>
+<tr><td>0x048</td><td>REG_TILE_BASE_UV_LO</td><td>每次配置</td><td>压缩后 UV 压缩数据存储基地址低 32 bit；RGBA 写 0</td></tr>
+<tr><td>0x04C</td><td>REG_TILE_BASE_UV_HI</td><td>每次配置</td><td>压缩后 UV 压缩数据存储基地址高 32 bit；最后写入提交本帧地址组</td></tr></tbody></table>
+    <h3>3.2 DEC 配置清单</h3>
+    <table><thead><tr><th>寄存器地址</th><th>寄存器功能</th><th>配置模式</th><th>默认配置/说明</th></tr></thead><tbody><tr><td>0x000</td><td>VERSION</td><td>上电后读取一次</td><td>只读</td></tr>
+<tr><td>0x004</td><td>DATE</td><td>上电后读取一次</td><td>只读</td></tr>
+<tr><td>0x060[0]</td><td>IRQ enable</td><td>上电后或中断策略变化时配置</td><td>1</td></tr>
+<tr><td>0x008</td><td>APB_ADDR_TILE_CFG0: swizzle/layout</td><td>更改图像格式时配置</td><td>按系统策略</td></tr>
+<tr><td>0x00C</td><td>APB_ADDR_TILE_CFG1: tile pitch</td><td>更改图像格式时配置</td><td>按格式/宽度计算</td></tr>
+<tr><td>0x010</td><td>APB_ADDR_TILE_CFG2: CI cfg</td><td>更改图像格式时配置</td><td>input_type=1，其余按格式</td></tr>
+<tr><td>0x014</td><td>APB_ADDR_VIVO_CFG</td><td>更改图像格式时配置</td><td>vivo_ubwc_en=1</td></tr>
+<tr><td>0x018</td><td>APB_ADDR_OTF_CFG0: img_width/format</td><td>更改图像格式时配置</td><td>按输出图像配置</td></tr>
+<tr><td>0x01C</td><td>APB_ADDR_OTF_CFG1: h_total/h_sync</td><td>更改图像格式时配置</td><td>按 OTF timing 配置</td></tr>
+<tr><td>0x020</td><td>APB_ADDR_OTF_CFG2: h_bp/h_act</td><td>更改图像格式时配置</td><td>按 OTF timing 配置</td></tr>
+<tr><td>0x024</td><td>APB_ADDR_OTF_CFG3: v_total/v_sync</td><td>更改图像格式时配置</td><td>按 OTF timing 配置</td></tr>
+<tr><td>0x028</td><td>APB_ADDR_OTF_CFG4: v_bp/v_act</td><td>更改图像格式时配置</td><td>按 OTF timing 配置</td></tr>
+<tr><td>0x02C</td><td>APB_ADDR_META_CFG0: tile_x/y</td><td>更改图像格式时配置</td><td>按图像尺寸计算；YUV420 的 UV tile 数内部推导</td></tr>
+<tr><td>0x030</td><td>REG_META_BASE_Y_LO</td><td>每次配置</td><td>RGBA/Y PLANE metadata 读取基地址低 32 bit</td></tr>
+<tr><td>0x034</td><td>REG_META_BASE_Y_HI</td><td>每次配置</td><td>RGBA/Y PLANE metadata 读取基地址高 32 bit</td></tr>
+<tr><td>0x038</td><td>REG_TILE_BASE_Y_LO</td><td>每次配置</td><td>RGBA/Y PLANE 压缩数据读取基地址低 32 bit</td></tr>
+<tr><td>0x03C</td><td>REG_TILE_BASE_Y_HI</td><td>每次配置</td><td>RGBA/Y PLANE 压缩数据读取基地址高 32 bit</td></tr>
+<tr><td>0x040</td><td>REG_META_BASE_UV_LO</td><td>每次配置</td><td>UV PLANE metadata 读取基地址低 32 bit</td></tr>
+<tr><td>0x044</td><td>REG_META_BASE_UV_HI</td><td>每次配置</td><td>UV PLANE metadata 读取基地址高 32 bit</td></tr>
+<tr><td>0x048</td><td>REG_TILE_BASE_UV_LO</td><td>每次配置</td><td>UV PLANE 压缩数据读取基地址低 32 bit；RGBA 图像不关心</td></tr>
+<tr><td>0x04C</td><td>REG_TILE_BASE_UV_HI</td><td>每次配置</td><td>UV PLANE 压缩数据读取基地址高 32 bit；RGBA 图像不关心</td></tr></tbody></table>
+    <h3>3.3 ENC 分辨率参考配置</h3>
+    <p>下面只列 ENC 静态几何相关寄存器，覆盖 RGBA8888、YUV420_8/NV12、YUV420_10/P010。每帧 base address 仍按实际输出 buffer 地址单独写入。</p>
+    <table><thead><tr><th>格式</th><th>分辨率</th><th>关键计算</th><th>ENC 写值参考</th></tr></thead><tbody><tr><td>RGBA8888</td><td>128x128</td><td>tile=16x4, bpp=4<br>Y cols/rows=8/32<br>UV cols/rows=0/0<br>stored Y/UV=128/0<br>tile_pitch=32, meta_pitch=64<br>size Y(meta/tile)=0x1000/0x10000<br>size UV(meta/tile)=0x0/0x0</td><td>0x00C REG_TILE_CFG1       = 0x00200001<br>0x024 REG_OTF_CFG1        = 0x00800080<br>0x028 REG_OTF_CFG2        = 0x00040010<br>0x02C REG_OTF_CFG3        = 0x00000008<br>0x050 REG_META_ACTIVE_SIZE= 0x00800080<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000000</td></tr>
+<tr><td>RGBA8888</td><td>544x1200</td><td>tile=16x4, bpp=4<br>Y cols/rows=36/300<br>UV cols/rows=0/0<br>stored Y/UV=1200/0<br>tile_pitch=144, meta_pitch=64<br>size Y(meta/tile)=0x5000/0x2A3000<br>size UV(meta/tile)=0x0/0x0</td><td>0x00C REG_TILE_CFG1       = 0x00900001<br>0x024 REG_OTF_CFG1        = 0x04B00220<br>0x028 REG_OTF_CFG2        = 0x00040010<br>0x02C REG_OTF_CFG3        = 0x00000024<br>0x050 REG_META_ACTIVE_SIZE= 0x04B00220<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000000</td></tr>
+<tr><td>RGBA8888</td><td>1920x1080</td><td>tile=16x4, bpp=4<br>Y cols/rows=120/272<br>UV cols/rows=0/0<br>stored Y/UV=1088/0<br>tile_pitch=480, meta_pitch=128<br>size Y(meta/tile)=0x9000/0x7F8000<br>size UV(meta/tile)=0x0/0x0</td><td>0x00C REG_TILE_CFG1       = 0x01E00001<br>0x024 REG_OTF_CFG1        = 0x04380780<br>0x028 REG_OTF_CFG2        = 0x00040010<br>0x02C REG_OTF_CFG3        = 0x00000078<br>0x050 REG_META_ACTIVE_SIZE= 0x04380780<br>0x054 REG_META_PITCH      = 0x00000080<br>0x020 REG_OTF_CFG0        = 0x00000000</td></tr>
+<tr><td>RGBA8888</td><td>4096x600</td><td>tile=16x4, bpp=4<br>Y cols/rows=256/152<br>UV cols/rows=0/0<br>stored Y/UV=608/0<br>tile_pitch=1024, meta_pitch=256<br>size Y(meta/tile)=0xA000/0x980000<br>size UV(meta/tile)=0x0/0x0</td><td>0x00C REG_TILE_CFG1       = 0x04000001<br>0x024 REG_OTF_CFG1        = 0x02581000<br>0x028 REG_OTF_CFG2        = 0x00040010<br>0x02C REG_OTF_CFG3        = 0x00000100<br>0x050 REG_META_ACTIVE_SIZE= 0x02581000<br>0x054 REG_META_PITCH      = 0x00000100<br>0x020 REG_OTF_CFG0        = 0x00000000</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>128x128</td><td>tile=32x8, bpp=1<br>Y cols/rows=4/16<br>UV cols/rows=4/8<br>stored Y/UV=128/64<br>tile_pitch=8, meta_pitch=64<br>size Y(meta/tile)=0x1000/0x4000<br>size UV(meta/tile)=0x1000/0x2000</td><td>0x00C REG_TILE_CFG1       = 0x00080000<br>0x024 REG_OTF_CFG1        = 0x00800080<br>0x028 REG_OTF_CFG2        = 0x00080020<br>0x02C REG_OTF_CFG3        = 0x00040004<br>0x050 REG_META_ACTIVE_SIZE= 0x00800080<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000002</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>544x1200</td><td>tile=32x8, bpp=1<br>Y cols/rows=20/152<br>UV cols/rows=20/76<br>stored Y/UV=1216/608<br>tile_pitch=40, meta_pitch=64<br>size Y(meta/tile)=0x3000/0xBE000<br>size UV(meta/tile)=0x2000/0x5F000</td><td>0x00C REG_TILE_CFG1       = 0x00280000<br>0x024 REG_OTF_CFG1        = 0x04B00220<br>0x028 REG_OTF_CFG2        = 0x00080020<br>0x02C REG_OTF_CFG3        = 0x00140014<br>0x050 REG_META_ACTIVE_SIZE= 0x04B00220<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000002</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>1920x1080</td><td>tile=32x8, bpp=1<br>Y cols/rows=60/136<br>UV cols/rows=60/68<br>stored Y/UV=1088/544<br>tile_pitch=120, meta_pitch=64<br>size Y(meta/tile)=0x3000/0x1FE000<br>size UV(meta/tile)=0x2000/0xFF000</td><td>0x00C REG_TILE_CFG1       = 0x00780000<br>0x024 REG_OTF_CFG1        = 0x04380780<br>0x028 REG_OTF_CFG2        = 0x00080020<br>0x02C REG_OTF_CFG3        = 0x003C003C<br>0x050 REG_META_ACTIVE_SIZE= 0x04380780<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000002</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>4096x600</td><td>tile=32x8, bpp=1<br>Y cols/rows=128/76<br>UV cols/rows=128/40<br>stored Y/UV=608/320<br>tile_pitch=256, meta_pitch=128<br>size Y(meta/tile)=0x3000/0x260000<br>size UV(meta/tile)=0x2000/0x140000</td><td>0x00C REG_TILE_CFG1       = 0x01000000<br>0x024 REG_OTF_CFG1        = 0x02581000<br>0x028 REG_OTF_CFG2        = 0x00080020<br>0x02C REG_OTF_CFG3        = 0x00800080<br>0x050 REG_META_ACTIVE_SIZE= 0x02581000<br>0x054 REG_META_PITCH      = 0x00000080<br>0x020 REG_OTF_CFG0        = 0x00000002</td></tr>
+<tr><td>YUV420_10 / P010</td><td>128x128</td><td>tile=32x4, bpp=2<br>Y cols/rows=4/32<br>UV cols/rows=4/16<br>stored Y/UV=128/64<br>tile_pitch=16, meta_pitch=64<br>size Y(meta/tile)=0x1000/0x8000<br>size UV(meta/tile)=0x1000/0x4000</td><td>0x00C REG_TILE_CFG1       = 0x00100000<br>0x024 REG_OTF_CFG1        = 0x00800080<br>0x028 REG_OTF_CFG2        = 0x00040020<br>0x02C REG_OTF_CFG3        = 0x00040004<br>0x050 REG_META_ACTIVE_SIZE= 0x00800080<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000003</td></tr>
+<tr><td>YUV420_10 / P010</td><td>544x1200</td><td>tile=32x4, bpp=2<br>Y cols/rows=20/300<br>UV cols/rows=20/152<br>stored Y/UV=1200/608<br>tile_pitch=80, meta_pitch=64<br>size Y(meta/tile)=0x5000/0x177000<br>size UV(meta/tile)=0x3000/0xBE000</td><td>0x00C REG_TILE_CFG1       = 0x00500000<br>0x024 REG_OTF_CFG1        = 0x04B00220<br>0x028 REG_OTF_CFG2        = 0x00040020<br>0x02C REG_OTF_CFG3        = 0x00140014<br>0x050 REG_META_ACTIVE_SIZE= 0x04B00220<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000003</td></tr>
+<tr><td>YUV420_10 / P010</td><td>1920x1080</td><td>tile=32x4, bpp=2<br>Y cols/rows=60/272<br>UV cols/rows=60/136<br>stored Y/UV=1088/544<br>tile_pitch=240, meta_pitch=64<br>size Y(meta/tile)=0x5000/0x3FC000<br>size UV(meta/tile)=0x3000/0x1FE000</td><td>0x00C REG_TILE_CFG1       = 0x00F00000<br>0x024 REG_OTF_CFG1        = 0x04380780<br>0x028 REG_OTF_CFG2        = 0x00040020<br>0x02C REG_OTF_CFG3        = 0x003C003C<br>0x050 REG_META_ACTIVE_SIZE= 0x04380780<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000003</td></tr>
+<tr><td>YUV420_10 / P010</td><td>4096x600</td><td>tile=32x4, bpp=2<br>Y cols/rows=128/152<br>UV cols/rows=128/76<br>stored Y/UV=608/304<br>tile_pitch=512, meta_pitch=128<br>size Y(meta/tile)=0x5000/0x4C0000<br>size UV(meta/tile)=0x3000/0x260000</td><td>0x00C REG_TILE_CFG1       = 0x02000000<br>0x024 REG_OTF_CFG1        = 0x02581000<br>0x028 REG_OTF_CFG2        = 0x00040020<br>0x02C REG_OTF_CFG3        = 0x00800080<br>0x050 REG_META_ACTIVE_SIZE= 0x02581000<br>0x054 REG_META_PITCH      = 0x00000080<br>0x020 REG_OTF_CFG0        = 0x00000003</td></tr></tbody></table>
+    <h4>3.3.1 ENC 地址和 pitch 计算方法</h4>
+    <pre>// 基础函数
+ceil_div(a, b) = (a + b - 1) / b
+align_up(a, n) = ceil_div(a, n) * n
+
+// 格式参数
+RGBA8888:           format=0, tile_w=16, tile_h=4, bpp=4
+YUV420_8 / NV12:    format=2, tile_w=32, tile_h=8, bpp=1
+YUV420_10 / P010:   format=3, tile_w=32, tile_h=4, bpp=2
+
+// ENC pitch / tile 数
+aligned_width_px    = align_up(width_px, tile_w * 4)
+y_tile_cols         = ceil_div(aligned_width_px, tile_w)
+uv_tile_cols        = 0 for RGBA; otherwise y_tile_cols
+stored_y_height     = align_up(height_px, tile_h * 4)
+stored_uv_height    = align_up(ceil_div(height_px, 2), tile_h * 4)  // only YUV420
+surface_pitch_bytes = align_up(width_px * bpp, tile_w * 4 * bpp)
+tile_pitch          = surface_pitch_bytes / 16
+meta_pitch          = align_up(y_tile_cols, 64)
+
+// ENC metadata / tile size
+y_tile_rows      = ceil_div(stored_y_height, tile_h)
+uv_tile_rows     = ceil_div(stored_uv_height, tile_h)                // only YUV420
+meta_y_size      = align_up(meta_pitch * align_up(y_tile_rows, 16), 4096)
+tile_y_size      = align_up(surface_pitch_bytes * stored_y_height, 4096)
+meta_uv_size     = 0 for RGBA; otherwise align_up(meta_pitch * align_up(uv_tile_rows, 16), 4096)
+tile_uv_size     = 0 for RGBA; otherwise align_up(surface_pitch_bytes * stored_uv_height, 4096)
+
+// 连续输出 buffer 地址，base 是 Y/RGBA metadata 起始地址
+REG_META_BASE_Y  = base
+REG_TILE_BASE_Y  = REG_META_BASE_Y + meta_y_size
+REG_META_BASE_UV = 0 for RGBA; otherwise REG_TILE_BASE_Y + tile_y_size
+REG_TILE_BASE_UV = 0 for RGBA; otherwise REG_META_BASE_UV + meta_uv_size
+total_size       = meta_y_size + tile_y_size + meta_uv_size + tile_uv_size</pre>
+    <h3>3.4 DEC 分辨率参考配置</h3>
+    <p>下面只列 DEC 静态几何和 OTF timing 相关寄存器，覆盖 RGBA8888、YUV420_8/NV12、YUV420_10/P010。OTF 示例默认 HSA=4、HBP=8、HFP=20、VSA=2、VBP=4、VFP=6；如果系统 timing 不同，只替换 OTF_CFG1..4。</p>
+    <table><thead><tr><th>格式</th><th>分辨率</th><th>关键计算</th><th>DEC 写值参考</th></tr></thead><tbody><tr><td>RGBA8888</td><td>128x128</td><td>tile=16x4, bpp=4<br>Y meta cols/rows=8/32<br>UV meta cols/rows=0/0<br>stored Y/UV=128/0<br>tile_pitch=32, meta_pitch=64<br>size Y(meta/tile)=0x1000/0x10000<br>size UV(meta/tile)=0x0/0x0</td><td>0x008 TILE_CFG0 = 0x00000706<br>0x00C TILE_CFG1 = 0x00000020<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00000080<br>0x01C OTF_CFG1  = 0x000400A0<br>0x020 OTF_CFG2  = 0x00800008<br>0x024 OTF_CFG3  = 0x0002008C<br>0x028 OTF_CFG4  = 0x00800004<br>0x02C META_CFG0 = 0x00200008</td></tr>
+<tr><td>RGBA8888</td><td>544x1200</td><td>tile=16x4, bpp=4<br>Y meta cols/rows=36/300<br>UV meta cols/rows=0/0<br>stored Y/UV=1200/0<br>tile_pitch=144, meta_pitch=64<br>size Y(meta/tile)=0x5000/0x2A3000<br>size UV(meta/tile)=0x0/0x0</td><td>0x008 TILE_CFG0 = 0x00000706<br>0x00C TILE_CFG1 = 0x00000090<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00000220<br>0x01C OTF_CFG1  = 0x00040240<br>0x020 OTF_CFG2  = 0x02200008<br>0x024 OTF_CFG3  = 0x000204BC<br>0x028 OTF_CFG4  = 0x04B00004<br>0x02C META_CFG0 = 0x012C0024</td></tr>
+<tr><td>RGBA8888</td><td>1920x1080</td><td>tile=16x4, bpp=4<br>Y meta cols/rows=120/272<br>UV meta cols/rows=0/0<br>stored Y/UV=1088/0<br>tile_pitch=480, meta_pitch=128<br>size Y(meta/tile)=0x9000/0x7F8000<br>size UV(meta/tile)=0x0/0x0</td><td>0x008 TILE_CFG0 = 0x00000706<br>0x00C TILE_CFG1 = 0x000001E0<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00000780<br>0x01C OTF_CFG1  = 0x000407A0<br>0x020 OTF_CFG2  = 0x07800008<br>0x024 OTF_CFG3  = 0x00020444<br>0x028 OTF_CFG4  = 0x04380004<br>0x02C META_CFG0 = 0x01100078</td></tr>
+<tr><td>RGBA8888</td><td>4096x600</td><td>tile=16x4, bpp=4<br>Y meta cols/rows=256/152<br>UV meta cols/rows=0/0<br>stored Y/UV=608/0<br>tile_pitch=1024, meta_pitch=256<br>size Y(meta/tile)=0xA000/0x980000<br>size UV(meta/tile)=0x0/0x0</td><td>0x008 TILE_CFG0 = 0x00000706<br>0x00C TILE_CFG1 = 0x00000400<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00001000<br>0x01C OTF_CFG1  = 0x00041020<br>0x020 OTF_CFG2  = 0x10000008<br>0x024 OTF_CFG3  = 0x00020264<br>0x028 OTF_CFG4  = 0x02580004<br>0x02C META_CFG0 = 0x00980100</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>128x128</td><td>tile=32x8, bpp=1<br>Y meta cols/rows=4/16<br>UV meta cols/rows=4/8<br>stored Y/UV=128/64<br>tile_pitch=8, meta_pitch=64<br>size Y(meta/tile)=0x1000/0x4000<br>size UV(meta/tile)=0x1000/0x2000</td><td>0x008 TILE_CFG0 = 0x00000306<br>0x00C TILE_CFG1 = 0x00000008<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00020080<br>0x01C OTF_CFG1  = 0x000400A0<br>0x020 OTF_CFG2  = 0x00800008<br>0x024 OTF_CFG3  = 0x0002008C<br>0x028 OTF_CFG4  = 0x00800004<br>0x02C META_CFG0 = 0x00100004</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>544x1200</td><td>tile=32x8, bpp=1<br>Y meta cols/rows=20/152<br>UV meta cols/rows=20/76<br>stored Y/UV=1216/608<br>tile_pitch=40, meta_pitch=64<br>size Y(meta/tile)=0x3000/0xBE000<br>size UV(meta/tile)=0x2000/0x5F000</td><td>0x008 TILE_CFG0 = 0x00000306<br>0x00C TILE_CFG1 = 0x00000028<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00020220<br>0x01C OTF_CFG1  = 0x00040240<br>0x020 OTF_CFG2  = 0x02200008<br>0x024 OTF_CFG3  = 0x000204BC<br>0x028 OTF_CFG4  = 0x04B00004<br>0x02C META_CFG0 = 0x00980014</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>1920x1080</td><td>tile=32x8, bpp=1<br>Y meta cols/rows=60/136<br>UV meta cols/rows=60/68<br>stored Y/UV=1088/544<br>tile_pitch=120, meta_pitch=64<br>size Y(meta/tile)=0x3000/0x1FE000<br>size UV(meta/tile)=0x2000/0xFF000</td><td>0x008 TILE_CFG0 = 0x00000306<br>0x00C TILE_CFG1 = 0x00000078<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00020780<br>0x01C OTF_CFG1  = 0x000407A0<br>0x020 OTF_CFG2  = 0x07800008<br>0x024 OTF_CFG3  = 0x00020444<br>0x028 OTF_CFG4  = 0x04380004<br>0x02C META_CFG0 = 0x0088003C</td></tr>
+<tr><td>YUV420_8 / NV12</td><td>4096x600</td><td>tile=32x8, bpp=1<br>Y meta cols/rows=128/76<br>UV meta cols/rows=128/40<br>stored Y/UV=608/320<br>tile_pitch=256, meta_pitch=128<br>size Y(meta/tile)=0x3000/0x260000<br>size UV(meta/tile)=0x2000/0x140000</td><td>0x008 TILE_CFG0 = 0x00000306<br>0x00C TILE_CFG1 = 0x00000100<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00021000<br>0x01C OTF_CFG1  = 0x00041020<br>0x020 OTF_CFG2  = 0x10000008<br>0x024 OTF_CFG3  = 0x00020264<br>0x028 OTF_CFG4  = 0x02580004<br>0x02C META_CFG0 = 0x004C0080</td></tr>
+<tr><td>YUV420_10 / P010</td><td>128x128</td><td>tile=32x4, bpp=2<br>Y meta cols/rows=4/32<br>UV meta cols/rows=4/16<br>stored Y/UV=128/64<br>tile_pitch=16, meta_pitch=64<br>size Y(meta/tile)=0x1000/0x8000<br>size UV(meta/tile)=0x1000/0x4000</td><td>0x008 TILE_CFG0 = 0x00000306<br>0x00C TILE_CFG1 = 0x00000010<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00030080<br>0x01C OTF_CFG1  = 0x000400A0<br>0x020 OTF_CFG2  = 0x00800008<br>0x024 OTF_CFG3  = 0x0002008C<br>0x028 OTF_CFG4  = 0x00800004<br>0x02C META_CFG0 = 0x00200004</td></tr>
+<tr><td>YUV420_10 / P010</td><td>544x1200</td><td>tile=32x4, bpp=2<br>Y meta cols/rows=20/300<br>UV meta cols/rows=20/152<br>stored Y/UV=1200/608<br>tile_pitch=80, meta_pitch=64<br>size Y(meta/tile)=0x5000/0x177000<br>size UV(meta/tile)=0x3000/0xBE000</td><td>0x008 TILE_CFG0 = 0x00000306<br>0x00C TILE_CFG1 = 0x00000050<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00030220<br>0x01C OTF_CFG1  = 0x00040240<br>0x020 OTF_CFG2  = 0x02200008<br>0x024 OTF_CFG3  = 0x000204BC<br>0x028 OTF_CFG4  = 0x04B00004<br>0x02C META_CFG0 = 0x012C0014</td></tr>
+<tr><td>YUV420_10 / P010</td><td>1920x1080</td><td>tile=32x4, bpp=2<br>Y meta cols/rows=60/272<br>UV meta cols/rows=60/136<br>stored Y/UV=1088/544<br>tile_pitch=240, meta_pitch=64<br>size Y(meta/tile)=0x5000/0x3FC000<br>size UV(meta/tile)=0x3000/0x1FE000</td><td>0x008 TILE_CFG0 = 0x00000306<br>0x00C TILE_CFG1 = 0x000000F0<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00030780<br>0x01C OTF_CFG1  = 0x000407A0<br>0x020 OTF_CFG2  = 0x07800008<br>0x024 OTF_CFG3  = 0x00020444<br>0x028 OTF_CFG4  = 0x04380004<br>0x02C META_CFG0 = 0x0110003C</td></tr>
+<tr><td>YUV420_10 / P010</td><td>4096x600</td><td>tile=32x4, bpp=2<br>Y meta cols/rows=128/152<br>UV meta cols/rows=128/76<br>stored Y/UV=608/304<br>tile_pitch=512, meta_pitch=128<br>size Y(meta/tile)=0x5000/0x4C0000<br>size UV(meta/tile)=0x3000/0x260000</td><td>0x008 TILE_CFG0 = 0x00000306<br>0x00C TILE_CFG1 = 0x00000200<br>0x010 TILE_CFG2 = 0x00000001<br>0x018 OTF_CFG0  = 0x00031000<br>0x01C OTF_CFG1  = 0x00041020<br>0x020 OTF_CFG2  = 0x10000008<br>0x024 OTF_CFG3  = 0x00020264<br>0x028 OTF_CFG4  = 0x02580004<br>0x02C META_CFG0 = 0x00980080</td></tr></tbody></table>
+    <h4>3.4.1 DEC 地址、pitch 和 OTF timing 计算方法</h4>
+    <pre>// 基础函数
+ceil_div(a, b) = (a + b - 1) / b
+align_up(a, n) = ceil_div(a, n) * n
+
+// 格式参数
+RGBA8888:           format=0, tile_w=16, tile_h=4, bpp=4
+YUV420_8 / NV12:    format=2, tile_w=32, tile_h=8, bpp=1
+YUV420_10 / P010:   format=3, tile_w=32, tile_h=4, bpp=2
+
+// DEC pitch / metadata tile 数
+aligned_width_px    = align_up(width_px, tile_w * 4)
+meta_tile_x_numbers = ceil_div(aligned_width_px, tile_w)             // RGBA/Y plane
+stored_y_height     = align_up(height_px, tile_h * 4)
+stored_uv_height    = align_up(ceil_div(height_px, 2), tile_h * 4)   // only YUV420
+meta_tile_y_numbers = ceil_div(stored_y_height, tile_h)              // RGBA/Y plane
+surface_pitch_bytes = align_up(width_px * bpp, tile_w * 4 * bpp)
+tile_pitch          = surface_pitch_bytes / 16
+meta_pitch          = align_up(meta_tile_x_numbers, 64)
+
+// DEC metadata / tile size
+meta_y_size      = align_up(meta_pitch * align_up(meta_tile_y_numbers, 16), 4096)
+tile_y_size      = align_up(surface_pitch_bytes * stored_y_height, 4096)
+meta_uv_rows     = ceil_div(stored_uv_height, tile_h)                // only YUV420
+meta_uv_size     = 0 for RGBA; otherwise align_up(meta_pitch * align_up(meta_uv_rows, 16), 4096)
+tile_uv_size     = 0 for RGBA; otherwise align_up(surface_pitch_bytes * stored_uv_height, 4096)
+
+// 连续输入 UBWC buffer 地址，base 是 RGBA/Y metadata 起始地址
+REG_META_BASE_Y  = base
+REG_TILE_BASE_Y  = REG_META_BASE_Y + meta_y_size
+REG_META_BASE_UV = 0 for RGBA; otherwise REG_TILE_BASE_Y + tile_y_size
+REG_TILE_BASE_UV = 0 for RGBA; otherwise REG_META_BASE_UV + meta_uv_size
+total_size       = meta_y_size + tile_y_size + meta_uv_size + tile_uv_size
+
+// DEC OTF timing 示例
+h_total = HSA + HBP + HACT + HFP
+v_total = VSA + VBP + VACT + VFP
+OTF_CFG0 = {format[4:0], width_px}
+OTF_CFG1 = {HSA, h_total}
+OTF_CFG2 = {HACT, HBP}
+OTF_CFG3 = {VSA, v_total}
+OTF_CFG4 = {VACT, VBP}</pre>
+  </section>
+
+  <section id="enc">
+    <h2>4. ENC 使用流程</h2>
+    <div class="callout warn">ENC 没有 APB start bit。软件先配置好静态参数和输出 buffer 地址，上游 OTF 输入流的 vsync/hsync/de/data 到来后，ENC 自动开始处理。</div>
+    <h3>4.1 首次或格式变化时配置</h3>
+    <pre>read(0x000); // VERSION
+read(0x004); // DATE
+write(0x00C, REG_TILE_CFG1);      // [0] four_line_format; [1] lossy_rgba_2_1; [26:16] tile_pitch
+write(0x008, REG_TILE_CFG0);      // [0] ubwc_en; [3:1] bank_swizzle; [12:8] highest_bank_bit; [16] bank_spread
+write(0x014, REG_ENC_CI_CFG1);    // [16] enc_ci_lossy
+write(0x018, REG_ENC_CI_CFG2);    // [30:0] enc_ci_ubwc_cfg_0..9，建议写 0
+write(0x01C, REG_ENC_CI_CFG3);    // [5:0] cfg_10; [13:8] cfg_11，建议写 0
+write(0x010, REG_ENC_CI_CFG0);    // [0] input_type=1; [10:8] alen=7
+write(0x024, REG_OTF_CFG1);       // [15:0] width; [31:16] height
+write(0x028, REG_OTF_CFG2);       // [15:0] tile_w; [19:16] tile_h
+write(0x02C, REG_OTF_CFG3);       // [15:0] y_tile_cols; [31:16] uv_tile_cols，RGBA 的 uv 写 0
+write(0x050, REG_META_ACTIVE_SIZE); // [15:0] active_width; [31:16] active_height
+write(0x054, REG_META_PITCH);     // [31:0] meta_data_plane_pitch
+write(0x020, REG_OTF_CFG0);       // [2:0] format</pre>
+    <h3>4.2 每帧地址配置</h3>
+    <table><thead><tr><th>地址项</th><th>APB 地址</th><th>说明</th></tr></thead><tbody><tr><td>Y metadata base</td><td>0x030 / 0x034</td><td>低 32 bit / 高 32 bit；RGBA 使用该槽位</td></tr>
+<tr><td>Y tile base</td><td>0x038 / 0x03C</td><td>低 32 bit / 高 32 bit；RGBA 使用该槽位</td></tr>
+<tr><td>UV metadata base</td><td>0x040 / 0x044</td><td>低 32 bit / 高 32 bit；RGBA 写 0</td></tr>
+<tr><td>UV tile base</td><td>0x048 / 0x04C</td><td>低 32 bit / 高 32 bit；最后写 0x04C high 提交本帧地址组</td></tr></tbody></table>
+    <p><b>写入顺序建议：</b>按 meta Y、tile Y、meta UV、tile UV 顺序写。<code>REG_TILE_BASE_UV_HI @ 0x04C</code> 必须作为本帧地址组最后一笔写入，使本帧四个 base 地址生效。</p>
+    <h3>4.3 后续帧配置</h3>
+    <p>如果格式和尺寸不变，后续帧只需要重复 4.2 的每帧地址配置，然后送入下一帧 OTF 输入流。</p>
+  </section>
+
+  <section id="dec">
+    <h2>5. DEC 使用流程</h2>
+    <div class="callout">DEC 软件不需要额外写 start。首次配置静态参数和一组输入 UBWC buffer 地址后，硬件会按已配置地址自动处理；后续帧只需要继续写入新的输入 buffer 地址。</div>
+    <h3>5.1 首次或格式/timing 变化时配置</h3>
+    <pre>read(0x000); // VERSION
+read(0x004); // DATE
+write(0x008, APB_ADDR_TILE_CFG0); // [2:0] bank_swizzle; [8:4] highest_bank_bit; [9] bank_spread; [10] 4line; [11] lossy_rgba_2_1
+write(0x00C, APB_ADDR_TILE_CFG1); // [11:0] tile_cfg_pitch
+write(0x010, APB_ADDR_TILE_CFG2); // [0] ci_input_type; [8] ci_lossy; [10:9] alpha_mode
+write(0x014, VIVO_CFG);           // [0] vivo_ubwc_en; [1] vivo_sreset
+write(0x02C, META_CFG0);          // [15:0] Y/RGBA tile_x_numbers; [31:16] Y/RGBA tile_y_numbers
+write(0x018, OTF_CFG0);           // [15:0] img_width; [20:16] format
+write(0x01C, OTF_CFG1);           // [15:0] h_total; [31:16] h_sync/HSA
+write(0x020, OTF_CFG2);           // [15:0] h_bp/HBP; [31:16] h_act/HACT
+write(0x024, OTF_CFG3);           // [15:0] v_total; [31:16] v_sync/VSA
+write(0x028, OTF_CFG4);           // [15:0] v_bp/VBP; [31:16] v_act/VACT</pre>
+    <h3>5.2 每帧地址配置</h3>
+    <table><thead><tr><th>地址项</th><th>APB 地址</th><th>说明</th></tr></thead><tbody><tr><td>metadata RGBA/Y base</td><td>0x030 / 0x034</td><td>低 32 bit / 高 32 bit</td></tr>
+<tr><td>tile RGBA/Y base</td><td>0x038 / 0x03C</td><td>低 32 bit / 高 32 bit</td></tr>
+<tr><td>metadata UV base</td><td>0x040 / 0x044</td><td>低 32 bit / 高 32 bit</td></tr>
+<tr><td>tile UV base</td><td>0x048 / 0x04C</td><td>低 32 bit / 高 32 bit；RGBA 图像不关心</td></tr></tbody></table>
+    <p><b>写入顺序建议：</b>每个 64 bit 地址都按 low word、high word 顺序写。四类地址都写完后，该帧输入 buffer 地址配置完成。后续帧如果格式和 timing 不变，只重复本节地址配置。</p>
+  </section>
+
+  <section id="otf">
+    <h2>6. DEC OTF timing 配置</h2>
+    <p>软件可以按 video mode timing 图中的 HSA/HBP/HACT/HFP 和 VSA/VBP/VACT/VFP 计算当前 RTL 的 OTF_CFG。RTL APB 写像素/行单位，内部水平计数会转换为 128-bit OTF beat。</p>
+    <table><thead><tr><th>图中标记</th><th>名称</th><th>软件配置含义</th></tr></thead><tbody><tr><td>HSA</td><td>Horizontal Sync Active</td><td>每一行开头的水平同步脉冲宽度，对应 cfg_otf_h_sync。</td></tr>
+<tr><td>HBP</td><td>Horizontal Back Porch</td><td>HS 结束后到 active pixel 开始前的水平空白区，对应 cfg_otf_h_bp。</td></tr>
+<tr><td>HACT</td><td>Horizontal Active</td><td>一行内有效显示/有效数据宽度，对应 cfg_otf_h_act，通常等于输出图像宽度。</td></tr>
+<tr><td>HFP</td><td>Horizontal Front Porch</td><td>active pixel 结束后到下一行 HS 前的水平空白区，不单独配置，由 h_total 减去 HSA/HBP/HACT 得到。</td></tr>
+<tr><td>VSA</td><td>Vertical Sync Active</td><td>一帧开头的垂直同步行数，对应 cfg_otf_v_sync。</td></tr>
+<tr><td>VBP</td><td>Vertical Back Porch</td><td>VS 结束后到 active line 开始前的垂直空白区，对应 cfg_otf_v_bp。</td></tr>
+<tr><td>VACT</td><td>Vertical Active</td><td>一帧内有效显示/有效数据行数，对应 cfg_otf_v_act，通常等于输出图像高度。</td></tr>
+<tr><td>VFP</td><td>Vertical Front Porch</td><td>active line 结束后到下一帧 VS 前的垂直空白区，不单独配置，由 v_total 减去 VSA/VBP/VACT 得到。</td></tr></tbody></table>
+    <table><thead><tr><th>RTL 配置项</th><th>video timing 对应项</th><th>说明</th></tr></thead><tbody><tr><td>cfg_otf_h_sync</td><td>HSA</td><td>水平 sync 宽度</td></tr>
+<tr><td>cfg_otf_h_bp</td><td>HBP</td><td>水平 back porch</td></tr>
+<tr><td>cfg_otf_h_act</td><td>HACT</td><td>水平 active 宽度</td></tr>
+<tr><td>cfg_otf_h_total</td><td>HSA + HBP + HACT + HFP</td><td>水平总长度</td></tr>
+<tr><td>cfg_otf_v_sync</td><td>VSA</td><td>垂直 sync 宽度</td></tr>
+<tr><td>cfg_otf_v_bp</td><td>VBP</td><td>垂直 back porch</td></tr>
+<tr><td>cfg_otf_v_act</td><td>VACT</td><td>垂直 active 高度</td></tr>
+<tr><td>cfg_otf_v_total</td><td>VSA + VBP + VACT + VFP</td><td>垂直总行数</td></tr></tbody></table>
+    <pre>write(0x01C, {HSA, HSA + HBP + HACT + HFP});
+write(0x020, {HACT, HBP});
+write(0x024, {VSA, VSA + VBP + VACT + VFP});
+write(0x028, {VACT, VBP});</pre>
+    <div class="callout warn">当前 <code>ubwc_dec_otf_driver.v</code> 中 hsync 只在 active vertical 区间内输出。如果要严格模拟标准 display timing，需要让 hsync 在每一行都按 HSA 输出。</div>
+  </section>
+
+  <section id="irq">
+    <h2>7. 状态、中断和统计</h2>
+    <table><thead><tr><th>类别</th><th>地址</th><th>说明</th></tr></thead><tbody><tr><td>ENC STATUS0</td><td>0x058</td><td>idle/error/busy/frame_done/addr_cfg_invalid/addr_cfg_valid0/1</td></tr>
+<tr><td>ENC IRQ_CTRL</td><td>0x060</td><td>irq_enable、irq_clear、irq_pending、correct/error pending</td></tr>
+<tr><td>ENC 统计</td><td>0x068..0x09C</td><td>metadata、tileaddr、OTF、AXI 写计数</td></tr>
+<tr><td>DEC STATUS0</td><td>0x050</td><td>frame_active、meta/tile/vivo/otf busy、idle 状态</td></tr>
+<tr><td>DEC IRQ_CTRL</td><td>0x060</td><td>irq_enable、irq_clear、irq_pending、error/correct pending</td></tr>
+<tr><td>DEC 统计</td><td>0x068..0x078</td><td>metadata tile、tileaddr、OTF tile、line、de beat 计数</td></tr></tbody></table>
+    <pre>// ENC 清中断
+write(0x060, old_irq_enable | (1 &lt;&lt; 1));
+
+// DEC 清中断
+write(0x060, old_irq_enable | (1 &lt;&lt; 1));</pre>
+  </section>
+
+  <footer>UBWC ENC/DEC software usage guide. Generated from repository configuration notes and current APB register semantics.</footer>
+</main>
+</body>
+</html>

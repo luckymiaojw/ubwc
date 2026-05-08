@@ -60,14 +60,21 @@ module ubwc_dec_axi_rd_interconnect #(
     reg [1:0]            rbuf_resp;
     reg                  rbuf_last;
 
-    wire grant_s0 = !inflight && s0_arvalid && (!s1_arvalid || !prefer_s1);
-    wire grant_s1 = !inflight && s1_arvalid && (!s0_arvalid ||  prefer_s1);
+    wire grant_s0;
+    assign grant_s0 = !inflight && s0_arvalid && (!s1_arvalid || !prefer_s1);
+    wire grant_s1;
+    assign grant_s1 = !inflight && s1_arvalid && (!s0_arvalid ||  prefer_s1);
 
-    wire [AXI_AW-1:0]   sel_araddr  = grant_s0 ? s0_araddr  : s1_araddr;
-    wire [7:0]          sel_arlen   = grant_s0 ? s0_arlen   : s1_arlen;
-    wire [2:0]          sel_arsize  = grant_s0 ? s0_arsize  : s1_arsize;
-    wire [1:0]          sel_arburst = grant_s0 ? s0_arburst : s1_arburst;
-    wire [AXI_IDW-1:0]  sel_arid    = grant_s0 ? s0_arid    : s1_arid;
+    wire [AXI_AW-1:0]   sel_araddr;
+    assign sel_araddr = grant_s0 ? s0_araddr  : s1_araddr;
+    wire [7:0]          sel_arlen;
+    assign sel_arlen = grant_s0 ? s0_arlen   : s1_arlen;
+    wire [2:0]          sel_arsize;
+    assign sel_arsize = grant_s0 ? s0_arsize  : s1_arsize;
+    wire [1:0]          sel_arburst;
+    assign sel_arburst = grant_s0 ? s0_arburst : s1_arburst;
+    wire [AXI_IDW-1:0]  sel_arid;
+    assign sel_arid = grant_s0 ? s0_arid    : s1_arid;
 
     assign m_arvalid = !inflight && (s0_arvalid || s1_arvalid);
     assign m_araddr  = sel_araddr;
@@ -79,13 +86,20 @@ module ubwc_dec_axi_rd_interconnect #(
     assign s0_arready = grant_s0 && m_arready;
     assign s1_arready = grant_s1 && m_arready;
 
-    wire                 sel_rready     = owner_s0 ? s0_rready : s1_rready;
-    wire                 routed_rvalid  = inflight && (rbuf_valid || m_rvalid);
-    wire [AXI_DW-1:0]    routed_rdata   = rbuf_valid ? rbuf_data : m_rdata;
-    wire [1:0]           routed_rresp   = rbuf_valid ? rbuf_resp : m_rresp;
-    wire                 routed_rlast   = rbuf_valid ? rbuf_last : m_rlast;
-    wire                 direct_last_ok = inflight && !rbuf_valid && m_rvalid && sel_rready && m_rlast;
-    wire                 buf_last_ok    = inflight &&  rbuf_valid && sel_rready && rbuf_last;
+    wire                 sel_rready;
+    assign sel_rready = owner_s0 ? s0_rready : s1_rready;
+    wire                 routed_rvalid;
+    assign routed_rvalid = inflight && (rbuf_valid || m_rvalid);
+    wire [AXI_DW-1:0]    routed_rdata;
+    assign routed_rdata = rbuf_valid ? rbuf_data : m_rdata;
+    wire [1:0]           routed_rresp;
+    assign routed_rresp = rbuf_valid ? rbuf_resp : m_rresp;
+    wire                 routed_rlast;
+    assign routed_rlast = rbuf_valid ? rbuf_last : m_rlast;
+    wire                 direct_last_ok;
+    assign direct_last_ok = inflight && !rbuf_valid && m_rvalid && sel_rready && m_rlast;
+    wire                 buf_last_ok;
+    assign buf_last_ok = inflight &&  rbuf_valid && sel_rready && rbuf_last;
 
     assign s0_rvalid = owner_s0 && routed_rvalid;
     assign s1_rvalid = !owner_s0 && routed_rvalid;
@@ -104,47 +118,72 @@ module ubwc_dec_axi_rd_interconnect #(
     assign o_busy   = inflight | rbuf_valid;
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
+        if (!rst_n)
             inflight <= 1'b0;
-            owner_s0 <= 1'b0;
-            prefer_s1 <= 1'b0;
-            rbuf_valid <= 1'b0;
-            rbuf_data  <= {AXI_DW{1'b0}};
-            rbuf_resp  <= 2'b00;
-            rbuf_last  <= 1'b0;
-        end else if (i_frame_start) begin
+        else if (i_frame_start)
             inflight <= 1'b0;
-            owner_s0 <= 1'b0;
-            prefer_s1 <= 1'b0;
-            rbuf_valid <= 1'b0;
-            rbuf_data  <= {AXI_DW{1'b0}};
-            rbuf_resp  <= 2'b00;
-            rbuf_last  <= 1'b0;
-        end else begin
-            if (!inflight) begin
-                rbuf_valid <= 1'b0;
-                if (m_arvalid && m_arready) begin
-                    inflight <= 1'b1;
-                    owner_s0 <= grant_s0;
-                    prefer_s1 <= grant_s0;
-                end
-            end else begin
-                if (rbuf_valid) begin
-                    if (sel_rready) begin
-                        rbuf_valid <= 1'b0;
-                    end
-                end else if (m_rvalid && !sel_rready) begin
-                    rbuf_valid <= 1'b1;
-                    rbuf_data  <= m_rdata;
-                    rbuf_resp  <= m_rresp;
-                    rbuf_last  <= m_rlast;
-                end
+        else if (!inflight && m_arvalid && m_arready)
+            inflight <= 1'b1;
+        else if (buf_last_ok || direct_last_ok)
+            inflight <= 1'b0;
+    end
 
-                if (buf_last_ok || direct_last_ok) begin
-                    inflight <= 1'b0;
-                end
-            end
-        end
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            owner_s0 <= 1'b0;
+        else if (i_frame_start)
+            owner_s0 <= 1'b0;
+        else if (!inflight && m_arvalid && m_arready)
+            owner_s0 <= grant_s0;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            prefer_s1 <= 1'b0;
+        else if (i_frame_start)
+            prefer_s1 <= 1'b0;
+        else if (!inflight && m_arvalid && m_arready)
+            prefer_s1 <= grant_s0;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rbuf_valid <= 1'b0;
+        else if (i_frame_start)
+            rbuf_valid <= 1'b0;
+        else if (!inflight)
+            rbuf_valid <= 1'b0;
+        else if (rbuf_valid && sel_rready)
+            rbuf_valid <= 1'b0;
+        else if (!rbuf_valid && m_rvalid && !sel_rready)
+            rbuf_valid <= 1'b1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rbuf_data <= {AXI_DW{1'b0}};
+        else if (i_frame_start)
+            rbuf_data <= {AXI_DW{1'b0}};
+        else if (inflight && !rbuf_valid && m_rvalid && !sel_rready)
+            rbuf_data <= m_rdata;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rbuf_resp <= 2'b00;
+        else if (i_frame_start)
+            rbuf_resp <= 2'b00;
+        else if (inflight && !rbuf_valid && m_rvalid && !sel_rready)
+            rbuf_resp <= m_rresp;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rbuf_last <= 1'b0;
+        else if (i_frame_start)
+            rbuf_last <= 1'b0;
+        else if (inflight && !rbuf_valid && m_rvalid && !sel_rready)
+            rbuf_last <= m_rlast;
     end
 
 endmodule

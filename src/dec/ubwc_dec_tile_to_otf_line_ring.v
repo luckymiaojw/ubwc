@@ -56,7 +56,8 @@ module ubwc_dec_tile_to_otf_line_ring (
     localparam [1:0]                    RD_WAIT_SECOND             = 2'd2;
     localparam [1:0]                    RD_PUSH                    = 2'd3;
 
-    wire                                frame_start                = (i_frame_start == 1'b1);
+    wire                                frame_start;
+    assign frame_start = (i_frame_start == 1'b1);
     wire                                hdr_fifo_empty;
     wire                                hdr_fifo_full;
     wire                                hdr_fifo_rd_en;
@@ -90,7 +91,8 @@ module ubwc_dec_tile_to_otf_line_ring (
         .RAM_STYLE                     ( "distributed"                         )
     ) u_hdr_fifo (
         .clk                           ( clk_sram                              ),
-        .rst_n                         ( rst_n && !frame_start                 ),
+        .rst_n                         ( rst_n                                 ),
+        .sclr                          ( frame_start                           ),
         .wr_en                         ( tile_hdr_fire                         ),
         .din                           ( {s_axis_format, s_axis_tile_x, s_axis_tile_y} ),
         .prog_full                     ( hdr_fifo_prog_full                    ),
@@ -110,7 +112,8 @@ module ubwc_dec_tile_to_otf_line_ring (
         .RAM_STYLE                     ( "distributed"                         )
     ) u_data_fifo (
         .clk                           ( clk_sram                              ),
-        .rst_n                         ( rst_n && !frame_start                 ),
+        .rst_n                         ( rst_n                                 ),
+        .sclr                          ( frame_start                           ),
         .wr_en                         ( s_axis_tvalid && s_axis_tready        ),
         .din                           ( {s_axis_tlast, s_axis_tdata}          ),
         .prog_full                     ( data_fifo_prog_full                   ),
@@ -137,11 +140,16 @@ module ubwc_dec_tile_to_otf_line_ring (
         end
     end
 
-    wire    [255:0]                     cur_tdata                   = data_fifo_dout[255:0];
-    wire                                cur_tlast                   = data_fifo_dout[256];
-    wire    [15:0]                      cur_tile_y                  = hdr_fifo_dout[15:0];
-    wire    [15:0]                      cur_tile_x                  = hdr_fifo_dout[31:16];
-    wire    [4:0]                       cur_fmt                     = hdr_fifo_dout[36:32];
+    wire    [255:0]                     cur_tdata;
+    assign cur_tdata = data_fifo_dout[255:0];
+    wire                                cur_tlast;
+    assign cur_tlast = data_fifo_dout[256];
+    wire    [15:0]                      cur_tile_y;
+    assign cur_tile_y = hdr_fifo_dout[15:0];
+    wire    [15:0]                      cur_tile_x;
+    assign cur_tile_x = hdr_fifo_dout[31:16];
+    wire    [4:0]                       cur_fmt;
+    assign cur_fmt = hdr_fifo_dout[36:32];
 
     reg                                 cur_is_y_stride_1k;
     reg                                 cur_is_row_len_2;
@@ -172,14 +180,6 @@ module ubwc_dec_tile_to_otf_line_ring (
                 cur_is_y_stride_1k = 1'b0; cur_is_row_len_2 = 1'b0;
                 cur_is_uv_plane = 1'b1; cur_is_yuv420 = 1'b1; cur_is_rgba = 1'b0; cur_is_p010 = 1'b1;
             end
-            5'b01010: begin
-                cur_is_y_stride_1k = 1'b0; cur_is_row_len_2 = 1'b1;
-                cur_is_uv_plane = 1'b0; cur_is_yuv420 = 1'b0; cur_is_rgba = 1'b0; cur_is_p010 = 1'b0;
-            end
-            5'b01011: begin
-                cur_is_y_stride_1k = 1'b0; cur_is_row_len_2 = 1'b1;
-                cur_is_uv_plane = 1'b1; cur_is_yuv420 = 1'b0; cur_is_rgba = 1'b0; cur_is_p010 = 1'b0;
-            end
             default: begin
                 cur_is_y_stride_1k = 1'b1; cur_is_row_len_2 = 1'b0;
                 cur_is_uv_plane = 1'b0; cur_is_yuv420 = 1'b0; cur_is_rgba = 1'b1; cur_is_p010 = 1'b0;
@@ -194,46 +194,67 @@ module ubwc_dec_tile_to_otf_line_ring (
     reg     [LINE_RING_DEPTH-1:0]       y_line_ready;
     reg     [LINE_RING_DEPTH-1:0]       uv_line_ready;
 
-    wire    [2:0]                       writer_line_in_tile         = cur_is_row_len_2 ? cnt_write[3:1] : {1'b0, cnt_write[3:2]};
-    wire    [1:0]                       writer_word_in_line         = cur_is_row_len_2 ? {1'b0, cnt_write[0]} : cnt_write[1:0];
-    wire                                writer_word_last_in_line    = cur_is_row_len_2 ? cnt_write[0] : (&cnt_write[1:0]);
-    wire    [16:0]                      writer_tile_cols_full       = cur_is_rgba ? (({1'b0, cfg_img_width} + 17'd15) >> 4) :
+    wire    [2:0]                       writer_line_in_tile;
+    assign writer_line_in_tile = cur_is_row_len_2 ? cnt_write[3:1] : {1'b0, cnt_write[3:2]};
+    wire    [1:0]                       writer_word_in_line;
+    assign writer_word_in_line = cur_is_row_len_2 ? {1'b0, cnt_write[0]} : cnt_write[1:0];
+    wire                                writer_word_last_in_line;
+    assign writer_word_last_in_line = cur_is_row_len_2 ? cnt_write[0] : (&cnt_write[1:0]);
+    wire    [16:0]                      writer_tile_cols_full;
+    assign writer_tile_cols_full = cur_is_rgba ? (({1'b0, cfg_img_width} + 17'd15) >> 4) :
                                                                                    (({1'b0, cfg_img_width} + 17'd31) >> 5);
-    wire    [15:0]                      writer_max_tile_x           = (writer_tile_cols_full == 17'd0) ? 16'd0 :
+    wire    [15:0]                      writer_max_tile_x;
+    assign writer_max_tile_x = (writer_tile_cols_full == 17'd0) ? 16'd0 :
                                                                                    (writer_tile_cols_full[15:0] - 16'd1);
-    wire                                writer_last_tile_x          = (cur_tile_x == writer_max_tile_x);
-    wire    [12:0]                      writer_tile_x_word_base     = (cur_is_rgba || cur_is_p010) ?
+    wire                                writer_last_tile_x;
+    assign writer_last_tile_x = (cur_tile_x == writer_max_tile_x);
+    wire    [12:0]                      writer_tile_x_word_base;
+    assign writer_tile_x_word_base = (cur_is_rgba || cur_is_p010) ?
                                                                       {cur_tile_x[10:0], 2'b00} :
                                                                       {cur_tile_x[11:0], 1'b0};
-    wire    [15:0]                      writer_rgba_line_base       = {writer_group_idx[13:0], 2'b00};
-    wire    [15:0]                      writer_yuv8_line_base       = {writer_group_idx[12:0], 3'b000};
-    wire    [15:0]                      writer_y420_nv12_base       = {writer_group_idx[11:0], 4'b0000};
-    wire    [15:0]                      writer_y420_p010_base       = {writer_group_idx[12:0], 3'b000};
-    wire    [15:0]                      writer_uv_nv12_base         = {writer_group_idx[12:0], 3'b000};
-    wire    [15:0]                      writer_uv_p010_base         = {writer_group_idx[13:0], 2'b00};
-    wire    [15:0]                      writer_y420_stage_off       = cur_is_p010 ?
+    wire    [15:0]                      writer_rgba_line_base;
+    assign writer_rgba_line_base = {writer_group_idx[13:0], 2'b00};
+    wire    [15:0]                      writer_yuv8_line_base;
+    assign writer_yuv8_line_base = {writer_group_idx[12:0], 3'b000};
+    wire    [15:0]                      writer_y420_nv12_base;
+    assign writer_y420_nv12_base = {writer_group_idx[11:0], 4'b0000};
+    wire    [15:0]                      writer_y420_p010_base;
+    assign writer_y420_p010_base = {writer_group_idx[12:0], 3'b000};
+    wire    [15:0]                      writer_uv_nv12_base;
+    assign writer_uv_nv12_base = {writer_group_idx[12:0], 3'b000};
+    wire    [15:0]                      writer_uv_p010_base;
+    assign writer_uv_p010_base = {writer_group_idx[13:0], 2'b00};
+    wire    [15:0]                      writer_y420_stage_off;
+    assign writer_y420_stage_off = cur_is_p010 ?
                                                                       ((y420_stage == 2'd0) ? 16'd0 : 16'd4) :
                                                                       ((y420_stage == 2'd0) ? 16'd0 : 16'd8);
-    wire    [15:0]                      writer_global_line          = cur_is_rgba ? (writer_rgba_line_base + {13'd0, writer_line_in_tile}) :
+    wire    [15:0]                      writer_global_line;
+    assign writer_global_line = cur_is_rgba ? (writer_rgba_line_base + {13'd0, writer_line_in_tile}) :
                                                                       (cur_is_yuv420 && cur_is_uv_plane && cur_is_p010) ? (writer_uv_p010_base + {13'd0, writer_line_in_tile}) :
                                                                       (cur_is_yuv420 && cur_is_uv_plane) ? (writer_uv_nv12_base + {13'd0, writer_line_in_tile}) :
                                                                       (cur_is_yuv420 && cur_is_p010) ? (writer_y420_p010_base + writer_y420_stage_off + {13'd0, writer_line_in_tile}) :
                                                                       cur_is_yuv420 ? (writer_y420_nv12_base + writer_y420_stage_off + {13'd0, writer_line_in_tile}) :
                                                                       (writer_yuv8_line_base + {13'd0, writer_line_in_tile});
-    wire    [LINE_SLOT_W-1:0]           writer_line_slot            = cur_is_rgba ? {2'b00, writer_global_line[2:0]} :
+    wire    [LINE_SLOT_W-1:0]           writer_line_slot;
+    assign writer_line_slot = cur_is_rgba ? {2'b00, writer_global_line[2:0]} :
                                                                       cur_is_p010 ? {1'b0, writer_global_line[3:0]} :
                                                                                     writer_global_line[4:0];
-    wire    [12:0]                      writer_line_base_addr       = cur_is_rgba ? {writer_line_slot[2:0], 10'd0} :
+    wire    [12:0]                      writer_line_base_addr;
+    assign writer_line_base_addr = cur_is_rgba ? {writer_line_slot[2:0], 10'd0} :
                                                                       cur_is_p010 ? {writer_line_slot[3:0], 9'd0} :
                                                                                     {writer_line_slot[4:0], 8'd0};
-    wire    [12:0]                      writer_word_addr            = writer_line_base_addr +
+    wire    [12:0]                      writer_word_addr;
+    assign writer_word_addr = writer_line_base_addr +
                                                                       writer_tile_x_word_base +
                                                                       {11'd0, writer_word_in_line};
-    wire                                writer_to_uv_bank           = cur_is_uv_plane;
-    wire                                writer_slot_busy            = writer_to_uv_bank ?
+    wire                                writer_to_uv_bank;
+    assign writer_to_uv_bank = cur_is_uv_plane;
+    wire                                writer_slot_busy;
+    assign writer_slot_busy = writer_to_uv_bank ?
                                                                       uv_line_ready[writer_line_slot] :
                                                                       y_line_ready[writer_line_slot];
-    wire                                writer_req                  = !hdr_fifo_empty && !data_fifo_empty && !writer_slot_busy;
+    wire                                writer_req;
+    assign writer_req = !hdr_fifo_empty && !data_fifo_empty && !writer_slot_busy;
 
     reg     [1:0]                       rd_state;
     reg     [15:0]                      rd_line_idx;
@@ -250,59 +271,94 @@ module ubwc_dec_tile_to_otf_line_ring (
     reg                                 rd_y_data_valid;
     reg                                 rd_uv_data_valid;
 
-    wire                                cfg_is_rgba                 = (cfg_format == 5'b00000) || (cfg_format == 5'b00001);
-    wire                                cfg_is_p010                 = (cfg_format == 5'b00011) || (cfg_format == 5'b01110) || (cfg_format == 5'b01111);
-    wire                                cfg_is_yuv420               = (cfg_format == 5'b00010) || (cfg_format == 5'b00011) ||
+    wire                                cfg_is_rgba;
+    assign cfg_is_rgba = (cfg_format == 5'b00000) || (cfg_format == 5'b00001);
+    wire                                cfg_is_p010;
+    assign cfg_is_p010 = (cfg_format == 5'b00011) || (cfg_format == 5'b01110) || (cfg_format == 5'b01111);
+    wire                                cfg_is_yuv420;
+    assign cfg_is_yuv420 = (cfg_format == 5'b00010) || (cfg_format == 5'b00011) ||
                                                                       (cfg_format == 5'b01000) || (cfg_format == 5'b01001) ||
                                                                       (cfg_format == 5'b01110) || (cfg_format == 5'b01111);
-    wire                                cfg_has_uv                  = !cfg_is_rgba;
-    wire    [16:0]                      rd_words_rgba_full          = ({1'b0, cfg_img_width} + 17'd3) >> 2;
-    wire    [16:0]                      rd_words_yuv8_full          = ({1'b0, cfg_img_width} + 17'd15) >> 4;
-    wire    [16:0]                      rd_words_p010_full          = ({1'b0, cfg_img_width} + 17'd7) >> 3;
-    wire    [12:0]                      rd_line_words_rgba          = (|rd_words_rgba_full[16:13]) ? 13'h1fff : rd_words_rgba_full[12:0];
-    wire    [12:0]                      rd_line_words_yuv8          = (|rd_words_yuv8_full[16:13]) ? 13'h1fff : rd_words_yuv8_full[12:0];
-    wire    [12:0]                      rd_line_words_p010          = (|rd_words_p010_full[16:13]) ? 13'h1fff : rd_words_p010_full[12:0];
-    wire    [12:0]                      rd_line_words               = cfg_is_rgba ? rd_line_words_rgba :
+    wire                                cfg_has_uv;
+    assign cfg_has_uv = !cfg_is_rgba;
+    wire    [16:0]                      rd_words_rgba_full;
+    assign rd_words_rgba_full = ({1'b0, cfg_img_width} + 17'd3) >> 2;
+    wire    [16:0]                      rd_words_yuv8_full;
+    assign rd_words_yuv8_full = ({1'b0, cfg_img_width} + 17'd15) >> 4;
+    wire    [16:0]                      rd_words_p010_full;
+    assign rd_words_p010_full = ({1'b0, cfg_img_width} + 17'd7) >> 3;
+    wire    [12:0]                      rd_line_words_rgba;
+    assign rd_line_words_rgba = (|rd_words_rgba_full[16:13]) ? 13'h1fff : rd_words_rgba_full[12:0];
+    wire    [12:0]                      rd_line_words_yuv8;
+    assign rd_line_words_yuv8 = (|rd_words_yuv8_full[16:13]) ? 13'h1fff : rd_words_yuv8_full[12:0];
+    wire    [12:0]                      rd_line_words_p010;
+    assign rd_line_words_p010 = (|rd_words_p010_full[16:13]) ? 13'h1fff : rd_words_p010_full[12:0];
+    wire    [12:0]                      rd_line_words;
+    assign rd_line_words = cfg_is_rgba ? rd_line_words_rgba :
                                                                       (cfg_is_p010 ? rd_line_words_p010 : rd_line_words_yuv8);
-    wire    [LINE_SLOT_W-1:0]           rd_y_slot                   = cfg_is_rgba ? {2'b00, rd_line_idx[2:0]} :
+    wire    [LINE_SLOT_W-1:0]           rd_y_slot;
+    assign rd_y_slot = cfg_is_rgba ? {2'b00, rd_line_idx[2:0]} :
                                                                       cfg_is_p010 ? {1'b0, rd_line_idx[3:0]} :
                                                                                     rd_line_idx[4:0];
-    wire    [LINE_SLOT_W-1:0]           rd_uv_slot                  = cfg_is_p010 ? {1'b0, rd_line_idx[4:1]} :
+    wire    [LINE_SLOT_W-1:0]           rd_uv_slot;
+    assign rd_uv_slot = cfg_is_p010 ? {1'b0, rd_line_idx[4:1]} :
                                                                       cfg_is_yuv420 ? rd_line_idx[5:1] :
                                                                                       rd_line_idx[4:0];
-    wire                                rd_line_has_uv              = cfg_has_uv && (!cfg_is_yuv420 || rd_line_idx[0]);
-    wire                                rd_line_ready               = y_line_ready[rd_y_slot] &&
+    wire                                rd_line_has_uv;
+    assign rd_line_has_uv = cfg_has_uv && (!cfg_is_yuv420 || rd_line_idx[0]);
+    wire                                rd_line_ready;
+    assign rd_line_ready = y_line_ready[rd_y_slot] &&
                                                                       (!rd_line_has_uv || uv_line_ready[rd_uv_slot]);
-    wire                                rd_frame_active             = (rd_line_idx < cfg_otf_v_act);
-    wire                                rd_can_start                = (rd_state == RD_IDLE) && rd_frame_active &&
+    wire                                rd_frame_active;
+    assign rd_frame_active = (rd_line_idx < cfg_otf_v_act);
+    wire                                rd_can_start;
+    assign rd_can_start = (rd_state == RD_IDLE) && rd_frame_active &&
                                                                       rd_line_ready && !i_fifo_full &&
                                                                       (rd_line_words != 13'd0);
-    wire    [12:0]                      rd_y_base_addr              = cfg_is_rgba ? {rd_y_slot[2:0], 10'd0} :
+    wire    [12:0]                      rd_y_base_addr;
+    assign rd_y_base_addr = cfg_is_rgba ? {rd_y_slot[2:0], 10'd0} :
                                                                       cfg_is_p010 ? {rd_y_slot[3:0], 9'd0} :
                                                                                     {rd_y_slot[4:0], 8'd0};
-    wire    [12:0]                      rd_uv_base_addr             = cfg_is_p010 ? {rd_uv_slot[3:0], 9'd0} :
+    wire    [12:0]                      rd_uv_base_addr;
+    assign rd_uv_base_addr = cfg_is_p010 ? {rd_uv_slot[3:0], 9'd0} :
                                                                                     {rd_uv_slot[4:0], 8'd0};
-    wire    [12:0]                      rd_y_addr                   = rd_y_base_addr + rd_word_idx;
-    wire    [12:0]                      rd_uv_addr                  = rd_uv_base_addr + rd_word_idx;
-    wire    [12:0]                      rd_y_addr_p1                = rd_y_addr + 13'd1;
-    wire                                rd_push_fire                = (rd_state == RD_PUSH) && !i_fifo_full;
-    wire    [13:0]                      rd_next_word_sum            = {1'b0, rd_word_idx} +
+    wire    [12:0]                      rd_y_addr;
+    assign rd_y_addr = rd_y_base_addr + rd_word_idx;
+    wire    [12:0]                      rd_uv_addr;
+    assign rd_uv_addr = rd_uv_base_addr + rd_word_idx;
+    wire    [12:0]                      rd_y_addr_p1;
+    assign rd_y_addr_p1 = rd_y_addr + 13'd1;
+    wire                                rd_push_fire;
+    assign rd_push_fire = (rd_state == RD_PUSH) && !i_fifo_full;
+    wire    [13:0]                      rd_next_word_sum;
+    assign rd_next_word_sum = {1'b0, rd_word_idx} +
                                                                       (rd_is_rgba_reg ? 14'd2 : 14'd1);
-    wire                                rd_line_done                = (rd_next_word_sum >= {1'b0, rd_line_words_reg});
+    wire                                rd_line_done;
+    assign rd_line_done = (rd_next_word_sum >= {1'b0, rd_line_words_reg});
 
-    wire                                rd_issue_y                  = rd_can_start;
-    wire                                rd_issue_uv                 = rd_can_start && rd_line_has_uv;
-    wire                                rd_y_data_ready             = rd_y_data_valid | sram_a_rvalid;
-    wire                                rd_uv_data_ready            = !rd_line_has_uv_reg |
+    wire                                rd_issue_y;
+    assign rd_issue_y = rd_can_start;
+    wire                                rd_issue_uv;
+    assign rd_issue_uv = rd_can_start && rd_line_has_uv;
+    wire                                rd_y_data_ready;
+    assign rd_y_data_ready = rd_y_data_valid | sram_a_rvalid;
+    wire                                rd_uv_data_ready;
+    assign rd_uv_data_ready = !rd_line_has_uv_reg |
                                                                       rd_uv_data_valid |
                                                                       sram_b_rvalid;
-    wire                                rd_wait_y_done              = rd_y_data_ready &&
+    wire                                rd_wait_y_done;
+    assign rd_wait_y_done = rd_y_data_ready &&
                                                                       (rd_is_rgba_reg || rd_uv_data_ready);
-    wire                                rd_issue_rgba_second        = (rd_state == RD_WAIT_Y) && rd_is_rgba_reg && rd_wait_y_done;
-    wire                                rd_wait_second_done         = sram_a_rvalid;
-    wire                                writer_conflict_a           = writer_req && !writer_to_uv_bank && (rd_issue_y || rd_issue_rgba_second);
-    wire                                writer_conflict_b           = writer_req &&  writer_to_uv_bank && rd_issue_uv;
-    wire                                writer_fire                 = writer_req && !writer_conflict_a && !writer_conflict_b;
+    wire                                rd_issue_rgba_second;
+    assign rd_issue_rgba_second = (rd_state == RD_WAIT_Y) && rd_is_rgba_reg && rd_wait_y_done;
+    wire                                rd_wait_second_done;
+    assign rd_wait_second_done = sram_a_rvalid;
+    wire                                writer_conflict_a;
+    assign writer_conflict_a = writer_req && !writer_to_uv_bank && (rd_issue_y || rd_issue_rgba_second);
+    wire                                writer_conflict_b;
+    assign writer_conflict_b = writer_req &&  writer_to_uv_bank && rd_issue_uv;
+    wire                                writer_fire;
+    assign writer_fire = writer_req && !writer_conflict_a && !writer_conflict_b;
 
     assign data_fifo_rd_en = writer_fire && gearbox_sel;
     assign hdr_fifo_rd_en  = writer_fire && cur_tlast && gearbox_sel;
@@ -319,166 +375,280 @@ module ubwc_dec_tile_to_otf_line_ring (
     assign sram_b_ren      = rd_issue_uv;
     assign sram_b_raddr    = rd_uv_addr;
 
-    wire                                writer_line_done            = writer_fire && writer_last_tile_x && writer_word_last_in_line;
-    wire                                writer_tile_done            = writer_fire && cur_tlast && gearbox_sel;
-    wire                                writer_rowgroup_done        = writer_tile_done && writer_last_tile_x;
+    wire                                writer_line_done;
+    assign writer_line_done = writer_fire && writer_last_tile_x && writer_word_last_in_line;
+    wire                                writer_tile_done;
+    assign writer_tile_done = writer_fire && cur_tlast && gearbox_sel;
+    wire                                writer_rowgroup_done;
+    assign writer_rowgroup_done = writer_tile_done && writer_last_tile_x;
+    wire                                rd_push_line_done;
+    assign rd_push_line_done = rd_push_fire && rd_line_done;
 
     always @(posedge clk_sram or negedge rst_n) begin
-        if (!rst_n) begin
-            cnt_write        <= 4'd0;
-            gearbox_sel      <= 1'b0;
-            y420_stage       <= 2'd0;
-            writer_group_idx <= 16'd0;
-            y_line_ready     <= {LINE_RING_DEPTH{1'b0}};
-            uv_line_ready    <= {LINE_RING_DEPTH{1'b0}};
-        end else if (frame_start) begin
-            cnt_write        <= 4'd0;
-            gearbox_sel      <= 1'b0;
-            y420_stage       <= 2'd0;
-            writer_group_idx <= 16'd0;
-            y_line_ready     <= {LINE_RING_DEPTH{1'b0}};
-            uv_line_ready    <= {LINE_RING_DEPTH{1'b0}};
-        end else begin
-            if (writer_line_done) begin
-                if (writer_to_uv_bank) begin
-                    uv_line_ready[writer_line_slot] <= 1'b1;
-                end else begin
-                    y_line_ready[writer_line_slot] <= 1'b1;
-                end
-            end
+        if (!rst_n)
+            cnt_write <= 4'd0;
+        else if (frame_start)
+            cnt_write <= 4'd0;
+        else if (writer_fire)
+            cnt_write <= writer_tile_done ? 4'd0 : (cnt_write + 4'd1);
+    end
 
-            if (rd_push_fire && rd_line_done) begin
-                y_line_ready[rd_y_slot_reg] <= 1'b0;
-                if (rd_line_has_uv_reg) begin
-                    uv_line_ready[rd_uv_slot_reg] <= 1'b0;
-                end
-            end
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            gearbox_sel <= 1'b0;
+        else if (frame_start)
+            gearbox_sel <= 1'b0;
+        else if (writer_fire)
+            gearbox_sel <= ~gearbox_sel;
+    end
 
-            if (writer_fire) begin
-                gearbox_sel <= ~gearbox_sel;
-                cnt_write   <= writer_tile_done ? 4'd0 : (cnt_write + 4'd1);
-                if (writer_rowgroup_done) begin
-                    if (cur_is_yuv420) begin
-                        if (cur_is_uv_plane) begin
-                            y420_stage       <= 2'd0;
-                            writer_group_idx <= writer_group_idx + 16'd1;
-                        end else if (y420_stage == 2'd0) begin
-                            y420_stage <= 2'd1;
-                        end else begin
-                            y420_stage <= 2'd2;
-                        end
-                    end else begin
-                        y420_stage       <= 2'd0;
-                        writer_group_idx <= writer_group_idx + 16'd1;
-                    end
-                end
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            y420_stage <= 2'd0;
+        else if (frame_start)
+            y420_stage <= 2'd0;
+        else if (writer_fire && writer_rowgroup_done) begin
+            if (cur_is_yuv420) begin
+                if (cur_is_uv_plane)
+                    y420_stage <= 2'd0;
+                else if (y420_stage == 2'd0)
+                    y420_stage <= 2'd1;
+                else
+                    y420_stage <= 2'd2;
+            end else begin
+                y420_stage <= 2'd0;
             end
         end
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
-        if (!rst_n) begin
-            rd_state           <= RD_IDLE;
-            rd_line_idx        <= 16'd0;
-            rd_word_idx        <= 13'd0;
-            rd_first_data      <= 128'd0;
-            rd_second_data     <= 128'd0;
-            rd_line_has_uv_reg <= 1'b0;
-            rd_is_rgba_reg     <= 1'b0;
-            rd_is_yuv420_reg   <= 1'b0;
-            rd_is_p010_reg     <= 1'b0;
-            rd_line_words_reg  <= 13'd0;
-            rd_y_slot_reg      <= {LINE_SLOT_W{1'b0}};
-            rd_uv_slot_reg     <= {LINE_SLOT_W{1'b0}};
-            rd_y_data_valid    <= 1'b0;
-            rd_uv_data_valid   <= 1'b0;
-            o_fifo_wr_en       <= 1'b0;
-            o_fifo_wdata       <= 256'd0;
-            o_fetcher_done     <= 1'b0;
-        end else if (frame_start) begin
-            rd_state           <= RD_IDLE;
-            rd_line_idx        <= 16'd0;
-            rd_word_idx        <= 13'd0;
-            rd_first_data      <= 128'd0;
-            rd_second_data     <= 128'd0;
-            rd_line_has_uv_reg <= 1'b0;
-            rd_is_rgba_reg     <= 1'b0;
-            rd_is_yuv420_reg   <= 1'b0;
-            rd_is_p010_reg     <= 1'b0;
-            rd_line_words_reg  <= 13'd0;
-            rd_y_slot_reg      <= {LINE_SLOT_W{1'b0}};
-            rd_uv_slot_reg     <= {LINE_SLOT_W{1'b0}};
-            rd_y_data_valid    <= 1'b0;
-            rd_uv_data_valid   <= 1'b0;
-            o_fifo_wr_en       <= 1'b0;
-            o_fifo_wdata       <= 256'd0;
-            o_fetcher_done     <= 1'b0;
-        end else begin
-            o_fifo_wr_en   <= 1'b0;
-            o_fetcher_done <= 1'b0;
+        if (!rst_n)
+            writer_group_idx <= 16'd0;
+        else if (frame_start)
+            writer_group_idx <= 16'd0;
+        else if (writer_fire && writer_rowgroup_done && (cur_is_uv_plane || !cur_is_yuv420))
+            writer_group_idx <= writer_group_idx + 16'd1;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            y_line_ready <= {LINE_RING_DEPTH{1'b0}};
+        else if (frame_start)
+            y_line_ready <= {LINE_RING_DEPTH{1'b0}};
+        else begin
+            if (writer_line_done && !writer_to_uv_bank)
+                y_line_ready[writer_line_slot] <= 1'b1;
+            if (rd_push_line_done)
+                y_line_ready[rd_y_slot_reg] <= 1'b0;
+        end
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            uv_line_ready <= {LINE_RING_DEPTH{1'b0}};
+        else if (frame_start)
+            uv_line_ready <= {LINE_RING_DEPTH{1'b0}};
+        else begin
+            if (writer_line_done && writer_to_uv_bank)
+                uv_line_ready[writer_line_slot] <= 1'b1;
+            if (rd_push_line_done && rd_line_has_uv_reg)
+                uv_line_ready[rd_uv_slot_reg] <= 1'b0;
+        end
+    end
+
+    wire rd_start_fire;
+    assign rd_start_fire = (rd_state == RD_IDLE) && rd_can_start;
+    wire rd_wait_y_state;
+    assign rd_wait_y_state = (rd_state == RD_WAIT_Y);
+    wire rd_wait_y_done_fire;
+    assign rd_wait_y_done_fire = rd_wait_y_state && rd_wait_y_done;
+    wire rd_wait_y_done_rgba_fire;
+    assign rd_wait_y_done_rgba_fire = rd_wait_y_done_fire && rd_is_rgba_reg;
+    wire rd_wait_y_done_nonrgba_fire;
+    assign rd_wait_y_done_nonrgba_fire = rd_wait_y_done_fire && !rd_is_rgba_reg;
+    wire rd_wait_y_capture_y_fire;
+    assign rd_wait_y_capture_y_fire = rd_wait_y_state && sram_a_rvalid;
+    wire rd_wait_y_capture_uv_fire;
+    assign rd_wait_y_capture_uv_fire = rd_wait_y_state && rd_line_has_uv_reg && sram_b_rvalid;
+    wire rd_wait_second_done_fire;
+    assign rd_wait_second_done_fire = (rd_state == RD_WAIT_SECOND) && rd_wait_second_done;
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_state <= RD_IDLE;
+        else if (frame_start)
+            rd_state <= RD_IDLE;
+        else begin
             case (rd_state)
                 RD_IDLE: begin
-                    if (rd_can_start) begin
-                        rd_line_has_uv_reg <= rd_line_has_uv;
-                        rd_is_rgba_reg     <= cfg_is_rgba;
-                        rd_is_yuv420_reg   <= cfg_is_yuv420;
-                        rd_is_p010_reg     <= cfg_is_p010;
-                        rd_line_words_reg  <= rd_line_words;
-                        rd_y_slot_reg      <= rd_y_slot;
-                        rd_uv_slot_reg     <= rd_uv_slot;
-                        rd_y_data_valid    <= 1'b0;
-                        rd_uv_data_valid   <= 1'b0;
-                        rd_state           <= RD_WAIT_Y;
-                    end
+                    if (rd_can_start)
+                        rd_state <= RD_WAIT_Y;
                 end
                 RD_WAIT_Y: begin
-                    if (sram_a_rvalid) begin
-                        rd_first_data   <= sram_a_rdata;
-                        rd_y_data_valid <= 1'b1;
-                    end
-                    if (rd_line_has_uv_reg && sram_b_rvalid) begin
-                        rd_second_data   <= sram_b_rdata;
-                        rd_uv_data_valid <= 1'b1;
-                    end
-                    if (rd_wait_y_done) begin
-                        if (rd_is_rgba_reg) begin
-                            rd_y_data_valid <= 1'b0;
-                            rd_state <= RD_WAIT_SECOND;
-                        end else begin
-                            if (!rd_line_has_uv_reg) begin
-                                rd_second_data <= 128'd0;
-                            end
-                            rd_y_data_valid  <= 1'b0;
-                            rd_uv_data_valid <= 1'b0;
-                            rd_state         <= RD_PUSH;
-                        end
-                    end
+                    if (rd_wait_y_done)
+                        rd_state <= rd_is_rgba_reg ? RD_WAIT_SECOND : RD_PUSH;
                 end
                 RD_WAIT_SECOND: begin
-                    if (rd_wait_second_done) begin
-                        rd_second_data <= sram_a_rdata;
-                        rd_state       <= RD_PUSH;
-                    end
+                    if (rd_wait_second_done)
+                        rd_state <= RD_PUSH;
                 end
                 RD_PUSH: begin
-                    if (!i_fifo_full) begin
-                        o_fifo_wr_en <= 1'b1;
-                        o_fifo_wdata <= {rd_second_data, rd_first_data};
-                        if (rd_line_done) begin
-                            rd_word_idx <= 13'd0;
-                            rd_line_idx <= rd_line_idx + 16'd1;
-                            o_fetcher_done <= 1'b1;
-                        end else begin
-                            rd_word_idx <= rd_next_word_sum[12:0];
-                        end
+                    if (!i_fifo_full)
                         rd_state <= RD_IDLE;
-                    end
                 end
                 default: begin
                     rd_state <= RD_IDLE;
                 end
             endcase
         end
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_line_idx <= 16'd0;
+        else if (frame_start)
+            rd_line_idx <= 16'd0;
+        else if (rd_push_line_done)
+            rd_line_idx <= rd_line_idx + 16'd1;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_word_idx <= 13'd0;
+        else if (frame_start)
+            rd_word_idx <= 13'd0;
+        else if (rd_push_fire)
+            rd_word_idx <= rd_line_done ? 13'd0 : rd_next_word_sum[12:0];
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_first_data <= 128'd0;
+        else if (frame_start)
+            rd_first_data <= 128'd0;
+        else if (rd_wait_y_capture_y_fire)
+            rd_first_data <= sram_a_rdata;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_second_data <= 128'd0;
+        else if (frame_start)
+            rd_second_data <= 128'd0;
+        else if (rd_wait_second_done_fire)
+            rd_second_data <= sram_a_rdata;
+        else if (rd_wait_y_done_nonrgba_fire && !rd_line_has_uv_reg)
+            rd_second_data <= 128'd0;
+        else if (rd_wait_y_capture_uv_fire)
+            rd_second_data <= sram_b_rdata;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_line_has_uv_reg <= 1'b0;
+        else if (frame_start)
+            rd_line_has_uv_reg <= 1'b0;
+        else if (rd_start_fire)
+            rd_line_has_uv_reg <= rd_line_has_uv;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_is_rgba_reg <= 1'b0;
+        else if (frame_start)
+            rd_is_rgba_reg <= 1'b0;
+        else if (rd_start_fire)
+            rd_is_rgba_reg <= cfg_is_rgba;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_is_yuv420_reg <= 1'b0;
+        else if (frame_start)
+            rd_is_yuv420_reg <= 1'b0;
+        else if (rd_start_fire)
+            rd_is_yuv420_reg <= cfg_is_yuv420;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_is_p010_reg <= 1'b0;
+        else if (frame_start)
+            rd_is_p010_reg <= 1'b0;
+        else if (rd_start_fire)
+            rd_is_p010_reg <= cfg_is_p010;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_line_words_reg <= 13'd0;
+        else if (frame_start)
+            rd_line_words_reg <= 13'd0;
+        else if (rd_start_fire)
+            rd_line_words_reg <= rd_line_words;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_y_slot_reg <= {LINE_SLOT_W{1'b0}};
+        else if (frame_start)
+            rd_y_slot_reg <= {LINE_SLOT_W{1'b0}};
+        else if (rd_start_fire)
+            rd_y_slot_reg <= rd_y_slot;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_uv_slot_reg <= {LINE_SLOT_W{1'b0}};
+        else if (frame_start)
+            rd_uv_slot_reg <= {LINE_SLOT_W{1'b0}};
+        else if (rd_start_fire)
+            rd_uv_slot_reg <= rd_uv_slot;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_y_data_valid <= 1'b0;
+        else if (frame_start || rd_start_fire || rd_wait_y_done_fire)
+            rd_y_data_valid <= 1'b0;
+        else if (rd_wait_y_capture_y_fire)
+            rd_y_data_valid <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            rd_uv_data_valid <= 1'b0;
+        else if (frame_start || rd_start_fire || rd_wait_y_done_nonrgba_fire)
+            rd_uv_data_valid <= 1'b0;
+        else if (rd_wait_y_capture_uv_fire)
+            rd_uv_data_valid <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            o_fifo_wr_en <= 1'b0;
+        else if (frame_start)
+            o_fifo_wr_en <= 1'b0;
+        else
+            o_fifo_wr_en <= rd_push_fire;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            o_fifo_wdata <= 256'd0;
+        else if (frame_start)
+            o_fifo_wdata <= 256'd0;
+        else if (rd_push_fire)
+            o_fifo_wdata <= {rd_second_data, rd_first_data};
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            o_fetcher_done <= 1'b0;
+        else if (frame_start)
+            o_fetcher_done <= 1'b0;
+        else
+            o_fetcher_done <= rd_push_line_done;
     end
 
     assign o_writer_vld   = writer_line_done;

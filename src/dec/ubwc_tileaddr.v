@@ -9,8 +9,10 @@ module ubwc_tile_addr #(
     input  wire                 i_cfg_bank_spread_en,
     input  wire                 i_cfg_is_lossy_rgba_2_1_format,
     input  wire [11:0]          i_cfg_pitch,
-    input  wire [ADDR_W-1:0]    i_cfg_base_addr_rgba_uv,
-    input  wire [ADDR_W-1:0]    i_cfg_base_addr_y,
+    input  wire [ADDR_W-1:0]    i_cfg_base_addr_rgba_y0,
+    input  wire [ADDR_W-1:0]    i_cfg_base_addr_uv0,
+    input  wire [ADDR_W-1:0]    i_cfg_base_addr_rgba_y1,
+    input  wire [ADDR_W-1:0]    i_cfg_base_addr_uv1,
     input  wire                 i_meta_valid,
     output wire                 o_meta_ready,
     input  wire [4:0]           i_meta_format,
@@ -19,23 +21,21 @@ module ubwc_tile_addr #(
     input  wire                 i_meta_has_payload,
     input  wire [11:0]          i_meta_x,
     input  wire [9:0]           i_meta_y,
+    input  wire [3:0]           i_meta_fcnt,
     output wire                 o_cmd_valid,
     input  wire                 i_cmd_ready,
     output wire [ADDR_W-5:0]    o_cmd_addr,
     output wire [4:0]           o_cmd_format,
     output wire [3:0]           o_cmd_meta,
     output wire [2:0]           o_cmd_alen,
-    output wire                 o_cmd_has_payload
+    output wire                 o_cmd_has_payload,
+    output wire [3:0]           o_cmd_fcnt
 );
 
     localparam [4:0] META_FMT_RGBA8888    = 5'b00000;
     localparam [4:0] META_FMT_RGBA1010102 = 5'b00001;
     localparam [4:0] META_FMT_NV12_Y      = 5'b01000;
     localparam [4:0] META_FMT_NV12_UV     = 5'b01001;
-    localparam [4:0] META_FMT_NV16_Y      = 5'b01010;
-    localparam [4:0] META_FMT_NV16_UV     = 5'b01011;
-    localparam [4:0] META_FMT_NV16_10_Y   = 5'b01100;
-    localparam [4:0] META_FMT_NV16_10_UV  = 5'b01101;
     localparam [4:0] META_FMT_P010_Y      = 5'b01110;
     localparam [4:0] META_FMT_P010_UV     = 5'b01111;
 
@@ -176,153 +176,132 @@ module ubwc_tile_addr #(
         end
     endfunction
 
-    reg [15:0] tile_width;
-    reg [15:0] tile_height;
-    reg [2:0]  bytes_per_pixel;
-    reg [63:0] addr_bytes;
-    reg [63:0] surface_pitch_bytes;
-    reg [63:0] macro_tile_base;
-    reg [63:0] row_factor;
-    reg [63:0] tile_row_pixels;
-    reg [63:0] spread_mask;
-    reg [63:0] payload_base_addr;
-    reg [15:0] eff_tile_y;
-    reg [15:0] macro_tile_x;
-    reg [15:0] macro_tile_y;
-    reg [2:0]  temp_tile_x;
-    reg [2:0]  temp_tile_y;
-    reg [4:0]  slot;
-    reg [8:0]  compressed_size_bytes;
-    reg        use_special_swizzle_taps;
-    reg        lossy_rgba_2_1_active;
-    reg        lvl2_cond;
-    reg        lvl3_cond;
-    reg        bank_spread_en;
-    reg        bit_value;
-
-    always @(*) begin
-        tile_width = 16'd16;
-        tile_height = 16'd4;
-        bytes_per_pixel = 3'd4;
-        addr_bytes = 64'd0;
-        surface_pitch_bytes = 64'd0;
-        macro_tile_base = 64'd0;
-        row_factor = 64'd0;
-        tile_row_pixels = 64'd0;
-        spread_mask = 64'd0;
-        payload_base_addr = 64'd0;
-        eff_tile_y = 16'd0;
-        macro_tile_x = 16'd0;
-        macro_tile_y = 16'd0;
-        temp_tile_x = 3'd0;
-        temp_tile_y = 3'd0;
-        slot = 5'd0;
-        compressed_size_bytes = 9'd0;
-        use_special_swizzle_taps = 1'b0;
-        lossy_rgba_2_1_active = 1'b0;
-        lvl2_cond = 1'b0;
-        lvl3_cond = 1'b0;
-        bank_spread_en = 1'b0;
-        bit_value = 1'b0;
-
-        case (i_meta_format)
-            META_FMT_RGBA8888,
-            META_FMT_RGBA1010102: begin
-                tile_width = 16'd16;
-                tile_height = 16'd4;
-                bytes_per_pixel = 3'd4;
+    function [63:0] mul64x32_shift_add;
+        input [63:0] multiplicand;
+        input [31:0] multiplier;
+        integer idx;
+        begin
+            mul64x32_shift_add = 64'd0;
+            for (idx = 0; idx < 32; idx = idx + 1) begin
+                if (multiplier[idx])
+                    mul64x32_shift_add = mul64x32_shift_add + (multiplicand << idx);
             end
-            META_FMT_NV12_Y,
-            META_FMT_NV12_UV,
-            META_FMT_NV16_Y,
-            META_FMT_NV16_UV: begin
-                tile_width = 16'd32;
-                tile_height = 16'd8;
-                bytes_per_pixel = 3'd1;
-            end
-            META_FMT_NV16_10_Y,
-            META_FMT_NV16_10_UV,
-            META_FMT_P010_Y,
-            META_FMT_P010_UV: begin
-                tile_width = 16'd32;
-                tile_height = 16'd4;
-                bytes_per_pixel = 3'd2;
-            end
-            default: begin
-                tile_width = 16'd16;
-                tile_height = 16'd4;
-                bytes_per_pixel = 3'd4;
-            end
-        endcase
-
-        // Assumption: i_cfg_pitch is provided in 16-byte units to fit the 12-bit port.
-        surface_pitch_bytes = {{(ADDR_W-16){1'b0}}, i_cfg_pitch, 4'b0000};
-        compressed_size_bytes = i_meta_has_payload ? ({6'd0, i_meta_alen} + 9'd1) << 5 : 9'd0;
-        lossy_rgba_2_1_active = i_cfg_is_lossy_rgba_2_1_format && (i_meta_format == META_FMT_RGBA8888);
-        payload_base_addr = i_cfg_base_addr_rgba_uv;
-
-        case (i_meta_format)
-            META_FMT_NV12_Y,
-            META_FMT_NV16_Y,
-            META_FMT_NV16_10_Y,
-            META_FMT_P010_Y: begin
-                payload_base_addr = i_cfg_base_addr_y;
-            end
-            default: begin
-                payload_base_addr = i_cfg_base_addr_rgba_uv;
-            end
-        endcase
-
-        eff_tile_y = lossy_rgba_2_1_active ? {7'd0, i_meta_y[9:1]} : {6'd0, i_meta_y};
-        macro_tile_x = {6'd0, i_meta_x[11:2]};
-        macro_tile_y = eff_tile_y >> 2;
-        temp_tile_x = i_meta_x[2:0];
-        temp_tile_y = eff_tile_y[2:0];
-
-        slot = macro_tile_slot(temp_tile_x, temp_tile_y);
-        row_factor = (tile_height == 16'd8) ? ({48'd0, macro_tile_y} << 5) : ({48'd0, macro_tile_y} << 4);
-        macro_tile_base = (surface_pitch_bytes * row_factor) + ({48'd0, macro_tile_x} << 12);
-        addr_bytes = macro_tile_base + ({59'd0, slot} << 8);
-
-        // Match ubwc_demo.cpp: compute the swizzled plane-local tile address first,
-        // then add the plane base afterwards so base bits do not affect swizzling.
-        use_special_swizzle_taps =
-            ((bytes_per_pixel == 3'd1) && (tile_width == 16'd32) && (tile_height == 16'd8)) ||
-            ((bytes_per_pixel == 3'd2) && (tile_width == 16'd16) && (tile_height == 16'd8));
-
-        tile_row_pixels = (tile_height == 16'd8) ? ({48'd0, eff_tile_y} << 3) : ({48'd0, eff_tile_y} << 2);
-        spread_mask = (i_cfg_highest_bank_bit == 0) ? 64'd0 : ((64'd1 << i_cfg_highest_bank_bit) - 1'b1);
-        lvl2_cond = (i_cfg_highest_bank_bit != 0) &&
-                    (((surface_pitch_bytes << 4) & spread_mask) == 64'd0);
-        lvl3_cond = (i_cfg_highest_bank_bit < 5'd31) &&
-                    (((surface_pitch_bytes << 4) & ((64'd1 << (i_cfg_highest_bank_bit + 1'b1)) - 1'b1)) == 64'd0);
-
-        if (i_cfg_lvl2_bank_swizzle_en && lvl2_cond) begin
-            bit_value = get_bit64(i_cfg_highest_bank_bit - 1'b1, addr_bytes) ^
-                        (use_special_swizzle_taps ? get_bit64(6'd5, tile_row_pixels)
-                                                  : get_bit64(6'd4, tile_row_pixels));
-            addr_bytes = program_bit64(i_cfg_highest_bank_bit - 1'b1, bit_value, addr_bytes);
         end
+    endfunction
 
-        if (i_cfg_lvl3_bank_swizzle_en && lvl3_cond) begin
-            bit_value = get_bit64({1'b0, i_cfg_highest_bank_bit}, addr_bytes) ^
-                        (use_special_swizzle_taps ? get_bit64(6'd6, tile_row_pixels)
-                                                  : get_bit64(6'd5, tile_row_pixels));
-            addr_bytes = program_bit64({1'b0, i_cfg_highest_bank_bit}, bit_value, addr_bytes);
-        end
+    wire [ADDR_W-1:0] cfg_base_addr_rgba_y;
+    assign cfg_base_addr_rgba_y = i_meta_fcnt[0] ? i_cfg_base_addr_rgba_y1 :
+                                                               i_cfg_base_addr_rgba_y0;
+    wire [ADDR_W-1:0] cfg_base_addr_uv;
+    assign cfg_base_addr_uv = i_meta_fcnt[0] ? i_cfg_base_addr_uv1 :
+                                                               i_cfg_base_addr_uv0;
 
-        if (lossy_rgba_2_1_active) begin
-            addr_bytes = addr_bytes + ({63'd0, i_meta_y[0]} << 7);
-        end
+    wire meta_is_rgba;
+    assign meta_is_rgba = (i_meta_format == META_FMT_RGBA8888) ||
+                          (i_meta_format == META_FMT_RGBA1010102);
+    wire meta_is_nv12;
+    assign meta_is_nv12 = (i_meta_format == META_FMT_NV12_Y) ||
+                          (i_meta_format == META_FMT_NV12_UV);
+    wire meta_is_p010;
+    assign meta_is_p010 = (i_meta_format == META_FMT_P010_Y) ||
+                          (i_meta_format == META_FMT_P010_UV);
+    wire meta_is_uv;
+    assign meta_is_uv = (i_meta_format == META_FMT_NV12_UV) ||
+                        (i_meta_format == META_FMT_P010_UV);
 
-        bank_spread_en = i_cfg_bank_spread_en && !lossy_rgba_2_1_active;
-        if (bank_spread_en && i_meta_has_payload && (compressed_size_bytes <= 9'd128) &&
-            (addr_bytes[8] ^ addr_bytes[9])) begin
-            addr_bytes = addr_bytes + 64'd128;
-        end
-
-        addr_bytes = addr_bytes + payload_base_addr;
-    end
+    wire [15:0] tile_width;
+    assign tile_width = meta_is_rgba ? 16'd16 : 16'd32;
+    wire [15:0] tile_height;
+    assign tile_height = meta_is_nv12 ? 16'd8 : 16'd4;
+    wire [2:0] bytes_per_pixel;
+    assign bytes_per_pixel = meta_is_nv12 ? 3'd1 :
+                             meta_is_p010 ? 3'd2 :
+                                            3'd4;
+    wire [63:0] surface_pitch_bytes;
+    assign surface_pitch_bytes = {{(ADDR_W-16){1'b0}}, i_cfg_pitch, 4'b0000};
+    wire [8:0] compressed_size_bytes;
+    assign compressed_size_bytes = i_meta_has_payload ? (({6'd0, i_meta_alen} + 9'd1) << 5) :
+                                                        9'd0;
+    wire lossy_rgba_2_1_active;
+    assign lossy_rgba_2_1_active = i_cfg_is_lossy_rgba_2_1_format &&
+                                   (i_meta_format == META_FMT_RGBA8888);
+    wire [63:0] payload_base_addr;
+    assign payload_base_addr = meta_is_uv ? cfg_base_addr_uv :
+                                            cfg_base_addr_rgba_y;
+    wire [15:0] eff_tile_y;
+    assign eff_tile_y = lossy_rgba_2_1_active ? {7'd0, i_meta_y[9:1]} :
+                                                  {6'd0, i_meta_y};
+    wire [15:0] macro_tile_x;
+    assign macro_tile_x = {6'd0, i_meta_x[11:2]};
+    wire [15:0] macro_tile_y;
+    assign macro_tile_y = eff_tile_y >> 2;
+    wire [2:0] temp_tile_x;
+    assign temp_tile_x = i_meta_x[2:0];
+    wire [2:0] temp_tile_y;
+    assign temp_tile_y = eff_tile_y[2:0];
+    wire [4:0] slot;
+    assign slot = macro_tile_slot(temp_tile_x, temp_tile_y);
+    wire [63:0] row_factor;
+    assign row_factor = (tile_height == 16'd8) ? ({48'd0, macro_tile_y} << 5) :
+                                                 ({48'd0, macro_tile_y} << 4);
+    wire [63:0] macro_tile_base;
+    assign macro_tile_base = mul64x32_shift_add(surface_pitch_bytes, row_factor[31:0]) +
+                             ({48'd0, macro_tile_x} << 12);
+    wire [63:0] addr_bytes_base;
+    assign addr_bytes_base = macro_tile_base + ({59'd0, slot} << 8);
+    wire use_special_swizzle_taps;
+    assign use_special_swizzle_taps =
+        ((bytes_per_pixel == 3'd1) && (tile_width == 16'd32) && (tile_height == 16'd8)) ||
+        ((bytes_per_pixel == 3'd2) && (tile_width == 16'd16) && (tile_height == 16'd8));
+    wire [63:0] tile_row_pixels;
+    assign tile_row_pixels = (tile_height == 16'd8) ? ({48'd0, eff_tile_y} << 3) :
+                                                     ({48'd0, eff_tile_y} << 2);
+    wire [63:0] spread_mask;
+    assign spread_mask = (i_cfg_highest_bank_bit == 5'd0) ? 64'd0 :
+                         ((64'd1 << i_cfg_highest_bank_bit) - 1'b1);
+    wire lvl2_cond;
+    assign lvl2_cond = (i_cfg_highest_bank_bit != 5'd0) &&
+                       (((surface_pitch_bytes << 4) & spread_mask) == 64'd0);
+    wire [63:0] lvl3_mask;
+    assign lvl3_mask = (64'd1 << (i_cfg_highest_bank_bit + 1'b1)) - 1'b1;
+    wire lvl3_cond;
+    assign lvl3_cond = (i_cfg_highest_bank_bit < 5'd31) &&
+                       (((surface_pitch_bytes << 4) & lvl3_mask) == 64'd0);
+    wire lvl2_bit_value;
+    assign lvl2_bit_value = get_bit64(i_cfg_highest_bank_bit - 1'b1, addr_bytes_base) ^
+                            (use_special_swizzle_taps ? get_bit64(6'd5, tile_row_pixels) :
+                                                        get_bit64(6'd4, tile_row_pixels));
+    wire [63:0] addr_after_lvl2;
+    assign addr_after_lvl2 = (i_cfg_lvl2_bank_swizzle_en && lvl2_cond) ?
+                             program_bit64(i_cfg_highest_bank_bit - 1'b1,
+                                           lvl2_bit_value,
+                                           addr_bytes_base) :
+                             addr_bytes_base;
+    wire lvl3_bit_value;
+    assign lvl3_bit_value = get_bit64({1'b0, i_cfg_highest_bank_bit}, addr_after_lvl2) ^
+                            (use_special_swizzle_taps ? get_bit64(6'd6, tile_row_pixels) :
+                                                        get_bit64(6'd5, tile_row_pixels));
+    wire [63:0] addr_after_lvl3;
+    assign addr_after_lvl3 = (i_cfg_lvl3_bank_swizzle_en && lvl3_cond) ?
+                             program_bit64({1'b0, i_cfg_highest_bank_bit},
+                                           lvl3_bit_value,
+                                           addr_after_lvl2) :
+                             addr_after_lvl2;
+    wire [63:0] addr_after_lossy;
+    assign addr_after_lossy = lossy_rgba_2_1_active ?
+                              (addr_after_lvl3 + ({63'd0, i_meta_y[0]} << 7)) :
+                              addr_after_lvl3;
+    wire bank_spread_en;
+    assign bank_spread_en = i_cfg_bank_spread_en && !lossy_rgba_2_1_active;
+    wire bank_spread_bump;
+    assign bank_spread_bump = bank_spread_en && i_meta_has_payload &&
+                              (compressed_size_bytes <= 9'd128) &&
+                              (addr_after_lossy[8] ^ addr_after_lossy[9]);
+    wire [63:0] addr_after_spread;
+    assign addr_after_spread = bank_spread_bump ? (addr_after_lossy + 64'd128) :
+                                                  addr_after_lossy;
+    wire [63:0] addr_bytes;
+    assign addr_bytes = addr_after_spread + payload_base_addr;
 
     assign o_meta_ready      = i_cmd_ready;
     assign o_cmd_valid       = i_meta_valid;
@@ -331,5 +310,6 @@ module ubwc_tile_addr #(
     assign o_cmd_meta        = i_meta_flag;
     assign o_cmd_alen        = i_meta_alen;
     assign o_cmd_has_payload = i_meta_has_payload;
+    assign o_cmd_fcnt        = i_meta_fcnt;
 
 endmodule

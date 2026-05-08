@@ -43,6 +43,7 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     input  wire [4:0]             meta_format,
     input  wire [TW_DW-1:0]       meta_xcoord,
     input  wire [TH_DW-1:0]       meta_ycoord,
+    input  wire [3:0]             meta_fcnt,
 
     // --- 8-bit metadata output stream ---
     output wire                   meta_data_valid,
@@ -51,6 +52,7 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     output wire [4:0]             meta_data_format,
     output wire [TW_DW-1:0]       meta_data_xcoord,
     output wire [TH_DW-1:0]       meta_data_ycoord,
+    output wire [3:0]             meta_data_fcnt,
 
     // -- status interface
     output reg  [31:0]            error_cnt,
@@ -60,7 +62,8 @@ module ubwc_dec_meta_axi_rcmd_gen #(
 
     localparam integer BYTES_PER_BEAT = DATA_WIDTH / 8;
     localparam integer ARSIZE_VALUE   = $clog2(BYTES_PER_BEAT);
-    localparam integer META_DESC_W    = 5 + TW_DW + TH_DW;
+    localparam integer META_FCNT_W    = 4;
+    localparam integer META_DESC_W    = META_FCNT_W + 5 + TW_DW + TH_DW;
     localparam integer CMD_FIFO_W     = ADDR_WIDTH + 2 + META_DESC_W;
     localparam integer RSP_FIFO_W     = 2 + META_DESC_W;
     localparam integer OUT_FIFO_W     = 64 + META_DESC_W;
@@ -77,6 +80,8 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     wire [4:0]            cmd_fifo_meta_format;
     wire [TW_DW-1:0]      cmd_fifo_meta_xcoord;
     wire [TH_DW-1:0]      cmd_fifo_meta_ycoord;
+    wire [3:0]            cmd_fifo_meta_fcnt;
+    wire [ID_WIDTH-1:0]   cmd_fifo_axi_id;
 
     wire                  rsp_fifo_empty;
     wire                  rsp_fifo_full;
@@ -90,6 +95,8 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     wire [4:0]            rsp_meta_format;
     wire [TW_DW-1:0]      rsp_meta_xcoord;
     wire [TH_DW-1:0]      rsp_meta_ycoord;
+    wire [3:0]            rsp_meta_fcnt;
+    wire [ID_WIDTH-1:0]   rsp_axi_id;
 
     wire                  out_fifo_empty;
     wire                  out_fifo_full;
@@ -103,6 +110,8 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     wire [4:0]            out_meta_format;
     wire [TW_DW-1:0]      out_meta_xcoord;
     wire [TH_DW-1:0]      out_meta_ycoord;
+    wire [3:0]            out_meta_fcnt;
+    wire [3:0]            r_meta_fcnt;
 
     wire [ADDR_WIDTH-1:0] aligned_cmd_addr;
     wire [1:0]            cmd_lane_sel;
@@ -113,6 +122,13 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     wire                  r_fire;
     wire                  fifo_status_seen;
     reg  [2:0]            byte_idx;
+
+    function [3:0] axi_id_to_fcnt;
+        input [ID_WIDTH-1:0] axi_id;
+        begin
+            axi_id_to_fcnt = axi_id;
+        end
+    endfunction
 
     assign aligned_cmd_addr = {meta_grp_addr[ADDR_WIDTH-1:5], 5'd0};
     assign cmd_lane_sel     = meta_grp_addr[4:3];
@@ -132,9 +148,10 @@ module ubwc_dec_meta_axi_rcmd_gen #(
         .SHOW_AHEAD (1)
     ) u_cmd_fifo (
         .clk        (clk),
-        .rst_n      (rst_n && !start),
+        .rst_n      (rst_n),
+        .sclr       (start),
         .wr_en      (meta_grp_valid && meta_grp_ready),
-        .din        ({aligned_cmd_addr, cmd_lane_sel, meta_format, meta_xcoord, meta_ycoord}),
+        .din        ({aligned_cmd_addr, cmd_lane_sel, meta_format, meta_xcoord, meta_ycoord, meta_fcnt}),
         .prog_full  (cmd_fifo_prog_full),
         .full       (cmd_fifo_full),
         .rd_en      (cmd_fifo_rd_en),
@@ -149,15 +166,18 @@ module ubwc_dec_meta_axi_rcmd_gen #(
         cmd_fifo_lane_sel,
         cmd_fifo_meta_format,
         cmd_fifo_meta_xcoord,
-        cmd_fifo_meta_ycoord
+        cmd_fifo_meta_ycoord,
+        cmd_fifo_meta_fcnt
     } = cmd_fifo_dout;
+
+    assign cmd_fifo_axi_id = cmd_fifo_meta_fcnt;
 
     assign m_axi_arvalid = rst_n && !start && cmd_fifo_valid && !rsp_fifo_full;
     assign m_axi_araddr  = cmd_fifo_addr;
     assign m_axi_arlen   = 8'd0;
     assign m_axi_arsize  = ARSIZE_VALUE[2:0];
     assign m_axi_arburst = 2'b01;
-    assign m_axi_arid    = {ID_WIDTH{1'b0}};
+    assign m_axi_arid    = cmd_fifo_axi_id;
     assign cmd_fifo_rd_en = m_axi_arvalid && m_axi_arready;
     assign rsp_fifo_wr_en = cmd_fifo_rd_en;
 
@@ -168,9 +188,10 @@ module ubwc_dec_meta_axi_rcmd_gen #(
         .SHOW_AHEAD (1)
     ) u_rsp_info_fifo (
         .clk        (clk),
-        .rst_n      (rst_n && !start),
+        .rst_n      (rst_n),
+        .sclr       (start),
         .wr_en      (rsp_fifo_wr_en),
-        .din        ({cmd_fifo_lane_sel, cmd_fifo_meta_format, cmd_fifo_meta_xcoord, cmd_fifo_meta_ycoord}),
+        .din        ({cmd_fifo_lane_sel, cmd_fifo_meta_format, cmd_fifo_meta_xcoord, cmd_fifo_meta_ycoord, cmd_fifo_meta_fcnt}),
         .prog_full  (rsp_fifo_prog_full),
         .full       (rsp_fifo_full),
         .rd_en      (rsp_fifo_rd_en),
@@ -184,10 +205,13 @@ module ubwc_dec_meta_axi_rcmd_gen #(
         rsp_lane_sel,
         rsp_meta_format,
         rsp_meta_xcoord,
-        rsp_meta_ycoord
+        rsp_meta_ycoord,
+        rsp_meta_fcnt
     } = rsp_fifo_dout;
 
-    assign rid_match    = (m_axi_rid == {ID_WIDTH{1'b0}});
+    assign rsp_axi_id   = rsp_meta_fcnt;
+    assign rid_match    = (m_axi_rid == rsp_axi_id);
+    assign r_meta_fcnt  = axi_id_to_fcnt(m_axi_rid);
     assign m_axi_rready = rst_n && !start && rsp_fifo_valid && !out_fifo_full;
     assign r_fire       = m_axi_rvalid && m_axi_rready;
     assign rsp_fifo_rd_en = r_fire;
@@ -207,9 +231,10 @@ module ubwc_dec_meta_axi_rcmd_gen #(
         .SHOW_AHEAD (1)
     ) u_meta_data_fifo (
         .clk        (clk),
-        .rst_n      (rst_n && !start),
+        .rst_n      (rst_n),
+        .sclr       (start),
         .wr_en      (out_fifo_wr_en),
-        .din        ({selected_rdata, rsp_meta_format, rsp_meta_xcoord, rsp_meta_ycoord}),
+        .din        ({selected_rdata, rsp_meta_format, rsp_meta_xcoord, rsp_meta_ycoord, r_meta_fcnt}),
         .prog_full  (out_fifo_prog_full),
         .full       (out_fifo_full),
         .rd_en      (out_fifo_rd_en),
@@ -225,11 +250,13 @@ module ubwc_dec_meta_axi_rcmd_gen #(
         out_meta_group_data,
         out_meta_format,
         out_meta_xcoord,
-        out_meta_ycoord
+        out_meta_ycoord,
+        out_meta_fcnt
     } = out_fifo_dout;
     assign meta_data_format = out_meta_format;
     assign meta_data_xcoord = out_meta_xcoord + {{(TW_DW-3){1'b0}}, byte_idx};
     assign meta_data_ycoord = out_meta_ycoord;
+    assign meta_data_fcnt   = out_meta_fcnt;
 
     always @* begin
         case (byte_idx)
@@ -255,27 +282,35 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     end
 
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            error_cnt    <= 32'd0;
-            cmd_ok_cnt   <= 32'd0;
-            cmd_fail_cnt <= 32'd0;
-        end else if (start) begin
-            cmd_ok_cnt   <= 32'd0;
-            cmd_fail_cnt <= 32'd0;
-            if (!cmd_fifo_empty || !rsp_fifo_empty || !out_fifo_empty) begin
-                error_cnt <= error_cnt + 1'b1;
-            end
-        end else if (meta_grp_valid && meta_grp_ready && (cmd_addr_unaligned | (fifo_status_seen & 1'b0))) begin
+        if (!rst_n)
+            error_cnt <= 32'd0;
+        else if (start && (!cmd_fifo_empty || !rsp_fifo_empty || !out_fifo_empty))
+            error_cnt <= error_cnt + 1'b1;
+        else if (meta_grp_valid && meta_grp_ready &&
+                 (cmd_addr_unaligned | (fifo_status_seen & 1'b0)))
             error_cnt <= error_cnt + 32'd1;
-        end else if (r_fire && m_axi_rlast && rid_match) begin
-            if (m_axi_rresp == 2'b00 || m_axi_rresp == 2'b01) begin
-                cmd_ok_cnt <= cmd_ok_cnt + 1'b1;
-            end else begin
-                cmd_fail_cnt <= cmd_fail_cnt + 1'b1;
-            end
-        end else if (r_fire && m_axi_rlast && !rid_match) begin
+        else if (r_fire && m_axi_rlast && !rid_match)
+            error_cnt <= error_cnt + 32'd1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            cmd_ok_cnt <= 32'd0;
+        else if (start)
+            cmd_ok_cnt <= 32'd0;
+        else if (r_fire && m_axi_rlast &&
+                 ((m_axi_rresp == 2'b00) || (m_axi_rresp == 2'b01)))
+            cmd_ok_cnt <= cmd_ok_cnt + 1'b1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            cmd_fail_cnt <= 32'd0;
+        else if (start)
+            cmd_fail_cnt <= 32'd0;
+        else if (r_fire && m_axi_rlast &&
+                 !((m_axi_rresp == 2'b00) || (m_axi_rresp == 2'b01)))
             cmd_fail_cnt <= cmd_fail_cnt + 1'b1;
-        end
     end
 
 endmodule
