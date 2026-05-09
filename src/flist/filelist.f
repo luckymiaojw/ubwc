@@ -5,7 +5,6 @@
 -f filelist_axi_2t1_int.f
 
 ../ip/mg_sync_fifo.v
-../dec/ubwc_meta_simple_fifo.v
 ../dec/ubwc_dec_meta_get_cmd_gen.v
 ../dec/ubwc_dec_meta_axi_rcmd_gen.v
 ../dec/ubwc_dec_meta_axi_rdata_to_sram.v

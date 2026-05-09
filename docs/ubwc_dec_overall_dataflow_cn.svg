@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1260" viewBox="0 0 2000 1260">
+  <defs>
+    <style>
+      .bg { fill:#f8fafc; }
+      .title { font:700 34px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#0f172a; }
+      .subtitle { font:500 16px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#475569; }
+      .lane { fill:#ffffff; stroke:#cbd5e1; stroke-width:1.5; }
+      .lane-title { font:700 18px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#334155; }
+      .box-title { font:700 18px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#111827; }
+      .box-text { font:500 14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#334155; }
+      .small { font:500 13px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#64748b; }
+      .blue { fill:#eff6ff; stroke:#2563eb; stroke-width:2; rx:12; }
+      .green { fill:#ecfdf5; stroke:#059669; stroke-width:2; rx:12; }
+      .orange { fill:#fff7ed; stroke:#ea580c; stroke-width:2; rx:12; }
+      .purple { fill:#f5f3ff; stroke:#7c3aed; stroke-width:2; rx:12; }
+      .red { fill:#fef2f2; stroke:#dc2626; stroke-width:2; rx:12; }
+      .gray { fill:#f1f5f9; stroke:#64748b; stroke-width:2; rx:12; }
+      .line { stroke:#334155; stroke-width:2.2; fill:none; marker-end:url(#arrow); }
+      .dash { stroke:#64748b; stroke-width:2; fill:none; stroke-dasharray:8 6; marker-end:url(#arrow); }
+      .label { font:600 13px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#334155; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2000" height="1260"/>
+  <text class="title" x="60" y="58">DEC 整体设计数据流图</text>
+  <text class="subtitle" x="60" y="88">对应 RTL：ubwc_dec_wrapper_top，覆盖 APB 配置、metadata read、tile read、VIVO decode、tile_to_otf、status/IRQ</text>
+
+  <rect class="lane" x="50" y="125" width="1870" height="160" rx="16"/>
+  <text class="lane-title" x="80" y="160">控制与配置路径</text>
+
+  <rect class="blue" x="95" y="185" width="330" height="70"/>
+  <text class="box-title" x="260" y="213" text-anchor="middle">APB register block</text>
+  <text class="box-text" x="260" y="238" text-anchor="middle">静态配置 + 每帧地址 + IRQ clear</text>
+
+  <rect class="purple" x="500" y="185" width="330" height="70"/>
+  <text class="box-title" x="665" y="213" text-anchor="middle">frame_start / fcnt</text>
+  <text class="box-text" x="665" y="238" text-anchor="middle">地址组有效后启动，fcnt 递增</text>
+
+  <rect class="gray" x="905" y="185" width="330" height="70"/>
+  <text class="box-title" x="1070" y="213" text-anchor="middle">reset / clock domains</text>
+  <text class="box-text" x="1070" y="238" text-anchor="middle">ctrl_rst_n / sram_rst_n / otf_rst_n</text>
+
+  <rect class="red" x="1310" y="185" width="520" height="70"/>
+  <text class="box-title" x="1570" y="213" text-anchor="middle">DEC status / IRQ</text>
+  <text class="box-text" x="1570" y="238" text-anchor="middle">busy、stage_done、correct/error pending、统计计数</text>
+
+  <rect class="lane" x="50" y="330" width="1870" height="760" rx="16"/>
+  <text class="lane-title" x="80" y="365">主数据路径：UBWC compressed buffer → VIVO → OTF video</text>
+
+  <rect class="green" x="95" y="420" width="330" height="126"/>
+  <text class="box-title" x="260" y="452" text-anchor="middle">ubwc_dec_meta_data_gen</text>
+  <text class="box-text" x="260" y="480" text-anchor="middle">根据 meta base + tile count</text>
+  <text class="box-text" x="260" y="502" text-anchor="middle">发起 metadata AXI read</text>
+  <text class="small" x="260" y="526" text-anchor="middle">输出 dec_meta_valid/format/x/y/fcnt</text>
+
+  <rect class="gray" x="95" y="610" width="330" height="96"/>
+  <text class="box-title" x="260" y="642" text-anchor="middle">AXI read interconnect</text>
+  <text class="box-text" x="260" y="670" text-anchor="middle">meta read 与 tile read 汇聚</text>
+  <text class="small" x="260" y="690" text-anchor="middle">经 x2x 接到外部 AXI master</text>
+
+  <rect class="orange" x="500" y="420" width="350" height="126"/>
+  <text class="box-title" x="675" y="452" text-anchor="middle">ubwc_dec_tile_arcmd_gen</text>
+  <text class="box-text" x="675" y="480" text-anchor="middle">使用 metadata 计算 compressed tile 地址</text>
+  <text class="box-text" x="675" y="502" text-anchor="middle">发 AXI read，取回 tile payload</text>
+  <text class="small" x="675" y="526" text-anchor="middle">同时生成 CI command 与 tile coord</text>
+
+  <rect class="blue" x="500" y="610" width="350" height="126"/>
+  <text class="box-title" x="675" y="642" text-anchor="middle">CI / CVI stream</text>
+  <text class="box-text" x="675" y="670" text-anchor="middle">CI: format/alen/meta/lossy/sb</text>
+  <text class="box-text" x="675" y="692" text-anchor="middle">CVI: compressed payload 256b + last</text>
+
+  <rect class="purple" x="925" y="515" width="350" height="136"/>
+  <text class="box-title" x="1100" y="548" text-anchor="middle">ubwc_dec_vivo_top</text>
+  <text class="box-text" x="1100" y="578" text-anchor="middle">解码 UBWC tile payload</text>
+  <text class="box-text" x="1100" y="600" text-anchor="middle">输出 raw video object stream</text>
+  <text class="small" x="1100" y="626" text-anchor="middle">rvo_valid / rvo_data[255:0] / rvo_last</text>
+
+  <rect class="orange" x="1350" y="420" width="390" height="150"/>
+  <text class="box-title" x="1545" y="452" text-anchor="middle">ubwc_dec_tile_to_otf</text>
+  <text class="box-text" x="1545" y="480" text-anchor="middle">将 VIVO tile stream 重排成 OTF line stream</text>
+  <text class="box-text" x="1545" y="502" text-anchor="middle">tile_to_line_writer + SRAM A/B</text>
+  <text class="box-text" x="1545" y="524" text-anchor="middle">sram_read_fetcher + CDC FIFO0</text>
+  <text class="small" x="1545" y="548" text-anchor="middle">otf_driver 生成 timing 与 final data</text>
+
+  <rect class="gray" x="1350" y="640" width="180" height="112"/>
+  <text class="box-title" x="1440" y="674" text-anchor="middle">OTF SRAM A</text>
+  <text class="box-text" x="1440" y="702" text-anchor="middle">line buffer</text>
+  <text class="small" x="1440" y="724" text-anchor="middle">外部 bank0</text>
+
+  <rect class="gray" x="1560" y="640" width="180" height="112"/>
+  <text class="box-title" x="1650" y="674" text-anchor="middle">OTF SRAM B</text>
+  <text class="box-text" x="1650" y="702" text-anchor="middle">line buffer</text>
+  <text class="small" x="1650" y="724" text-anchor="middle">外部 bank1</text>
+
+  <rect class="green" x="1350" y="825" width="390" height="126"/>
+  <text class="box-title" x="1545" y="858" text-anchor="middle">OTF output interface</text>
+  <text class="box-text" x="1545" y="886" text-anchor="middle">o_otf_vsync / hsync / de</text>
+  <text class="box-text" x="1545" y="908" text-anchor="middle">o_otf_data[127:0] / fcnt / lcnt</text>
+  <text class="small" x="1545" y="932" text-anchor="middle">i_otf_ready 反压输出</text>
+
+  <rect class="lane" x="50" y="1120" width="1870" height="86" rx="16"/>
+  <text class="small" x="85" y="1150">fcnt 路径：APB 地址组启动时生成 dec_frame_fcnt → metadata 读命令 AXI ID → tile read AXI ID → tile coord / CI sb → VIVO → tile_to_otf → o_otf_fcnt。</text>
+  <text class="small" x="85" y="1174">中断路径：tile_to_otf 在倒数第 4 行 hsync 输出时产生 correct_irq；metadata/tile/VIVO/OTF 的 busy、done 和统计计数进入 ubwc_dec_status，再由 APB 读出。</text>
+
+  <path class="dash" d="M425 220 L500 220"/>
+  <path class="dash" d="M830 220 L905 220"/>
+  <path class="dash" d="M1235 220 L1310 220"/>
+
+  <path class="line" d="M260 546 L260 610"/>
+  <path class="line" d="M425 658 L500 488"/>
+  <path class="line" d="M425 658 L500 658"/>
+  <path class="line" d="M850 483 L925 560"/>
+  <path class="line" d="M850 675 L925 610"/>
+  <path class="line" d="M1275 583 L1350 493"/>
+  <path class="line" d="M1275 583 C1315 583 1315 690 1350 690"/>
+  <path class="line" d="M1545 570 L1440 640"/>
+  <path class="line" d="M1545 570 L1650 640"/>
+  <path class="line" d="M1545 752 L1545 825"/>
+
+  <path class="dash" d="M665 255 C665 330 260 330 260 420"/>
+  <path class="dash" d="M665 255 C665 340 1545 340 1545 420"/>
+  <path class="dash" d="M1545 951 C1545 1045 1570 1045 1570 255"/>
+  <path class="dash" d="M260 546 C260 1010 1570 1010 1570 255"/>
+  <path class="dash" d="M1100 651 C1100 1010 1570 1010 1570 255"/>
+
+  <text class="label" x="315" y="610">metadata AXI read</text>
+  <text class="label" x="435" y="470">decoded metadata</text>
+  <text class="label" x="870" y="535">CI</text>
+  <text class="label" x="870" y="650">CVI payload</text>
+  <text class="label" x="1285" y="500">tile coord</text>
+  <text class="label" x="1285" y="610">raw stream</text>
+  <text class="label" x="1760" y="890">OTF video</text>
+</svg>

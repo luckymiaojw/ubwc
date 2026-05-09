@@ -2,79 +2,82 @@
 
 module ubwc_dec_meta_data_gen
     #(
-        parameter   ADDR_WIDTH          = 32    ,
-        parameter   ID_WIDTH            = 4     ,
-        parameter   AXI_DATA_WIDTH      = 256   ,
-        parameter   FORCE_FULL_PAYLOAD  = 0
+        parameter                                       ADDR_WIDTH                      = 32,
+        parameter                                       ID_WIDTH                        = 4,
+        parameter                                       AXI_DATA_WIDTH                  = 256,
+        parameter                                       FORCE_FULL_PAYLOAD              = 0
     )(
-        input   wire                                clk                         ,
-        input   wire                                rst_n                       ,
-        input   wire                                start                       ,
-        input   wire    [4              -1:0]       i_fcnt                      ,
+        input   wire                                        clk                             ,
+        input   wire                                        rst_n                           ,
+        input   wire                                        start                           ,
+        input   wire    [4                   -1 :0]         i_fcnt                          ,
 
     // External configuration
-        input   wire    [5              -1:0]       base_format                 ,
-        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_rgba_y0      ,
-        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_uv0          ,
-        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_rgba_y1      ,
-        input   wire    [ADDR_WIDTH     -1:0]       meta_base_addr_uv1          ,
-        input   wire    [16             -1:0]       tile_x_numbers              ,
-        input   wire    [16             -1:0]       tile_y_numbers              ,
-        input   wire                                i_cfg_is_lossy_rgba_2_1_format ,
+        input   wire    [5                   -1 :0]         base_format                     ,
+        input   wire    [ADDR_WIDTH          -1 :0]         meta_base_addr_rgba_y0          ,
+        input   wire    [ADDR_WIDTH          -1 :0]         meta_base_addr_uv0              ,
+        input   wire    [ADDR_WIDTH          -1 :0]         meta_base_addr_rgba_y1          ,
+        input   wire    [ADDR_WIDTH          -1 :0]         meta_base_addr_uv1              ,
+        input   wire    [16                  -1 :0]         tile_x_numbers                  ,
+        input   wire    [16                  -1 :0]         tile_y_numbers                  ,
+        input   wire                                        i_cfg_is_lossy_rgba_2_1_format  ,
 
     // AXI AR channel
-        output  wire                                m_axi_arvalid               ,
-        input   wire                                m_axi_arready               ,
-        output  wire    [ADDR_WIDTH     -1:0]       m_axi_araddr                ,
-        output  wire    [8              -1:0]       m_axi_arlen                 ,
-        output  wire    [3              -1:0]       m_axi_arsize                ,
-        output  wire    [2              -1:0]       m_axi_arburst               ,
-        output  wire    [ID_WIDTH       -1:0]       m_axi_arid                  ,
+        output  wire                                        m_axi_arvalid                   ,
+        input   wire                                        m_axi_arready                   ,
+        output  wire    [ADDR_WIDTH          -1 :0]         m_axi_araddr                    ,
+        output  wire    [8                   -1 :0]         m_axi_arlen                     ,
+        output  wire    [3                   -1 :0]         m_axi_arsize                    ,
+        output  wire    [2                   -1 :0]         m_axi_arburst                   ,
+        output  wire    [ID_WIDTH            -1 :0]         m_axi_arid                      ,
 
     // AXI R channel
-        input   wire                                m_axi_rvalid                ,
-        output  wire                                m_axi_rready                ,
-        input   wire    [AXI_DATA_WIDTH -1:0]       m_axi_rdata                 ,
-        input   wire    [ID_WIDTH       -1:0]       m_axi_rid                   ,
-        input   wire    [2              -1:0]       m_axi_rresp                 ,
-        input   wire                                m_axi_rlast                 ,
+        input   wire                                        m_axi_rvalid                    ,
+        output  wire                                        m_axi_rready                    ,
+        input   wire    [AXI_DATA_WIDTH      -1 :0]         m_axi_rdata                     ,
+        input   wire    [ID_WIDTH            -1 :0]         m_axi_rid                       ,
+        input   wire    [2                   -1 :0]         m_axi_rresp                     ,
+        input   wire                                        m_axi_rlast                     ,
 
     // Decoded metadata output
-        output  wire                                o_dec_valid                 ,
-        input   wire                                i_dec_ready                 ,
-        output  wire    [5              -1:0]       o_dec_format                ,
-        output  wire    [4              -1:0]       o_dec_flag                  ,
-        output  wire    [3              -1:0]       o_dec_alen                  ,
-        output  wire                                o_dec_has_payload           ,
-        output  wire    [12             -1:0]       o_dec_x                     ,
-        output  wire    [10             -1:0]       o_dec_y                     ,
-        output  wire    [4              -1:0]       o_dec_fcnt                  ,
+        output  wire                                        o_dec_valid                     ,
+        input   wire                                        i_dec_ready                     ,
+        output  wire    [5                   -1 :0]         o_dec_format                    ,
+        output  wire    [4                   -1 :0]         o_dec_flag                      ,
+        output  wire    [3                   -1 :0]         o_dec_alen                      ,
+        output  wire                                        o_dec_has_payload               ,
+        output  wire    [12                  -1 :0]         o_dec_x                         ,
+        output  wire    [10                  -1 :0]         o_dec_y                         ,
+        output  wire    [4                   -1 :0]         o_dec_fcnt                      ,
 
-        output  wire                                o_busy                      ,
+        output  wire                                        o_busy                          ,
 
     // Status outputs
-        output  wire    [32             -1:0]       error_cnt                   ,
-        output  wire    [32             -1:0]       cmd_ok_cnt                  ,
-        output  wire    [32             -1:0]       cmd_fail_cnt
+        output  wire    [32                  -1 :0]         error_cnt                       ,
+        output  wire    [32                  -1 :0]         cmd_ok_cnt                      ,
+        output  wire    [32                  -1 :0]         cmd_fail_cnt
     );
 
-    wire                                        meta_grp_valid             ;
-    wire                                        meta_grp_ready             ;
-    wire    [ADDR_WIDTH     -1:0]               meta_grp_addr              ;
-    wire    [5              -1:0]               meta_format                ;
-    wire    [12             -1:0]               meta_xcoord                ;
-    wire    [10             -1:0]               meta_ycoord                ;
-    wire                                        meta_data_valid            ;
-    wire                                        meta_data_ready            ;
-    wire    [8              -1:0]               meta_data                  ;
-    wire    [5              -1:0]               meta_data_format           ;
-    wire    [12             -1:0]               meta_data_xcoord           ;
-    wire    [10             -1:0]               meta_data_ycoord           ;
-    wire    [4              -1:0]               meta_data_fcnt             ;
-    wire                                        tile_number_high_seen      ;
-    wire    [4              -1:0]               meta_fcnt                  ;
+    wire                                            meta_grp_valid                  ;
+    wire                                            meta_grp_ready                  ;
+    wire        [ADDR_WIDTH          -1 :0]         meta_grp_addr                   ;
+    wire        [5                   -1 :0]         meta_format                     ;
+    wire        [12                  -1 :0]         meta_xcoord                     ;
+    wire        [10                  -1 :0]         meta_ycoord                     ;
+    wire                                            meta_data_valid                 ;
+    wire                                            meta_data_ready                 ;
+    wire        [8                   -1 :0]         meta_data                       ;
+    wire        [5                   -1 :0]         meta_data_format                ;
+    wire        [12                  -1 :0]         meta_data_xcoord                ;
+    wire        [10                  -1 :0]         meta_data_ycoord                ;
+    wire        [4                   -1 :0]         meta_data_fcnt                  ;
+    wire                                            tile_number_high_seen           ;
+    wire        [4                   -1 :0]         meta_fcnt                       ;
+    wire        [12                  -1 :0]         tile_x_numbers_12b              ;
+    wire        [10                  -1 :0]         tile_y_numbers_10b              ;
 
-    assign tile_number_high_seen = (|tile_x_numbers[15:12]) | (|tile_y_numbers[15:10]);
+    assign tile_x_numbers_12b        = tile_x_numbers[11:0];
+    assign tile_y_numbers_10b        = tile_y_numbers[9:0];
 
     ubwc_enc_meta_get_cmd_gen #(
         .ADDR_WIDTH             ( ADDR_WIDTH                            ),
@@ -90,8 +93,8 @@ module ubwc_dec_meta_data_gen
         .meta_base_addr_uv0     ( meta_base_addr_uv0                    ),
         .meta_base_addr_rgba_y1 ( meta_base_addr_rgba_y1                ),
         .meta_base_addr_uv1     ( meta_base_addr_uv1                    ),
-        .tile_x_numbers         ( tile_x_numbers[11:0]                 ),
-        .tile_y_numbers         ( tile_y_numbers[9:0]                  ),
+        .tile_x_numbers         ( tile_x_numbers_12b                   ),
+        .tile_y_numbers         ( tile_y_numbers_10b                   ),
         .meta_grp_valid         ( meta_grp_valid                        ),
         .meta_grp_ready         ( meta_grp_ready                        ),
         .meta_grp_addr          ( meta_grp_addr                         ),
@@ -165,6 +168,7 @@ module ubwc_dec_meta_data_gen
         .o_dec_fcnt             ( o_dec_fcnt                            )
     );
 
+    assign tile_number_high_seen = (|tile_x_numbers[15:12]) | (|tile_y_numbers[15:10]);
     assign o_busy = meta_grp_valid | m_axi_arvalid | m_axi_rvalid | meta_data_valid |
                     o_dec_valid | (tile_number_high_seen & 1'b0);
 

@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 34px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 16px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #475569; }
+      .lane-title { font: 700 18px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #334155; }
+      .box-title { font: 700 18px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #111827; }
+      .box-text { font: 500 14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #334155; }
+      .small { font: 500 13px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #64748b; }
+      .lane { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; }
+      .block { fill: #ffffff; stroke: #2563eb; stroke-width: 2; rx: 12; }
+      .green { fill: #ecfdf5; stroke: #059669; }
+      .orange { fill: #fff7ed; stroke: #ea580c; }
+      .purple { fill: #f5f3ff; stroke: #7c3aed; }
+      .red { fill: #fef2f2; stroke: #dc2626; }
+      .gray { fill: #f1f5f9; stroke: #64748b; }
+      .line { stroke: #334155; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .line-dash { stroke: #64748b; stroke-width: 2; fill: none; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .label { font: 600 13px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #334155; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1120"/>
+  <text class="title" x="60" y="58">ENC OTF_TO_TILE 数据流程图</text>
+  <text class="subtitle" x="60" y="88">对应 RTL：ubwc_enc_otf_to_tile / ubwc_enc_otf_data_packer / ubwc_enc_line_to_tile</text>
+
+  <rect class="lane" x="50" y="120" width="500" height="860" rx="16"/>
+  <text class="lane-title" x="80" y="155">i_otf_clk 域：输入采样与格式打包</text>
+
+  <rect class="lane" x="615" y="120" width="570" height="860" rx="16"/>
+  <text class="lane-title" x="645" y="155">clk 域：line_to_tile 与 ping-pong SRAM</text>
+
+  <rect class="lane" x="1250" y="120" width="500" height="860" rx="16"/>
+  <text class="lane-title" x="1280" y="155">输出队列：tile data / CI / coord</text>
+
+  <rect class="block green" x="95" y="190" width="360" height="104"/>
+  <text class="box-title" x="275" y="220" text-anchor="middle">OTF 输入</text>
+  <text class="box-text" x="275" y="247" text-anchor="middle">i_otf_vsync / hsync / de</text>
+  <text class="box-text" x="275" y="269" text-anchor="middle">i_otf_data[127:0] + fcnt/lcnt</text>
+
+  <rect class="block red" x="95" y="345" width="360" height="112"/>
+  <text class="box-title" x="275" y="376" text-anchor="middle">基础检查与 sticky error</text>
+  <text class="box-text" x="275" y="403" text-anchor="middle">bad line / bad frame / fifo overflow</text>
+  <text class="box-text" x="275" y="425" text-anchor="middle">err_clear 清除 sticky 状态</text>
+
+  <rect class="block" x="95" y="508" width="360" height="128"/>
+  <text class="box-title" x="275" y="540" text-anchor="middle">ubwc_enc_otf_data_packer</text>
+  <text class="box-text" x="275" y="568" text-anchor="middle">锁存 fcnt/lcnt，形成 sideband</text>
+  <text class="box-text" x="275" y="590" text-anchor="middle">按 format 拆成 RGBA/Y 与 UV</text>
+  <text class="small" x="275" y="613" text-anchor="middle">{fcnt,lcnt,vsync,hsync,tlast,keep,data}</text>
+
+  <rect class="block purple" x="95" y="700" width="165" height="100"/>
+  <text class="box-title" x="178" y="733" text-anchor="middle">FIFO A</text>
+  <text class="box-text" x="178" y="760" text-anchor="middle">RGBA / Y</text>
+  <text class="small" x="178" y="782" text-anchor="middle">fifo_a_vld/rdy</text>
+
+  <rect class="block purple" x="290" y="700" width="165" height="100"/>
+  <text class="box-title" x="373" y="733" text-anchor="middle">FIFO B</text>
+  <text class="box-text" x="373" y="760" text-anchor="middle">UV</text>
+  <text class="small" x="373" y="782" text-anchor="middle">YUV420 使用</text>
+
+  <rect class="block" x="690" y="190" width="420" height="120"/>
+  <text class="box-title" x="900" y="222" text-anchor="middle">skid + decode stage</text>
+  <text class="box-text" x="900" y="250" text-anchor="middle">缓存 FIFO A/B 输出，切断 ready 组合环</text>
+  <text class="box-text" x="900" y="272" text-anchor="middle">解析 fcnt / group_id / plane / tlast</text>
+
+  <rect class="block orange" x="690" y="365" width="420" height="120"/>
+  <text class="box-title" x="900" y="397" text-anchor="middle">写侧仲裁与 bank 归属</text>
+  <text class="box-text" x="900" y="425" text-anchor="middle">wr_bank_sel 选择当前写 bank</text>
+  <text class="box-text" x="900" y="447" text-anchor="middle">A/B 通道按 group 和 done 状态接收</text>
+
+  <rect class="block gray" x="665" y="540" width="205" height="130"/>
+  <text class="box-title" x="768" y="572" text-anchor="middle">SRAM bank0</text>
+  <text class="box-text" x="768" y="600" text-anchor="middle">写：line group</text>
+  <text class="box-text" x="768" y="622" text-anchor="middle">读：tile order</text>
+  <text class="small" x="768" y="646" text-anchor="middle">ready_for_read → release</text>
+
+  <rect class="block gray" x="930" y="540" width="205" height="130"/>
+  <text class="box-title" x="1033" y="572" text-anchor="middle">SRAM bank1</text>
+  <text class="box-text" x="1033" y="600" text-anchor="middle">写：line group</text>
+  <text class="box-text" x="1033" y="622" text-anchor="middle">读：tile order</text>
+  <text class="small" x="1033" y="646" text-anchor="middle">与 bank0 乒乓切换</text>
+
+  <rect class="block" x="690" y="730" width="420" height="120"/>
+  <text class="box-title" x="900" y="762" text-anchor="middle">读侧 tile 扫描</text>
+  <text class="box-text" x="900" y="790" text-anchor="middle">RD_IDLE → RD_ACT → RD_FIN</text>
+  <text class="box-text" x="900" y="812" text-anchor="middle">输出 128b tile beat + plane/x/y/fcnt</text>
+
+  <rect class="block green" x="1315" y="185" width="360" height="116"/>
+  <text class="box-title" x="1495" y="217" text-anchor="middle">data pack FIFO</text>
+  <text class="box-text" x="1495" y="245" text-anchor="middle">两个 128b beat 合成 256b tile</text>
+  <text class="box-text" x="1495" y="267" text-anchor="middle">输出 o_tile_data/keep/last/fcnt</text>
+
+  <rect class="block orange" x="1315" y="350" width="360" height="112"/>
+  <text class="box-title" x="1495" y="382" text-anchor="middle">CI FIFO</text>
+  <text class="box-text" x="1495" y="410" text-anchor="middle">tile_x / tile_y / format / fcnt</text>
+  <text class="box-text" x="1495" y="432" text-anchor="middle">forced_pcm 标记边界 partial tile</text>
+
+  <rect class="block purple" x="1315" y="510" width="360" height="126"/>
+  <text class="box-title" x="1495" y="542" text-anchor="middle">coord FIFO</text>
+  <text class="box-text" x="1495" y="570" text-anchor="middle">跟随 CI 出口保存 x/y/format/fcnt</text>
+  <text class="box-text" x="1495" y="592" text-anchor="middle">o_co_sb = fcnt[0]</text>
+  <text class="small" x="1495" y="616" text-anchor="middle">最后 tile 触发 addr_cfg_done</text>
+
+  <rect class="block red" x="1315" y="710" width="360" height="126"/>
+  <text class="box-title" x="1495" y="742" text-anchor="middle">统计与中断</text>
+  <text class="box-text" x="1495" y="770" text-anchor="middle">otf_de_count / line_count 按 fcnt[0]</text>
+  <text class="box-text" x="1495" y="792" text-anchor="middle">倒数第 4 行 correct_irq</text>
+  <text class="small" x="1495" y="816" text-anchor="middle">slot0/slot1 独立计数</text>
+
+  <path class="line" d="M275 294 L275 345"/>
+  <path class="line" d="M275 457 L275 508"/>
+  <path class="line" d="M230 636 L190 700"/>
+  <path class="line" d="M320 636 L365 700"/>
+  <path class="line" d="M455 750 C545 750 575 250 690 250"/>
+  <path class="line" d="M900 310 L900 365"/>
+  <path class="line" d="M840 485 L780 540"/>
+  <path class="line" d="M960 485 L1020 540"/>
+  <path class="line" d="M768 670 C768 705 815 710 855 730"/>
+  <path class="line" d="M1033 670 C1033 705 985 710 945 730"/>
+  <path class="line" d="M1110 790 C1200 790 1240 244 1315 244"/>
+  <path class="line" d="M1110 790 C1200 790 1240 406 1315 406"/>
+  <path class="line-dash" d="M1495 462 L1495 510"/>
+  <path class="line-dash" d="M1495 636 L1495 710"/>
+  <path class="line-dash" d="M455 395 C1220 395 1220 773 1315 773"/>
+
+  <text class="label" x="510" y="720">A/B packed stream</text>
+  <text class="label" x="710" y="518">写入 line group</text>
+  <text class="label" x="950" y="518">另一 bank 可并行读</text>
+  <text class="label" x="1168" y="238">tile beat</text>
+  <text class="label" x="1168" y="392">tile command</text>
+
+  <rect class="gray" x="80" y="1010" width="1640" height="58" rx="10"/>
+  <text class="small" x="100" y="1036">要点：OTF 输入侧只负责采样、检查和按格式拆包；core clk 侧通过 FIFO A/B 进入 line_to_tile；bank0/bank1 作为行组临时工作区，写满一组后读侧按 tile 顺序输出。</text>
+  <text class="small" x="100" y="1058">fcnt 在 OTF、FIFO、SRAM 读出、tile data、CI、coord 路径中持续携带；fcnt[0] 用作相邻帧地址 slot / co_sb 选择。</text>
+</svg>

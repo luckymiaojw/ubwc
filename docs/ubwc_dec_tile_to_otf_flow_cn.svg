@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1180" viewBox="0 0 1900 1180">
+  <defs>
+    <style>
+      .bg { fill:#f8fafc; }
+      .title { font:700 34px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#0f172a; }
+      .subtitle { font:500 16px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#475569; }
+      .lane { fill:#ffffff; stroke:#cbd5e1; stroke-width:1.5; }
+      .lane-title { font:700 18px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#334155; }
+      .box-title { font:700 18px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#111827; }
+      .box-text { font:500 14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#334155; }
+      .small { font:500 13px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#64748b; }
+      .block { fill:#ffffff; stroke:#2563eb; stroke-width:2; rx:12; }
+      .green { fill:#ecfdf5; stroke:#059669; }
+      .orange { fill:#fff7ed; stroke:#ea580c; }
+      .purple { fill:#f5f3ff; stroke:#7c3aed; }
+      .red { fill:#fef2f2; stroke:#dc2626; }
+      .gray { fill:#f1f5f9; stroke:#64748b; }
+      .line { stroke:#334155; stroke-width:2.2; fill:none; marker-end:url(#arrow); }
+      .dash { stroke:#64748b; stroke-width:2; fill:none; stroke-dasharray:8 6; marker-end:url(#arrow); }
+      .label { font:600 13px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill:#334155; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1900" height="1180"/>
+  <text class="title" x="60" y="58">DEC TILE_TO_OTF 数据流程图</text>
+  <text class="subtitle" x="60" y="88">对应 RTL：ubwc_dec_tile_to_otf / tile_to_line_writer / sram_read_fetcher / otf_driver</text>
+
+  <rect class="lane" x="50" y="125" width="560" height="900" rx="16"/>
+  <text class="lane-title" x="80" y="160">i_axi_clk / clk_sram 域：VIVO 输出写入行缓存</text>
+
+  <rect class="lane" x="665" y="125" width="560" height="900" rx="16"/>
+  <text class="lane-title" x="695" y="160">i_axi_clk / clk_sram 域：SRAM 读出与 CDC 入队</text>
+
+  <rect class="lane" x="1280" y="125" width="560" height="900" rx="16"/>
+  <text class="lane-title" x="1310" y="160">i_otf_clk 域：OTF timing 与像素输出</text>
+
+  <rect class="block green" x="105" y="205" width="400" height="116"/>
+  <text class="box-title" x="305" y="237" text-anchor="middle">来自 VIVO 的 tile stream</text>
+  <text class="box-text" x="305" y="265" text-anchor="middle">format / tile_x / tile_y / fcnt</text>
+  <text class="box-text" x="305" y="287" text-anchor="middle">rvo_valid / rvo_data[255:0] / rvo_last</text>
+
+  <rect class="block orange" x="105" y="370" width="400" height="126"/>
+  <text class="box-title" x="305" y="402" text-anchor="middle">tile_to_line_writer</text>
+  <text class="box-text" x="305" y="430" text-anchor="middle">header FIFO + data FIFO 对齐 tile</text>
+  <text class="box-text" x="305" y="452" text-anchor="middle">按格式映射到 output line slot</text>
+  <text class="small" x="305" y="476" text-anchor="middle">RGBA / NV12 / P010 生成不同 line address</text>
+
+  <rect class="block gray" x="105" y="555" width="180" height="120"/>
+  <text class="box-title" x="195" y="587" text-anchor="middle">OTF SRAM A</text>
+  <text class="box-text" x="195" y="615" text-anchor="middle">写入 line data</text>
+  <text class="small" x="195" y="639" text-anchor="middle">sram_a_wen/waddr</text>
+
+  <rect class="block gray" x="325" y="555" width="180" height="120"/>
+  <text class="box-title" x="415" y="587" text-anchor="middle">OTF SRAM B</text>
+  <text class="box-text" x="415" y="615" text-anchor="middle">另一组 line buffer</text>
+  <text class="small" x="415" y="639" text-anchor="middle">sram_b_wen/waddr</text>
+
+  <rect class="block purple" x="105" y="735" width="400" height="126"/>
+  <text class="box-title" x="305" y="767" text-anchor="middle">pending_a / pending_b</text>
+  <text class="box-text" x="305" y="795" text-anchor="middle">writer_vld 标记某个 SRAM bank 有完整 buffer</text>
+  <text class="box-text" x="305" y="817" text-anchor="middle">fetcher_done 后清 pending</text>
+  <text class="small" x="305" y="841" text-anchor="middle">fetcher_bank_sel 选择待读 bank</text>
+
+  <rect class="block orange" x="745" y="235" width="400" height="140"/>
+  <text class="box-title" x="945" y="268" text-anchor="middle">sram_read_fetcher</text>
+  <text class="box-text" x="945" y="298" text-anchor="middle">从 pending bank 读取 line data</text>
+  <text class="box-text" x="945" y="320" text-anchor="middle">ST_IDLE → ISSUE_FIRST → ISSUE_SECOND → PUSH</text>
+  <text class="small" x="945" y="344" text-anchor="middle">输出 256b compact data + fcnt</text>
+
+  <rect class="block gray" x="745" y="435" width="185" height="118"/>
+  <text class="box-title" x="838" y="468" text-anchor="middle">读 SRAM A</text>
+  <text class="box-text" x="838" y="496" text-anchor="middle">ren / raddr</text>
+  <text class="small" x="838" y="520" text-anchor="middle">target_bank=0</text>
+
+  <rect class="block gray" x="960" y="435" width="185" height="118"/>
+  <text class="box-title" x="1053" y="468" text-anchor="middle">读 SRAM B</text>
+  <text class="box-text" x="1053" y="496" text-anchor="middle">ren / raddr</text>
+  <text class="small" x="1053" y="520" text-anchor="middle">target_bank=1</text>
+
+  <rect class="block green" x="745" y="635" width="400" height="120"/>
+  <text class="box-title" x="945" y="668" text-anchor="middle">CDC FIFO0</text>
+  <text class="box-text" x="945" y="696" text-anchor="middle">clk_sram 写，clk_otf 读</text>
+  <text class="box-text" x="945" y="718" text-anchor="middle">承载 256b compact line/pixel group</text>
+
+  <rect class="block gray" x="745" y="815" width="400" height="96"/>
+  <text class="box-title" x="945" y="846" text-anchor="middle">CDC FIFO1 保留</text>
+  <text class="box-text" x="945" y="874" text-anchor="middle">当前 RTL wr_en=1'b0，otf_driver fifo_sel=0</text>
+
+  <rect class="block purple" x="1355" y="205" width="400" height="116"/>
+  <text class="box-title" x="1555" y="237" text-anchor="middle">frame_start / fcnt CDC</text>
+  <text class="box-text" x="1555" y="265" text-anchor="middle">frame_start_toggle 同步到 OTF 域</text>
+  <text class="box-text" x="1555" y="287" text-anchor="middle">frame_fcnt 双拍同步</text>
+
+  <rect class="block orange" x="1355" y="370" width="400" height="150"/>
+  <text class="box-title" x="1555" y="402" text-anchor="middle">otf_driver timing FSM</text>
+  <text class="box-text" x="1555" y="430" text-anchor="middle">根据 h_total/sync/bp/act</text>
+  <text class="box-text" x="1555" y="452" text-anchor="middle">v_total/sync/bp/act 生成时序</text>
+  <text class="small" x="1555" y="476" text-anchor="middle">active window 内从 FIFO0 取 compact_data</text>
+
+  <rect class="block" x="1355" y="585" width="400" height="140"/>
+  <text class="box-title" x="1555" y="618" text-anchor="middle">格式解包与输出寄存</text>
+  <text class="box-text" x="1555" y="648" text-anchor="middle">RGBA：256b 分两拍输出 128b</text>
+  <text class="box-text" x="1555" y="670" text-anchor="middle">NV12/P010：按奇偶行插入 UV</text>
+  <text class="small" x="1555" y="694" text-anchor="middle">输出边界打一拍：vsync/hsync/de/data/fcnt/lcnt</text>
+
+  <rect class="block red" x="1355" y="790" width="400" height="126"/>
+  <text class="box-title" x="1555" y="822" text-anchor="middle">done / correct irq / counters</text>
+  <text class="box-text" x="1555" y="850" text-anchor="middle">frame end 产生 frame_done_pulse</text>
+  <text class="box-text" x="1555" y="872" text-anchor="middle">倒数第 4 行 hsync 产生 correct_irq</text>
+  <text class="small" x="1555" y="896" text-anchor="middle">line_count / de_count 回同步到 axi 域</text>
+
+  <path class="line" d="M305 321 L305 370"/>
+  <path class="line" d="M250 496 L195 555"/>
+  <path class="line" d="M360 496 L415 555"/>
+  <path class="line" d="M305 675 L305 735"/>
+  <path class="line" d="M505 798 C610 798 640 305 745 305"/>
+  <path class="line" d="M880 375 L840 435"/>
+  <path class="line" d="M1010 375 L1055 435"/>
+  <path class="line" d="M945 553 L945 635"/>
+  <path class="line" d="M1145 695 C1240 695 1260 445 1355 445"/>
+  <path class="dash" d="M1145 864 C1250 864 1260 864 1355 852"/>
+  <path class="line" d="M1555 321 L1555 370"/>
+  <path class="line" d="M1555 520 L1555 585"/>
+  <path class="line" d="M1555 725 L1555 790"/>
+
+  <text class="label" x="575" y="292">pending bank request</text>
+  <text class="label" x="1160" y="675">compact data</text>
+  <text class="label" x="1590" y="550">i_otf_ready gating</text>
+
+  <rect class="gray" x="80" y="1060" width="1740" height="68" rx="10"/>
+  <text class="small" x="105" y="1088">要点：tile_to_line_writer 把 VIVO 输出的 tile 数据按输出行重排到 SRAM A/B；sram_read_fetcher 再按 OTF 输出顺序读出 compact 256b 数据，经 CDC FIFO0 跨到 i_otf_clk。</text>
+  <text class="small" x="105" y="1112">当前 RTL 中 CDC FIFO1 是保留通道；otf_driver 固定从 FIFO0 取数据。OTF 输出时序由配置的 H/V timing 产生，active 区域内输出 o_otf_de/data/fcnt/lcnt。</text>
+</svg>

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Align Verilog/SystemVerilog declarations and instance connections.
+"""Align Verilog/SystemVerilog declarations, assigns, and instances.
 
 This is a lightweight formatter for this repository's HDL style.  It is not a
-full Verilog parser; it only touches simple one-line declarations, parameters,
-and module instance parameter/port connection lists.
+full Verilog parser; it only touches simple declarations, parameters, assign
+statements, and module instance parameter/port connection lists.
 """
 
 from __future__ import annotations
@@ -49,6 +49,14 @@ CONN_RE = re.compile(
     r"(?P<trail>\s*//.*)?$"
 )
 
+ASSIGN_RE = re.compile(
+    r"^(?P<indent>\s*)"
+    r"assign\s+"
+    r"(?P<lhs>[A-Za-z_][\w$]*(?:\s*\[[^\]]+\])?)"
+    r"\s*=\s*"
+    r"(?P<rhs>.*)$"
+)
+
 
 @dataclass
 class ParamLine:
@@ -81,6 +89,14 @@ class ConnLine:
     expr: str
     term: str
     trail: str
+
+
+@dataclass
+class AssignStmt:
+    indent: str
+    lhs: str
+    rhs: str
+    lines: list[str]
 
 
 def split_rhs(rhs: str) -> str:
@@ -145,6 +161,14 @@ def parse_conn(line: str) -> ConnLine | None:
         term=match.group("term").strip(),
         trail=match.group("trail") or "",
     )
+
+
+def parse_assign(line: str) -> tuple[str, str, str] | None:
+    match = ASSIGN_RE.match(line.rstrip("\n"))
+    if not match:
+        return None
+    lhs = re.sub(r"\s+", "", match.group("lhs"))
+    return match.group("indent"), lhs, match.group("rhs").rstrip()
 
 
 def pad(value: str, width: int) -> str:
@@ -217,6 +241,81 @@ def format_conn_group(items: list[ConnLine]) -> list[str]:
     return out
 
 
+def code_has_semicolon(line: str) -> bool:
+    return ";" in line.split("//", 1)[0]
+
+
+def collect_assign_stmt(lines: list[str], start: int) -> tuple[AssignStmt | None, int]:
+    parsed = parse_assign(lines[start])
+    if not parsed:
+        return None, start + 1
+
+    indent, lhs, rhs = parsed
+    stmt_lines = [lines[start]]
+    index = start + 1
+    while not code_has_semicolon(lines[index - 1]) and index < len(lines):
+        stmt_lines.append(lines[index])
+        index += 1
+
+    return AssignStmt(indent=indent, lhs=lhs, rhs=rhs, lines=stmt_lines), index
+
+
+def format_assign_block(items: list[AssignStmt]) -> list[str]:
+    lhs_w = max(max(len(item.lhs) for item in items) + 1, 27)
+    out: list[str] = []
+    for item in items:
+        first_prefix = item.indent + "assign " + pad(item.lhs, lhs_w) + "= "
+        first = first_prefix + item.rhs
+        out.append(first)
+        rhs_indent_w = len(first_prefix)
+        first_rhs = item.rhs.lstrip()
+        concat_indent_w = rhs_indent_w + 1 if first_rhs.startswith("{") else rhs_indent_w
+        ternary_value_indent_w = rhs_indent_w
+        if "?" in first_rhs:
+            ternary_value_indent_w = rhs_indent_w + first_rhs.index("?") + 2
+        for line in item.lines[1:]:
+            stripped = line.lstrip()
+            if not stripped:
+                out.append(line)
+            elif stripped.startswith("//"):
+                out.append(line)
+            else:
+                if first_rhs.startswith("{"):
+                    out.append(" " * concat_indent_w + stripped)
+                elif "?" in first_rhs and not stripped.startswith("(") and "?" not in stripped:
+                    out.append(" " * ternary_value_indent_w + stripped)
+                else:
+                    out.append(" " * rhs_indent_w + stripped)
+    return out
+
+
+def align_assigns(lines: list[str]) -> list[str]:
+    out: list[str] = []
+    index = 0
+
+    while index < len(lines):
+        stmt, next_index = collect_assign_stmt(lines, index)
+        if not stmt:
+            out.append(lines[index])
+            index += 1
+            continue
+
+        block = [stmt]
+        block_indent = stmt.indent
+        index = next_index
+
+        while index < len(lines):
+            next_stmt, after_next = collect_assign_stmt(lines, index)
+            if not next_stmt or next_stmt.indent != block_indent:
+                break
+            block.append(next_stmt)
+            index = after_next
+
+        out.extend(format_assign_block(block))
+
+    return out
+
+
 def line_kind(line: str) -> str | None:
     if parse_conn(line):
         return "conn"
@@ -241,7 +340,7 @@ def flush(kind: str | None, group: list[str], out: list[str]) -> None:
 
 
 def align_text(text: str) -> str:
-    lines = text.splitlines()
+    lines = align_assigns(text.splitlines())
     trailing_newline = text.endswith("\n")
     out: list[str] = []
     group: list[str] = []
@@ -273,6 +372,45 @@ def align_text(text: str) -> str:
             out.append(line)
 
     flush(kind, group, out)
+    result = "\n".join(out)
+    if trailing_newline:
+        result += "\n"
+    return result
+
+
+def align_assign_text(text: str) -> str:
+    lines = align_assigns(text.splitlines())
+    result = "\n".join(lines)
+    if text.endswith("\n"):
+        result += "\n"
+    return result
+
+
+def align_conn_text(text: str) -> str:
+    lines = text.splitlines()
+    trailing_newline = text.endswith("\n")
+    out: list[str] = []
+    group: list[str] = []
+    indent: str | None = None
+
+    for line in lines:
+        current_conn = parse_conn(line)
+        current_indent = line[: len(line) - len(line.lstrip())]
+        if current_conn and group and indent == current_indent:
+            group.append(line)
+            continue
+
+        flush("conn", group, out)
+        group = []
+        indent = None
+
+        if current_conn:
+            group = [line]
+            indent = current_indent
+        else:
+            out.append(line)
+
+    flush("conn", group, out)
     result = "\n".join(out)
     if trailing_newline:
         result += "\n"
@@ -324,6 +462,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Align HDL style for simple declarations and module instances.")
     parser.add_argument("paths", nargs="*", help="Files or directories to format. Defaults to changed HDL files.")
     parser.add_argument("--all-src", action="store_true", help="Format all HDL files under src and vrf/src.")
+    parser.add_argument("--assign-only", action="store_true", help="Only align assign statement blocks.")
+    parser.add_argument("--conn-only", action="store_true", help="Only align instance parameter/port connection blocks.")
     parser.add_argument("--check", action="store_true", help="Do not write files; fail if any file would change.")
     parser.add_argument("--diff", action="store_true", help="Print unified diffs for changed files.")
     args = parser.parse_args()
@@ -337,7 +477,15 @@ def main() -> int:
     changed = 0
     for path in files:
         original = path.read_text()
-        aligned = align_text(original)
+        if args.assign_only and args.conn_only:
+            print("--assign-only and --conn-only cannot be used together.", file=sys.stderr)
+            return 2
+        if args.assign_only:
+            aligned = align_assign_text(original)
+        elif args.conn_only:
+            aligned = align_conn_text(original)
+        else:
+            aligned = align_text(original)
         if aligned == original:
             continue
         changed += 1
@@ -350,7 +498,7 @@ def main() -> int:
                 tofile=str(rel),
             )
             sys.stdout.writelines(diff)
-        if not args.check:
+        if not args.check and not args.diff:
             path.write_text(aligned)
             print(f"aligned {rel}")
 

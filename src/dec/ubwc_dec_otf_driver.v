@@ -5,145 +5,198 @@
 // Company           : MagicIP
 // Engineer          : jiawang.miao magic.jw@magicip.com.cn
 // Create Date       : 2026-04-01  23:17:26
-// Design Name       : 
+// Design Name       :
 // Module Name       : ubwc_dec_otf_driver.v
 // Editor            : Gvim, tab size (4)
 // Revision          : 1.00
 //		Revision 1.00 - File Created by		: MiaoJiawang
-//		Description							: 
-// Additional Comments: 
+//		Description							:
+// Additional Comments:
 //
 //////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns / 1ps
 
 module otf_driver (
-    input  wire           clk_otf,
-    input  wire           rst_n,
-    input  wire           i_frame_start,
-    input  wire [3:0]     i_frame_fcnt,
-    input  wire [4:0]     cfg_format,
-    input  wire [15:0]    cfg_otf_h_total,
-    input  wire [15:0]    cfg_otf_h_sync,
-    input  wire [15:0]    cfg_otf_h_bp,
-    input  wire [15:0]    cfg_otf_h_act,
-    input  wire [15:0]    cfg_otf_v_total,
-    input  wire [15:0]    cfg_otf_v_sync,
-    input  wire [15:0]    cfg_otf_v_bp,
-    input  wire [15:0]    cfg_otf_v_act,
-    input  wire           i_otf_ready,
-    
-    input  wire           i_fifo_empty0,
-    input  wire [255:0]   i_fifo_rdata0,
-    output wire           o_fifo_rd_en0,
-    input  wire           i_fifo_empty1,
-    input  wire [255:0]   i_fifo_rdata1,
-    output wire           o_fifo_rd_en1,
-    output wire           o_busy,
-    output wire [3:0]     o_active_fcnt,
-    output reg            o_frame_done_pulse,
-    output reg            o_correct_irq_pulse,
-    output reg  [31:0]    o_otf_line_count,
-    output reg  [31:0]    o_otf_de_count,
+    input   wire                                        clk_otf                         ,
+    input   wire                                        rst_n                           ,
+    input   wire                                        i_frame_start                   ,
+    input   wire    [3                      :0]         i_frame_fcnt                    ,
+    input   wire    [4                      :0]         cfg_format                      ,
+    input   wire    [15                     :0]         cfg_otf_h_total                 ,
+    input   wire    [15                     :0]         cfg_otf_h_sync                  ,
+    input   wire    [15                     :0]         cfg_otf_h_bp                    ,
+    input   wire    [15                     :0]         cfg_otf_h_act                   ,
+    input   wire    [15                     :0]         cfg_otf_v_total                 ,
+    input   wire    [15                     :0]         cfg_otf_v_sync                  ,
+    input   wire    [15                     :0]         cfg_otf_v_bp                    ,
+    input   wire    [15                     :0]         cfg_otf_v_act                   ,
+    input   wire                                        i_otf_ready                     ,
 
-    output reg            o_otf_vsync,
-    output reg            o_otf_hsync,
-    output reg            o_otf_de,
-    output reg  [127:0]   o_otf_data,
-    output reg  [3:0]     o_otf_fcnt,
-    output reg  [11:0]    o_otf_lcnt
+    input   wire                                        i_fifo_empty0                   ,
+    input   wire    [255                    :0]         i_fifo_rdata0                   ,
+    output  wire                                        o_fifo_rd_en0                   ,
+    input   wire                                        i_fifo_empty1                   ,
+    input   wire    [255                    :0]         i_fifo_rdata1                   ,
+    output  wire                                        o_fifo_rd_en1                   ,
+    output  wire                                        o_busy                          ,
+    output  wire    [3                      :0]         o_active_fcnt                   ,
+    output  reg                                         o_frame_done_pulse              ,
+    output  reg                                         o_correct_irq_pulse             ,
+    output  reg     [31                     :0]         o_otf_line_count                ,
+    output  reg     [31                     :0]         o_otf_de_count                  ,
+
+    output  reg                                         o_otf_vsync                     ,
+    output  reg                                         o_otf_hsync                     ,
+    output  reg                                         o_otf_de                        ,
+    output  reg     [127                    :0]         o_otf_data                      ,
+    output  reg     [3                      :0]         o_otf_fcnt                      ,
+    output  reg     [11                     :0]         o_otf_lcnt
 );
 
-    function [15:0] div_up4_u16;
-        input [15:0] value;
-        reg [15:0] value_div4;
+    wire        [15                     :0]         h_total_beats                   ;
+    wire        [15                     :0]         h_sync_beats                    ;
+    wire        [15                     :0]         h_bp_beats                      ;
+    wire        [15                     :0]         h_act_beats                     ;
+    wire        [15                     :0]         h_act_start                     ;
+    wire        [15                     :0]         h_act_end                       ;
+    wire        [15                     :0]         v_act_start                     ;
+    wire        [15                     :0]         v_act_end                       ;
+    wire                                            frame_start                     ;
+    wire                                            is_active_line                  ;
+    wire                                            is_hsync                        ;
+    wire                                            is_act                          ;
+    wire        [15                     :0]         active_line_raw                 ;
+    wire        [15                     :0]         correct_irq_line                ;
+    wire                                            correct_irq_hit                 ;
+    wire                                            otf_line_fire                   ;
+    wire                                            otf_de_fire                     ;
+    wire        [11                     :0]         active_line                     ;
+    wire                                            line_has_uv                     ;
+    wire                                            is_rgba                         ;
+    wire                                            is_yuv420_10                    ;
+    wire                                            fifo_sel                        ;
+    wire                                            fifo_empty_sel                  ;
+    wire        [255                    :0]         fifo_rdata_sel                  ;
+    wire                                            active_data_stall               ;
+    wire                                            h_last                          ;
+    wire                                            v_last                          ;
+    wire                                            frame_start_idle                ;
+    wire                                            stream_wait_start               ;
+    wire                                            otf_step_fire                   ;
+    wire                                            otf_frame_end_fire              ;
+    wire                                            otf_output_update               ;
+    wire                                            phase_busy                      ;
+    wire                                            fifo_busy                       ;
+    wire                                            stream_busy                     ;
+    wire                                            need_data                       ;
+    wire        [1                      :0]         phase_out                       ;
+    wire        [9                      :0]         Y0_10                           ;
+    wire        [9                      :0]         Y1_10                           ;
+    wire        [9                      :0]         Y2_10                           ;
+    wire        [9                      :0]         Y3_10                           ;
+    wire        [9                      :0]         U0_10                           ;
+    wire        [9                      :0]         V0_10                           ;
+    wire        [9                      :0]         U1_10                           ;
+    wire        [9                      :0]         V1_10                           ;
+    wire        [7                      :0]         Y0                              ;
+    wire        [7                      :0]         Y1                              ;
+    wire        [7                      :0]         Y2                              ;
+    wire        [7                      :0]         Y3                              ;
+    wire        [7                      :0]         U0                              ;
+    wire        [7                      :0]         V0                              ;
+    wire        [7                      :0]         U1                              ;
+    wire        [7                      :0]         V1                              ;
+
+    reg         [15                     :0]         h_cnt                           ;
+    reg         [15                     :0]         v_cnt                           ;
+    reg                                             stream_started                  ;
+    reg         [3                      :0]         pending_frame_fcnt              ;
+    reg                                             frame_done_pulse_core           ;
+    reg                                             correct_irq_pulse_core          ;
+    reg                                             otf_vsync_core                  ;
+    reg                                             otf_hsync_core                  ;
+    reg                                             otf_de_core                     ;
+    reg         [3                      :0]         otf_fcnt_core                   ;
+    reg         [11                     :0]         otf_lcnt_core                   ;
+    reg         [127                    :0]         otf_data_comb                   ;
+    reg         [1                      :0]         phase                           ;
+    reg         [255                    :0]         compact_data                    ;
+    reg         [31                     :0]         cur_y                           ;
+    reg         [31                     :0]         cur_u                           ;
+
+    function [15                     :0] div_up4_u16;
+        input   [15                     :0]         value                           ;
+        reg         [15                     :0]         value_div4                      ;
         begin
             value_div4 = (value + 3) >> 2;
             div_up4_u16 = value_div4;
         end
     endfunction
 
-    wire [15:0] h_total_beats;
-    assign h_total_beats = div_up4_u16(cfg_otf_h_total);
-    wire [15:0] h_sync_beats;
-    assign h_sync_beats = div_up4_u16(cfg_otf_h_sync);
-    wire [15:0] h_bp_beats;
-    assign h_bp_beats = div_up4_u16(cfg_otf_h_bp);
-    wire [15:0] h_act_beats;
-    assign h_act_beats = div_up4_u16(cfg_otf_h_act);
-    wire [15:0] h_act_start;
-    assign h_act_start = h_sync_beats + h_bp_beats;
-    wire [15:0] h_act_end;
-    assign h_act_end = h_act_start + h_act_beats;
-    wire [15:0] v_act_start;
-    assign v_act_start = cfg_otf_v_sync + cfg_otf_v_bp;
-    wire [15:0] v_act_end;
-    assign v_act_end = v_act_start + cfg_otf_v_act;
-
-    reg [15:0] h_cnt;
-    reg [15:0] v_cnt;
-    reg        stream_started;
-    reg [3:0]  pending_frame_fcnt;
-    reg        frame_done_pulse_core;
-    reg        correct_irq_pulse_core;
-    reg        otf_vsync_core;
-    reg        otf_hsync_core;
-    reg        otf_de_core;
-    reg [3:0]  otf_fcnt_core;
-    reg [11:0] otf_lcnt_core;
-    reg [127:0] otf_data_comb;
-    wire       frame_start;
-    assign frame_start = (i_frame_start == 1'b1);
-    wire is_active_line;
-    assign is_active_line = (v_cnt >= v_act_start) && (v_cnt < v_act_end);
-    wire is_hsync;
-    assign is_hsync = is_active_line && (h_cnt < h_sync_beats);
-    wire is_act;
-    assign is_act = is_active_line && (h_cnt >= h_act_start) && (h_cnt < h_act_end);
-    wire [15:0] active_line_raw;
-    assign active_line_raw = v_cnt - v_act_start;
-    wire [15:0] correct_irq_line;
-    assign correct_irq_line = (cfg_otf_v_act > 16'd4) ? (cfg_otf_v_act - 16'd4) : 16'd0;
-    wire correct_irq_hit;
-    assign correct_irq_hit = stream_started && i_otf_ready && is_hsync &&
-                           (h_cnt == 16'd0) && (active_line_raw == correct_irq_line);
-    wire otf_line_fire;
-    assign otf_line_fire = stream_started && i_otf_ready && is_active_line && (h_cnt == 16'd0);
-    wire otf_de_fire;
-    assign otf_de_fire = stream_started && i_otf_ready && is_act;
-    wire [11:0] active_line;
-    assign active_line = (v_cnt >= v_act_start) ?
-                              ((|active_line_raw[15:12]) ? 12'hfff : active_line_raw[11:0]) :
-                              12'd0;
     // Match the YUV420 table where the first active line uses the ODD layout
     // without chroma bytes, and the second active line uses the EVEN layout.
-    wire line_has_uv;
-    assign line_has_uv = active_line[0];
-    wire is_rgba;
-    assign is_rgba = (cfg_format == 5'b00000) || (cfg_format == 5'b00001);
-    wire is_yuv420_10;
-    assign is_yuv420_10 = (cfg_format == 5'b00011);
-    reg [1:0] phase;
-    wire       fifo_sel;
-    assign fifo_sel = 1'b0;
-    wire       fifo_empty_sel;
-    assign fifo_empty_sel = fifo_sel ? i_fifo_empty1 : i_fifo_empty0;
-    wire [255:0] fifo_rdata_sel;
-    assign fifo_rdata_sel = fifo_sel ? i_fifo_rdata1 : i_fifo_rdata0;
-    wire active_data_stall;
-    assign active_data_stall = stream_started && is_act && i_otf_ready &&
-                             (phase == 2'd0) && fifo_empty_sel;
-    wire h_last;
-    assign h_last = (h_cnt == (h_total_beats - 16'd1));
-    wire v_last;
-    assign v_last = (v_cnt == (cfg_otf_v_total - 16'd1));
-    wire frame_start_idle;
-    assign frame_start_idle = frame_start && !stream_started;
-    wire stream_wait_start;
-    assign stream_wait_start = !stream_started && !frame_start;
-    wire otf_step_fire;
-    assign otf_step_fire = stream_started && !active_data_stall && i_otf_ready;
-    wire otf_frame_end_fire;
-    assign otf_frame_end_fire = otf_step_fire && h_last && v_last;
+
+    assign h_total_beats              = div_up4_u16(cfg_otf_h_total);
+    assign h_sync_beats               = div_up4_u16(cfg_otf_h_sync);
+    assign h_bp_beats                 = div_up4_u16(cfg_otf_h_bp);
+    assign h_act_beats                = div_up4_u16(cfg_otf_h_act);
+    assign h_act_start                = h_sync_beats + h_bp_beats;
+    assign h_act_end                  = h_act_start + h_act_beats;
+    assign v_act_start                = cfg_otf_v_sync + cfg_otf_v_bp;
+    assign v_act_end                  = v_act_start + cfg_otf_v_act;
+    assign frame_start                = (i_frame_start == 1'b1);
+    assign is_active_line             = (v_cnt >= v_act_start) && (v_cnt < v_act_end);
+    assign is_hsync                   = is_active_line && (h_cnt < h_sync_beats);
+    assign is_act                     = is_active_line && (h_cnt >= h_act_start) && (h_cnt < h_act_end);
+    assign active_line_raw            = v_cnt - v_act_start;
+    assign correct_irq_line           = (cfg_otf_v_act > 16'd4) ? (cfg_otf_v_act - 16'd4) : 16'd0;
+    assign correct_irq_hit            = stream_started && i_otf_ready && is_hsync &&
+                                        (h_cnt == 16'd0) && (active_line_raw == correct_irq_line);
+    assign otf_line_fire              = stream_started && i_otf_ready && is_active_line && (h_cnt == 16'd0);
+    assign otf_de_fire                = stream_started && i_otf_ready && is_act;
+    assign active_line                = (v_cnt >= v_act_start) ?
+                                        ((|active_line_raw[15:12]) ? 12'hfff : active_line_raw[11:0]) :
+                                                                 12'd0;
+    assign line_has_uv                = active_line[0];
+    assign is_rgba                    = (cfg_format == 5'b00000) || (cfg_format == 5'b00001);
+    assign is_yuv420_10               = (cfg_format == 5'b00011);
+    assign fifo_sel                   = 1'b0;
+    assign fifo_empty_sel             = fifo_sel ? i_fifo_empty1 : i_fifo_empty0;
+    assign fifo_rdata_sel             = fifo_sel ? i_fifo_rdata1 : i_fifo_rdata0;
+    assign active_data_stall          = stream_started && is_act && i_otf_ready &&
+                                        (phase == 2'd0) && fifo_empty_sel;
+    assign h_last                     = (h_cnt == (h_total_beats - 16'd1));
+    assign v_last                     = (v_cnt == (cfg_otf_v_total - 16'd1));
+    assign frame_start_idle           = frame_start && !stream_started;
+    assign stream_wait_start          = !stream_started && !frame_start;
+    assign otf_step_fire              = stream_started && !active_data_stall && i_otf_ready;
+    assign otf_frame_end_fire         = otf_step_fire && h_last && v_last;
+    assign otf_output_update          = i_otf_ready;
+    assign phase_busy                 = (phase != 2'd0);
+    assign fifo_busy                  = !i_fifo_empty0 | !i_fifo_empty1;
+    assign stream_busy                = stream_started;
+    assign need_data                  = stream_started && is_act && i_otf_ready && (phase == 0);
+    assign o_fifo_rd_en0              = need_data && !fifo_sel && !i_fifo_empty0;
+    assign o_fifo_rd_en1              = need_data &&  fifo_sel && !i_fifo_empty1;
+    assign o_active_fcnt              = stream_started ? otf_fcnt_core : pending_frame_fcnt;
+    assign o_busy                     = stream_busy | fifo_busy | phase_busy;
+    assign phase_out                  = phase - 2'd1;
+    assign Y0                         = cur_y[7:0];
+    assign Y1                         = cur_y[15:8];
+    assign Y2                         = cur_y[23:16];
+    assign Y3                         = cur_y[31:24];
+    assign U0                         = cur_u[7:0];
+    assign V0                         = cur_u[15:8];
+    assign U1                         = cur_u[23:16];
+    assign V1                         = cur_u[31:24];
+    assign Y0_10                      = (phase == 2'd1) ? compact_data[15:6]    : compact_data[79:70];
+    assign Y1_10                      = (phase == 2'd1) ? compact_data[31:22]   : compact_data[95:86];
+    assign Y2_10                      = (phase == 2'd1) ? compact_data[47:38]   : compact_data[111:102];
+    assign Y3_10                      = (phase == 2'd1) ? compact_data[63:54]   : compact_data[127:118];
+    assign U0_10                      = (phase == 2'd1) ? compact_data[143:134] : compact_data[207:198];
+    assign V0_10                      = (phase == 2'd1) ? compact_data[159:150] : compact_data[223:214];
+    assign U1_10                      = (phase == 2'd1) ? compact_data[175:166] : compact_data[239:230];
+    assign V1_10                      = (phase == 2'd1) ? compact_data[191:182] : compact_data[255:246];
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
@@ -256,19 +309,6 @@ module otf_driver (
             otf_lcnt_core <= active_line;
     end
 
-    reg [255:0] compact_data;
-    wire phase_busy;
-    assign phase_busy = (phase != 2'd0);
-    wire fifo_busy;
-    assign fifo_busy = !i_fifo_empty0 | !i_fifo_empty1;
-    wire stream_busy;
-    assign stream_busy = stream_started;
-    wire need_data;
-    assign need_data = stream_started && is_act && i_otf_ready && (phase == 0);
-    assign o_fifo_rd_en0 = need_data && !fifo_sel && !i_fifo_empty0;
-    assign o_fifo_rd_en1 = need_data &&  fifo_sel && !i_fifo_empty1;
-    assign o_active_fcnt = stream_started ? otf_fcnt_core : pending_frame_fcnt;
-
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             phase <= 2'd0;
@@ -297,45 +337,6 @@ module otf_driver (
         else if (i_otf_ready && is_act && (phase == 2'd0) && !fifo_empty_sel)
             compact_data <= fifo_rdata_sel;
     end
-
-    assign o_busy = stream_busy | fifo_busy | phase_busy;
-
-    wire [1:0]  phase_out;
-    assign phase_out = phase - 2'd1;
-	    reg  [31:0] cur_y;
-	    reg  [31:0] cur_u;
-	    wire [7:0] Y0;
-	    wire [7:0] Y1;
-	    wire [7:0] Y2;
-	    wire [7:0] Y3;
-	    assign Y0 = cur_y[7:0];
-	    assign Y1 = cur_y[15:8];
-	    assign Y2 = cur_y[23:16];
-	    assign Y3 = cur_y[31:24];
-	    wire [7:0] U0;
-	    wire [7:0] V0;
-	    wire [7:0] U1;
-	    wire [7:0] V1;
-	    assign U0 = cur_u[7:0];
-	    assign V0 = cur_u[15:8];
-	    assign U1 = cur_u[23:16];
-	    assign V1 = cur_u[31:24];
-    wire [9:0] Y0_10;
-    assign Y0_10 = (phase == 2'd1) ? compact_data[15:6]    : compact_data[79:70];
-    wire [9:0] Y1_10;
-    assign Y1_10 = (phase == 2'd1) ? compact_data[31:22]   : compact_data[95:86];
-    wire [9:0] Y2_10;
-    assign Y2_10 = (phase == 2'd1) ? compact_data[47:38]   : compact_data[111:102];
-    wire [9:0] Y3_10;
-    assign Y3_10 = (phase == 2'd1) ? compact_data[63:54]   : compact_data[127:118];
-    wire [9:0] U0_10;
-    assign U0_10 = (phase == 2'd1) ? compact_data[143:134] : compact_data[207:198];
-    wire [9:0] V0_10;
-    assign V0_10 = (phase == 2'd1) ? compact_data[159:150] : compact_data[223:214];
-    wire [9:0] U1_10;
-    assign U1_10 = (phase == 2'd1) ? compact_data[175:166] : compact_data[239:230];
-    wire [9:0] V1_10;
-    assign V1_10 = (phase == 2'd1) ? compact_data[191:182] : compact_data[255:246];
 
     always @(*) begin
         cur_y = 32'd0;
@@ -415,42 +416,42 @@ module otf_driver (
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             o_otf_vsync <= 1'b0;
-        else
+        else if (otf_output_update)
             o_otf_vsync <= otf_vsync_core;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             o_otf_hsync <= 1'b0;
-        else
+        else if (otf_output_update)
             o_otf_hsync <= otf_hsync_core;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             o_otf_de <= 1'b0;
-        else
+        else if (otf_output_update)
             o_otf_de <= otf_de_core;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             o_otf_data <= 128'd0;
-        else
+        else if (otf_output_update)
             o_otf_data <= otf_data_comb;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             o_otf_fcnt <= 4'd0;
-        else
+        else if (otf_output_update)
             o_otf_fcnt <= otf_fcnt_core;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             o_otf_lcnt <= 12'd0;
-        else
+        else if (otf_output_update)
             o_otf_lcnt <= otf_lcnt_core;
     end
 endmodule

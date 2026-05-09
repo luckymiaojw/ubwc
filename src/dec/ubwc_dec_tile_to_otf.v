@@ -5,139 +5,185 @@
 // Company           : MagicIP
 // Engineer          : jiawang.miao magic.jw@magicip.com.cn
 // Create Date       : 2026-04-01  23:15:14
-// Design Name       : 
+// Design Name       :
 // Module Name       : ubwc_dec_tile_to_otf.v
 // Editor            : Gvim, tab size (4)
 // Revision          : 1.00
 //		Revision 1.00 - File Created by		: MiaoJiawang
-//		Description							: 
-// Additional Comments: 
+//		Description							:
+// Additional Comments:
 //
 //////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns / 1ps
 
 module ubwc_dec_tile_to_otf #(
-    parameter integer SRAM_ADDR_W = 12
+    parameter   integer                             SRAM_ADDR_W                     = 12
 )(
     // --- Clocks and reset ---
-    input  wire           clk_sram,      // Write and memory-read clock, for example 200 MHz
-    input  wire           clk_otf,       // Pixel output clock, for example 148.5 MHz for 1080p60
-    input  wire           rst_sram_n,
-    input  wire           rst_otf_n,
-    input  wire           i_frame_start,
-    input  wire [3:0]     i_frame_fcnt,
+    input   wire                                        clk_sram                        , // Write and memory-read clock, for example 200 MHz
+    input   wire                                        clk_otf                         , // Pixel output clock, for example 148.5 MHz for 1080p60
+    input   wire                                        rst_sram_n                      ,
+    input   wire                                        rst_otf_n                       ,
+    input   wire                                        i_frame_start                   ,
+    input   wire    [3                      :0]         i_frame_fcnt                    ,
 
     // --- Frame config, keep stable for one frame ---
-    input  wire [15:0]    cfg_img_width, // For example 1920
-    input  wire [4:0]     cfg_format,    // Base frame format: RGBA / YUV420
-    input  wire [15:0]    cfg_otf_h_total,
-    input  wire [15:0]    cfg_otf_h_sync,
-    input  wire [15:0]    cfg_otf_h_bp,
-    input  wire [15:0]    cfg_otf_h_act,
-    input  wire [15:0]    cfg_otf_v_total,
-    input  wire [15:0]    cfg_otf_v_sync,
-    input  wire [15:0]    cfg_otf_v_bp,
-    input  wire [15:0]    cfg_otf_v_act,
+    input   wire    [15                     :0]         cfg_img_width                   , // For example 1920
+    input   wire    [4                      :0]         cfg_format                      , // Base frame format: RGBA / YUV420
+    input   wire    [15                     :0]         cfg_otf_h_total                 ,
+    input   wire    [15                     :0]         cfg_otf_h_sync                  ,
+    input   wire    [15                     :0]         cfg_otf_h_bp                    ,
+    input   wire    [15                     :0]         cfg_otf_h_act                   ,
+    input   wire    [15                     :0]         cfg_otf_v_total                 ,
+    input   wire    [15                     :0]         cfg_otf_v_sync                  ,
+    input   wire    [15                     :0]         cfg_otf_v_bp                    ,
+    input   wire    [15                     :0]         cfg_otf_v_act                   ,
 
     // --- Tile header input (clk_sram) ---
     // These ports can be driven either by the wrapper internal path or by a
     // standalone testbench that feeds tile headers directly.
-    input  wire [4:0]     s_axis_format,     // Current tile or plane format for writer address mapping
-    input  wire [15:0]    s_axis_tile_x,     // Tile x index in the current frame scan order
-    input  wire [15:0]    s_axis_tile_y,     // Slice index; YUV420 expects full-width Y upper, then Y lower, then UV
-    input  wire [3:0]     s_axis_tile_fcnt,
-    input  wire           s_axis_tile_valid, // One header beat per tile
-    output wire           s_axis_tile_ready,
+    input   wire    [4                      :0]         s_axis_format                   , // Current tile or plane format for writer address mapping
+    input   wire    [15                     :0]         s_axis_tile_x                   , // Tile x index in the current frame scan order
+    input   wire    [15                     :0]         s_axis_tile_y                   , // Slice index; YUV420 expects full-width Y upper, then Y lower, then UV
+    input   wire    [3                      :0]         s_axis_tile_fcnt                ,
+    input   wire                                        s_axis_tile_valid               , // One header beat per tile
+    output  wire                                        s_axis_tile_ready               ,
 
     // --- Tile data input (clk_sram) ---
     // These ports can be driven either by the wrapper internal path or by a
     // standalone testbench that feeds tile payload data directly.
-    input  wire [255:0]   s_axis_tdata,
-    input  wire           s_axis_tlast,      // End of one tile in the current full-width pass
-    input  wire           s_axis_tvalid,
-    output wire           s_axis_tready,
+    input   wire    [255                    :0]         s_axis_tdata                    ,
+    input   wire                                        s_axis_tlast                    , // End of one tile in the current full-width pass
+    input   wire                                        s_axis_tvalid                   ,
+    output  wire                                        s_axis_tready                   ,
 
     // --- External SRAM bank interface (clk_sram) ---
     // The ping-pong SRAM instances are provided by the wrapper or testbench.
-    output wire           sram_a_wen,
-    output wire [SRAM_ADDR_W-1:0] sram_a_waddr,
-    output wire [127:0]   sram_a_wdata,
-    output wire           sram_a_ren,
-    output wire [SRAM_ADDR_W-1:0] sram_a_raddr,
-    input  wire [127:0]   sram_a_rdata,
-    input  wire           sram_a_rvalid,
-    output wire           sram_b_wen,
-    output wire [SRAM_ADDR_W-1:0] sram_b_waddr,
-    output wire [127:0]   sram_b_wdata,
-    output wire           sram_b_ren,
-    output wire [SRAM_ADDR_W-1:0] sram_b_raddr,
-    input  wire [127:0]   sram_b_rdata,
-    input  wire           sram_b_rvalid,
+    output  wire                                        sram_a_wen                      ,
+    output  wire    [SRAM_ADDR_W         -1 :0]         sram_a_waddr                    ,
+    output  wire    [127                    :0]         sram_a_wdata                    ,
+    output  wire                                        sram_a_ren                      ,
+    output  wire    [SRAM_ADDR_W         -1 :0]         sram_a_raddr                    ,
+    input   wire    [127                    :0]         sram_a_rdata                    ,
+    input   wire                                        sram_a_rvalid                   ,
+    output  wire                                        sram_b_wen                      ,
+    output  wire    [SRAM_ADDR_W         -1 :0]         sram_b_waddr                    ,
+    output  wire    [127                    :0]         sram_b_wdata                    ,
+    output  wire                                        sram_b_ren                      ,
+    output  wire    [SRAM_ADDR_W         -1 :0]         sram_b_raddr                    ,
+    input   wire    [127                    :0]         sram_b_rdata                    ,
+    input   wire                                        sram_b_rvalid                   ,
 
     // --- OTF Output (clk_otf) ---
-    output wire           o_otf_vsync,
-    output wire           o_otf_hsync,
-    output wire           o_otf_de,
-    output wire [127:0]   o_otf_data,
-    output wire [3:0]     o_otf_fcnt,
-    output wire [11:0]    o_otf_lcnt,
-    input  wire           i_otf_ready,
+    output  wire                                        o_otf_vsync                     ,
+    output  wire                                        o_otf_hsync                     ,
+    output  wire                                        o_otf_de                        ,
+    output  wire    [127                    :0]         o_otf_data                      ,
+    output  wire    [3                      :0]         o_otf_fcnt                      ,
+    output  wire    [11                     :0]         o_otf_lcnt                      ,
+    input   wire                                        i_otf_ready                     ,
 
-    output wire           o_busy,
-    output wire           o_correct_irq_pulse,
-    output wire [31:0]    o_otf_line_count,
-    output wire [31:0]    o_otf_de_count
+    output  wire                                        o_busy                          ,
+    output  wire                                        o_correct_irq_pulse             ,
+    output  wire    [31                     :0]         o_otf_line_count                ,
+    output  wire    [31                     :0]         o_otf_de_count
 );
+
+    wire                                            writer_vld                      ;
+    wire                                            writer_bank                     ;
+    wire        [3                      :0]         writer_fcnt                     ;
+    wire                                            fetcher_req                     ;
+    wire                                            fetcher_done                    ;
+    wire                                            fetcher_bank                    ;
+    wire        [3                      :0]         fetcher_fcnt                    ;
+    wire        [3                      :0]         fetcher_fifo_fcnt               ;
+    wire                                            fifo_wr_en                      ;
+    wire                                            fifo_rd_en0                     ;
+    wire                                            fifo_rd_en1                     ;
+    wire        [255                    :0]         fifo_wdata                      ;
+    wire        [255                    :0]         fifo_rdata0                     ;
+    wire        [255                    :0]         fifo_rdata1                     ;
+    wire                                            fifo_full0                      ;
+    wire                                            fifo_full1                      ;
+    wire                                            fifo_empty0                     ;
+    wire                                            fifo_empty1                     ;
+    wire                                            otf_driver_busy                 ;
+    wire                                            otf_frame_done_pulse            ;
+    wire                                            otf_correct_irq_pulse           ;
+    wire        [31                     :0]         otf_line_count_otf              ;
+    wire        [31                     :0]         otf_de_count_otf                ;
+    wire                                            frame_start_sram                ;
+    wire                                            frame_start_otf_raw             ;
+    wire                                            frame_start_otf                 ;
+    wire                                            frame_done_sram                 ;
+    wire                                            tile_fcnt_accept                ;
+    wire                                            writer_axis_tile_ready          ;
+    wire                                            fetcher_done_a                  ;
+    wire                                            fetcher_done_b                  ;
+    wire                                            pending_a_avail                 ;
+    wire                                            pending_b_avail                 ;
+    wire                                            pending_a_fifo_full             ;
+    wire                                            pending_b_fifo_full             ;
+    wire                                            writer_axis_tile_valid          ;
+    wire                                            pending_a_can_fetch             ;
+    wire                                            pending_b_can_fetch             ;
+    wire                                            fetcher_bank_sel                ;
+    wire        [3                      :0]         fetcher_req_fcnt                ;
+    wire                                            fetcher_req_fifo_full           ;
+
+    reg                                             sram_a_free                     ;
+    reg                                             sram_b_free                     ;
+    reg         [3                      :0]         sram_a_fcnt                     ;
+    reg         [3                      :0]         sram_b_fcnt                     ;
+    reg                                             pending_a                       ;
+    reg                                             pending_b                       ;
+    reg                                             frame_start_toggle_sram         ;
+    reg         [1                      :0]         frame_start_toggle_otf_sync     ;
+    reg         [3                      :0]         frame_fcnt_sram                 ;
+    reg         [3                      :0]         frame_fcnt_otf_meta             ;
+    reg         [3                      :0]         frame_fcnt_otf_sync             ;
+    reg                                             frame_start_otf_reg             ;
+    reg                                             frame_done_toggle_otf           ;
+    reg         [1                      :0]         frame_done_toggle_sram_sync     ;
+    reg                                             correct_irq_toggle_otf          ;
+    reg         [1                      :0]         correct_irq_toggle_sram_sync    ;
+    reg         [31                     :0]         otf_line_count_sram             ;
+    reg         [31                     :0]         otf_de_count_sram               ;
+    reg                                             accept_fcnt_valid_sram          ;
+    reg         [3                      :0]         accept_fcnt_sram                ;
 
     // =========================================================================
     // Internal signals
     // =========================================================================
     // 1. Ping-pong buffer status
-    wire          writer_vld;
-    wire          writer_bank;
-    wire [3:0]    writer_fcnt;
-    wire          fetcher_req;
-    wire          fetcher_done;
-    wire          fetcher_bank;
-    wire [3:0]    fetcher_fcnt;
-    wire [3:0]    fetcher_fifo_fcnt;
-    reg           sram_a_free;
-    reg           sram_b_free;
-    reg  [3:0]    sram_a_fcnt;
-    reg  [3:0]    sram_b_fcnt;
-    reg           pending_a;
-    reg           pending_b;
 
     // 2. Async FIFO interface
-    wire          fifo_wr_en, fifo_rd_en0, fifo_rd_en1;
-    wire [255:0]  fifo_wdata, fifo_rdata0, fifo_rdata1;
-    wire          fifo_full0, fifo_full1, fifo_empty0, fifo_empty1;
-    wire          otf_driver_busy;
-    wire          otf_frame_done_pulse;
-    wire          otf_correct_irq_pulse;
-    wire [31:0]   otf_line_count_otf;
-    wire [31:0]   otf_de_count_otf;
-    wire          frame_start_sram;
-    assign frame_start_sram = (i_frame_start == 1'b1);
-    reg           frame_start_toggle_sram;
-    reg  [1:0]    frame_start_toggle_otf_sync;
-    reg  [3:0]    frame_fcnt_sram;
-    reg  [3:0]    frame_fcnt_otf_meta;
-    reg  [3:0]    frame_fcnt_otf_sync;
-    reg           frame_start_otf_reg;
-    wire          frame_start_otf_raw;
-    wire          frame_start_otf;
-    reg           frame_done_toggle_otf;
-    reg  [1:0]    frame_done_toggle_sram_sync;
-    wire          frame_done_sram;
-    reg           correct_irq_toggle_otf;
-    reg  [1:0]    correct_irq_toggle_sram_sync;
-    reg  [31:0]   otf_line_count_sram;
-    reg  [31:0]   otf_de_count_sram;
-    reg           accept_fcnt_valid_sram;
-    reg  [3:0]    accept_fcnt_sram;
-    wire          tile_fcnt_accept;
-    wire          writer_axis_tile_ready;
+
+    assign frame_start_sram           = (i_frame_start == 1'b1);
+    assign frame_start_otf_raw        = frame_start_toggle_otf_sync[1] ^ frame_start_toggle_otf_sync[0];
+    assign frame_start_otf            = frame_start_otf_reg;
+    assign frame_done_sram            = frame_done_toggle_sram_sync[1] ^ frame_done_toggle_sram_sync[0];
+    assign o_correct_irq_pulse        = correct_irq_toggle_sram_sync[1] ^ correct_irq_toggle_sram_sync[0];
+    assign o_otf_line_count           = otf_line_count_sram;
+    assign o_otf_de_count             = otf_de_count_sram;
+    assign tile_fcnt_accept           = !accept_fcnt_valid_sram || (s_axis_tile_fcnt == accept_fcnt_sram);
+    assign s_axis_tile_ready          = writer_axis_tile_ready && tile_fcnt_accept;
+    assign fetcher_done_a             = fetcher_done && (fetcher_bank == 1'b0);
+    assign fetcher_done_b             = fetcher_done && (fetcher_bank == 1'b1);
+    assign pending_a_avail            = pending_a && !fetcher_done_a;
+    assign pending_b_avail            = pending_b && !fetcher_done_b;
+    assign pending_a_fifo_full        = fifo_full0;
+    assign pending_b_fifo_full        = fifo_full0;
+    assign pending_a_can_fetch        = pending_a_avail && !pending_a_fifo_full;
+    assign pending_b_can_fetch        = pending_b_avail && !pending_b_fifo_full;
+    assign writer_axis_tile_valid     = s_axis_tile_valid && tile_fcnt_accept;
+    assign fetcher_bank_sel           = pending_a_can_fetch ? 1'b0 : 1'b1;
+    assign fetcher_req_fcnt           = pending_a_can_fetch ? sram_a_fcnt : sram_b_fcnt;
+    assign fetcher_req_fifo_full      = fifo_full0;
+    assign fetcher_req                = pending_a_can_fetch | pending_b_can_fetch;
+    assign o_busy                     = s_axis_tile_valid | s_axis_tvalid | writer_vld | fetcher_req |
+                                        !fifo_empty0 | !fifo_empty1 | pending_a | pending_b |
+                                        !sram_a_free | !sram_b_free | otf_driver_busy;
 
     always @(posedge clk_sram or negedge rst_sram_n) begin
         if (!rst_sram_n)
@@ -181,9 +227,6 @@ module ubwc_dec_tile_to_otf #(
         else
             frame_start_otf_reg <= frame_start_otf_raw;
     end
-
-    assign frame_start_otf_raw = frame_start_toggle_otf_sync[1] ^ frame_start_toggle_otf_sync[0];
-    assign frame_start_otf = frame_start_otf_reg;
 
     always @(posedge clk_otf or negedge rst_otf_n) begin
         if (!rst_otf_n) begin
@@ -247,41 +290,9 @@ module ubwc_dec_tile_to_otf #(
             accept_fcnt_sram <= accept_fcnt_sram + 4'd1;
     end
 
-    assign frame_done_sram = frame_done_toggle_sram_sync[1] ^ frame_done_toggle_sram_sync[0];
-    assign o_correct_irq_pulse = correct_irq_toggle_sram_sync[1] ^ correct_irq_toggle_sram_sync[0];
-    assign o_otf_line_count = otf_line_count_sram;
-    assign o_otf_de_count = otf_de_count_sram;
-    assign tile_fcnt_accept = !accept_fcnt_valid_sram || (s_axis_tile_fcnt == accept_fcnt_sram);
-    assign s_axis_tile_ready = writer_axis_tile_ready && tile_fcnt_accept;
-
     // =========================================================================
     // Module instances
     // =========================================================================
-
-    wire fetcher_done_a;
-    assign fetcher_done_a = fetcher_done && (fetcher_bank == 1'b0);
-    wire fetcher_done_b;
-    assign fetcher_done_b = fetcher_done && (fetcher_bank == 1'b1);
-    wire pending_a_avail;
-    assign pending_a_avail = pending_a && !fetcher_done_a;
-    wire pending_b_avail;
-    assign pending_b_avail = pending_b && !fetcher_done_b;
-    wire pending_a_fifo_full;
-    assign pending_a_fifo_full = fifo_full0;
-    wire pending_b_fifo_full;
-    assign pending_b_fifo_full = fifo_full0;
-    wire pending_a_can_fetch;
-    assign pending_a_can_fetch = pending_a_avail && !pending_a_fifo_full;
-    wire pending_b_can_fetch;
-    assign pending_b_can_fetch = pending_b_avail && !pending_b_fifo_full;
-    wire fetcher_bank_sel;
-    assign fetcher_bank_sel = pending_a_can_fetch ? 1'b0 : 1'b1;
-    wire [3:0] fetcher_req_fcnt;
-    assign fetcher_req_fcnt = pending_a_can_fetch ? sram_a_fcnt : sram_b_fcnt;
-    wire fetcher_req_fifo_full;
-    assign fetcher_req_fifo_full = fifo_full0;
-
-    assign fetcher_req = pending_a_can_fetch | pending_b_can_fetch;
 
     always @(posedge clk_sram or negedge rst_sram_n) begin
         if (!rst_sram_n)
@@ -346,7 +357,7 @@ module ubwc_dec_tile_to_otf #(
         .s_axis_tile_x                 ( s_axis_tile_x                         ),
         .s_axis_tile_y                 ( s_axis_tile_y                         ),
         .s_axis_tile_fcnt              ( s_axis_tile_fcnt                      ),
-        .s_axis_tile_valid             ( s_axis_tile_valid && tile_fcnt_accept ),
+        .s_axis_tile_valid             ( writer_axis_tile_valid                ),
         .s_axis_tile_ready             ( writer_axis_tile_ready                ),
         .s_axis_tdata                  ( s_axis_tdata                          ),
         .s_axis_tlast                  ( s_axis_tlast                          ),
@@ -472,9 +483,5 @@ module ubwc_dec_tile_to_otf #(
         .o_otf_fcnt     (o_otf_fcnt),
         .o_otf_lcnt     (o_otf_lcnt)
     );
-
-    assign o_busy = s_axis_tile_valid | s_axis_tvalid | writer_vld | fetcher_req |
-                    !fifo_empty0 | !fifo_empty1 | pending_a | pending_b |
-                    !sram_a_free | !sram_b_free | otf_driver_busy;
 
 endmodule

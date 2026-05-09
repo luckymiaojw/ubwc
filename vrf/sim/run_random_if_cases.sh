@@ -220,6 +220,7 @@ for idx in "${!TARGETS[@]}"; do
     echo "RUN_ARGS=${run_args}"
     if [[ ${DRY_RUN} -eq 0 && -n "${build_dir}" && -d "${build_dir}" ]]; then
         rm -f "${build_dir}/simv"
+        rm -f "${build_dir}/simv.daidir/.vcs.timestamp"
     fi
     if run_make "${target}" "${run_args}" && ! case_log_has_failure "${run_log}"; then
         pass_count=$((pass_count + 1))

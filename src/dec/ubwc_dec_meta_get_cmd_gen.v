@@ -14,158 +14,152 @@
 // Additional Comments:
 //
 //////////////////////////////////////////////////////////////////////////////////
-//`timescale 1ns/1ps
+`timescale 1ns/1ps
 
-module ubwc_enc_meta_get_cmd_gen#(
-    parameter ADDR_WIDTH = 32,
-    parameter TW_DW      = 16,
-    parameter TH_DW      = 16
+module ubwc_enc_meta_get_cmd_gen #(
+    parameter                                       ADDR_WIDTH                      = 32,
+    parameter                                       TW_DW                           = 16,
+    parameter                                       TH_DW                           = 16
 )(
-    input  wire                   clk,
-    input  wire                   rst_n,
+    input   wire                                        clk                             ,
+    input   wire                                        rst_n                           ,
 
     // --- Control and configuration interface ---
-    input  wire                   start,
-    input  wire [3:0]             i_fcnt,
-    input  wire [4:0]             base_format,             // Frame-level format only
-    input  wire [ADDR_WIDTH-1:0]  meta_base_addr_rgba_y0,  // Start base address for RGBA or Y, fcnt[0] == 0
-    input  wire [ADDR_WIDTH-1:0]  meta_base_addr_uv0,      // Start base address for UV plane, fcnt[0] == 0
-    input  wire [ADDR_WIDTH-1:0]  meta_base_addr_rgba_y1,  // Start base address for RGBA or Y, fcnt[0] == 1
-    input  wire [ADDR_WIDTH-1:0]  meta_base_addr_uv1,      // Start base address for UV plane, fcnt[0] == 1
-    input  wire [TW_DW-1:0]       tile_x_numbers,          // Image tile columns, one metadata byte per tile
-    input  wire [TH_DW-1:0]       tile_y_numbers,          // Image tile rows, one metadata byte per tile
+    input   wire                                        start                           ,
+    input   wire    [3                      :0]         i_fcnt                          ,
+    input   wire    [4                      :0]         base_format                     , // Frame-level format only
+    input   wire    [ADDR_WIDTH          -1 :0]         meta_base_addr_rgba_y0          , // Start base address for RGBA or Y, fcnt[0] == 0
+    input   wire    [ADDR_WIDTH          -1 :0]         meta_base_addr_uv0              , // Start base address for UV plane, fcnt[0] == 0
+    input   wire    [ADDR_WIDTH          -1 :0]         meta_base_addr_rgba_y1          , // Start base address for RGBA or Y, fcnt[0] == 1
+    input   wire    [ADDR_WIDTH          -1 :0]         meta_base_addr_uv1              , // Start base address for UV plane, fcnt[0] == 1
+    input   wire    [TW_DW               -1 :0]         tile_x_numbers                  , // Image tile columns, one metadata byte per tile
+    input   wire    [TH_DW               -1 :0]         tile_y_numbers                  , // Image tile rows, one metadata byte per tile
 
     // --- Metadata group interface ---
-    output wire                   meta_grp_valid,
-    input  wire                   meta_grp_ready,
-    output wire [ADDR_WIDTH-1:0]  meta_grp_addr,
-    output wire [4:0]             meta_format,
-    output wire [TW_DW-1:0]       meta_xcoord,
-    output wire [TH_DW-1:0]       meta_ycoord,
-    output wire [3:0]             meta_fcnt
+    output  wire                                        meta_grp_valid                  ,
+    input   wire                                        meta_grp_ready                  ,
+    output  wire    [ADDR_WIDTH          -1 :0]         meta_grp_addr                   ,
+    output  wire    [4                      :0]         meta_format                     ,
+    output  wire    [TW_DW               -1 :0]         meta_xcoord                     ,
+    output  wire    [TH_DW               -1 :0]         meta_ycoord                     ,
+    output  wire    [3                      :0]         meta_fcnt
 );
 
-    localparam integer META_SUB_AW = TW_DW + 4;
-    localparam [TW_DW-1:0] TILE_STEP_X = {{(TW_DW-4){1'b0}}, 4'd8};
+    localparam  integer                             META_SUB_AW                     = TW_DW + 4;
+    localparam  [TW_DW               -1 :0]         TILE_STEP_X                     = {{(TW_DW-4){1'b0}}, 4'd8};
+    localparam  [4                      :0]         BASE_FMT_RGBA8888               = 5'b00000;
+    localparam  [4                      :0]         BASE_FMT_RGBA1010102            = 5'b00001;
+    localparam  [4                      :0]         BASE_FMT_YUV420_8               = 5'b00010;
+    localparam  [4                      :0]         BASE_FMT_YUV420_10              = 5'b00011;
+    localparam  [4                      :0]         META_FMT_RGBA8888               = 5'b00000;
+    localparam  [4                      :0]         META_FMT_RGBA1010102            = 5'b00001;
+    localparam  [4                      :0]         META_FMT_NV12_Y                 = 5'b01000;
+    localparam  [4                      :0]         META_FMT_NV12_UV                = 5'b01001;
+    localparam  [4                      :0]         META_FMT_P010_Y                 = 5'b01110;
+    localparam  [4                      :0]         META_FMT_P010_UV                = 5'b01111;
 
-    reg              scan_active;
-    reg              scan_is_uv_plane;
-    reg [TW_DW-1:0]  xcoord_cnt;
-    reg [TH_DW-1:0]  y_row_cnt;
-    reg [TH_DW-1:0]  uv_row_cnt;
-    reg [3:0]        active_fcnt;
-    reg [ADDR_WIDTH-1:0] active_meta_base_addr_rgba_y;
-    reg [ADDR_WIDTH-1:0] active_meta_base_addr_uv;
-    reg [ADDR_WIDTH-1:0] active_meta_y_row_base_rgba_y;
-    reg [ADDR_WIDTH-1:0] active_meta_y_row_base_uv;
+    wire                                            base_is_rgba                    ;
+    wire                                            base_is_yuv420                  ;
+    wire                                            base_supported                  ;
+    wire                                            base_is_rgba101                 ;
+    wire                                            base_is_p010                    ;
+    wire        [15                     :0]         tile_x_numbers_ext              ;
+    wire        [15                     :0]         meta_pitch_bytes                ;
+    wire                                            frame_empty                     ;
+    wire        [TW_DW                  :0]         xcoord_next_ext                 ;
+    wire        [TH_DW                  :0]         y_row_next_ext                  ;
+    wire        [TH_DW               -1 :0]         uv_row_next                     ;
+    wire                                            x_row_last                      ;
+    wire                                            y_row_last                      ;
+    wire                                            issue_fire                      ;
+    wire                                            current_is_uv                   ;
+    wire        [TH_DW               -1 :0]         current_ycoord                  ;
+    wire        [4                      :0]         current_format                  ;
+    wire        [ADDR_WIDTH          -1 :0]         meta_base_addr                  ;
+    wire        [ADDR_WIDTH          -1 :0]         meta_row_stride_bytes           ;
+    wire        [ADDR_WIDTH          -1 :0]         meta_y_base_addr                ;
+    wire        [META_SUB_AW         -1 :0]         meta_xy_offset_addr             ;
+    wire        [ADDR_WIDTH          -1 :0]         meta_offset_addr                ;
+    wire                                            row_end_fire                    ;
+    wire                                            rgba_frame_done_fire            ;
+    wire                                            rgba_y_advance_fire             ;
+    wire                                            yuv_y_advance_fire              ;
+    wire                                            yuv_enter_uv_fire               ;
+    wire                                            yuv_uv_row_fire                 ;
+    wire                                            yuv_uv_frame_done_fire          ;
+    wire                                            yuv_uv_y_advance_fire           ;
+    wire                                            y_row_base_inc_fire             ;
+    wire                                            uv_row_base_inc_fire            ;
+
+    reg                                             scan_active                     ;
+    reg                                             scan_is_uv_plane                ;
+    reg         [TW_DW               -1 :0]         xcoord_cnt                      ;
+    reg         [TH_DW               -1 :0]         y_row_cnt                       ;
+    reg         [TH_DW               -1 :0]         uv_row_cnt                      ;
+    reg         [3                      :0]         active_fcnt                     ;
+    reg         [ADDR_WIDTH          -1 :0]         active_meta_base_addr_rgba_y    ;
+    reg         [ADDR_WIDTH          -1 :0]         active_meta_base_addr_uv        ;
+    reg         [ADDR_WIDTH          -1 :0]         active_meta_y_row_base_rgba_y   ;
+    reg         [ADDR_WIDTH          -1 :0]         active_meta_y_row_base_uv       ;
 
     // base_format is a frame-level format selector.
-    localparam [4:0] BASE_FMT_RGBA8888    = 5'b00000;
-    localparam [4:0] BASE_FMT_RGBA1010102 = 5'b00001;
-    localparam [4:0] BASE_FMT_YUV420_8    = 5'b00010;
-    localparam [4:0] BASE_FMT_YUV420_10   = 5'b00011;
 
     // meta_format is a tile-level format selector and keeps Y/UV split codes.
-    localparam [4:0] META_FMT_RGBA8888    = 5'b00000;
-    localparam [4:0] META_FMT_RGBA1010102 = 5'b00001;
-    localparam [4:0] META_FMT_NV12_Y      = 5'b01000;
-    localparam [4:0] META_FMT_NV12_UV     = 5'b01001;
-    localparam [4:0] META_FMT_P010_Y      = 5'b01110;
-    localparam [4:0] META_FMT_P010_UV     = 5'b01111;
 
-    wire base_is_rgba;
-    assign base_is_rgba = (base_format == BASE_FMT_RGBA8888) || (base_format == BASE_FMT_RGBA1010102);
-    wire base_is_yuv420;
-    assign base_is_yuv420 = (base_format == BASE_FMT_YUV420_8) || (base_format == BASE_FMT_YUV420_10);
-    wire base_supported;
-    assign base_supported = base_is_rgba || base_is_yuv420;
-    wire base_is_rgba101;
-    assign base_is_rgba101 = (base_format == BASE_FMT_RGBA1010102);
-    wire base_is_p010;
-    assign base_is_p010 = (base_format == BASE_FMT_YUV420_10);
-
-    wire [15:0] tile_x_numbers_ext;
-    assign tile_x_numbers_ext = {{(16-TW_DW){1'b0}}, tile_x_numbers};
-    wire [15:0] meta_pitch_bytes;
-    assign meta_pitch_bytes = (tile_x_numbers_ext + 16'd63) & 16'hffc0;
-
-    wire frame_empty;
-    assign frame_empty = !base_supported ||
-                       (tile_x_numbers == {TW_DW{1'b0}}) ||
-                       (tile_y_numbers == {TH_DW{1'b0}});
-
-    wire [TW_DW:0] xcoord_next_ext;
-    assign xcoord_next_ext = {1'b0, xcoord_cnt} + {1'b0, TILE_STEP_X};
-    wire [TH_DW:0] y_row_next_ext;
-    assign y_row_next_ext = {1'b0, y_row_cnt} + {{TH_DW{1'b0}}, 1'b1};
-    wire [TH_DW-1:0] uv_row_next;
-    assign uv_row_next = uv_row_cnt + {{(TH_DW-1){1'b0}}, 1'b1};
-    wire x_row_last;
-    assign x_row_last = (xcoord_next_ext >= {1'b0, tile_x_numbers});
-    wire y_row_last;
-    assign y_row_last = (y_row_next_ext >= {1'b0, tile_y_numbers});
-    wire issue_fire;
-    assign issue_fire = meta_grp_valid && meta_grp_ready;
-
-    wire current_is_uv;
-    assign current_is_uv = base_is_yuv420 && scan_is_uv_plane;
-    wire [TH_DW-1:0] current_ycoord;
-    assign current_ycoord = current_is_uv ? uv_row_cnt : y_row_cnt;
-    wire [4:0] current_format;
-    assign current_format = base_is_rgba101 ? META_FMT_RGBA1010102 :
-        base_is_rgba    ? META_FMT_RGBA8888    :
-        current_is_uv   ? (base_is_p010 ? META_FMT_P010_UV : META_FMT_NV12_UV) :
-                          (base_is_p010 ? META_FMT_P010_Y  : META_FMT_NV12_Y);
-
-    wire [ADDR_WIDTH-1:0] meta_base_addr;
-    assign meta_base_addr = current_is_uv ? active_meta_base_addr_uv : active_meta_base_addr_rgba_y;
-    wire [ADDR_WIDTH-1:0] meta_row_stride_bytes;
-    assign meta_row_stride_bytes = {{(ADDR_WIDTH-20){1'b0}}, meta_pitch_bytes, 4'd0};
-    wire [ADDR_WIDTH-1:0] meta_y_base_addr;
-    assign meta_y_base_addr = current_is_uv ? active_meta_y_row_base_uv :
-                                              active_meta_y_row_base_rgba_y;
-    wire [META_SUB_AW-1:0] meta_xy_offset_addr;
-    assign meta_xy_offset_addr = {
-        xcoord_cnt[TW_DW-1:4],
-        current_ycoord[3],
-        xcoord_cnt[3],
-        current_ycoord[2:0],
-        xcoord_cnt[2:0]
-    };
-    wire [ADDR_WIDTH-1:0] meta_offset_addr;
-    assign meta_offset_addr = {{(ADDR_WIDTH-META_SUB_AW){1'b0}}, meta_xy_offset_addr};
-
-    assign meta_grp_valid = scan_active;
-    assign meta_grp_addr  = meta_base_addr + meta_y_base_addr + meta_offset_addr;
-    assign meta_format    = current_format;
-    assign meta_xcoord    = xcoord_cnt;
-    assign meta_ycoord    = current_ycoord;
-    assign meta_fcnt      = active_fcnt;
-
-    wire row_end_fire;
-    assign row_end_fire = issue_fire && x_row_last;
-    wire rgba_frame_done_fire;
-    assign rgba_frame_done_fire = row_end_fire && base_is_rgba && y_row_last;
-    wire rgba_y_advance_fire;
-    assign rgba_y_advance_fire = row_end_fire && base_is_rgba && !y_row_last;
-    wire yuv_y_advance_fire;
-    assign yuv_y_advance_fire = row_end_fire && base_is_yuv420 && !scan_is_uv_plane &&
-                                !y_row_cnt[0] && !y_row_last;
-    wire yuv_enter_uv_fire;
-    assign yuv_enter_uv_fire = row_end_fire && base_is_yuv420 && !scan_is_uv_plane &&
-                               (y_row_cnt[0] || y_row_last);
-    wire yuv_uv_row_fire;
-    assign yuv_uv_row_fire = row_end_fire && base_is_yuv420 && scan_is_uv_plane;
-    wire yuv_uv_frame_done_fire;
-    assign yuv_uv_frame_done_fire = yuv_uv_row_fire && y_row_last;
-    wire yuv_uv_y_advance_fire;
-    assign yuv_uv_y_advance_fire = yuv_uv_row_fire && !y_row_last;
-    wire y_row_base_inc_fire;
-    assign y_row_base_inc_fire = (rgba_y_advance_fire || yuv_y_advance_fire ||
-                                  yuv_uv_y_advance_fire) &&
-                                 (y_row_next_ext[3:0] == 4'd0);
-    wire uv_row_base_inc_fire;
-    assign uv_row_base_inc_fire = yuv_uv_row_fire && (uv_row_next[3:0] == 4'd0);
+    assign base_is_rgba               = (base_format == BASE_FMT_RGBA8888) || (base_format == BASE_FMT_RGBA1010102);
+    assign base_is_yuv420             = (base_format == BASE_FMT_YUV420_8) || (base_format == BASE_FMT_YUV420_10);
+    assign base_supported             = base_is_rgba || base_is_yuv420;
+    assign base_is_rgba101            = (base_format == BASE_FMT_RGBA1010102);
+    assign base_is_p010               = (base_format == BASE_FMT_YUV420_10);
+    assign tile_x_numbers_ext         = {{(16-TW_DW){1'b0}}, tile_x_numbers};
+    assign meta_pitch_bytes           = (tile_x_numbers_ext + 16'd63) & 16'hffc0;
+    assign frame_empty                = !base_supported ||
+                                        (tile_x_numbers == {TW_DW{1'b0}}) ||
+                                        (tile_y_numbers == {TH_DW{1'b0}});
+    assign xcoord_next_ext            = {1'b0, xcoord_cnt} + {1'b0, TILE_STEP_X};
+    assign y_row_next_ext             = {1'b0, y_row_cnt} + {{TH_DW{1'b0}}, 1'b1};
+    assign uv_row_next                = uv_row_cnt + {{(TH_DW-1){1'b0}}, 1'b1};
+    assign x_row_last                 = (xcoord_next_ext >= {1'b0, tile_x_numbers});
+    assign y_row_last                 = (y_row_next_ext >= {1'b0, tile_y_numbers});
+    assign issue_fire                 = meta_grp_valid && meta_grp_ready;
+    assign current_is_uv              = base_is_yuv420 && scan_is_uv_plane;
+    assign current_ycoord             = current_is_uv ? uv_row_cnt : y_row_cnt;
+    assign current_format             = base_is_rgba101 ? META_FMT_RGBA1010102 :
+                                        base_is_rgba    ? META_FMT_RGBA8888    :
+                                        current_is_uv   ? (base_is_p010 ? META_FMT_P010_UV : META_FMT_NV12_UV) :
+                                        (base_is_p010 ? META_FMT_P010_Y  : META_FMT_NV12_Y);
+    assign meta_base_addr             = current_is_uv ? active_meta_base_addr_uv : active_meta_base_addr_rgba_y;
+    assign meta_row_stride_bytes      = {{(ADDR_WIDTH-20){1'b0}}, meta_pitch_bytes, 4'd0};
+    assign meta_y_base_addr           = current_is_uv ? active_meta_y_row_base_uv :
+                                                        active_meta_y_row_base_rgba_y;
+    assign meta_xy_offset_addr        = {
+                                         xcoord_cnt[TW_DW-1:4],
+                                         current_ycoord[3],
+                                         xcoord_cnt[3],
+                                         current_ycoord[2:0],
+                                         xcoord_cnt[2:0]
+                                         };
+    assign meta_offset_addr           = {{(ADDR_WIDTH-META_SUB_AW){1'b0}}, meta_xy_offset_addr};
+    assign meta_grp_valid             = scan_active;
+    assign meta_grp_addr              = meta_base_addr + meta_y_base_addr + meta_offset_addr;
+    assign meta_format                = current_format;
+    assign meta_xcoord                = xcoord_cnt;
+    assign meta_ycoord                = current_ycoord;
+    assign meta_fcnt                  = active_fcnt;
+    assign row_end_fire               = issue_fire && x_row_last;
+    assign rgba_frame_done_fire       = row_end_fire && base_is_rgba && y_row_last;
+    assign rgba_y_advance_fire        = row_end_fire && base_is_rgba && !y_row_last;
+    assign yuv_y_advance_fire         = row_end_fire && base_is_yuv420 && !scan_is_uv_plane &&
+                                        !y_row_cnt[0] && !y_row_last;
+    assign yuv_enter_uv_fire          = row_end_fire && base_is_yuv420 && !scan_is_uv_plane &&
+                                        (y_row_cnt[0] || y_row_last);
+    assign yuv_uv_row_fire            = row_end_fire && base_is_yuv420 && scan_is_uv_plane;
+    assign yuv_uv_frame_done_fire     = yuv_uv_row_fire && y_row_last;
+    assign yuv_uv_y_advance_fire      = yuv_uv_row_fire && !y_row_last;
+    assign y_row_base_inc_fire        = (rgba_y_advance_fire || yuv_y_advance_fire ||
+                                        yuv_uv_y_advance_fire) &&
+                                        (y_row_next_ext[3:0] == 4'd0);
+    assign uv_row_base_inc_fire       = yuv_uv_row_fire && (uv_row_next[3:0] == 4'd0);
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)

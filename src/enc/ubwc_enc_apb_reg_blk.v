@@ -12,255 +12,255 @@
 
 module ubwc_enc_apb_reg_blk
     #(
-        parameter AW       = 16,
-        parameter DW       = 32,
-        parameter NREG     = 64,
-        parameter SB_WIDTH = 1,
-        parameter TW_DW    = 8
+        parameter                                       AW                              = 16,
+        parameter                                       DW                              = 32,
+        parameter                                       NREG                            = 64,
+        parameter                                       SB_WIDTH                        = 1,
+        parameter                                       TW_DW                           = 8
     )(
-        input   wire                    PCLK,
-        input   wire                    PRESETn,
-        input   wire                    PSEL,
-        input   wire                    PENABLE,
-        input   wire    [AW-1:0]        PADDR,
-        input   wire                    PWRITE,
-        input   wire    [DW-1:0]        PWDATA,
-        output  wire                    PREADY,
-        output  wire                    PSLVERR,
-        output  wire    [DW-1:0]        PRDATA,
+        input   wire                                        PCLK                            ,
+        input   wire                                        PRESETn                         ,
+        input   wire                                        PSEL                            ,
+        input   wire                                        PENABLE                         ,
+        input   wire    [AW                  -1 :0]         PADDR                           ,
+        input   wire                                        PWRITE                          ,
+        input   wire    [DW                  -1 :0]         PWDATA                          ,
+        output  wire                                        PREADY                          ,
+        output  wire                                        PSLVERR                         ,
+        output  wire    [DW                  -1 :0]         PRDATA                          ,
 
-        input   wire                    i_clk,
-        input   wire                    i_rstn,
+        input   wire                                        i_clk                           ,
+        input   wire                                        i_rstn                          ,
 
-        output  wire    [2:0]           o_otf_cfg_format,
-        output  wire    [15:0]          o_otf_cfg_width,
-        output  wire    [15:0]          o_otf_cfg_height,
-        output  wire    [15:0]          o_otf_cfg_tile_w,
-        output  wire    [3:0]           o_otf_cfg_tile_h,
-        output  wire    [15:0]          o_otf_cfg_y_tile_cols,
-        output  wire    [15:0]          o_otf_cfg_uv_tile_cols,
+        output  wire    [2                      :0]         o_otf_cfg_format                ,
+        output  wire    [15                     :0]         o_otf_cfg_width                 ,
+        output  wire    [15                     :0]         o_otf_cfg_height                ,
+        output  wire    [15                     :0]         o_otf_cfg_tile_w                ,
+        output  wire    [3                      :0]         o_otf_cfg_tile_h                ,
+        output  wire    [15                     :0]         o_otf_cfg_y_tile_cols           ,
+        output  wire    [15                     :0]         o_otf_cfg_uv_tile_cols          ,
 
-        output  wire    [TW_DW-1:0]     o_meta_last_xcoord,
-        output  wire    [15:0]          o_meta_active_width_px,
-        output  wire    [15:0]          o_meta_active_height_px,
-        output  wire    [31:0]          o_meta_data_plane_pitch,
+        output  wire    [TW_DW               -1 :0]         o_meta_last_xcoord              ,
+        output  wire    [15                     :0]         o_meta_active_width_px          ,
+        output  wire    [15                     :0]         o_meta_active_height_px         ,
+        output  wire    [31                     :0]         o_meta_data_plane_pitch         ,
 
-        output  wire                    o_enc_ubwc_en,
-        output  wire                    o_enc_ci_input_type,
-        output  wire    [2:0]           o_enc_ci_alen,
-        output  wire                    o_enc_ci_lossy,
-        output  wire    [2:0]           o_enc_ci_ubwc_cfg_0,
-        output  wire    [2:0]           o_enc_ci_ubwc_cfg_1,
-        output  wire    [3:0]           o_enc_ci_ubwc_cfg_2,
-        output  wire    [3:0]           o_enc_ci_ubwc_cfg_3,
-        output  wire    [3:0]           o_enc_ci_ubwc_cfg_4,
-        output  wire    [3:0]           o_enc_ci_ubwc_cfg_5,
-        output  wire    [1:0]           o_enc_ci_ubwc_cfg_6,
-        output  wire    [1:0]           o_enc_ci_ubwc_cfg_7,
-        output  wire    [1:0]           o_enc_ci_ubwc_cfg_8,
-        output  wire    [2:0]           o_enc_ci_ubwc_cfg_9,
-        output  wire    [5:0]           o_enc_ci_ubwc_cfg_10,
-        output  wire    [5:0]           o_enc_ci_ubwc_cfg_11,
+        output  wire                                        o_enc_ubwc_en                   ,
+        output  wire                                        o_enc_ci_input_type             ,
+        output  wire    [2                      :0]         o_enc_ci_alen                   ,
+        output  wire                                        o_enc_ci_lossy                  ,
+        output  wire    [2                      :0]         o_enc_ci_ubwc_cfg_0             ,
+        output  wire    [2                      :0]         o_enc_ci_ubwc_cfg_1             ,
+        output  wire    [3                      :0]         o_enc_ci_ubwc_cfg_2             ,
+        output  wire    [3                      :0]         o_enc_ci_ubwc_cfg_3             ,
+        output  wire    [3                      :0]         o_enc_ci_ubwc_cfg_4             ,
+        output  wire    [3                      :0]         o_enc_ci_ubwc_cfg_5             ,
+        output  wire    [1                      :0]         o_enc_ci_ubwc_cfg_6             ,
+        output  wire    [1                      :0]         o_enc_ci_ubwc_cfg_7             ,
+        output  wire    [1                      :0]         o_enc_ci_ubwc_cfg_8             ,
+        output  wire    [2                      :0]         o_enc_ci_ubwc_cfg_9             ,
+        output  wire    [5                      :0]         o_enc_ci_ubwc_cfg_10            ,
+        output  wire    [5                      :0]         o_enc_ci_ubwc_cfg_11            ,
 
-        input   wire                    i_enc_idle,
-        input   wire                    i_enc_error,
+        input   wire                                        i_enc_idle                      ,
+        input   wire                                        i_enc_error                     ,
 
-        output  wire                    o_lvl1_bank_swizzle_en,
-        output  wire                    o_lvl2_bank_swizzle_en,
-        output  wire                    o_lvl3_bank_swizzle_en,
-        output  wire    [4:0]           o_highest_bank_bit,
-        output  wire                    o_bank_spread_en,
-        output  wire                    o_4line_format,
-        output  wire                    o_is_lossy_rgba_2_1_format,
-        output  wire    [11:0]          o_tile_pitch,
-        output  wire    [63:0]          o_y_base_offset_addr0,
-        output  wire    [63:0]          o_uv_base_offset_addr0,
-        output  wire    [63:0]          o_meta_y_base_offset_addr0,
-        output  wire    [63:0]          o_meta_uv_base_offset_addr0,
-        output  wire    [63:0]          o_y_base_offset_addr1,
-        output  wire    [63:0]          o_uv_base_offset_addr1,
-        output  wire    [63:0]          o_meta_y_base_offset_addr1,
-        output  wire    [63:0]          o_meta_uv_base_offset_addr1,
-        output  wire    [1:0]           o_addr_cfg_valid,
-        input   wire                    i_addr_cfg_slot,
-        input   wire                    i_addr_cfg_check_valid,
-        output  wire                    o_active_addr_cfg_valid,
-        output  wire                    o_addr_cfg_invalid,
-        output  wire                    o_error_irq_event,
+        output  wire                                        o_lvl1_bank_swizzle_en          ,
+        output  wire                                        o_lvl2_bank_swizzle_en          ,
+        output  wire                                        o_lvl3_bank_swizzle_en          ,
+        output  wire    [4                      :0]         o_highest_bank_bit              ,
+        output  wire                                        o_bank_spread_en                ,
+        output  wire                                        o_4line_format                  ,
+        output  wire                                        o_is_lossy_rgba_2_1_format      ,
+        output  wire    [11                     :0]         o_tile_pitch                    ,
+        output  wire    [63                     :0]         o_y_base_offset_addr0           ,
+        output  wire    [63                     :0]         o_uv_base_offset_addr0          ,
+        output  wire    [63                     :0]         o_meta_y_base_offset_addr0      ,
+        output  wire    [63                     :0]         o_meta_uv_base_offset_addr0     ,
+        output  wire    [63                     :0]         o_y_base_offset_addr1           ,
+        output  wire    [63                     :0]         o_uv_base_offset_addr1          ,
+        output  wire    [63                     :0]         o_meta_y_base_offset_addr1      ,
+        output  wire    [63                     :0]         o_meta_uv_base_offset_addr1     ,
+        output  wire    [1                      :0]         o_addr_cfg_valid                ,
+        input   wire                                        i_addr_cfg_slot                 ,
+        input   wire                                        i_addr_cfg_check_valid          ,
+        output  wire                                        o_active_addr_cfg_valid         ,
+        output  wire                                        o_addr_cfg_invalid              ,
+        output  wire                                        o_error_irq_event               ,
 
-        input   wire                    i_otf_to_tile_busy,
-        input   wire                    i_otf_to_tile_overflow,
-        input   wire                    i_otf_err_bline,
-        input   wire                    i_otf_err_bframe,
-        input   wire                    i_meta_err_0,
-        input   wire                    i_meta_err_1,
-        input   wire                    i_frame_done,
-        input   wire                    i_addr_cfg_pop_toggle,
-        input   wire    [7:0]           i_stage_done,
-        input   wire                    i_irq_pending,
-        input   wire                    i_irq_correct_pending,
-        input   wire                    i_irq_error_pending,
-        input   wire    [31:0]          i_meta_count0,
-        input   wire    [31:0]          i_meta_count1,
-        input   wire    [31:0]          i_tile_addr_count0,
-        input   wire    [31:0]          i_tile_addr_count1,
-        input   wire    [31:0]          i_otf_tile_count0,
-        input   wire    [31:0]          i_otf_tile_count1,
-        input   wire    [31:0]          i_otf_de_count0,
-        input   wire    [31:0]          i_otf_de_count1,
-        input   wire    [31:0]          i_otf_line_count0,
-        input   wire    [31:0]          i_otf_line_count1,
-        input   wire    [31:0]          i_tile_axi_w_count0,
-        input   wire    [31:0]          i_tile_axi_w_count1,
-        input   wire    [31:0]          i_meta_axi_w_count0,
-        input   wire    [31:0]          i_meta_axi_w_count1,
-        output  wire                    o_irq_enable,
-        output  wire                    o_irq_clear_pulse
+        input   wire                                        i_otf_to_tile_busy              ,
+        input   wire                                        i_otf_to_tile_overflow          ,
+        input   wire                                        i_otf_err_bline                 ,
+        input   wire                                        i_otf_err_bframe                ,
+        input   wire                                        i_meta_err_0                    ,
+        input   wire                                        i_meta_err_1                    ,
+        input   wire                                        i_frame_done                    ,
+        input   wire                                        i_addr_cfg_pop_toggle           ,
+        input   wire    [7                      :0]         i_stage_done                    ,
+        input   wire                                        i_irq_pending                   ,
+        input   wire                                        i_irq_correct_pending           ,
+        input   wire                                        i_irq_error_pending             ,
+        input   wire    [31                     :0]         i_meta_count0                   ,
+        input   wire    [31                     :0]         i_meta_count1                   ,
+        input   wire    [31                     :0]         i_tile_addr_count0              ,
+        input   wire    [31                     :0]         i_tile_addr_count1              ,
+        input   wire    [31                     :0]         i_otf_tile_count0               ,
+        input   wire    [31                     :0]         i_otf_tile_count1               ,
+        input   wire    [31                     :0]         i_otf_de_count0                 ,
+        input   wire    [31                     :0]         i_otf_de_count1                 ,
+        input   wire    [31                     :0]         i_otf_line_count0               ,
+        input   wire    [31                     :0]         i_otf_line_count1               ,
+        input   wire    [31                     :0]         i_tile_axi_w_count0             ,
+        input   wire    [31                     :0]         i_tile_axi_w_count1             ,
+        input   wire    [31                     :0]         i_meta_axi_w_count0             ,
+        input   wire    [31                     :0]         i_meta_axi_w_count1             ,
+        output  wire                                        o_irq_enable                    ,
+        output  wire                                        o_irq_clear_pulse
     );
 
-    localparam [DW-1:0] REG_VERSION = 32'h0001_0000;
-    localparam [DW-1:0] REG_DATE    = 32'h2026_0406;
+    localparam  [DW                  -1 :0]         REG_VERSION                     = 32'h0001_0000;
+    localparam  [DW                  -1 :0]         REG_DATE                        = 32'h2026_0406;
 
-    localparam integer REG_VERSION_IDX      = 0;
-    localparam integer REG_DATE_IDX         = 1;
-    localparam integer REG_TILE_CFG0        = 2;
-    localparam integer REG_TILE_CFG1        = 3;
-    localparam integer REG_ENC_CI_CFG0      = 4;
-    localparam integer REG_ENC_CI_CFG1      = 5;
-    localparam integer REG_ENC_CI_CFG2      = 6;
-    localparam integer REG_ENC_CI_CFG3      = 7;
-    localparam integer REG_OTF_CFG0         = 8;
-    localparam integer REG_OTF_CFG1         = 9;
-    localparam integer REG_OTF_CFG2         = 10;
-    localparam integer REG_OTF_CFG3         = 11;
-    localparam integer REG_META_BASE_Y_LO   = 12; // 0x030
-    localparam integer REG_META_BASE_Y_HI   = 13; // 0x034
-    localparam integer REG_TILE_BASE_Y_LO   = 14; // 0x038
-    localparam integer REG_TILE_BASE_Y_HI   = 15; // 0x03C
-    localparam integer REG_META_BASE_UV_LO  = 16; // 0x040
-    localparam integer REG_META_BASE_UV_HI  = 17; // 0x044
-    localparam integer REG_TILE_BASE_UV_LO  = 18; // 0x048
-    localparam integer REG_TILE_BASE_UV_HI  = 19; // 0x04C
-    localparam integer REG_META_ACTIVE_SIZE = 20;
-    localparam integer REG_META_PITCH       = 21;
-    localparam integer REG_STATUS0          = 22;
-    localparam integer REG_STATUS1          = 23;
-    localparam integer REG_IRQ_CTRL         = 24;
-    localparam integer REG_STATUS2          = 25;
-    localparam integer REG_META_COUNT0      = 26;
-    localparam integer REG_META_COUNT1      = 27;
-    localparam integer REG_TILEADDR_COUNT0  = 28;
-    localparam integer REG_TILEADDR_COUNT1  = 29;
-    localparam integer REG_OTF_TILE_COUNT0  = 30;
-    localparam integer REG_OTF_TILE_COUNT1  = 31;
-    localparam integer REG_OTF_DE_COUNT0    = 32;
-    localparam integer REG_OTF_DE_COUNT1    = 33;
-    localparam integer REG_OTF_LINE_COUNT0  = 34;
-    localparam integer REG_OTF_LINE_COUNT1  = 35;
-    localparam integer REG_TILE_AXI_W_CNT0  = 36;
-    localparam integer REG_TILE_AXI_W_CNT1  = 37;
-    localparam integer REG_META_AXI_W_CNT0  = 38;
-    localparam integer REG_META_AXI_W_CNT1  = 39;
-    localparam integer REG_IDX_W            = $clog2(NREG);
-    localparam integer ADDR_CFG_FIFO_DEPTH  = 4;
-    localparam integer ADDR_CFG_FIFO_PTR_W  = 2;
-    localparam integer ADDR_CFG_FIFO_CNT_W  = 3;
-    localparam integer ADDR_CFG_W           = 256;
+    localparam  integer                             REG_VERSION_IDX                 = 0;
+    localparam  integer                             REG_DATE_IDX                    = 1;
+    localparam  integer                             REG_TILE_CFG0                   = 2;
+    localparam  integer                             REG_TILE_CFG1                   = 3;
+    localparam  integer                             REG_ENC_CI_CFG0                 = 4;
+    localparam  integer                             REG_ENC_CI_CFG1                 = 5;
+    localparam  integer                             REG_ENC_CI_CFG2                 = 6;
+    localparam  integer                             REG_ENC_CI_CFG3                 = 7;
+    localparam  integer                             REG_OTF_CFG0                    = 8;
+    localparam  integer                             REG_OTF_CFG1                    = 9;
+    localparam  integer                             REG_OTF_CFG2                    = 10;
+    localparam  integer                             REG_OTF_CFG3                    = 11;
+    localparam  integer                             REG_META_BASE_Y_LO              = 12; // 0x030
+    localparam  integer                             REG_META_BASE_Y_HI              = 13; // 0x034
+    localparam  integer                             REG_TILE_BASE_Y_LO              = 14; // 0x038
+    localparam  integer                             REG_TILE_BASE_Y_HI              = 15; // 0x03C
+    localparam  integer                             REG_META_BASE_UV_LO             = 16; // 0x040
+    localparam  integer                             REG_META_BASE_UV_HI             = 17; // 0x044
+    localparam  integer                             REG_TILE_BASE_UV_LO             = 18; // 0x048
+    localparam  integer                             REG_TILE_BASE_UV_HI             = 19; // 0x04C
+    localparam  integer                             REG_META_ACTIVE_SIZE            = 20;
+    localparam  integer                             REG_META_PITCH                  = 21;
+    localparam  integer                             REG_STATUS0                     = 22;
+    localparam  integer                             REG_STATUS1                     = 23;
+    localparam  integer                             REG_IRQ_CTRL                    = 24;
+    localparam  integer                             REG_STATUS2                     = 25;
+    localparam  integer                             REG_META_COUNT0                 = 26;
+    localparam  integer                             REG_META_COUNT1                 = 27;
+    localparam  integer                             REG_TILEADDR_COUNT0             = 28;
+    localparam  integer                             REG_TILEADDR_COUNT1             = 29;
+    localparam  integer                             REG_OTF_TILE_COUNT0             = 30;
+    localparam  integer                             REG_OTF_TILE_COUNT1             = 31;
+    localparam  integer                             REG_OTF_DE_COUNT0               = 32;
+    localparam  integer                             REG_OTF_DE_COUNT1               = 33;
+    localparam  integer                             REG_OTF_LINE_COUNT0             = 34;
+    localparam  integer                             REG_OTF_LINE_COUNT1             = 35;
+    localparam  integer                             REG_TILE_AXI_W_CNT0             = 36;
+    localparam  integer                             REG_TILE_AXI_W_CNT1             = 37;
+    localparam  integer                             REG_META_AXI_W_CNT0             = 38;
+    localparam  integer                             REG_META_AXI_W_CNT1             = 39;
+    localparam  integer                             REG_IDX_W                       = $clog2(NREG);
+    localparam  integer                             ADDR_CFG_FIFO_DEPTH             = 4;
+    localparam  integer                             ADDR_CFG_FIFO_PTR_W             = 2;
+    localparam  integer                             ADDR_CFG_FIFO_CNT_W             = 3;
+    localparam  integer                             ADDR_CFG_W                      = 256;
 
-    reg [DW-1:0] regs [0:NREG-1];
-    reg [DW-1:0] r_prdata;
-    reg          irq_clear_toggle_pclk;
-    reg          irq_enable_sync_ff1;
-    reg          irq_enable_sync_ff2;
-    reg          irq_clear_sync_ff1;
-    reg          irq_clear_sync_ff2;
-    reg          irq_pending_pclk_ff1;
-    reg          irq_pending_pclk_ff2;
-    reg          irq_correct_pclk_ff1;
-    reg          irq_correct_pclk_ff2;
-    reg          irq_error_pclk_ff1;
-    reg          irq_error_pclk_ff2;
-    reg [31:0]   meta_count0_pclk_ff1;
-    reg [31:0]   meta_count0_pclk_ff2;
-    reg [31:0]   meta_count1_pclk_ff1;
-    reg [31:0]   meta_count1_pclk_ff2;
-    reg [31:0]   tile_addr_count0_pclk_ff1;
-    reg [31:0]   tile_addr_count0_pclk_ff2;
-    reg [31:0]   tile_addr_count1_pclk_ff1;
-    reg [31:0]   tile_addr_count1_pclk_ff2;
-    reg [31:0]   otf_tile_count0_pclk_ff1;
-    reg [31:0]   otf_tile_count0_pclk_ff2;
-    reg [31:0]   otf_tile_count1_pclk_ff1;
-    reg [31:0]   otf_tile_count1_pclk_ff2;
-    reg [31:0]   otf_de_count0_pclk_ff1;
-    reg [31:0]   otf_de_count0_pclk_ff2;
-    reg [31:0]   otf_de_count1_pclk_ff1;
-    reg [31:0]   otf_de_count1_pclk_ff2;
-    reg [31:0]   otf_line_count0_pclk_ff1;
-    reg [31:0]   otf_line_count0_pclk_ff2;
-    reg [31:0]   otf_line_count1_pclk_ff1;
-    reg [31:0]   otf_line_count1_pclk_ff2;
-    reg [31:0]   tile_axi_w_count0_pclk_ff1;
-    reg [31:0]   tile_axi_w_count0_pclk_ff2;
-    reg [31:0]   tile_axi_w_count1_pclk_ff1;
-    reg [31:0]   tile_axi_w_count1_pclk_ff2;
-    reg [31:0]   meta_axi_w_count0_pclk_ff1;
-    reg [31:0]   meta_axi_w_count0_pclk_ff2;
-    reg [31:0]   meta_axi_w_count1_pclk_ff1;
-    reg [31:0]   meta_axi_w_count1_pclk_ff2;
-    reg          addr_cfg_invalid_r;
-    reg          addr_cfg_pop_pclk_ff1;
-    reg          addr_cfg_pop_pclk_ff2;
-    reg          addr_cfg_pop_pclk_ff3;
-    reg          addr_cfg_push_sel;
-    reg          addr_cfg_pop_sel;
-    reg [ADDR_CFG_FIFO_PTR_W-1:0] addr_cfg0_wr_ptr;
-    reg [ADDR_CFG_FIFO_PTR_W-1:0] addr_cfg0_rd_ptr;
-    reg [ADDR_CFG_FIFO_CNT_W-1:0] addr_cfg0_count;
-    reg [ADDR_CFG_FIFO_PTR_W-1:0] addr_cfg1_wr_ptr;
-    reg [ADDR_CFG_FIFO_PTR_W-1:0] addr_cfg1_rd_ptr;
-    reg [ADDR_CFG_FIFO_CNT_W-1:0] addr_cfg1_count;
-    reg [ADDR_CFG_W-1:0] addr_cfg_fifo0 [0:ADDR_CFG_FIFO_DEPTH-1];
-    reg [ADDR_CFG_W-1:0] addr_cfg_fifo1 [0:ADDR_CFG_FIFO_DEPTH-1];
+    reg         [DW                  -1 :0]         regs [0:NREG-1]                 ;
+    reg         [DW                  -1 :0]         r_prdata                        ;
+    reg                                             irq_clear_toggle_pclk           ;
+    reg                                             irq_enable_sync_ff1             ;
+    reg                                             irq_enable_sync_ff2             ;
+    reg                                             irq_clear_sync_ff1              ;
+    reg                                             irq_clear_sync_ff2              ;
+    reg                                             irq_pending_pclk_ff1            ;
+    reg                                             irq_pending_pclk_ff2            ;
+    reg                                             irq_correct_pclk_ff1            ;
+    reg                                             irq_correct_pclk_ff2            ;
+    reg                                             irq_error_pclk_ff1              ;
+    reg                                             irq_error_pclk_ff2              ;
+    reg         [31                     :0]         meta_count0_pclk_ff1            ;
+    reg         [31                     :0]         meta_count0_pclk_ff2            ;
+    reg         [31                     :0]         meta_count1_pclk_ff1            ;
+    reg         [31                     :0]         meta_count1_pclk_ff2            ;
+    reg         [31                     :0]         tile_addr_count0_pclk_ff1       ;
+    reg         [31                     :0]         tile_addr_count0_pclk_ff2       ;
+    reg         [31                     :0]         tile_addr_count1_pclk_ff1       ;
+    reg         [31                     :0]         tile_addr_count1_pclk_ff2       ;
+    reg         [31                     :0]         otf_tile_count0_pclk_ff1        ;
+    reg         [31                     :0]         otf_tile_count0_pclk_ff2        ;
+    reg         [31                     :0]         otf_tile_count1_pclk_ff1        ;
+    reg         [31                     :0]         otf_tile_count1_pclk_ff2        ;
+    reg         [31                     :0]         otf_de_count0_pclk_ff1          ;
+    reg         [31                     :0]         otf_de_count0_pclk_ff2          ;
+    reg         [31                     :0]         otf_de_count1_pclk_ff1          ;
+    reg         [31                     :0]         otf_de_count1_pclk_ff2          ;
+    reg         [31                     :0]         otf_line_count0_pclk_ff1        ;
+    reg         [31                     :0]         otf_line_count0_pclk_ff2        ;
+    reg         [31                     :0]         otf_line_count1_pclk_ff1        ;
+    reg         [31                     :0]         otf_line_count1_pclk_ff2        ;
+    reg         [31                     :0]         tile_axi_w_count0_pclk_ff1      ;
+    reg         [31                     :0]         tile_axi_w_count0_pclk_ff2      ;
+    reg         [31                     :0]         tile_axi_w_count1_pclk_ff1      ;
+    reg         [31                     :0]         tile_axi_w_count1_pclk_ff2      ;
+    reg         [31                     :0]         meta_axi_w_count0_pclk_ff1      ;
+    reg         [31                     :0]         meta_axi_w_count0_pclk_ff2      ;
+    reg         [31                     :0]         meta_axi_w_count1_pclk_ff1      ;
+    reg         [31                     :0]         meta_axi_w_count1_pclk_ff2      ;
+    reg                                             addr_cfg_invalid_r              ;
+    reg                                             addr_cfg_pop_pclk_ff1           ;
+    reg                                             addr_cfg_pop_pclk_ff2           ;
+    reg                                             addr_cfg_pop_pclk_ff3           ;
+    reg                                             addr_cfg_push_sel               ;
+    reg                                             addr_cfg_pop_sel                ;
+    reg         [ADDR_CFG_FIFO_PTR_W -1 :0]         addr_cfg0_wr_ptr                ;
+    reg         [ADDR_CFG_FIFO_PTR_W -1 :0]         addr_cfg0_rd_ptr                ;
+    reg         [ADDR_CFG_FIFO_CNT_W -1 :0]         addr_cfg0_count                 ;
+    reg         [ADDR_CFG_FIFO_PTR_W -1 :0]         addr_cfg1_wr_ptr                ;
+    reg         [ADDR_CFG_FIFO_PTR_W -1 :0]         addr_cfg1_rd_ptr                ;
+    reg         [ADDR_CFG_FIFO_CNT_W -1 :0]         addr_cfg1_count                 ;
+    reg         [ADDR_CFG_W          -1 :0]         addr_cfg_fifo0 [0:ADDR_CFG_FIFO_DEPTH-1];
+    reg         [ADDR_CFG_W          -1 :0]         addr_cfg_fifo1 [0:ADDR_CFG_FIFO_DEPTH-1];
 
-    wire apb_access;
+    wire                                            apb_access                      ;
 
     assign apb_access = PSEL && PENABLE;
-    wire apb_write;
+    wire                                            apb_write                       ;
     assign apb_write = apb_access && PWRITE;
-    wire [AW-3:0] reg_addr;
+    wire        [AW                  -3 :0]         reg_addr                        ;
     assign reg_addr = PADDR[AW-1:2];
-    wire [REG_IDX_W-1:0] reg_idx;
+    wire        [REG_IDX_W           -1 :0]         reg_idx                         ;
     assign reg_idx = reg_addr[REG_IDX_W-1:0];
-    wire [15:0] meta_active_width_px;
-    wire [15:0] meta_active_height_px;
-    wire [15:0] total_x_units;
-    wire [DW-1:0] status0;
-    wire [DW-1:0] status1;
-    wire [DW-1:0] status2;
-    wire addr_cfg_push;
-    wire addr_cfg_pop;
-    wire addr_cfg0_push;
-    wire addr_cfg1_push;
-    wire addr_cfg0_pop;
-    wire addr_cfg1_pop;
-    wire addr_cfg0_full;
-    wire addr_cfg1_full;
-    wire addr_cfg0_valid;
-    wire addr_cfg1_valid;
-    wire active_addr_cfg_valid;
-    wire addr_cfg_invalid;
-    wire error_irq_event;
-    wire enc_ubwc_en;
-    wire enc_irq_clear_pulse;
-    wire irq_clear_pulse_axi;
-    wire [63:0] addr_cfg_push_y_base;
-    wire [63:0] addr_cfg_push_uv_base;
-    wire [63:0] addr_cfg_push_meta_y_base;
-    wire [63:0] addr_cfg_push_meta_uv_base;
-    wire [ADDR_CFG_W-1:0] addr_cfg_push_data;
-    wire [ADDR_CFG_W-1:0] addr_cfg0_head;
-    wire [ADDR_CFG_W-1:0] addr_cfg1_head;
+    wire        [15                     :0]         meta_active_width_px            ;
+    wire        [15                     :0]         meta_active_height_px           ;
+    wire        [15                     :0]         total_x_units                   ;
+    wire        [DW                  -1 :0]         status0                         ;
+    wire        [DW                  -1 :0]         status1                         ;
+    wire        [DW                  -1 :0]         status2                         ;
+    wire                                            addr_cfg_push                   ;
+    wire                                            addr_cfg_pop                    ;
+    wire                                            addr_cfg0_push                  ;
+    wire                                            addr_cfg1_push                  ;
+    wire                                            addr_cfg0_pop                   ;
+    wire                                            addr_cfg1_pop                   ;
+    wire                                            addr_cfg0_full                  ;
+    wire                                            addr_cfg1_full                  ;
+    wire                                            addr_cfg0_valid                 ;
+    wire                                            addr_cfg1_valid                 ;
+    wire                                            active_addr_cfg_valid           ;
+    wire                                            addr_cfg_invalid                ;
+    wire                                            error_irq_event                 ;
+    wire                                            enc_ubwc_en                     ;
+    wire                                            enc_irq_clear_pulse             ;
+    wire                                            irq_clear_pulse_axi             ;
+    wire        [63                     :0]         addr_cfg_push_y_base            ;
+    wire        [63                     :0]         addr_cfg_push_uv_base           ;
+    wire        [63                     :0]         addr_cfg_push_meta_y_base       ;
+    wire        [63                     :0]         addr_cfg_push_meta_uv_base      ;
+    wire        [ADDR_CFG_W          -1 :0]         addr_cfg_push_data              ;
+    wire        [ADDR_CFG_W          -1 :0]         addr_cfg0_head                  ;
+    wire        [ADDR_CFG_W          -1 :0]         addr_cfg1_head                  ;
 
     integer i;
 
@@ -787,14 +787,14 @@ module ubwc_enc_apb_reg_blk
     assign error_irq_event             = addr_cfg_invalid | i_otf_to_tile_overflow |
                                          i_otf_err_bline | i_otf_err_bframe |
                                          i_meta_err_0 | i_meta_err_1 | i_enc_error;
-    assign {o_meta_uv_base_offset_addr0,
-            o_meta_y_base_offset_addr0,
-            o_uv_base_offset_addr0,
-            o_y_base_offset_addr0}      = addr_cfg0_valid ? addr_cfg0_head : {ADDR_CFG_W{1'b0}};
-    assign {o_meta_uv_base_offset_addr1,
-            o_meta_y_base_offset_addr1,
-            o_uv_base_offset_addr1,
-            o_y_base_offset_addr1}      = addr_cfg1_valid ? addr_cfg1_head : {ADDR_CFG_W{1'b0}};
+    assign o_y_base_offset_addr0       = addr_cfg0_valid ? addr_cfg0_head[0   +: 64] : 64'd0;
+    assign o_uv_base_offset_addr0      = addr_cfg0_valid ? addr_cfg0_head[64  +: 64] : 64'd0;
+    assign o_meta_y_base_offset_addr0  = addr_cfg0_valid ? addr_cfg0_head[128 +: 64] : 64'd0;
+    assign o_meta_uv_base_offset_addr0 = addr_cfg0_valid ? addr_cfg0_head[192 +: 64] : 64'd0;
+    assign o_y_base_offset_addr1       = addr_cfg1_valid ? addr_cfg1_head[0   +: 64] : 64'd0;
+    assign o_uv_base_offset_addr1      = addr_cfg1_valid ? addr_cfg1_head[64  +: 64] : 64'd0;
+    assign o_meta_y_base_offset_addr1  = addr_cfg1_valid ? addr_cfg1_head[128 +: 64] : 64'd0;
+    assign o_meta_uv_base_offset_addr1 = addr_cfg1_valid ? addr_cfg1_head[192 +: 64] : 64'd0;
     assign o_addr_cfg_valid            = {addr_cfg1_valid, addr_cfg0_valid};
     assign o_active_addr_cfg_valid     = active_addr_cfg_valid;
     assign o_addr_cfg_invalid          = addr_cfg_invalid;

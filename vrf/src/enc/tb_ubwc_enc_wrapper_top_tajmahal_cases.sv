@@ -745,6 +745,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     integer                     expected_meta_aw_plane1_total;
     integer                     expected_meta_w_plane0_total;
     integer                     expected_meta_w_plane1_total;
+    reg  [7:0]                  expected_stage_done;
     integer                     meta_ref_words_plane0;
     integer                     meta_ref_words_plane1;
     integer                     meta_ref_words_total;
@@ -2235,6 +2236,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         expected_meta_aw_plane1_total = CASE_FAKE_EXPECTED_META1_AW;
         expected_meta_w_plane0_total = CASE_FAKE_EXPECTED_META0_W;
         expected_meta_w_plane1_total = CASE_FAKE_EXPECTED_META1_W;
+        expected_stage_done = 8'h55;
         meta_ref_words_plane0 = 0;
         meta_ref_words_plane1 = 0;
         meta_ref_words_total = 0;
@@ -2249,6 +2251,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             tb_frame_repeat = 1;
         if (tb_frame_repeat > MAX_FRAME_REPEAT)
             $fatal(1, "tb_frame_repeat=%0d exceeds MAX_FRAME_REPEAT=%0d", tb_frame_repeat, MAX_FRAME_REPEAT);
+        expected_stage_done = (tb_frame_repeat > 1) ? 8'hff : 8'h55;
         expected_tiles_total = CASE_EXPECTED_TILES * tb_frame_repeat;
         expected_beats_total = CASE_EXPECTED_BEATS * tb_frame_repeat;
         expected_meta_aw_total = CASE_FAKE_EXPECTED_META_AW * tb_frame_repeat;
@@ -3347,9 +3350,11 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             end
         end
 
-        if (o_stage_done !== 8'hff) begin
+        if (o_stage_done !== expected_stage_done) begin
             fail_count = fail_count + 1;
-            $display("[TB][ERROR] encoder done stage mismatch: got=0x%02x exp=0xff", o_stage_done);
+            $display("[TB][ERROR] encoder done stage mismatch: got=0x%02x exp=0x%02x",
+                     o_stage_done,
+                     expected_stage_done);
         end
         if (o_frame_done !== 1'b1) begin
             fail_count = fail_count + 1;

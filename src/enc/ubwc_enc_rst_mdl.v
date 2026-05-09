@@ -9,28 +9,29 @@
 // Editor            : Gvim, tab size (4)
 // Revision          : 1.00
 //		Revision 1.00 - File Created by		: MiaoJiawang
-//		Description							: 
-//  
+//		Description							:
+//
 //////////////////////////////////////////////////////////////////////////////////
 //`timescale 1ns/1ps
 
 module ubwc_enc_rst_mdl
     (
-        input   wire        i_clk               ,
-        input   wire        i_otf_clk           ,
-        input   wire        i_rstn              ,
+        input   wire                                        i_clk                           ,
+        input   wire                                        i_otf_clk                       ,
+        input   wire                                        i_rstn                          ,
 
-        output  wire        o_rst               ,
-        output  wire        o_rst_n_sys         ,
-        output  wire        o_rst_n_otf         ,
-        output  reg         o_srst
+        output  wire                                        o_rst                           ,
+        output  wire                                        o_rst_n_sys                     ,
+        output  wire                                        o_rst_n_otf                     ,
+        output  reg                                         o_srst
     );
 
-    (* async_reg = "true" *) reg rst_n_sys_meta;
-    (* async_reg = "true" *) reg rst_n_sys_sync;
-    (* async_reg = "true" *) reg rst_n_otf_meta;
-    (* async_reg = "true" *) reg rst_n_otf_sync;
-    reg srst_d;
+    reg                                             srst_d                          ;
+
+    (* async_reg = "true" *) reg                                         rst_n_sys_meta                  ;
+    (* async_reg = "true" *) reg                                         rst_n_sys_sync                  ;
+    (* async_reg = "true" *) reg                                         rst_n_otf_meta                  ;
+    (* async_reg = "true" *) reg                                         rst_n_otf_sync                  ;
 
     assign  o_rst           = ~i_rstn   ;
     assign  o_rst_n_sys     = rst_n_sys_sync;

@@ -12,318 +12,318 @@
 `timescale 1ns/1ps
 
 module ubwc_dec_apb_reg_blk #(
-    parameter AW       = 16,
-    parameter DW       = 32,
-    parameter AXI_AW   = 64,
-    parameter SB_WIDTH = 1
+    parameter                                       AW                              = 16,
+    parameter                                       DW                              = 32,
+    parameter                                       AXI_AW                          = 64,
+    parameter                                       SB_WIDTH                        = 1
 )(
-    input  wire                 PCLK,
-    input  wire                 PRESETn,
-    input  wire                 PSEL,
-    input  wire                 PENABLE,
-    input  wire [AW-1:0]        PADDR,
-    input  wire                 PWRITE,
-    input  wire [DW-1:0]        PWDATA,
-    output wire                 PREADY,
-    output wire                 PSLVERR,
-    output wire [DW-1:0]        PRDATA,
+    input   wire                                        PCLK                            ,
+    input   wire                                        PRESETn                         ,
+    input   wire                                        PSEL                            ,
+    input   wire                                        PENABLE                         ,
+    input   wire    [AW                  -1 :0]         PADDR                           ,
+    input   wire                                        PWRITE                          ,
+    input   wire    [DW                  -1 :0]         PWDATA                          ,
+    output  wire                                        PREADY                          ,
+    output  wire                                        PSLVERR                         ,
+    output  wire    [DW                  -1 :0]         PRDATA                          ,
 
-    input  wire                 i_axi_clk,
-    input  wire                 i_axi_rst_n,
-    input  wire                 i_meta_busy_axi,
-    input  wire                 i_tile_busy_axi,
-    input  wire                 i_vivo_busy_axi,
-    input  wire                 i_otf_busy_axi,
-    input  wire                 i_frame_active_axi,
-    input  wire                 i_any_stage_busy_axi,
-    input  wire [3:0]           i_stage_seen_axi,
-    input  wire [4:0]           i_stage_done_axi,
-    input  wire [6:0]           i_vivo_idle_bits_axi,
-    input  wire [6:0]           i_vivo_error_bits_axi,
-    input  wire                 i_irq_pending_axi,
-    input  wire                 i_irq_correct_pending_axi,
-    input  wire                 i_irq_error_pending_axi,
-    input  wire [31:0]          i_stat_meta_tile_cnt_axi,
-    input  wire [31:0]          i_stat_tile_addr_cnt_axi,
-    input  wire [31:0]          i_stat_otf_tile_cnt_axi,
-    input  wire [31:0]          i_stat_otf_line_cnt_axi,
-    input  wire [31:0]          i_stat_otf_de_cnt_axi,
+    input   wire                                        i_axi_clk                       ,
+    input   wire                                        i_axi_rst_n                     ,
+    input   wire                                        i_meta_busy_axi                 ,
+    input   wire                                        i_tile_busy_axi                 ,
+    input   wire                                        i_vivo_busy_axi                 ,
+    input   wire                                        i_otf_busy_axi                  ,
+    input   wire                                        i_frame_active_axi              ,
+    input   wire                                        i_any_stage_busy_axi            ,
+    input   wire    [3                      :0]         i_stage_seen_axi                ,
+    input   wire    [4                      :0]         i_stage_done_axi                ,
+    input   wire    [6                      :0]         i_vivo_idle_bits_axi            ,
+    input   wire    [6                      :0]         i_vivo_error_bits_axi           ,
+    input   wire                                        i_irq_pending_axi               ,
+    input   wire                                        i_irq_correct_pending_axi       ,
+    input   wire                                        i_irq_error_pending_axi         ,
+    input   wire    [31                     :0]         i_stat_meta_tile_cnt_axi        ,
+    input   wire    [31                     :0]         i_stat_tile_addr_cnt_axi        ,
+    input   wire    [31                     :0]         i_stat_otf_tile_cnt_axi         ,
+    input   wire    [31                     :0]         i_stat_otf_line_cnt_axi         ,
+    input   wire    [31                     :0]         i_stat_otf_de_cnt_axi           ,
 
-    output wire                 o_tile_cfg_lvl2_bank_swizzle_en,
-    output wire                 o_tile_cfg_lvl3_bank_swizzle_en,
-    output wire [4:0]           o_tile_cfg_highest_bank_bit,
-    output wire                 o_tile_cfg_bank_spread_en,
-    output wire                 o_tile_cfg_is_lossy_rgba_2_1_format,
-    output wire [11:0]          o_tile_cfg_pitch,
-    output wire                 o_tile_cfg_ci_input_type,
-    output wire                 o_tile_cfg_ci_lossy,
-    output wire [1:0]           o_tile_cfg_ci_alpha_mode,
-    output wire [AXI_AW-1:0]    o_tile_base_addr_rgba_y0,
-    output wire [AXI_AW-1:0]    o_tile_base_addr_uv0,
-    output wire [AXI_AW-1:0]    o_tile_base_addr_rgba_y1,
-    output wire [AXI_AW-1:0]    o_tile_base_addr_uv1,
+    output  wire                                        o_tile_cfg_lvl2_bank_swizzle_en ,
+    output  wire                                        o_tile_cfg_lvl3_bank_swizzle_en ,
+    output  wire    [4                      :0]         o_tile_cfg_highest_bank_bit     ,
+    output  wire                                        o_tile_cfg_bank_spread_en       ,
+    output  wire                                        o_tile_cfg_is_lossy_rgba_2_1_format,
+    output  wire    [11                     :0]         o_tile_cfg_pitch                ,
+    output  wire                                        o_tile_cfg_ci_input_type        ,
+    output  wire                                        o_tile_cfg_ci_lossy             ,
+    output  wire    [1                      :0]         o_tile_cfg_ci_alpha_mode        ,
+    output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_rgba_y0        ,
+    output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_uv0            ,
+    output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_rgba_y1        ,
+    output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_uv1            ,
 
-    output wire                 o_vivo_ubwc_en,
-    output wire                 o_vivo_sreset,
+    output  wire                                        o_vivo_ubwc_en                  ,
+    output  wire                                        o_vivo_sreset                   ,
 
-    output wire                 o_frame_start_pulse_axi,
-    output wire                 o_meta_start_pulse_axi,
-    output wire [4:0]           o_meta_base_format,
-    output wire [AXI_AW-1:0]    o_meta_base_addr_rgba_y0,
-    output wire [AXI_AW-1:0]    o_meta_base_addr_uv0,
-    output wire [AXI_AW-1:0]    o_meta_base_addr_rgba_y1,
-    output wire [AXI_AW-1:0]    o_meta_base_addr_uv1,
-    output wire [15:0]          o_meta_tile_x_numbers,
-    output wire [15:0]          o_meta_tile_y_numbers,
+    output  wire                                        o_frame_start_pulse_axi         ,
+    output  wire                                        o_meta_start_pulse_axi          ,
+    output  wire    [4                      :0]         o_meta_base_format              ,
+    output  wire    [AXI_AW              -1 :0]         o_meta_base_addr_rgba_y0        ,
+    output  wire    [AXI_AW              -1 :0]         o_meta_base_addr_uv0            ,
+    output  wire    [AXI_AW              -1 :0]         o_meta_base_addr_rgba_y1        ,
+    output  wire    [AXI_AW              -1 :0]         o_meta_base_addr_uv1            ,
+    output  wire    [15                     :0]         o_meta_tile_x_numbers           ,
+    output  wire    [15                     :0]         o_meta_tile_y_numbers           ,
 
-    output wire [15:0]          o_otf_cfg_img_width,
-    output wire [4:0]           o_otf_cfg_format,
-    output wire [15:0]          o_otf_cfg_h_total,
-    output wire [15:0]          o_otf_cfg_h_sync,
-    output wire [15:0]          o_otf_cfg_h_bp,
-    output wire [15:0]          o_otf_cfg_h_act,
-    output wire [15:0]          o_otf_cfg_v_total,
-    output wire [15:0]          o_otf_cfg_v_sync,
-    output wire [15:0]          o_otf_cfg_v_bp,
-    output wire [15:0]          o_otf_cfg_v_act,
+    output  wire    [15                     :0]         o_otf_cfg_img_width             ,
+    output  wire    [4                      :0]         o_otf_cfg_format                ,
+    output  wire    [15                     :0]         o_otf_cfg_h_total               ,
+    output  wire    [15                     :0]         o_otf_cfg_h_sync                ,
+    output  wire    [15                     :0]         o_otf_cfg_h_bp                  ,
+    output  wire    [15                     :0]         o_otf_cfg_h_act                 ,
+    output  wire    [15                     :0]         o_otf_cfg_v_total               ,
+    output  wire    [15                     :0]         o_otf_cfg_v_sync                ,
+    output  wire    [15                     :0]         o_otf_cfg_v_bp                  ,
+    output  wire    [15                     :0]         o_otf_cfg_v_act                 ,
 
-    output wire                 o_irq_enable_axi,
-    output wire                 o_irq_clear_pulse_axi
+    output  wire                                        o_irq_enable_axi                ,
+    output  wire                                        o_irq_clear_pulse_axi
 );
 
-    localparam [DW-1:0] REG_VERSION = 32'h0001_0000;
-    localparam [DW-1:0] REG_DATE    = 32'h2026_0403;
+    localparam  [DW                  -1 :0]         REG_VERSION                     = 32'h0001_0000;
+    localparam  [DW                  -1 :0]         REG_DATE                        = 32'h2026_0403;
 
-    localparam [4:0] APB_ADDR_VERSION   = 5'h00; // 0x00
-    localparam [4:0] APB_ADDR_DATE      = 5'h01; // 0x04
-    localparam [4:0] APB_ADDR_TILE_CFG0 = 5'h02; // 0x08
-    localparam [4:0] APB_ADDR_TILE_CFG1 = 5'h03; // 0x0c
-    localparam [4:0] APB_ADDR_TILE_CFG2 = 5'h04; // 0x10
-    localparam [4:0] APB_ADDR_VIVO_CFG  = 5'h05; // 0x14
-    localparam [4:0] APB_ADDR_OTF_CFG0   = 5'h06; // 0x18
-    localparam [4:0] APB_ADDR_OTF_CFG1   = 5'h07; // 0x1c
-    localparam [4:0] APB_ADDR_OTF_CFG2   = 5'h08; // 0x20
-    localparam [4:0] APB_ADDR_OTF_CFG3   = 5'h09; // 0x24
-    localparam [4:0] APB_ADDR_OTF_CFG4   = 5'h0a; // 0x28
-    localparam [4:0] APB_ADDR_META_CFG0  = 5'h0b; // 0x2c
-    localparam [4:0] REG_META_BASE_Y_LO  = 5'h0c; // 0x30
-    localparam [4:0] REG_META_BASE_Y_HI  = 5'h0d; // 0x34
-    localparam [4:0] REG_TILE_BASE_Y_LO  = 5'h0e; // 0x38
-    localparam [4:0] REG_TILE_BASE_Y_HI  = 5'h0f; // 0x3c
-    localparam [4:0] REG_META_BASE_UV_LO = 5'h10; // 0x40
-    localparam [4:0] REG_META_BASE_UV_HI = 5'h11; // 0x44
-    localparam [4:0] REG_TILE_BASE_UV_LO = 5'h12; // 0x48
-    localparam [4:0] REG_TILE_BASE_UV_HI = 5'h13; // 0x4c
-    localparam [4:0] APB_ADDR_STATUS0   = 5'h14; // 0x50
-    localparam [4:0] APB_ADDR_STATUS1   = 5'h15; // 0x54
-    localparam [4:0] APB_ADDR_STATUS2   = 5'h16; // 0x58
-    localparam [4:0] APB_ADDR_STATUS3   = 5'h17; // 0x5c
-    localparam [4:0] APB_ADDR_IRQ_CTRL  = 5'h18; // 0x60
-    localparam [4:0] APB_ADDR_STATUS4   = 5'h19; // 0x64
-    localparam [4:0] APB_ADDR_STAT_META = 5'h1a; // 0x68
-    localparam [4:0] APB_ADDR_STAT_TILE = 5'h1b; // 0x6c
-    localparam [4:0] APB_ADDR_STAT_OTF_TILE = 5'h1c; // 0x70
-    localparam [4:0] APB_ADDR_STAT_OTF_LINE = 5'h1d; // 0x74
-    localparam [4:0] APB_ADDR_STAT_OTF_DE   = 5'h1e; // 0x78
-    localparam integer STATUS_BUS_W      = 30;
-    localparam integer BASE_FIFO_DEPTH   = 4;
-    localparam integer BASE_FIFO_PTR_W   = 2;
-    localparam integer BASE_FIFO_CNT_W   = 3;
-    localparam [BASE_FIFO_CNT_W-1:0] BASE_FIFO_DEPTH_COUNT = 3'd4;
+    localparam  [4                      :0]         APB_ADDR_VERSION                = 5'h00; // 0x00
+    localparam  [4                      :0]         APB_ADDR_DATE                   = 5'h01; // 0x04
+    localparam  [4                      :0]         APB_ADDR_TILE_CFG0              = 5'h02; // 0x08
+    localparam  [4                      :0]         APB_ADDR_TILE_CFG1              = 5'h03; // 0x0c
+    localparam  [4                      :0]         APB_ADDR_TILE_CFG2              = 5'h04; // 0x10
+    localparam  [4                      :0]         APB_ADDR_VIVO_CFG               = 5'h05; // 0x14
+    localparam  [4                      :0]         APB_ADDR_OTF_CFG0               = 5'h06; // 0x18
+    localparam  [4                      :0]         APB_ADDR_OTF_CFG1               = 5'h07; // 0x1c
+    localparam  [4                      :0]         APB_ADDR_OTF_CFG2               = 5'h08; // 0x20
+    localparam  [4                      :0]         APB_ADDR_OTF_CFG3               = 5'h09; // 0x24
+    localparam  [4                      :0]         APB_ADDR_OTF_CFG4               = 5'h0a; // 0x28
+    localparam  [4                      :0]         APB_ADDR_META_CFG0              = 5'h0b; // 0x2c
+    localparam  [4                      :0]         REG_META_BASE_Y_LO              = 5'h0c; // 0x30
+    localparam  [4                      :0]         REG_META_BASE_Y_HI              = 5'h0d; // 0x34
+    localparam  [4                      :0]         REG_TILE_BASE_Y_LO              = 5'h0e; // 0x38
+    localparam  [4                      :0]         REG_TILE_BASE_Y_HI              = 5'h0f; // 0x3c
+    localparam  [4                      :0]         REG_META_BASE_UV_LO             = 5'h10; // 0x40
+    localparam  [4                      :0]         REG_META_BASE_UV_HI             = 5'h11; // 0x44
+    localparam  [4                      :0]         REG_TILE_BASE_UV_LO             = 5'h12; // 0x48
+    localparam  [4                      :0]         REG_TILE_BASE_UV_HI             = 5'h13; // 0x4c
+    localparam  [4                      :0]         APB_ADDR_STATUS0                = 5'h14; // 0x50
+    localparam  [4                      :0]         APB_ADDR_STATUS1                = 5'h15; // 0x54
+    localparam  [4                      :0]         APB_ADDR_STATUS2                = 5'h16; // 0x58
+    localparam  [4                      :0]         APB_ADDR_STATUS3                = 5'h17; // 0x5c
+    localparam  [4                      :0]         APB_ADDR_IRQ_CTRL               = 5'h18; // 0x60
+    localparam  [4                      :0]         APB_ADDR_STATUS4                = 5'h19; // 0x64
+    localparam  [4                      :0]         APB_ADDR_STAT_META              = 5'h1a; // 0x68
+    localparam  [4                      :0]         APB_ADDR_STAT_TILE              = 5'h1b; // 0x6c
+    localparam  [4                      :0]         APB_ADDR_STAT_OTF_TILE          = 5'h1c; // 0x70
+    localparam  [4                      :0]         APB_ADDR_STAT_OTF_LINE          = 5'h1d; // 0x74
+    localparam  [4                      :0]         APB_ADDR_STAT_OTF_DE            = 5'h1e; // 0x78
+    localparam  integer                             STATUS_BUS_W                    = 30;
+    localparam  integer                             BASE_FIFO_DEPTH                 = 4;
+    localparam  integer                             BASE_FIFO_PTR_W                 = 2;
+    localparam  integer                             BASE_FIFO_CNT_W                 = 3;
+    localparam  [BASE_FIFO_CNT_W     -1 :0]         BASE_FIFO_DEPTH_COUNT           = 3'd4;
 
-    reg                 r_tile_cfg_lvl1_bank_swizzle_en;
-    reg                 r_tile_cfg_lvl2_bank_swizzle_en;
-    reg                 r_tile_cfg_lvl3_bank_swizzle_en;
-    reg [4:0]           r_tile_cfg_highest_bank_bit;
-    reg                 r_tile_cfg_bank_spread_en;
-    reg                 r_tile_cfg_4line_format;
-    reg                 r_tile_cfg_is_lossy_rgba_2_1_format;
-    reg [11:0]          r_tile_cfg_pitch;
-    reg                 r_tile_cfg_ci_input_type;
-    reg                 r_tile_cfg_ci_lossy;
-    reg [1:0]           r_tile_cfg_ci_alpha_mode;
-    reg [AXI_AW-1:0]    r_tile_base_addr_rgba_y;
-    reg [AXI_AW-1:0]    r_tile_base_addr_uv;
-    reg [AXI_AW-1:0]    r_tile_base_addr_rgba_y0;
-    reg [AXI_AW-1:0]    r_tile_base_addr_uv0;
-    reg [AXI_AW-1:0]    r_meta_base_addr_rgba_y0;
-    reg [AXI_AW-1:0]    r_meta_base_addr_uv0;
-    reg [AXI_AW-1:0]    r_tile_base_addr_rgba_y1;
-    reg [AXI_AW-1:0]    r_tile_base_addr_uv1;
-    reg [AXI_AW-1:0]    r_meta_base_addr_rgba_y1;
-    reg [AXI_AW-1:0]    r_meta_base_addr_uv1;
-    reg                 r_base_addr_wr_slot;
-    reg [AXI_AW-1:0]    fifo_tile_base_addr_rgba_y [0:BASE_FIFO_DEPTH-1];
-    reg [AXI_AW-1:0]    fifo_tile_base_addr_uv       [0:BASE_FIFO_DEPTH-1];
-    reg [AXI_AW-1:0]    fifo_meta_base_addr_rgba_y  [0:BASE_FIFO_DEPTH-1];
-    reg [AXI_AW-1:0]    fifo_meta_base_addr_uv      [0:BASE_FIFO_DEPTH-1];
-    reg [BASE_FIFO_PTR_W-1:0] fifo_tile_rgba_y_wr_ptr;
-    reg [BASE_FIFO_PTR_W-1:0] fifo_tile_rgba_y_rd_ptr;
-    reg [BASE_FIFO_CNT_W-1:0] fifo_tile_rgba_y_count;
-    reg [BASE_FIFO_PTR_W-1:0] fifo_tile_uv_wr_ptr;
-    reg [BASE_FIFO_PTR_W-1:0] fifo_tile_uv_rd_ptr;
-    reg [BASE_FIFO_CNT_W-1:0] fifo_tile_uv_count;
-    reg [BASE_FIFO_PTR_W-1:0] fifo_meta_y_wr_ptr;
-    reg [BASE_FIFO_PTR_W-1:0] fifo_meta_y_rd_ptr;
-    reg [BASE_FIFO_CNT_W-1:0] fifo_meta_y_count;
-    reg [BASE_FIFO_PTR_W-1:0] fifo_meta_uv_wr_ptr;
-    reg [BASE_FIFO_PTR_W-1:0] fifo_meta_uv_rd_ptr;
-    reg [BASE_FIFO_CNT_W-1:0] fifo_meta_uv_count;
-    reg                 r_vivo_ubwc_en;
-    reg                 r_vivo_sreset;
-    reg                 r_meta_start_toggle;
-    reg                 r_start_wait_busy_seen;
-    reg [4:0]           r_meta_base_format;
-    reg [AXI_AW-1:0]    r_meta_base_addr_rgba_y;
-    reg [AXI_AW-1:0]    r_meta_base_addr_uv;
-    reg [15:0]          r_meta_tile_x_numbers;
-    reg [15:0]          r_meta_tile_y_numbers;
-    reg [15:0]          r_otf_cfg_img_width;
-    reg [4:0]           r_otf_cfg_format;
-    reg [15:0]          r_otf_cfg_h_total;
-    reg [15:0]          r_otf_cfg_h_sync;
-    reg [15:0]          r_otf_cfg_h_bp;
-    reg [15:0]          r_otf_cfg_h_act;
-    reg [15:0]          r_otf_cfg_v_total;
-    reg [15:0]          r_otf_cfg_v_sync;
-    reg [15:0]          r_otf_cfg_v_bp;
-    reg [15:0]          r_otf_cfg_v_act;
-    reg                 r_irq_enable;
-    reg                 r_irq_clear_toggle;
-    reg                 r_meta_start_sync_ff1;
-    reg                 r_meta_start_sync_ff2;
-    reg                 r_frame_start_cfg_valid_axi;
-    reg                 r_frame_start_pulse_axi;
-    reg                 r_irq_enable_sync_ff1;
-    reg                 r_irq_enable_sync_ff2;
-    reg                 r_irq_clear_sync_ff1;
-    reg                 r_irq_clear_sync_ff2;
-    reg [STATUS_BUS_W-1:0] r_status_sync_ff1;
-    reg [STATUS_BUS_W-1:0] r_status_sync_ff2;
-    reg [1:0]           r_irq_type_sync_ff1;
-    reg [1:0]           r_irq_type_sync_ff2;
-    reg [31:0]          r_stat_meta_tile_sync_ff1;
-    reg [31:0]          r_stat_meta_tile_sync_ff2;
-    reg [31:0]          r_stat_tile_addr_sync_ff1;
-    reg [31:0]          r_stat_tile_addr_sync_ff2;
-    reg [31:0]          r_stat_otf_tile_sync_ff1;
-    reg [31:0]          r_stat_otf_tile_sync_ff2;
-    reg [31:0]          r_stat_otf_line_sync_ff1;
-    reg [31:0]          r_stat_otf_line_sync_ff2;
-    reg [31:0]          r_stat_otf_de_sync_ff1;
-    reg [31:0]          r_stat_otf_de_sync_ff2;
+    reg                                             r_tile_cfg_lvl1_bank_swizzle_en ;
+    reg                                             r_tile_cfg_lvl2_bank_swizzle_en ;
+    reg                                             r_tile_cfg_lvl3_bank_swizzle_en ;
+    reg         [4                      :0]         r_tile_cfg_highest_bank_bit     ;
+    reg                                             r_tile_cfg_bank_spread_en       ;
+    reg                                             r_tile_cfg_4line_format         ;
+    reg                                             r_tile_cfg_is_lossy_rgba_2_1_format;
+    reg         [11                     :0]         r_tile_cfg_pitch                ;
+    reg                                             r_tile_cfg_ci_input_type        ;
+    reg                                             r_tile_cfg_ci_lossy             ;
+    reg         [1                      :0]         r_tile_cfg_ci_alpha_mode        ;
+    reg         [AXI_AW              -1 :0]         r_tile_base_addr_rgba_y         ;
+    reg         [AXI_AW              -1 :0]         r_tile_base_addr_uv             ;
+    reg         [AXI_AW              -1 :0]         r_tile_base_addr_rgba_y0        ;
+    reg         [AXI_AW              -1 :0]         r_tile_base_addr_uv0            ;
+    reg         [AXI_AW              -1 :0]         r_meta_base_addr_rgba_y0        ;
+    reg         [AXI_AW              -1 :0]         r_meta_base_addr_uv0            ;
+    reg         [AXI_AW              -1 :0]         r_tile_base_addr_rgba_y1        ;
+    reg         [AXI_AW              -1 :0]         r_tile_base_addr_uv1            ;
+    reg         [AXI_AW              -1 :0]         r_meta_base_addr_rgba_y1        ;
+    reg         [AXI_AW              -1 :0]         r_meta_base_addr_uv1            ;
+    reg                                             r_base_addr_wr_slot             ;
+    reg         [AXI_AW              -1 :0]         fifo_tile_base_addr_rgba_y [0:BASE_FIFO_DEPTH-1];
+    reg         [AXI_AW              -1 :0]         fifo_tile_base_addr_uv       [0:BASE_FIFO_DEPTH-1];
+    reg         [AXI_AW              -1 :0]         fifo_meta_base_addr_rgba_y  [0:BASE_FIFO_DEPTH-1];
+    reg         [AXI_AW              -1 :0]         fifo_meta_base_addr_uv      [0:BASE_FIFO_DEPTH-1];
+    reg         [BASE_FIFO_PTR_W     -1 :0]         fifo_tile_rgba_y_wr_ptr         ;
+    reg         [BASE_FIFO_PTR_W     -1 :0]         fifo_tile_rgba_y_rd_ptr         ;
+    reg         [BASE_FIFO_CNT_W     -1 :0]         fifo_tile_rgba_y_count          ;
+    reg         [BASE_FIFO_PTR_W     -1 :0]         fifo_tile_uv_wr_ptr             ;
+    reg         [BASE_FIFO_PTR_W     -1 :0]         fifo_tile_uv_rd_ptr             ;
+    reg         [BASE_FIFO_CNT_W     -1 :0]         fifo_tile_uv_count              ;
+    reg         [BASE_FIFO_PTR_W     -1 :0]         fifo_meta_y_wr_ptr              ;
+    reg         [BASE_FIFO_PTR_W     -1 :0]         fifo_meta_y_rd_ptr              ;
+    reg         [BASE_FIFO_CNT_W     -1 :0]         fifo_meta_y_count               ;
+    reg         [BASE_FIFO_PTR_W     -1 :0]         fifo_meta_uv_wr_ptr             ;
+    reg         [BASE_FIFO_PTR_W     -1 :0]         fifo_meta_uv_rd_ptr             ;
+    reg         [BASE_FIFO_CNT_W     -1 :0]         fifo_meta_uv_count              ;
+    reg                                             r_vivo_ubwc_en                  ;
+    reg                                             r_vivo_sreset                   ;
+    reg                                             r_meta_start_toggle             ;
+    reg                                             r_start_wait_busy_seen          ;
+    reg         [4                      :0]         r_meta_base_format              ;
+    reg         [AXI_AW              -1 :0]         r_meta_base_addr_rgba_y         ;
+    reg         [AXI_AW              -1 :0]         r_meta_base_addr_uv             ;
+    reg         [15                     :0]         r_meta_tile_x_numbers           ;
+    reg         [15                     :0]         r_meta_tile_y_numbers           ;
+    reg         [15                     :0]         r_otf_cfg_img_width             ;
+    reg         [4                      :0]         r_otf_cfg_format                ;
+    reg         [15                     :0]         r_otf_cfg_h_total               ;
+    reg         [15                     :0]         r_otf_cfg_h_sync                ;
+    reg         [15                     :0]         r_otf_cfg_h_bp                  ;
+    reg         [15                     :0]         r_otf_cfg_h_act                 ;
+    reg         [15                     :0]         r_otf_cfg_v_total               ;
+    reg         [15                     :0]         r_otf_cfg_v_sync                ;
+    reg         [15                     :0]         r_otf_cfg_v_bp                  ;
+    reg         [15                     :0]         r_otf_cfg_v_act                 ;
+    reg                                             r_irq_enable                    ;
+    reg                                             r_irq_clear_toggle              ;
+    reg                                             r_meta_start_sync_ff1           ;
+    reg                                             r_meta_start_sync_ff2           ;
+    reg                                             r_frame_start_cfg_valid_axi     ;
+    reg                                             r_frame_start_pulse_axi         ;
+    reg                                             r_irq_enable_sync_ff1           ;
+    reg                                             r_irq_enable_sync_ff2           ;
+    reg                                             r_irq_clear_sync_ff1            ;
+    reg                                             r_irq_clear_sync_ff2            ;
+    reg         [STATUS_BUS_W        -1 :0]         r_status_sync_ff1               ;
+    reg         [STATUS_BUS_W        -1 :0]         r_status_sync_ff2               ;
+    reg         [1                      :0]         r_irq_type_sync_ff1             ;
+    reg         [1                      :0]         r_irq_type_sync_ff2             ;
+    reg         [31                     :0]         r_stat_meta_tile_sync_ff1       ;
+    reg         [31                     :0]         r_stat_meta_tile_sync_ff2       ;
+    reg         [31                     :0]         r_stat_tile_addr_sync_ff1       ;
+    reg         [31                     :0]         r_stat_tile_addr_sync_ff2       ;
+    reg         [31                     :0]         r_stat_otf_tile_sync_ff1        ;
+    reg         [31                     :0]         r_stat_otf_tile_sync_ff2        ;
+    reg         [31                     :0]         r_stat_otf_line_sync_ff1        ;
+    reg         [31                     :0]         r_stat_otf_line_sync_ff2        ;
+    reg         [31                     :0]         r_stat_otf_de_sync_ff1          ;
+    reg         [31                     :0]         r_stat_otf_de_sync_ff2          ;
 
-    reg                 a_tile_cfg_lvl2_bank_swizzle_en;
-    reg                 a_tile_cfg_lvl3_bank_swizzle_en;
-    reg [4:0]           a_tile_cfg_highest_bank_bit;
-    reg                 a_tile_cfg_bank_spread_en;
-    reg                 a_tile_cfg_is_lossy_rgba_2_1_format;
-    reg [11:0]          a_tile_cfg_pitch;
-    reg                 a_tile_cfg_ci_input_type;
-    reg                 a_tile_cfg_ci_lossy;
-    reg [1:0]           a_tile_cfg_ci_alpha_mode;
-    reg [AXI_AW-1:0]    a_tile_base_addr_rgba_y0;
-    reg [AXI_AW-1:0]    a_tile_base_addr_uv0;
-    reg [AXI_AW-1:0]    a_tile_base_addr_rgba_y1;
-    reg [AXI_AW-1:0]    a_tile_base_addr_uv1;
-    reg                 a_vivo_ubwc_en;
-    reg                 a_vivo_sreset;
-    reg [4:0]           a_meta_base_format;
-    reg [AXI_AW-1:0]    a_meta_base_addr_rgba_y0;
-    reg [AXI_AW-1:0]    a_meta_base_addr_uv0;
-    reg [AXI_AW-1:0]    a_meta_base_addr_rgba_y1;
-    reg [AXI_AW-1:0]    a_meta_base_addr_uv1;
-    reg [15:0]          a_meta_tile_x_numbers;
-    reg [15:0]          a_meta_tile_y_numbers;
-    reg [15:0]          a_otf_cfg_img_width;
-    reg [4:0]           a_otf_cfg_format;
-    reg [15:0]          a_otf_cfg_h_total;
-    reg [15:0]          a_otf_cfg_h_sync;
-    reg [15:0]          a_otf_cfg_h_bp;
-    reg [15:0]          a_otf_cfg_h_act;
-    reg [15:0]          a_otf_cfg_v_total;
-    reg [15:0]          a_otf_cfg_v_sync;
-    reg [15:0]          a_otf_cfg_v_bp;
-    reg [15:0]          a_otf_cfg_v_act;
-    reg  [DW-1:0] r_prdata;
+    reg                                             a_tile_cfg_lvl2_bank_swizzle_en ;
+    reg                                             a_tile_cfg_lvl3_bank_swizzle_en ;
+    reg         [4                      :0]         a_tile_cfg_highest_bank_bit     ;
+    reg                                             a_tile_cfg_bank_spread_en       ;
+    reg                                             a_tile_cfg_is_lossy_rgba_2_1_format;
+    reg         [11                     :0]         a_tile_cfg_pitch                ;
+    reg                                             a_tile_cfg_ci_input_type        ;
+    reg                                             a_tile_cfg_ci_lossy             ;
+    reg         [1                      :0]         a_tile_cfg_ci_alpha_mode        ;
+    reg         [AXI_AW              -1 :0]         a_tile_base_addr_rgba_y0        ;
+    reg         [AXI_AW              -1 :0]         a_tile_base_addr_uv0            ;
+    reg         [AXI_AW              -1 :0]         a_tile_base_addr_rgba_y1        ;
+    reg         [AXI_AW              -1 :0]         a_tile_base_addr_uv1            ;
+    reg                                             a_vivo_ubwc_en                  ;
+    reg                                             a_vivo_sreset                   ;
+    reg         [4                      :0]         a_meta_base_format              ;
+    reg         [AXI_AW              -1 :0]         a_meta_base_addr_rgba_y0        ;
+    reg         [AXI_AW              -1 :0]         a_meta_base_addr_uv0            ;
+    reg         [AXI_AW              -1 :0]         a_meta_base_addr_rgba_y1        ;
+    reg         [AXI_AW              -1 :0]         a_meta_base_addr_uv1            ;
+    reg         [15                     :0]         a_meta_tile_x_numbers           ;
+    reg         [15                     :0]         a_meta_tile_y_numbers           ;
+    reg         [15                     :0]         a_otf_cfg_img_width             ;
+    reg         [4                      :0]         a_otf_cfg_format                ;
+    reg         [15                     :0]         a_otf_cfg_h_total               ;
+    reg         [15                     :0]         a_otf_cfg_h_sync                ;
+    reg         [15                     :0]         a_otf_cfg_h_bp                  ;
+    reg         [15                     :0]         a_otf_cfg_h_act                 ;
+    reg         [15                     :0]         a_otf_cfg_v_total               ;
+    reg         [15                     :0]         a_otf_cfg_v_sync                ;
+    reg         [15                     :0]         a_otf_cfg_v_bp                  ;
+    reg         [15                     :0]         a_otf_cfg_v_act                 ;
+    reg         [DW                  -1 :0]         r_prdata                        ;
 
-    wire       apb_access;
+    wire                                            apb_access                      ;
     assign apb_access = PSEL && PENABLE;
-    wire       apb_addr_aligned;
+    wire                                            apb_addr_aligned                ;
     assign apb_addr_aligned = (PADDR[1:0] == 2'b00);
-    wire       apb_addr_in_rng;
+    wire                                            apb_addr_in_rng                 ;
     assign apb_addr_in_rng = (PADDR[AW-1:7] == {(AW-7){1'b0}});
-    wire       apb_decode_valid;
+    wire                                            apb_decode_valid                ;
     assign apb_decode_valid = apb_addr_aligned && apb_addr_in_rng;
-    wire [4:0] apb_addr;
+    wire        [4                      :0]         apb_addr                        ;
     assign apb_addr = PADDR[6:2];
-    wire       fifo_tile_rgba_y_full;
+    wire                                            fifo_tile_rgba_y_full           ;
     assign fifo_tile_rgba_y_full = (fifo_tile_rgba_y_count == BASE_FIFO_DEPTH_COUNT);
-    wire       fifo_tile_uv_full;
+    wire                                            fifo_tile_uv_full               ;
     assign fifo_tile_uv_full = (fifo_tile_uv_count  == BASE_FIFO_DEPTH_COUNT);
-    wire       fifo_meta_y_full;
+    wire                                            fifo_meta_y_full                ;
     assign fifo_meta_y_full = (fifo_meta_y_count  == BASE_FIFO_DEPTH_COUNT);
-    wire       fifo_meta_uv_full;
+    wire                                            fifo_meta_uv_full               ;
     assign fifo_meta_uv_full = (fifo_meta_uv_count == BASE_FIFO_DEPTH_COUNT);
-    wire       fifo_tile_rgba_y_empty;
+    wire                                            fifo_tile_rgba_y_empty          ;
     assign fifo_tile_rgba_y_empty = (fifo_tile_rgba_y_count == {BASE_FIFO_CNT_W{1'b0}});
-    wire       fifo_tile_uv_empty;
+    wire                                            fifo_tile_uv_empty              ;
     assign fifo_tile_uv_empty = (fifo_tile_uv_count  == {BASE_FIFO_CNT_W{1'b0}});
-    wire       fifo_meta_y_empty;
+    wire                                            fifo_meta_y_empty               ;
     assign fifo_meta_y_empty = (fifo_meta_y_count  == {BASE_FIFO_CNT_W{1'b0}});
-    wire       fifo_meta_uv_empty;
+    wire                                            fifo_meta_uv_empty              ;
     assign fifo_meta_uv_empty = (fifo_meta_uv_count == {BASE_FIFO_CNT_W{1'b0}});
-    wire       base_fifo_high_write;
+    wire                                            base_fifo_high_write            ;
     assign base_fifo_high_write = (apb_addr == REG_TILE_BASE_Y_HI)  ||
                (apb_addr == REG_TILE_BASE_UV_HI) ||
                (apb_addr == REG_META_BASE_Y_HI)  ||
                (apb_addr == REG_META_BASE_UV_HI);
-    wire       base_fifo_write_full;
+    wire                                            base_fifo_write_full            ;
     assign base_fifo_write_full = ((apb_addr == REG_TILE_BASE_Y_HI)  && fifo_tile_rgba_y_full) ||
                ((apb_addr == REG_TILE_BASE_UV_HI) && fifo_tile_uv_full)  ||
                ((apb_addr == REG_META_BASE_Y_HI)  && fifo_meta_y_full)  ||
                ((apb_addr == REG_META_BASE_UV_HI) && fifo_meta_uv_full);
-    wire       frame_start_toggle_seen_axi;
+    wire                                            frame_start_toggle_seen_axi     ;
     assign frame_start_toggle_seen_axi = r_meta_start_sync_ff1 ^ r_meta_start_sync_ff2;
-    wire [STATUS_BUS_W-1:0] status_bus_axi;
-    wire [6:0] status_vivo_error_bits_pclk;
-    wire [6:0] status_vivo_idle_bits_pclk;
-    wire [4:0] status_stage_done_pclk;
-    wire [3:0] status_stage_seen_pclk;
-    wire       status_meta_busy_pclk;
-    wire       status_tile_busy_pclk;
-    wire       status_vivo_busy_pclk;
-    wire       status_otf_busy_pclk;
-    wire       status_frame_active_pclk;
-    wire       status_any_stage_busy_pclk;
-    wire       status_irq_pending_pclk;
-    wire       status_irq_correct_pending_pclk;
-    wire       status_irq_error_pending_pclk;
-    wire       base_fifo_all_valid_pclk;
+    wire        [STATUS_BUS_W        -1 :0]         status_bus_axi                  ;
+    wire        [6                      :0]         status_vivo_error_bits_pclk     ;
+    wire        [6                      :0]         status_vivo_idle_bits_pclk      ;
+    wire        [4                      :0]         status_stage_done_pclk          ;
+    wire        [3                      :0]         status_stage_seen_pclk          ;
+    wire                                            status_meta_busy_pclk           ;
+    wire                                            status_tile_busy_pclk           ;
+    wire                                            status_vivo_busy_pclk           ;
+    wire                                            status_otf_busy_pclk            ;
+    wire                                            status_frame_active_pclk        ;
+    wire                                            status_any_stage_busy_pclk      ;
+    wire                                            status_irq_pending_pclk         ;
+    wire                                            status_irq_correct_pending_pclk ;
+    wire                                            status_irq_error_pending_pclk   ;
+    wire                                            base_fifo_all_valid_pclk        ;
     assign base_fifo_all_valid_pclk = !fifo_tile_rgba_y_empty && !fifo_tile_uv_empty &&
                                           !fifo_meta_y_empty && !fifo_meta_uv_empty;
-    wire       meta_launch_slot_free_pclk;
+    wire                                            meta_launch_slot_free_pclk      ;
     assign meta_launch_slot_free_pclk = !status_frame_active_pclk ||
                                             status_stage_done_pclk[0];
-    wire       base_fifo_start_pclk;
+    wire                                            base_fifo_start_pclk            ;
     assign base_fifo_start_pclk = base_fifo_all_valid_pclk &&
                                       !r_start_wait_busy_seen &&
                                       !status_meta_busy_pclk &&
                                       meta_launch_slot_free_pclk;
-    wire       base_fifo_stall;
+    wire                                            base_fifo_stall                 ;
     assign base_fifo_stall = apb_access &&
                                  (base_fifo_start_pclk ||
                                   (PWRITE && apb_decode_valid &&
                                    base_fifo_high_write && base_fifo_write_full));
-    wire       apb_write;
+    wire                                            apb_write                       ;
     assign apb_write = apb_access && PWRITE && apb_decode_valid && !base_fifo_stall;
-    wire       push_tile_rgba_y_fifo;
+    wire                                            push_tile_rgba_y_fifo           ;
     assign push_tile_rgba_y_fifo = apb_write && (apb_addr == REG_TILE_BASE_Y_HI);
-    wire       push_tile_uv_fifo;
+    wire                                            push_tile_uv_fifo               ;
     assign push_tile_uv_fifo = apb_write && (apb_addr == REG_TILE_BASE_UV_HI);
-    wire       push_meta_y_fifo;
+    wire                                            push_meta_y_fifo                ;
     assign push_meta_y_fifo = apb_write && (apb_addr == REG_META_BASE_Y_HI);
-    wire       push_meta_uv_fifo;
+    wire                                            push_meta_uv_fifo               ;
     assign push_meta_uv_fifo = apb_write && (apb_addr == REG_META_BASE_UV_HI);
 
     always @(posedge PCLK or negedge PRESETn) begin

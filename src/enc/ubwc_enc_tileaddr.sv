@@ -9,126 +9,156 @@
 // Editor            : Gvim, tab size (4)
 // Revision          : 1.00
 //		Revision 1.00 - File Created by		: MiaoJiawang
-//		Description							: 
-//  
+//		Description							:
+//
 //////////////////////////////////////////////////////////////////////////////////
 //`timescale 1ns/1ps
 
 module ubwc_enc_tile_addr
     #(
-        parameter SB_WIDTH = 1,
-        parameter TH_DW    = 13,
-        parameter TW_DW    = 8
+        parameter                                       SB_WIDTH                        = 1,
+        parameter                                       TH_DW                           = 13,
+        parameter                                       TW_DW                           = 8
     )(
-        input   wire                        i_clk,
-        input   wire                        i_rstn,
-    
-        input   wire                        i_lvl1_bank_swizzle_en,
-        input   wire                        i_lvl2_bank_swizzle_en,
-        input   wire                        i_lvl3_bank_swizzle_en,
-        input   wire    [5  -1:0]           i_highest_bank_bit,
-        input   wire                        i_bank_spread_en,
-    
-        input   wire                        i_4line_format,
-        input   wire                        i_is_lossy_rgba_2_1_format,
-        input   wire    [12 -1:0]           i_tile_pitch,
+        input   wire                                        i_clk                           ,
+        input   wire                                        i_rstn                          ,
 
-        input   wire    [64 -1:0]           i_y_base_offset_addr0   ,
-        input   wire    [64 -1:0]           i_uv_base_offset_addr0  ,
-        input   wire    [64 -1:0]           i_y_base_offset_addr1   ,
-        input   wire    [64 -1:0]           i_uv_base_offset_addr1  ,
-        input   wire                        i_addr_cfg_valid        ,
+        input   wire                                        i_lvl1_bank_swizzle_en          ,
+        input   wire                                        i_lvl2_bank_swizzle_en          ,
+        input   wire                                        i_lvl3_bank_swizzle_en          ,
+        input   wire    [5                   -1 :0]         i_highest_bank_bit              ,
+        input   wire                                        i_bank_spread_en                ,
 
-        input   wire    [TH_DW -1:0]        i_ycoord,
-        input   wire    [TW_DW -1:0]        i_xcoord,
-        input   wire    [5  -1:0]           i_format,
-        input   wire    [4  -1:0]           i_fcnt,
-    
-        input   wire                        i_co_valid,
-        output  wire                        o_co_ready,
-        input   wire    [3  -1:0]           i_co_alen,
-        input   wire    [SB_WIDTH -1:0]     i_co_sb,
-        input   wire                        i_co_pcm,
-    
-        output  reg     [28 -1:0]           o_tile_addr,
-        output  reg     [3  -1:0]           o_tile_alen,
-        output  reg     [4  -1:0]           o_tile_fcnt,
-        output  reg                         o_tile_addr_vld
+        input   wire                                        i_4line_format                  ,
+        input   wire                                        i_is_lossy_rgba_2_1_format      ,
+        input   wire    [12                  -1 :0]         i_tile_pitch                    ,
+
+        input   wire    [64                  -1 :0]         i_y_base_offset_addr0           ,
+        input   wire    [64                  -1 :0]         i_uv_base_offset_addr0          ,
+        input   wire    [64                  -1 :0]         i_y_base_offset_addr1           ,
+        input   wire    [64                  -1 :0]         i_uv_base_offset_addr1          ,
+        input   wire                                        i_addr_cfg_valid                ,
+
+        input   wire    [TH_DW               -1 :0]         i_ycoord                        ,
+        input   wire    [TW_DW               -1 :0]         i_xcoord                        ,
+        input   wire    [5                   -1 :0]         i_format                        ,
+        input   wire    [4                   -1 :0]         i_fcnt                          ,
+
+        input   wire                                        i_co_valid                      ,
+        output  wire                                        o_co_ready                      ,
+        input   wire    [3                   -1 :0]         i_co_alen                       ,
+        input   wire    [SB_WIDTH            -1 :0]         i_co_sb                         ,
+        input   wire                                        i_co_pcm                        ,
+
+        output  reg     [28                  -1 :0]         o_tile_addr                     ,
+        output  reg     [3                   -1 :0]         o_tile_alen                     ,
+        output  reg     [4                   -1 :0]         o_tile_fcnt                     ,
+        output  reg                                         o_tile_addr_vld
     );
 
-    logic [31:0] swizzle_xor;
-    logic [10:0] macrotile_y;
-    logic [10:0] macrotile_x;
-    logic [3:0]  macrotile;
-    logic [16:0] macrotile_pitch;
-    logic [27:0] product;
-    logic [27:0] add_x;
-    logic [7:0]  add_inter_tile;
-    logic [27:0] add_before_bs;
-    logic [7:0]  super_pixel_size;
-    logic [15:0] surface_pitch;
-    logic [19:0] surface_pitch_x16;
-    logic [12:0] ycoord_int_sel;
-    logic [15:0] line_ycoord_int;
-    logic [3:0]  add_y_2_1_shift;
-    logic [27:0] swizzle_addr;
-    logic [27:0] tile_addr_calc;
-    logic [27:0] tile_addr_with_base;
-    logic        lossy_rgba_2_1_active;
-    logic        small_payload_bank_spread_en;
+    localparam  [4                      :0]         FMT_NV12_UV                     = 5'd9;
+    localparam  [4                      :0]         FMT_NV16_UV                     = 5'd11;
+    localparam  [4                      :0]         FMT_NV16_10_UV                  = 5'd13;
+    localparam  [4                      :0]         FMT_P010_UV                     = 5'd15;
+    localparam  [4                      :0]         FMT_RGBA8888                    = 5'd0;
 
-    localparam [4:0] FMT_NV12_UV    = 5'd9;
-    localparam [4:0] FMT_NV16_UV    = 5'd11;
-    localparam [4:0] FMT_NV16_10_UV = 5'd13;
-    localparam [4:0] FMT_P010_UV    = 5'd15;
-    localparam [4:0] FMT_RGBA8888   = 5'd0;
+    wire        [12                     :0]         active_ycoord                   ;
+    wire        [27                     :0]         active_xcoord                   ;
+    wire        [4                      :0]         active_format                   ;
+    wire                                            active_is_uv_plane              ;
+    wire        [63                     :0]         active_y_base_offset_addr       ;
+    wire        [63                     :0]         active_uv_base_offset_addr      ;
+    wire        [27                     :0]         active_base_offset_addr         ;
 
-    wire [12:0]             active_ycoord;
-    wire [27:0]             active_xcoord;
-    wire [4:0]              active_format;
-    wire                    active_is_uv_plane;
-    wire [63:0]             active_y_base_offset_addr;
-    wire [63:0]             active_uv_base_offset_addr;
-    wire [27:0]             active_base_offset_addr;
+    wire        [10                     :0]         macrotile_y                     ;
+    wire        [10                     :0]         macrotile_x                     ;
+    wire        [3                      :0]         macrotile                       ;
+    wire        [16                     :0]         macrotile_pitch                 ;
+    wire        [27                     :0]         product                         ;
+    wire        [27                     :0]         product_term0                   ;
+    wire        [27                     :0]         product_term1                   ;
+    wire        [27                     :0]         product_term2                   ;
+    wire        [27                     :0]         product_term3                   ;
+    wire        [27                     :0]         product_term4                   ;
+    wire        [27                     :0]         product_term5                   ;
+    wire        [27                     :0]         product_term6                   ;
+    wire        [27                     :0]         product_term7                   ;
+    wire        [27                     :0]         product_term8                   ;
+    wire        [27                     :0]         product_term9                   ;
+    wire        [27                     :0]         product_term10                  ;
+    wire        [27                     :0]         add_x                           ;
+    wire        [7                      :0]         add_inter_tile                  ;
+    wire        [27                     :0]         add_before_bs                   ;
+    wire        [7                      :0]         super_pixel_size                ;
+    wire        [15                     :0]         surface_pitch                   ;
+    wire        [19                     :0]         surface_pitch_x16               ;
+    wire        [12                     :0]         ycoord_int_sel                  ;
+    wire        [15                     :0]         line_ycoord_int                 ;
+    wire        [3                      :0]         add_y_2_1_shift                 ;
+    wire        [27                     :0]         swizzle_addr                    ;
+    wire        [27                     :0]         tile_addr_calc                  ;
+    wire        [27                     :0]         tile_addr_with_base             ;
+    wire                                            lossy_rgba_2_1_active           ;
+    wire                                            small_payload_bank_spread_en    ;
 
-    assign o_co_ready               = i_addr_cfg_valid;
-    assign active_format            = i_format;
-    assign active_ycoord            = {{(13-TH_DW){1'b0}}, i_ycoord};
-    assign active_xcoord            = {{(28-TW_DW){1'b0}}, i_xcoord};
-    assign active_is_uv_plane = (active_format == FMT_NV12_UV)    ||
-                                (active_format == FMT_NV16_UV)    ||
-                                (active_format == FMT_NV16_10_UV) ||
-                                (active_format == FMT_P010_UV);
-    assign active_y_base_offset_addr  = i_fcnt[0] ? i_y_base_offset_addr1  : i_y_base_offset_addr0;
-    assign active_uv_base_offset_addr = i_fcnt[0] ? i_uv_base_offset_addr1 : i_uv_base_offset_addr0;
-    assign active_base_offset_addr = active_is_uv_plane ? active_uv_base_offset_addr[31:4] :
-                                                          active_y_base_offset_addr[31:4];
-    assign lossy_rgba_2_1_active = i_is_lossy_rgba_2_1_format && (active_format == FMT_RGBA8888);
+    reg         [31                     :0]         swizzle_xor                     ;
 
-    assign ycoord_int_sel   = i_is_lossy_rgba_2_1_format ? {1'b0, active_ycoord[12:1]} : active_ycoord;
-    assign line_ycoord_int  = i_4line_format ? (16'(ycoord_int_sel) << 2) : (16'(ycoord_int_sel) << 3);
-    assign macrotile_y      = ycoord_int_sel[12:2];
-    assign macrotile_x      = active_xcoord[12:2];
+    assign o_co_ready                   = i_addr_cfg_valid;
+    assign active_format                = i_format;
+    assign active_ycoord                = {{(13-TH_DW){1'b0}}, i_ycoord};
+    assign active_xcoord                = {{(28-TW_DW){1'b0}}, i_xcoord};
+    assign active_is_uv_plane           = (active_format == FMT_NV12_UV)    ||
+                                          (active_format == FMT_NV16_UV)    ||
+                                          (active_format == FMT_NV16_10_UV) ||
+                                          (active_format == FMT_P010_UV);
+    assign active_y_base_offset_addr    = i_fcnt[0] ? i_y_base_offset_addr1  : i_y_base_offset_addr0;
+    assign active_uv_base_offset_addr   = i_fcnt[0] ? i_uv_base_offset_addr1 : i_uv_base_offset_addr0;
+    assign active_base_offset_addr      = active_is_uv_plane ? active_uv_base_offset_addr[31:4] :
+                                                               active_y_base_offset_addr[31:4];
+    assign lossy_rgba_2_1_active        = i_is_lossy_rgba_2_1_format && (active_format == FMT_RGBA8888);
+    assign ycoord_int_sel               = i_is_lossy_rgba_2_1_format ? {1'b0, active_ycoord[12:1]} : active_ycoord;
+    assign line_ycoord_int              = i_4line_format ? (16'(ycoord_int_sel) << 2) : (16'(ycoord_int_sel) << 3);
+    assign macrotile_y                  = ycoord_int_sel[12:2];
+    assign macrotile_x                  = active_xcoord[12:2];
+    assign macrotile[3:0]               = {
+                                           active_xcoord[1],
+                                           active_xcoord[0]^ycoord_int_sel[0]^active_xcoord[2]^ycoord_int_sel[2],
+                                           active_xcoord[1]^active_xcoord[0]^ycoord_int_sel[1]^ycoord_int_sel[0],
+                                           active_xcoord[0]^ycoord_int_sel[1]
+                                           };
+    assign macrotile_pitch              = i_4line_format ? {1'd0, i_tile_pitch, 4'd0} : {i_tile_pitch, 5'd0};
+    assign product_term0                = macrotile_y[0]  ? {11'd0, macrotile_pitch}        : 28'd0;
+    assign product_term1                = macrotile_y[1]  ? {10'd0, macrotile_pitch, 1'd0}  : 28'd0;
+    assign product_term2                = macrotile_y[2]  ? {9'd0,  macrotile_pitch, 2'd0}  : 28'd0;
+    assign product_term3                = macrotile_y[3]  ? {8'd0,  macrotile_pitch, 3'd0}  : 28'd0;
+    assign product_term4                = macrotile_y[4]  ? {7'd0,  macrotile_pitch, 4'd0}  : 28'd0;
+    assign product_term5                = macrotile_y[5]  ? {6'd0,  macrotile_pitch, 5'd0}  : 28'd0;
+    assign product_term6                = macrotile_y[6]  ? {5'd0,  macrotile_pitch, 6'd0}  : 28'd0;
+    assign product_term7                = macrotile_y[7]  ? {4'd0,  macrotile_pitch, 7'd0}  : 28'd0;
+    assign product_term8                = macrotile_y[8]  ? {3'd0,  macrotile_pitch, 8'd0}  : 28'd0;
+    assign product_term9                = macrotile_y[9]  ? {2'd0,  macrotile_pitch, 9'd0}  : 28'd0;
+    assign product_term10               = macrotile_y[10] ? {1'd0,  macrotile_pitch, 10'd0} : 28'd0;
+    assign product                      = product_term0 + product_term1 + product_term2 +
+                                          product_term3 + product_term4 + product_term5 +
+                                          product_term6 + product_term7 + product_term8 +
+                                          product_term9 + product_term10;
+    assign add_x                        = {9'd0, macrotile_x, 8'd0};
+    assign add_inter_tile               = {macrotile, 4'd0};
+    assign add_y_2_1_shift              = i_is_lossy_rgba_2_1_format ? {active_ycoord[0], 3'b0} : 4'b0;
+    assign add_before_bs                = product + add_x + {20'd0, add_inter_tile} + {24'd0, add_y_2_1_shift};
+    assign super_pixel_size             = i_4line_format ? 8'd32 : 8'd8;
+    assign surface_pitch                = {i_tile_pitch, 4'd0};
+    assign surface_pitch_x16            = {surface_pitch, 4'd0};
+    assign swizzle_addr                 = add_before_bs ^ swizzle_xor[31:4];
+    assign small_payload_bank_spread_en = i_bank_spread_en &&
+                                          !lossy_rgba_2_1_active &&
+                                          (i_co_alen <= 3'd3);
+    assign tile_addr_calc               = small_payload_bank_spread_en ?
+                                          (swizzle_addr + {24'd0, swizzle_addr[5] ^ swizzle_addr[4], 3'd0}) :
+                                                                         swizzle_addr;
+    assign tile_addr_with_base          = tile_addr_calc + active_base_offset_addr;
 
-    assign macrotile[3:0] = {
-        active_xcoord[1],
-        active_xcoord[0]^ycoord_int_sel[0]^active_xcoord[2]^ycoord_int_sel[2],
-        active_xcoord[1]^active_xcoord[0]^ycoord_int_sel[1]^ycoord_int_sel[0],
-        active_xcoord[0]^ycoord_int_sel[1]
-    };
-
-    assign macrotile_pitch = i_4line_format ? {1'd0, i_tile_pitch, 4'd0} : {i_tile_pitch, 5'd0};
-    assign product         = macrotile_y * macrotile_pitch;
-    assign add_x           = {9'd0, macrotile_x, 8'd0};
-    assign add_inter_tile  = {macrotile, 4'd0};
-    assign add_y_2_1_shift = i_is_lossy_rgba_2_1_format ? {active_ycoord[0], 3'b0} : 4'b0;
-    assign add_before_bs   = product + add_x + {20'd0, add_inter_tile} + {24'd0, add_y_2_1_shift};
-
-    assign super_pixel_size = i_4line_format ? 8'd32 : 8'd8;
-    assign surface_pitch    = {i_tile_pitch, 4'd0};
-    assign surface_pitch_x16 = {surface_pitch, 4'd0};
-
-    always @(*) begin
+    always_comb begin
         swizzle_xor = 32'd0;
         case (i_highest_bank_bit)
             5'd13: begin
@@ -205,17 +235,9 @@ module ubwc_enc_tile_addr
         endcase
     end
 
-    assign swizzle_addr   = add_before_bs ^ swizzle_xor[31:4];
     // Match ubwc_tileaddr.v / ubwc_demo.cpp:
     // bank spread only applies to <=128B compressed payload tiles, and is disabled
     // for RGBA8888 2:1 lossy vertical packing.
-    assign small_payload_bank_spread_en =
-        i_bank_spread_en &&
-        !lossy_rgba_2_1_active &&
-        (i_co_alen <= 3'd3);
-    assign tile_addr_calc =
-        small_payload_bank_spread_en ? (swizzle_addr + {24'd0, swizzle_addr[5] ^ swizzle_addr[4], 3'd0}) : swizzle_addr;
-    assign tile_addr_with_base = tile_addr_calc + active_base_offset_addr;
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)

@@ -125,6 +125,61 @@ run_make() {
     "${CSH_BIN}" -c "${cmd}"
 }
 
+case_run_log() {
+    local target="$1"
+
+    case "${target}" in
+        wrapper_tajmahal_4096x600_rgba8888_vivo_fake_all)
+            printf '%s\n' "${SIM_DIR}/build/tb_ubwc_dec_wrapper_top_tajmahal_4096x608_rgba8888_fake/run.log"
+            ;;
+        wrapper_tajmahal_4096x600_rgba1010102_vivo_fake_all)
+            printf '%s\n' "${SIM_DIR}/build/tb_ubwc_dec_wrapper_top_tajmahal_4096x608_rgba1010102_fake/run.log"
+            ;;
+        wrapper_tajmahal_4096x600_nv12_vivo_fake_all|wrapper_tajmahal_4096x600_nv12_otf_fake_all)
+            printf '%s\n' "${SIM_DIR}/build/tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12_fake/run.log"
+            ;;
+        wrapper_k_outdoor61_4096x600_g016_vivo_fake_all)
+            printf '%s\n' "${SIM_DIR}/build/tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016_fake/run.log"
+            ;;
+        enc_wrapper_tajmahal_4096x600_rgba8888_fake_all)
+            printf '%s\n' "${SIM_DIR}/build/tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888_fake/run.log"
+            ;;
+        enc_wrapper_tajmahal_4096x600_rgba1010102_fake_all)
+            printf '%s\n' "${SIM_DIR}/build/tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102_fake/run.log"
+            ;;
+        enc_wrapper_tajmahal_4096x600_nv12_fake_all)
+            printf '%s\n' "${SIM_DIR}/build/tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12_fake/run.log"
+            ;;
+        enc_wrapper_k_outdoor61_4096x600_g016_fake_all)
+            printf '%s\n' "${SIM_DIR}/build/tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016_fake/run.log"
+            ;;
+        *)
+            printf '%s\n' ""
+            ;;
+    esac
+}
+
+case_build_dir() {
+    local run_log
+
+    run_log="$(case_run_log "$1")"
+    if [[ -n "${run_log}" ]]; then
+        dirname "${run_log}"
+    else
+        printf '%s\n' ""
+    fi
+}
+
+case_log_has_failure() {
+    local log_file="$1"
+
+    if [[ -z "${log_file}" || ! -f "${log_file}" ]]; then
+        return 1
+    fi
+
+    grep -Eq '(^|[[:space:]])FAIL:|\[TB\]\[ERROR\]|\$fatal|Fatal:' "${log_file}"
+}
+
 fail_count=0
 pass_count=0
 fail_targets=()
@@ -138,14 +193,23 @@ echo
 
 for idx in "${!TARGETS[@]}"; do
     target="${TARGETS[$idx]}"
+    run_log="$(case_run_log "${target}")"
+    build_dir="$(case_build_dir "${target}")"
     echo "==> [$((idx + 1))/${total_count}] ${target}"
-    if run_make "${target}"; then
+    if [[ ${DRY_RUN} -eq 0 && -n "${build_dir}" && -d "${build_dir}" ]]; then
+        rm -f "${build_dir}/simv"
+        rm -f "${build_dir}/simv.daidir/.vcs.timestamp"
+    fi
+    if run_make "${target}" && ! case_log_has_failure "${run_log}"; then
         pass_count=$((pass_count + 1))
         echo "[PASS] ${target}"
     else
         fail_count=$((fail_count + 1))
         fail_targets+=("${target}")
         echo "[FAIL] ${target}"
+        if [[ -n "${run_log}" ]]; then
+            echo "      log: ${run_log}"
+        fi
     fi
     echo
 done

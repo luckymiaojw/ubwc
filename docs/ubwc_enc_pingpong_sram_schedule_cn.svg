@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1180" viewBox="0 0 1800 1180">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 34px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 16px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #475569; }
+      .box-title { font: 700 17px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #111827; }
+      .box-text { font: 500 14px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #334155; }
+      .small { font: 500 13px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #64748b; }
+      .head { fill: #1d4ed8; }
+      .head-text { font: 700 16px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; fill: #fff; }
+      .panel { fill: #fff; stroke: #cbd5e1; stroke-width: 1.5; rx: 14; }
+      .bank0 { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 10; }
+      .bank1 { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 2; rx: 10; }
+      .read { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; rx: 10; }
+      .idle { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 1.8; rx: 10; }
+      .warn { fill: #fef2f2; stroke: #dc2626; stroke-width: 2; rx: 10; }
+      .line { stroke: #334155; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #64748b; stroke-width: 2; fill: none; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .tick { stroke: #cbd5e1; stroke-width: 1; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1180"/>
+  <text class="title" x="60" y="58">ENC ping-pong SRAM 数据调度图</text>
+  <text class="subtitle" x="60" y="88">对应 RTL：ubwc_enc_line_to_tile，bank0/bank1 在写行组与读 tile 之间交替复用</text>
+
+  <rect class="panel" x="60" y="125" width="1680" height="430"/>
+  <rect class="head" x="100" y="170" width="1560" height="40" rx="8"/>
+  <text class="head-text" x="145" y="196">时间轴</text>
+  <text class="head-text" x="380" y="196">阶段 T0</text>
+  <text class="head-text" x="700" y="196">阶段 T1</text>
+  <text class="head-text" x="1020" y="196">阶段 T2</text>
+  <text class="head-text" x="1340" y="196">阶段 T3</text>
+
+  <line class="tick" x1="340" y1="170" x2="340" y2="515"/>
+  <line class="tick" x1="660" y1="170" x2="660" y2="515"/>
+  <line class="tick" x1="980" y1="170" x2="980" y2="515"/>
+  <line class="tick" x1="1300" y1="170" x2="1300" y2="515"/>
+
+  <text class="box-title" x="130" y="270">bank0</text>
+  <rect class="bank0" x="250" y="235" width="340" height="82"/>
+  <text class="box-title" x="420" y="264" text-anchor="middle">写 Group N</text>
+  <text class="box-text" x="420" y="290" text-anchor="middle">A/Y 或 RGBA 行组写入</text>
+  <text class="small" x="420" y="310" text-anchor="middle">bank0_a_done / bank0_b_done</text>
+
+  <rect class="read" x="610" y="235" width="340" height="82"/>
+  <text class="box-title" x="780" y="264" text-anchor="middle">读 Group N</text>
+  <text class="box-text" x="780" y="290" text-anchor="middle">RD_ACT 按 tile_x / word 扫描</text>
+  <text class="small" x="780" y="310" text-anchor="middle">输出到 resp_fifo</text>
+
+  <rect class="idle" x="970" y="235" width="300" height="82"/>
+  <text class="box-title" x="1120" y="270" text-anchor="middle">释放 / 空闲</text>
+  <text class="small" x="1120" y="298" text-anchor="middle">RD_FIN 且 FIFO 清空</text>
+
+  <rect class="bank0" x="1290" y="235" width="340" height="82"/>
+  <text class="box-title" x="1460" y="264" text-anchor="middle">写 Group N+2</text>
+  <text class="box-text" x="1460" y="290" text-anchor="middle">wr_bank_sel 再切回 bank0</text>
+
+  <text class="box-title" x="130" y="410">bank1</text>
+  <rect class="idle" x="250" y="375" width="300" height="82"/>
+  <text class="box-title" x="400" y="410" text-anchor="middle">空闲</text>
+  <text class="small" x="400" y="438" text-anchor="middle">等待 bank0 ready</text>
+
+  <rect class="bank1" x="610" y="375" width="340" height="82"/>
+  <text class="box-title" x="780" y="404" text-anchor="middle">写 Group N+1</text>
+  <text class="box-text" x="780" y="430" text-anchor="middle">与 bank0 读并行</text>
+  <text class="small" x="780" y="450" text-anchor="middle">wr_bank_switch 后写入</text>
+
+  <rect class="read" x="970" y="375" width="340" height="82"/>
+  <text class="box-title" x="1140" y="404" text-anchor="middle">读 Group N+1</text>
+  <text class="box-text" x="1140" y="430" text-anchor="middle">bank1_safe_for_read 后启动</text>
+
+  <rect class="bank1" x="1330" y="375" width="300" height="82"/>
+  <text class="box-title" x="1480" y="410" text-anchor="middle">保持 / 等待读完</text>
+  <text class="small" x="1480" y="438" text-anchor="middle">直到 bank1_release</text>
+
+  <path class="line" d="M590 276 L610 276"/>
+  <path class="line" d="M950 276 L970 276"/>
+  <path class="line" d="M1270 276 L1290 276"/>
+  <path class="line" d="M550 416 L610 416"/>
+  <path class="line" d="M950 416 L970 416"/>
+  <path class="line" d="M1310 416 L1330 416"/>
+  <path class="dash" d="M500 318 C560 350 600 365 680 388"/>
+  <path class="dash" d="M1120 318 C1120 350 1100 360 1075 375"/>
+
+  <rect class="panel" x="60" y="600" width="800" height="440"/>
+  <text class="box-title" x="95" y="640">单个 bank 内部数据布局与写入顺序</text>
+  <rect class="bank0" x="115" y="685" width="330" height="82"/>
+  <text class="box-title" x="280" y="714" text-anchor="middle">A 通道写入</text>
+  <text class="box-text" x="280" y="740" text-anchor="middle">RGBA / Y plane</text>
+  <text class="small" x="280" y="760" text-anchor="middle">地址递增：addr + 1，行结束跳 stride</text>
+
+  <rect class="bank1" x="115" y="805" width="330" height="82"/>
+  <text class="box-title" x="280" y="834" text-anchor="middle">B 通道写入</text>
+  <text class="box-text" x="280" y="860" text-anchor="middle">UV plane，仅 YUV 格式需要</text>
+  <text class="small" x="280" y="880" text-anchor="middle">从 sram_uv_base 区域开始</text>
+
+  <rect class="read" x="500" y="685" width="300" height="202"/>
+  <text class="box-title" x="650" y="716" text-anchor="middle">读出 tile order</text>
+  <text class="box-text" x="650" y="748" text-anchor="middle">tile_x 从 0 到 cols-1</text>
+  <text class="box-text" x="650" y="772" text-anchor="middle">word_in_tile 从 0 到 15</text>
+  <text class="box-text" x="650" y="796" text-anchor="middle">YUV420: Y 上半 → Y 下半 → UV</text>
+  <text class="small" x="650" y="826" text-anchor="middle">read_meta_fifo 保存 bank/plane/x/y/fcnt</text>
+  <text class="small" x="650" y="848" text-anchor="middle">resp_fifo 输出 128b tile beat</text>
+
+  <path class="line" d="M445 726 L500 740"/>
+  <path class="line" d="M445 846 L500 812"/>
+
+  <rect class="panel" x="940" y="600" width="800" height="440"/>
+  <text class="box-title" x="975" y="640">切换和释放条件</text>
+
+  <rect class="warn" x="1000" y="690" width="660" height="86"/>
+  <text class="box-title" x="1330" y="720" text-anchor="middle">1. 当前写 bank 满足 ready_for_read</text>
+  <text class="box-text" x="1330" y="748" text-anchor="middle">A done，并且无 UV 或 B done；YUV420 会等 A/B 都结束</text>
+
+  <rect class="warn" x="1000" y="815" width="660" height="86"/>
+  <text class="box-title" x="1330" y="845" text-anchor="middle">2. 另一个 bank 可写时触发 wr_bank_switch</text>
+  <text class="box-text" x="1330" y="873" text-anchor="middle">当前 bank 进入读侧；另一个 bank 接收下一组输入</text>
+
+  <rect class="warn" x="1000" y="940" width="660" height="86"/>
+  <text class="box-title" x="1330" y="970" text-anchor="middle">3. 读侧完成后释放 bank</text>
+  <text class="box-text" x="1330" y="998" text-anchor="middle">RD_FIN 且 resp_fifo/read_meta_fifo 清空，产生 bank*_release</text>
+
+  <path class="line" d="M1330 776 L1330 815"/>
+  <path class="line" d="M1330 901 L1330 940"/>
+
+  <rect class="idle" x="95" y="1080" width="1610" height="58"/>
+  <text class="small" x="115" y="1107">核心原则：任一时刻，一个 bank 只承担写或读中的一种角色。写侧以 line group 为单位填充；读侧以 tile 顺序输出。fcnt 随 group 锁存，后续一路跟随到 tile、CI、coord。</text>
+  <text class="small" x="115" y="1129">连续帧时 slot 使用 fcnt[0] 区分，地址配置释放由最后一个 coord 消费后的 addr_cfg_done_pulse 驱动。</text>
+</svg>
