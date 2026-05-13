@@ -7,6 +7,34 @@ This document describes the APB register map implemented by the current RTL:
 
 Software should use the current RTL-compatible register map below. The CSV register tables in `docs/` follow this same map.
 
+## Current Integration Baseline
+
+The current wrapper-level integration assumes four independent clock domains:
+
+| Clock domain | Regression frequency | ENC port | DEC port | Main usage |
+| --- | --- | --- | --- | --- |
+| APB | 100 MHz | `PCLK` | `PCLK` | Register access |
+| AXI/control | 500 MHz | `i_clk` | `i_axi_clk` | AXI traffic, APB-synchronized control, status/statistics |
+| Core/VIVO | 200 MHz | `i_vivo_clk` | `i_vivo_clk` | `ubwc_enc_vivo_top` / `ubwc_dec_vivo_top` |
+| OTF | 320 MHz | `i_otf_clk` | `i_otf_clk` | OTF input/output video stream |
+
+Clock-domain rules:
+
+- APB register writes are synchronized before they are used by AXI/control logic.
+- AXI/control, core/VIVO, and OTF data paths are separated by FIFO or explicit CDC logic.
+- Multi-bit counters or payload buses must not cross clock domains by simple two-flop synchronization.
+- Async reset release must be synchronized inside the destination clock domain.
+
+Supported frame formats are `0=RGBA8888`, `1=RGBA1010102`, `2=YUV420_8/NV12`, and `3=YUV420_10/P010`. YUV422 formats are not supported by the current RTL.
+
+The 2026-05-11 regression baseline used `OTF=320 MHz`, `core/VIVO=200 MHz`, and `AXI=500 MHz` on server `10.168.1.199:/home/eda/work/ubwc/trunk`:
+
+```text
+tcsh -c "source prj_setup.env; make -C vrf/sim random_if_fake_all"
+log: vrf/sim/build/regress_logs/random_if_clk320_200_500_rerun_20260511_100738.log
+Summary: pass=8 fail=0
+```
+
 ## Common APB Behavior
 
 - Register width is 32 bits.
@@ -33,7 +61,7 @@ Recommended configuration order:
 1. Program static layout registers: `TILE_CFG0/1/2`, `VIVO_CFG`, `OTF_CFG0..4`, and `APB_ADDR_META_CFG0`.
 2. For each input UBWC buffer, write the four 64-bit address pairs in this order: metadata Y/RGBA, tile Y/RGBA, metadata UV, tile UV.
 3. Each 64-bit address is written low word first, high word second.
-4. Hardware auto-starts when the address entries required for one frame are valid. There is no software `meta_start` bit.
+4. Write `IRQ_CTRL[5]=1` after the address entries required for one frame are valid. Address writes only fill the pending address queues; they no longer start a frame by themselves.
 5. Poll `STATUS1[4]`, then confirm `STATUS0[6]` if software wants an idle-done check.
 
 ### Decoder Register Summary
@@ -64,7 +92,7 @@ Recommended configuration order:
 | `0x0054` | `STATUS1` | `RO` | dynamic | Stage-done and frame-done status |
 | `0x0058` | `STATUS2` | `RO` | dynamic | Raw VIVO idle bitmap |
 | `0x005c` | `STATUS3` | `RO` | dynamic | Raw VIVO error bitmap |
-| `0x0060` | `IRQ_CTRL` | `RW/W1P` | `0x0000_0001` | IRQ enable, clear, and pending status |
+| `0x0060` | `IRQ_CTRL` | `RW/W1P` | `0x0000_0001` | IRQ enable, clear, start pulse, and pending status |
 | `0x0064` | `STATUS4` | `RO` | dynamic | IRQ status mirror |
 | `0x0068` | `STAT_META` | `RO` | dynamic | Metadata valid tile count |
 | `0x006c` | `STAT_TILE` | `RO` | dynamic | Tile address valid tile count |
@@ -130,6 +158,7 @@ Recommended configuration order:
 | `0x0060` | `IRQ_CTRL` | `[2]` | `irq_pending` | `RO` | Current IRQ pending status |
 | `0x0060` | `IRQ_CTRL` | `[3]` | `irq_error_pending` | `RO` | Error IRQ pending status |
 | `0x0060` | `IRQ_CTRL` | `[4]` | `irq_correct_pending` | `RO` | Correct/frame IRQ pending status |
+| `0x0060` | `IRQ_CTRL` | `[5]` | `start` | `W1P` | Write `1` after one full input address group has been configured. Readback is `0`. |
 | `0x0064` | `STATUS4` | `[2:0]` | `irq_status` | `RO` | Bit0 any IRQ, bit1 error IRQ, bit2 correct IRQ |
 | `0x0068` | `STAT_META` | `[31:0]` | `stat_meta_tile_cnt` | `RO` | Metadata valid tile count |
 | `0x006c` | `STAT_TILE` | `[31:0]` | `stat_tile_addr_cnt` | `RO` | Tile address valid tile count |
@@ -148,7 +177,7 @@ poll_until((read(0x0050) & (1 << 6)) != 0);  // STATUS0.frame_idle_done
 
 Module: `ubwc_enc_apb_reg_blk`
 
-The encoder has no APB `start` bit in the current RTL. It starts when configuration has been programmed and the upstream OTF input stream begins handshaking.
+The encoder now uses `IRQ_CTRL[5]` as the APB start token. Software should program one output address group, write `IRQ_CTRL[5]=1`, then send the matching upstream OTF frame. Address writes only queue addresses; they no longer start a frame by themselves.
 
 Recommended configuration order:
 
@@ -156,7 +185,7 @@ Recommended configuration order:
 2. Program tile and metadata base addresses.
 3. Program `ENC_CI_CFG1/2/3`, then `ENC_CI_CFG0`.
 4. Program `OTF_CFG1/2/3`, `META_ACTIVE_SIZE`, and `META_PITCH`, then `OTF_CFG0`.
-5. Start sending `i_otf_*`.
+5. Write `IRQ_CTRL[5]=1`, then start sending `i_otf_*`.
 
 ### Encoder Register Summary
 
@@ -181,12 +210,12 @@ Recommended configuration order:
 | `0x0040` | `META_BASE_UV_LO` | `RW` | `0x0000_0000` | UV metadata base address low |
 | `0x0044` | `META_BASE_UV_HI` | `RW` | `0x0000_0000` | UV metadata base address high |
 | `0x0048` | `TILE_BASE_UV_LO` | `RW` | `0x0000_0000` | UV compressed-data base address low |
-| `0x004c` | `TILE_BASE_UV_HI` | `RW` | `0x0000_0000` | UV compressed-data base address high, commit write |
+| `0x004c` | `TILE_BASE_UV_HI` | `RW` | `0x0000_0000` | UV compressed-data base address high |
 | `0x0050` | `META_ACTIVE_SIZE` | `RW` | `0x0000_0000` | Metadata active width/height |
 | `0x0054` | `META_PITCH` | `RW` | `0x0000_0000` | Metadata plane pitch in bytes |
 | `0x0058` | `STATUS0` | `RO` | dynamic | Encoder live status |
 | `0x005c` | `STATUS1` | `RO` | dynamic | Stage done bitmap |
-| `0x0060` | `IRQ_CTRL` | `RW/W1P` | `0x0000_0001` | IRQ enable, clear, and pending status |
+| `0x0060` | `IRQ_CTRL` | `RW/W1P` | `0x0000_0001` | IRQ enable, clear, start pulse, and pending status |
 
 ### Encoder Field Detail
 
@@ -235,7 +264,7 @@ Recommended configuration order:
 | `0x0040` | `META_BASE_UV_LO` | `[31:0]` | `meta_uv_base_addr[31:0]` | `RW` | Low 32 bits of UV metadata base address; RGBA formats write 0 |
 | `0x0044` | `META_BASE_UV_HI` | `[31:0]` | `meta_uv_base_addr[63:32]` | `RW` | High 32 bits of UV metadata base address |
 | `0x0048` | `TILE_BASE_UV_LO` | `[31:0]` | `uv_base_addr[31:0]` | `RW` | Low 32 bits of UV compressed-data base address; RGBA formats write 0 |
-| `0x004c` | `TILE_BASE_UV_HI` | `[31:0]` | `uv_base_addr[63:32]` | `RW` | High 32 bits of UV compressed-data base address; writing this register commits the current frame address set |
+| `0x004c` | `TILE_BASE_UV_HI` | `[31:0]` | `uv_base_addr[63:32]` | `RW` | High 32 bits of UV compressed-data base address. Address set becomes eligible only after software writes `IRQ_CTRL[5]=1`. |
 | `0x0050` | `META_ACTIVE_SIZE` | `[15:0]` | `active_width_px` | `RW` | Metadata active-area width in pixels |
 | `0x0050` | `META_ACTIVE_SIZE` | `[31:16]` | `active_height_px` | `RW` | Metadata active-area height in pixels |
 | `0x0054` | `META_PITCH` | `[31:0]` | `meta_data_plane_pitch` | `RW` | Metadata pitch. Program `align_up((align_up(width, tile_w * 4) + tile_w - 1) / tile_w, 64)`, matching `ubwc_demo.cpp`; current encoder metadata address path uses `meta_data_plane_pitch << 4` as byte stride. Example NV12 1996x1074 Y plane: `align_up((align_up(1996,128)+32-1)/32,64)=64`; UV plane example also uses `meta_pitch=64`. |
@@ -252,10 +281,14 @@ Recommended configuration order:
 | `0x0060` | `IRQ_CTRL` | `[0]` | `irq_enable` | `RW` | IRQ enable. Reset value is `1`. |
 | `0x0060` | `IRQ_CTRL` | `[1]` | `irq_clear` | `W1P` | Write `1` to generate an IRQ clear pulse in encoder clock domain |
 | `0x0060` | `IRQ_CTRL` | `[2]` | `irq_pending` | `RO` | Current IRQ pending status |
+| `0x0060` | `IRQ_CTRL` | `[3]` | `irq_correct_pending` | `RO` | Correct/frame IRQ pending status |
+| `0x0060` | `IRQ_CTRL` | `[4]` | `irq_error_pending` | `RO` | Error IRQ pending status |
+| `0x0060` | `IRQ_CTRL` | `[5]` | `start` | `W1P` | Write `1` after one full output address group has been configured. Readback is `0`. |
 
 Encoder completion hint:
 
 ```text
+write(0x0060, (1 << 5) | irq_enable);
 start_otf_input_stream();
 poll_until((read(0x0058) & (1 << 0)) != 0);  // STATUS0.enc_idle
 check((read(0x0058) & 0x0000007e) == 0);     // no error bits

@@ -22,6 +22,15 @@
 
 APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base address 都按低 32 bit、高 32 bit 的顺序写入。
 
+当前回归和推荐集成时钟：
+
+| 时钟域 | 频率 | ENC 端口 | DEC 端口 | 说明 |
+| --- | ---: | --- | --- | --- |
+| APB | 100 MHz | `PCLK` | `PCLK` | 寄存器访问 |
+| AXI/control | 500 MHz | `i_clk` | `i_axi_clk` | AXI 读写和控制状态 |
+| core/VIVO | 200 MHz | `i_vivo_clk` | `i_vivo_clk` | UBWC encode/decode core |
+| OTF | 320 MHz | `i_otf_clk` | `i_otf_clk` | OTF 输入或输出 |
+
 当前格式编码如下：
 
 | 格式 | 编码 | tile_w | tile_h | 说明 |
@@ -30,6 +39,8 @@ APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base addre
 | RGBA1010102 | 1 | 16 | 4 | 单平面 RGBA |
 | YUV420_8 / NV12 | 2 | 32 | 8 | Y + UV 双平面 |
 | YUV420_10 / P010 | 3 | 32 | 4 | Y + UV 双平面，16 bit component 存储 |
+
+当前 RTL 不支持 YUV422_8 和 YUV422_10。
 
 连续帧模式下，图像格式、分辨率、tile layout、OTF timing 不变时，不需要每帧重复写所有寄存器。每帧只需要更新本帧使用的 UBWC buffer base address，并保证下一帧地址组已经写完整。
 
@@ -67,7 +78,7 @@ APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base addre
 
 ## 3. ENC 配置流程
 
-ENC 没有 APB start bit。编码启动由 OTF 输入流触发，即上游送入 `vsync/hsync/de/data` 后，ENC 自动开始处理一帧。
+ENC 通过 `IRQ_CTRL[5]` 写 1 产生 START token。软件写好本帧地址后，先写 `IRQ_CTRL[5]=1`，再送入对应的 `vsync/hsync/de/data`。
 
 ### 3.1 ENC 静态配置
 
@@ -160,22 +171,24 @@ write(0x040, meta_base_uv_lo);
 write(0x044, meta_base_uv_hi);
 
 write(0x048, tile_base_uv_lo);
-write(0x04c, tile_base_uv_hi); // commit
+write(0x04c, tile_base_uv_hi);
+write(0x060, irq_enable | (1 << 5)); // start
 ```
 
-注意：`REG_TILE_BASE_UV_HI` @ `0x04c` 是 commit 写。RTL 在这笔写入时把 4 个 base address 一起 snapshot 到当前待写的地址 slot 中，然后下次 commit 会写入另一个 slot。
+注意：地址写入只负责填充地址队列，不再作为 start 标志。四个 base address 写完后，软件写 `REG_IRQ_CTRL[5]=1` 作为本帧 START。
 
 如果当前输入帧对应的 `fcnt[0]` 地址还没有配置好，数据会被阻塞，并产生地址配置无效相关状态/中断。
 
 ### 3.3 ENC 运行和中断
 
-地址和静态配置准备好后，启动上游 OTF 输入：
+地址和静态配置准备好后，先写 START，再启动上游 OTF 输入：
 
 ```text
+write(0x060, irq_enable | (1 << 5)); // IRQ_CTRL[5] = start
 start_otf_input_stream();
 ```
 
-ENC 正确中断在接近帧尾的位置产生，错误中断在错误发生时产生。软件可读：
+ENC 正确中断在最后一个有效输出数据完成后产生，错误中断在错误发生时产生。软件可读：
 
 ```text
 read(0x058); // REG_STATUS0
@@ -204,9 +217,9 @@ write(0x060, old_irq_enable | (1 << 1)); // IRQ_CTRL[1] = irq_clear
 
 ## 4. DEC 配置流程
 
-当前 DEC 已经改为连续帧自动启动模式。软件不再依赖旧的 `META_CFG0[0] meta_start` 手动启动方式。软件每帧只需要写完整一组输入 UBWC base address。
+当前 DEC 已改为寄存器 START 模式。软件不再依赖旧的 `META_CFG0[0] meta_start`，也不使用地址写入作为 start。软件每帧写完整一组输入 UBWC base address 后，需要写 `IRQ_CTRL[5]=1`。
 
-当完整地址组有效，且 metadata stage 可以接受新帧时，硬件自动锁存本帧地址并产生新的 frame start。
+当完整地址组和 START token 都有效，且 metadata stage 可以接受新帧时，硬件锁存本帧地址并产生新的 frame start。
 
 ### 4.1 DEC 静态配置
 
@@ -285,7 +298,7 @@ write(0x048, tile_base_uv_lo);
 write(0x04c, tile_base_uv_hi);
 ```
 
-当四类地址都写完整后，硬件会自动启动一帧 decode。软件不需要额外写 start。
+当四类地址都写完整后，软件写 `IRQ_CTRL[5]=1` 启动一帧 decode。
 
 对 RGBA 单平面格式：
 
@@ -368,7 +381,7 @@ NV12/P010 的 UV plane 使用半宽、半高语义，但 UV 一个 sample pair �
 1. 初始化时写一次格式、尺寸、tile、OTF timing、CI、VIVO 等静态配置。
 2. 每来一个新输出/输入 buffer，就写一组 base address。
 3. 保证至少提前写好两帧地址，使 slot0/slot1 都有有效地址。
-4. ENC 由 OTF 输入帧自然驱动；DEC 由完整地址组有效自动启动。
+4. 每组地址写完后写 `IRQ_CTRL[5]=1` 作为 START。ENC 随后送入对应 OTF 帧；DEC 在 START token 和地址组都有效时启动。
 5. 每帧结束后处理中断，读取必要统计，再清中断。
 
 如果图像格式和尺寸不变，只换 buffer 地址，则不需要重复写 tile/OTF/meta geometry 寄存器。

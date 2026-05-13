@@ -1,0 +1,224 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2480" height="1600" viewBox="0 0 2480 1600">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: 700; }
+      .subtitle { font-size: 13px; fill: #475569; }
+      .lane { font-size: 15px; font-weight: 700; fill: #334155; }
+      .panelTitle { font-size: 15px; font-weight: 700; }
+      .boxText { font-size: 13px; font-weight: 700; }
+      .small { font-size: 11px; fill: #334155; }
+      .sig { font-size: 11px; fill: #0f172a; }
+      .tagText { font-size: 11px; font-weight: 700; fill: #1e3a8a; }
+      .note { font-size: 11px; fill: #9a3412; font-weight: 700; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 16; }
+      .apb { fill: #fff7ed; stroke: #c2410c; stroke-width: 2; rx: 8; }
+      .axi { fill: #ecfdf5; stroke: #047857; stroke-width: 2; rx: 8; }
+      .vivo { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 2; rx: 8; }
+      .otf { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 8; }
+      .mem { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 8; }
+      .tag { fill: #dbeafe; stroke: #2563eb; stroke-width: 1.5; rx: 14; }
+      .warn { fill: #fffbeb; stroke: #b45309; stroke-width: 1.5; rx: 10; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.2; marker-end: url(#arrow); }
+      .main { fill: none; stroke: #0f172a; stroke-width: 3.2; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #2563eb; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .err { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .cdc { fill: none; stroke: #7c3aed; stroke-width: 2.2; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="2480" height="1600" fill="#f8fafc"/>
+  <rect width="2480" height="1600" fill="url(#grid)" opacity="0.85"/>
+  <text x="40" y="48" class="title">DEC Microarchitecture Detail - Current RTL</text>
+  <text x="40" y="70" class="subtitle">One continuous frame-data backbone, with side branches for AXI read fabric, config, and status. Lines stay on corridors and avoid module boxes.</text>
+
+  <rect x="0" y="100" width="2480" height="180" fill="#fff7ed" opacity="0.70"/>
+  <rect x="0" y="300" width="2480" height="620" fill="#ecfdf5" opacity="0.78"/>
+  <rect x="0" y="940" width="2480" height="180" fill="#f5f3ff" opacity="0.80"/>
+  <rect x="0" y="1140" width="2480" height="360" fill="#eff6ff" opacity="0.80"/>
+  <text x="24" y="130" class="lane">APB / pclk</text>
+  <text x="24" y="330" class="lane">AXI-control / i_axi_clk</text>
+  <text x="24" y="970" class="lane">VIVO / i_vivo_clk</text>
+  <text x="24" y="1170" class="lane">OTF / i_otf_clk + line SRAM</text>
+
+  <rect x="40" y="120" width="1520" height="130" class="panel"/>
+  <text x="70" y="148" class="panelTitle">1. Reset / APB / frame fcnt / status</text>
+  <rect x="120" y="170" width="210" height="56" class="apb"/>
+  <text x="168" y="194" class="boxText">ubwc_dec_rstn_gen</text>
+  <text x="148" y="214" class="small">ctrl/sram/vivo/otf reset</text>
+  <rect x="420" y="170" width="230" height="56" class="apb"/>
+  <text x="466" y="194" class="boxText">ubwc_dec_apb_reg_blk</text>
+  <text x="462" y="214" class="small">cfg, address slot, IRQ ctrl</text>
+  <rect x="740" y="170" width="210" height="56" class="apb"/>
+  <text x="788" y="194" class="boxText">frame fcnt logic</text>
+  <text x="770" y="214" class="small">active/next fcnt[3:0]</text>
+  <rect x="1040" y="170" width="210" height="56" class="apb"/>
+  <text x="1088" y="194" class="boxText">ubwc_dec_status</text>
+  <text x="1080" y="214" class="small">done/error/count/IRQ</text>
+  <rect x="1320" y="160" width="190" height="32" class="tag"/>
+  <text x="1362" y="181" class="tagText">cfg_bus[31:0]</text>
+  <rect x="1320" y="205" width="190" height="32" class="tag"/>
+  <text x="1344" y="226" class="tagText">frame_start + fcnt[3:0]</text>
+  <path class="cfg" d="M 330 198 H 420"/>
+  <path class="cfg" d="M 650 198 H 740"/>
+  <path class="cfg" d="M 950 198 H 1040"/>
+  <path class="cfg" d="M 650 180 H 1320"/>
+  <path class="cfg" d="M 950 220 H 1320"/>
+
+  <rect x="40" y="320" width="1380" height="230" class="panel"/>
+  <text x="70" y="348" class="panelTitle">2. Metadata path: ubwc_dec_meta_data_gen</text>
+  <rect x="120" y="410" width="240" height="62" class="axi"/>
+  <text x="164" y="436" class="boxText">meta_get_cmd_gen</text>
+  <text x="154" y="456" class="small">meta base by fcnt[0]</text>
+  <rect x="460" y="410" width="260" height="62" class="axi"/>
+  <text x="510" y="436" class="boxText">meta_axi_rcmd_gen</text>
+  <text x="492" y="456" class="small">AR + rsp FIFO + lane select</text>
+  <rect x="820" y="410" width="250" height="62" class="axi"/>
+  <text x="874" y="436" class="boxText">meta_data_decode</text>
+  <text x="870" y="456" class="small">metadata byte to dec_meta</text>
+  <rect x="1140" y="402" width="220" height="32" class="tag"/>
+  <text x="1188" y="423" class="tagText">dec_meta_bus</text>
+  <rect x="1140" y="455" width="220" height="32" class="tag"/>
+  <text x="1188" y="476" class="tagText">meta_axi_bus</text>
+  <rect x="120" y="495" width="660" height="34" class="warn"/>
+  <text x="140" y="516" class="note">Current RTL: no metadata ping-pong SRAM here. metadata = get_cmd + axi_rcmd + decode.</text>
+  <path class="cfg" d="M 1320 176 H 240 V 410"/>
+  <path class="cfg" d="M 1415 237 V 390 H 240 V 410"/>
+  <path class="flow" d="M 360 441 H 460"/>
+  <text x="378" y="427" class="sig">meta_grp addr/x/y/fcnt</text>
+  <path class="flow" d="M 720 441 H 820"/>
+  <text x="742" y="427" class="sig">meta_data[7:0]</text>
+  <path class="main" d="M 1070 430 H 1140"/>
+  <path class="flow" d="M 590 472 V 510 H 1140 V 471"/>
+
+  <rect x="1500" y="320" width="900" height="230" class="panel"/>
+  <text x="1530" y="348" class="panelTitle">Shared AXI read fabric</text>
+  <rect x="1580" y="410" width="220" height="62" class="axi"/>
+  <text x="1624" y="436" class="boxText">axi_2t1_int_DW_axi</text>
+  <text x="1616" y="456" class="small">merge meta/tile AR/R</text>
+  <rect x="1900" y="410" width="230" height="62" class="axi"/>
+  <text x="1944" y="436" class="boxText">ubwc_x2x_DW_axi_x2x</text>
+  <text x="1946" y="456" class="small">internal 256b to external</text>
+  <rect x="2220" y="410" width="130" height="62" class="axi"/>
+  <text x="2254" y="436" class="boxText">AXI M</text>
+  <text x="2236" y="456" class="small">AR/R external</text>
+  <path class="flow" d="M 1360 471 H 1520 V 441 H 1580"/>
+  <text x="1390" y="455" class="sig">meta_axi_bus</text>
+  <path class="flow" d="M 1800 441 H 1900"/>
+  <text x="1818" y="427" class="sig">core AXI[256:0]</text>
+  <path class="flow" d="M 2130 441 H 2220"/>
+
+  <rect x="40" y="590" width="1740" height="260" class="panel"/>
+  <text x="70" y="618" class="panelTitle">3. Tile read path: ubwc_dec_tile_arcmd_gen</text>
+  <rect x="120" y="690" width="220" height="62" class="axi"/>
+  <text x="168" y="716" class="boxText">ubwc_tile_addr</text>
+  <text x="148" y="736" class="small">tile base by fcnt[0]</text>
+  <rect x="430" y="690" width="190" height="62" class="axi"/>
+  <text x="474" y="716" class="boxText">u_ci_fifo</text>
+  <text x="450" y="736" class="small">cmd + coord + fcnt</text>
+  <rect x="710" y="690" width="190" height="62" class="axi"/>
+  <text x="752" y="716" class="boxText">AR split logic</text>
+  <text x="736" y="736" class="small">4KB boundary split</text>
+  <rect x="990" y="690" width="220" height="62" class="axi"/>
+  <text x="1038" y="716" class="boxText">u_ci_pending_fifo</text>
+  <text x="1028" y="736" class="small">CI waits for payload</text>
+  <rect x="1300" y="690" width="200" height="62" class="axi"/>
+  <text x="1346" y="716" class="boxText">u_rdata_fifo</text>
+  <text x="1332" y="736" class="small">tile R[255:0]+last</text>
+  <rect x="1560" y="674" width="170" height="32" class="tag"/>
+  <text x="1598" y="695" class="tagText">tile_axi_bus</text>
+  <rect x="1560" y="730" width="170" height="32" class="tag"/>
+  <text x="1590" y="751" class="tagText">tile_to_vivo_bus</text>
+  <path class="main" d="M 1250 434 V 620 H 230 V 690"/>
+  <text x="272" y="664" class="sig">dec_meta_bus</text>
+  <path class="cfg" d="M 1320 176 H 160 V 690"/>
+  <path class="flow" d="M 340 721 H 430"/>
+  <text x="352" y="707" class="sig">cmd_addr[63:0]</text>
+  <path class="flow" d="M 620 721 H 710"/>
+  <text x="636" y="707" class="sig">ci_fifo_dout</text>
+  <path class="flow" d="M 900 721 H 990"/>
+  <text x="916" y="707" class="sig">AR fire</text>
+  <path class="flow" d="M 1210 721 H 1300"/>
+  <text x="1224" y="707" class="sig">AXI R[255:0]</text>
+  <path class="flow" d="M 805 690 V 640 H 1645 V 674"/>
+  <path class="main" d="M 1500 721 H 1560"/>
+
+  <path class="flow" d="M 1645 674 V 555 H 1580"/>
+  <text x="1656" y="616" class="sig">tile_axi_bus</text>
+
+  <rect x="40" y="890" width="2360" height="220" class="panel"/>
+  <text x="70" y="918" class="panelTitle">4. VIVO clock crossing and decompression</text>
+  <rect x="120" y="990" width="230" height="62" class="vivo"/>
+  <text x="170" y="1016" class="boxText">u_vivo_ci_async_fifo</text>
+  <text x="150" y="1036" class="small">i_axi_clk to i_vivo_clk</text>
+  <rect x="450" y="990" width="230" height="62" class="vivo"/>
+  <text x="498" y="1016" class="boxText">u_vivo_cvi_async_fifo</text>
+  <text x="480" y="1036" class="small">data[255:0] CDC</text>
+  <rect x="780" y="990" width="230" height="62" class="vivo"/>
+  <text x="832" y="1016" class="boxText">ubwc_dec_vivo_top</text>
+  <text x="832" y="1036" class="small">decompression core</text>
+  <rect x="1110" y="990" width="230" height="62" class="vivo"/>
+  <text x="1160" y="1016" class="boxText">u_vivo_rvo_async_fifo</text>
+  <text x="1140" y="1036" class="small">i_vivo_clk to i_axi_clk</text>
+  <rect x="1440" y="1005" width="180" height="32" class="tag"/>
+  <text x="1492" y="1026" class="tagText">rvo_bus</text>
+  <path class="main" d="M 1645 762 V 850 H 235 V 990"/>
+  <text x="256" y="958" class="sig">tile_to_vivo_bus</text>
+  <path class="cdc" d="M 350 1021 H 450"/>
+  <text x="374" y="1007" class="sig">CI fields</text>
+  <path class="cdc" d="M 680 1021 H 780"/>
+  <text x="700" y="1007" class="sig">CVI[255:0]</text>
+  <path class="cdc" d="M 1010 1021 H 1110"/>
+  <text x="1032" y="1007" class="sig">RVO[255:0]</text>
+  <path class="main" d="M 1340 1021 H 1440"/>
+
+  <rect x="40" y="1150" width="2360" height="330" class="panel"/>
+  <text x="70" y="1178" class="panelTitle">5. ubwc_dec_tile_to_otf current internal implementation</text>
+  <rect x="120" y="1280" width="240" height="62" class="otf"/>
+  <text x="170" y="1306" class="boxText">tile_to_line_writer</text>
+  <text x="148" y="1326" class="small">i_frame_start tied 0</text>
+  <rect x="460" y="1280" width="210" height="62" class="mem"/>
+  <text x="510" y="1306" class="boxText">bank0 / bank1</text>
+  <text x="500" y="1326" class="small">external SRAM, 128b</text>
+  <rect x="770" y="1280" width="220" height="62" class="otf"/>
+  <text x="824" y="1306" class="boxText">sram_read_fetcher</text>
+  <text x="798" y="1326" class="small">pending bank fetch</text>
+  <rect x="1090" y="1280" width="200" height="62" class="otf"/>
+  <text x="1140" y="1306" class="boxText">u_cdc_fifo0</text>
+  <text x="1116" y="1326" class="small">sram clk to otf clk</text>
+  <rect x="1390" y="1280" width="200" height="62" class="otf"/>
+  <text x="1444" y="1306" class="boxText">otf_driver</text>
+  <text x="1418" y="1326" class="small">timing, unpack, counters</text>
+  <rect x="1690" y="1280" width="220" height="62" class="otf"/>
+  <text x="1752" y="1306" class="boxText">OTF output</text>
+  <text x="1722" y="1326" class="small">vsync/hsync/de/data[127:0]</text>
+  <rect x="120" y="1215" width="180" height="32" class="tag"/>
+  <text x="178" y="1236" class="tagText">rvo_bus</text>
+  <rect x="340" y="1215" width="300" height="32" class="tag"/>
+  <text x="378" y="1236" class="tagText">tile_header_bus: format/x/y/fcnt</text>
+  <path class="main" d="M 1530 1037 V 1215 H 210 V 1280"/>
+  <text x="234" y="1262" class="sig">RVO data[255:0], last</text>
+  <path class="main" d="M 1645 762 V 1195 H 490 V 1215"/>
+  <text x="660" y="1208" class="sig">tile header from tile_arcmd_gen</text>
+  <path class="cfg" d="M 1415 237 V 1195 H 580 V 1280"/>
+  <text x="596" y="1262" class="sig">frame_start, fcnt, OTF timing</text>
+  <path class="flow" d="M 360 1311 H 460"/>
+  <text x="378" y="1297" class="sig">waddr/wdata[127:0]</text>
+  <path class="flow" d="M 670 1311 H 770"/>
+  <text x="688" y="1297" class="sig">raddr/rdata[127:0]</text>
+  <path class="flow" d="M 990 1311 H 1090"/>
+  <text x="1008" y="1297" class="sig">fifo_wdata[255:0]</text>
+  <path class="cdc" d="M 1290 1311 H 1390"/>
+  <text x="1308" y="1297" class="sig">otf payload[255:0]</text>
+  <path class="flow" d="M 1590 1311 H 1690"/>
+  <text x="1608" y="1297" class="sig">data[127:0]+sync</text>
+
+  <path class="err" d="M 1490 1280 V 250 H 1145"/>
+  <text x="1504" y="1160" class="sig">correct_irq, error/count/status</text>
+</svg>

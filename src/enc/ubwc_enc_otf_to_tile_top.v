@@ -30,8 +30,11 @@ module ubwc_enc_otf_to_tile
     )(
         input   wire                                        clk                             ,
         input   wire                                        i_otf_clk                       ,
+        input   wire                                        i_vivo_clk                      ,
         input   wire                                        rst_n_sys                       ,
         input   wire                                        rst_n_otf                       ,
+        input   wire                                        rst_n_vivo                      ,
+        input   wire                                        i_start_pulse                   ,
 
     // static config
         input   wire    [3                   -1 :0]         i_cfg_format                    ,
@@ -81,6 +84,9 @@ module ubwc_enc_otf_to_tile
         output  wire    [255                    :0]         o_tile_data                     ,
         output  wire    [31                     :0]         o_tile_keep                     ,
         output  wire                                        o_tile_last                     ,
+        output  wire                                        o_tile_stat_valid               ,
+        output  wire                                        o_tile_stat_last                ,
+        output  wire                                        o_tile_stat_slot                ,
 
         output  wire                                        o_ci_valid                      ,
         input   wire                                        i_ci_ready                      ,
@@ -118,6 +124,9 @@ module ubwc_enc_otf_to_tile
     localparam  integer                             CI_FIFO_W                       = 1 + 16 + 16 + 4 + 5;
     localparam  integer                             COORD_FIFO_W                    = 4 + 5 + TH_DW + TW_DW;
     localparam  integer                             DATA_FIFO_PROG_DEPTH            = DATA_FIFO_DEPTH - DATA_FIFO_AF_LEVEL;
+    localparam  integer                             DATA_FIFO_DEPTH_BITS            = (DATA_FIFO_DEPTH <= 2)  ? 1 : $clog2(DATA_FIFO_DEPTH);
+    localparam  integer                             CI_FIFO_DEPTH_BITS              = (CI_FIFO_DEPTH <= 2)    ? 1 : $clog2(CI_FIFO_DEPTH);
+    localparam  integer                             COORD_FIFO_DEPTH_BITS           = (COORD_FIFO_DEPTH <= 2) ? 1 : $clog2(COORD_FIFO_DEPTH);
 
     wire                                            pack_fifo_a_vld                 ;
     wire                                            pack_fifo_a_rdy                 ;
@@ -142,6 +151,9 @@ module ubwc_enc_otf_to_tile
     wire        [DATA_FIFO_W         -1 :0]         data_fifo_din                   ;
     wire                                            data_fifo_wr_en                 ;
     wire                                            data_fifo_rd_en                 ;
+    wire        [DATA_FIFO_DEPTH_BITS    :0]         data_fifo_wr_data_count         ;
+    wire        [DATA_FIFO_DEPTH_BITS    :0]         data_fifo_rd_data_count         ;
+    wire                                            data_fifo_pre_empty             ;
     wire                                            ci_fifo_full                    ;
     wire                                            ci_fifo_empty                   ;
     wire                                            ci_fifo_valid                   ;
@@ -149,6 +161,14 @@ module ubwc_enc_otf_to_tile
     wire        [CI_FIFO_W           -1 :0]         ci_fifo_din                     ;
     wire                                            ci_fifo_wr_en                   ;
     wire                                            ci_fifo_rd_en                   ;
+    wire                                            ci_fifo_prog_full               ;
+    wire        [CI_FIFO_DEPTH_BITS      :0]         ci_fifo_wr_data_count           ;
+    wire        [CI_FIFO_DEPTH_BITS      :0]         ci_fifo_rd_data_count           ;
+    wire                                            ci_fifo_pre_empty               ;
+    wire                                            start_fifo_full                 ;
+    wire                                            start_fifo_valid                ;
+    wire                                            start_fifo_wr_en                ;
+    wire                                            start_fifo_rd_en                ;
     wire                                            ci_tile_forced_pcm              ;
     wire        [4                      :0]         ci_tile_format                  ;
     wire        [3                      :0]         ci_tile_fcnt                    ;
@@ -158,6 +178,13 @@ module ubwc_enc_otf_to_tile
     wire                                            coord_fifo_rd_en                ;
     wire        [COORD_FIFO_W        -1 :0]         coord_fifo_din                  ;
     wire        [COORD_FIFO_W        -1 :0]         coord_fifo_dout                 ;
+    wire                                            coord_fifo_full                 ;
+    wire                                            coord_fifo_prog_full            ;
+    wire                                            coord_fifo_empty                ;
+    wire                                            coord_fifo_valid                ;
+    wire        [COORD_FIFO_DEPTH_BITS   :0]         coord_fifo_wr_data_count        ;
+    wire        [COORD_FIFO_DEPTH_BITS   :0]         coord_fifo_rd_data_count        ;
+    wire                                            coord_fifo_pre_empty            ;
     wire                                            coord_is_yuv420                 ;
     wire                                            coord_is_uv_plane               ;
     wire        [15                     :0]         coord_plane_height_px           ;
@@ -172,7 +199,6 @@ module ubwc_enc_otf_to_tile
     wire        [15                     :0]         tile_h_u16                      ;
     wire        [15                     :0]         active_width_px                 ;
     wire        [15                     :0]         active_height_px                ;
-    wire        [15                     :0]         correct_irq_line                ;
     wire        [15                     :0]         active_tile_cols_div            ;
     wire        [15                     :0]         active_tile_rows_div            ;
     wire                                            active_width_rem                ;
@@ -196,11 +222,15 @@ module ubwc_enc_otf_to_tile
     wire                                            flush_half_only                 ;
     wire                                            ci_push_needed                  ;
     wire                                            half_valid_clear                ;
+    wire                                            otf_input_enable                ;
+    wire                                            otf_vsync_gated                 ;
+    wire                                            otf_hsync_gated                 ;
+    wire                                            otf_de_gated                    ;
+    wire                                            packer_otf_ready                ;
     wire                                            otf_frame_start                 ;
     wire                                            otf_line_fire                   ;
     wire                                            otf_de_fire                     ;
     wire                                            otf_slot                        ;
-    wire                                            correct_irq_hit                 ;
     wire                                            otf_count_snapshot_event        ;
     wire                                            otf_count_snapshot_pulse        ;
     wire        [31                     :0]         otf_de_count0_snap_data         ;
@@ -219,11 +249,9 @@ module ubwc_enc_otf_to_tile
     reg                                             half_forced_pcm_r               ;
     reg                                             tile_first_word_r               ;
     reg                                             tile_cmd_sent_r                 ;
+    reg                                             otf_frame_active                ;
     reg                                             otf_vsync_d                     ;
     reg                                             otf_hsync_d                     ;
-    reg                                             otf_correct_irq_toggle          ;
-    reg                                             otf_correct_irq_slot            ;
-    reg         [1                      :0]         otf_correct_irq_seen            ;
     reg         [31                     :0]         otf_de_count0_r                 ;
     reg         [31                     :0]         otf_de_count1_r                 ;
     reg         [31                     :0]         otf_line_count0_r               ;
@@ -238,8 +266,6 @@ module ubwc_enc_otf_to_tile
     reg         [31                     :0]         otf_line_count0_clk             ;
     reg         [31                     :0]         otf_line_count1_clk             ;
 
-    (* async_reg = "true" *) reg     [2:0]                               correct_irq_toggle_sync         ;
-    (* async_reg = "true" *) reg     [1:0]                               correct_irq_slot_sync           ;
     (* async_reg = "true" *) reg     [2:0]                               otf_count_snap_toggle_sync      ;
 
     assign line_tile_format           = (i_cfg_format == FMT_RGBA8888)  ? 5'd0  :
@@ -250,7 +276,6 @@ module ubwc_enc_otf_to_tile
     assign tile_h_u16                 = {12'd0, i_cfg_tile_h};
     assign active_width_px            = (i_cfg_active_width  != 16'd0) ? i_cfg_active_width  : i_cfg_width;
     assign active_height_px           = (i_cfg_active_height != 16'd0) ? i_cfg_active_height : i_cfg_height;
-    assign correct_irq_line           = (active_height_px > 16'd4) ? (active_height_px - 16'd4) : 16'd0;
     assign active_tile_cols_div       = (i_cfg_tile_w == 16'd1)   ? active_width_px :
                                         (i_cfg_tile_w == 16'd2)   ? ({1'd0, active_width_px[15:1]} + {15'd0, |active_width_px[0:0]}) :
                                         (i_cfg_tile_w == 16'd4)   ? ({2'd0, active_width_px[15:2]} + {15'd0, |active_width_px[1:0]}) :
@@ -316,6 +341,12 @@ module ubwc_enc_otf_to_tile
     assign flush_half_only            = half_valid_r && half_last_r && data_push_ready;
     assign ci_push_needed             = tile_first_word_r && !tile_cmd_sent_r;
     assign half_valid_clear           = flush_half_only || pack_second_fire;
+    assign start_fifo_wr_en           = i_start_pulse && !start_fifo_full;
+    assign start_fifo_rd_en           = otf_frame_start;
+    assign otf_input_enable           = start_fifo_valid || otf_frame_active;
+    assign otf_vsync_gated            = otf_input_enable ? i_otf_vsync : 1'b0;
+    assign otf_hsync_gated            = otf_input_enable ? i_otf_hsync : 1'b0;
+    assign otf_de_gated               = otf_input_enable ? i_otf_de    : 1'b0;
     assign data_fifo_din              = flush_half_only ?
                                                           {half_fcnt_r, 1'b1, {16'd0, half_keep_r}, {128'd0, half_data_r}} :
                                                           {half_fcnt_r, line_tile_last, {line_tile_keep, half_keep_r}, {line_tile_data, half_data_r}};
@@ -331,6 +362,9 @@ module ubwc_enc_otf_to_tile
     assign o_tile_keep                = data_fifo_dout[256 +: 32];
     assign o_tile_last                = data_fifo_dout[288];
     assign o_tile_fcnt                = data_fifo_dout[DATA_FIFO_W-1 -: 4];
+    assign o_tile_stat_valid          = data_fifo_wr_en;
+    assign o_tile_stat_last           = data_fifo_din[288];
+    assign o_tile_stat_slot           = data_fifo_din[DATA_FIFO_W-4];
     assign ci_tile_x                  = ci_fifo_dout[0  +: 16];
     assign ci_tile_y                  = ci_fifo_dout[16 +: 16];
     assign ci_tile_fcnt               = ci_fifo_dout[32 +: 4];
@@ -381,14 +415,12 @@ module ubwc_enc_otf_to_tile
                                         (!coord_is_yuv420 || coord_is_uv_plane);
     assign o_addr_cfg_done_pulse      = coord_fifo_rd_en && coord_frame_last;
     assign o_addr_cfg_done_slot       = o_co_tile_fcnt[0];
-    assign otf_frame_start            = i_otf_vsync & ~otf_vsync_d & o_otf_ready;
+    assign otf_frame_start            = i_otf_vsync & ~otf_vsync_d &
+                                        start_fifo_valid & packer_otf_ready;
     assign otf_line_fire              = i_otf_hsync & ~otf_hsync_d & o_otf_ready;
     assign otf_de_fire                = i_otf_de & o_otf_ready;
     assign otf_slot                   = i_otf_fcnt[0];
-    assign correct_irq_hit            = otf_line_fire &&
-                                        ({4'd0, i_otf_lcnt} == correct_irq_line) &&
-                                        !otf_correct_irq_seen[otf_slot];
-    assign otf_count_snapshot_event   = correct_irq_hit || otf_frame_start;
+    assign otf_count_snapshot_event   = otf_frame_start;
     assign otf_count_snapshot_pulse   = otf_count_snap_toggle_sync[2] ^
                                         otf_count_snap_toggle_sync[1];
     assign otf_de_count0_snap_data    = (otf_de_fire && !otf_slot) ?
@@ -403,12 +435,13 @@ module ubwc_enc_otf_to_tile
     assign otf_line_count1_snap_data  = (otf_line_fire && otf_slot) ?
                                         (otf_line_count1_r + 32'd1) :
                                                                       otf_line_count1_r;
-    assign o_correct_irq_pulse        = correct_irq_toggle_sync[2] ^ correct_irq_toggle_sync[1];
-    assign o_correct_irq_slot         = correct_irq_slot_sync[1];
+    assign o_correct_irq_pulse        = o_addr_cfg_done_pulse;
+    assign o_correct_irq_slot         = o_addr_cfg_done_slot;
     assign o_otf_de_count0            = otf_de_count0_clk;
     assign o_otf_de_count1            = otf_de_count1_clk;
     assign o_otf_line_count0          = otf_line_count0_clk;
     assign o_otf_line_count1          = otf_line_count1_clk;
+    assign o_otf_ready                = otf_input_enable && packer_otf_ready;
 
     always @(posedge i_otf_clk or negedge rst_n_otf) begin
         if (!rst_n_otf)
@@ -422,29 +455,6 @@ module ubwc_enc_otf_to_tile
             otf_hsync_d <= 1'b0;
         else
             otf_hsync_d <= i_otf_hsync;
-    end
-
-    always @(posedge i_otf_clk or negedge rst_n_otf) begin
-        if (!rst_n_otf)
-            otf_correct_irq_toggle <= 1'b0;
-        else if (correct_irq_hit)
-            otf_correct_irq_toggle <= ~otf_correct_irq_toggle;
-    end
-
-    always @(posedge i_otf_clk or negedge rst_n_otf) begin
-        if (!rst_n_otf)
-            otf_correct_irq_slot <= 1'b0;
-        else if (correct_irq_hit)
-            otf_correct_irq_slot <= otf_slot;
-    end
-
-    always @(posedge i_otf_clk or negedge rst_n_otf) begin
-        if (!rst_n_otf)
-            otf_correct_irq_seen <= 2'b00;
-        else if (correct_irq_hit)
-            otf_correct_irq_seen[otf_slot] <= 1'b1;
-        else if (otf_frame_start)
-            otf_correct_irq_seen[otf_slot] <= 1'b0;
     end
 
     always @(posedge i_otf_clk or negedge rst_n_otf) begin
@@ -516,22 +526,6 @@ module ubwc_enc_otf_to_tile
             otf_line_count1_snap <= 32'd0;
         else if (otf_count_snapshot_event)
             otf_line_count1_snap <= otf_line_count1_snap_data;
-    end
-
-    always @(posedge clk or negedge rst_n_sys) begin
-        if (!rst_n_sys)
-            correct_irq_toggle_sync <= 3'b000;
-        else
-            correct_irq_toggle_sync <= {correct_irq_toggle_sync[1:0],
-                                        otf_correct_irq_toggle};
-    end
-
-    always @(posedge clk or negedge rst_n_sys) begin
-        if (!rst_n_sys)
-            correct_irq_slot_sync <= 2'b00;
-        else
-            correct_irq_slot_sync <= {correct_irq_slot_sync[0],
-                                      otf_correct_irq_slot};
     end
 
     always @(posedge clk or negedge rst_n_sys) begin
@@ -635,73 +629,117 @@ module ubwc_enc_otf_to_tile
             tile_cmd_sent_r <= 1'b1;
     end
 
-    mg_sync_fifo
+    always @(posedge i_otf_clk or negedge rst_n_otf) begin
+        if (!rst_n_otf)
+            otf_frame_active <= 1'b0;
+        else if ((i_otf_vsync & ~otf_vsync_d) && otf_frame_active && !start_fifo_valid)
+            otf_frame_active <= 1'b0;
+        else if (otf_frame_start)
+            otf_frame_active <= 1'b1;
+    end
+
+    mg_async_fifo
     #(
-        .PROG_DEPTH                 ( DATA_FIFO_PROG_DEPTH          ),
-        .DWIDTH                     ( DATA_FIFO_W                   ),
-        .DEPTH                      ( DATA_FIFO_DEPTH               ),
+        .AF                         ( 1                             ),
+        .DATA_BITS                  ( 1                             ),
+        .DEPTH_BITS                 ( 3                             ),
+        .SHOW_AHEAD                 ( 1                             )
+    )
+    u_start_fifo
+    (
+        .wr_clk                     ( clk                           ),
+        .wr_rstn                    ( rst_n_sys                     ),
+        .wr_en                      ( start_fifo_wr_en              ),
+        .din                        ( 1'b1                          ),
+        .wr_data_count              (                               ),
+        .prog_full                  (                               ),
+        .full                       ( start_fifo_full               ),
+        .rd_clk                     ( i_otf_clk                     ),
+        .rd_rstn                    ( rst_n_otf                     ),
+        .rd_en                      ( start_fifo_rd_en              ),
+        .dout                       (                               ),
+        .valid                      ( start_fifo_valid              ),
+        .rd_data_count              (                               ),
+        .pre_empty                  (                               ),
+        .empty                      (                               )
+    );
+
+    mg_async_fifo
+    #(
+        .AF                         ( DATA_FIFO_PROG_DEPTH          ),
+        .DATA_BITS                  ( DATA_FIFO_W                   ),
+        .DEPTH_BITS                 ( DATA_FIFO_DEPTH_BITS          ),
         .SHOW_AHEAD                 ( 1                             )
     )
     u_data_fifo
     (
-        .clk                        ( clk                           ),
-        .rst_n                      ( rst_n_sys                     ),
-        .sclr                       ( 1'b0                          ),
+        .wr_clk                     ( clk                           ),
+        .wr_rstn                    ( rst_n_sys                     ),
         .wr_en                      ( data_fifo_wr_en               ),
         .din                        ( data_fifo_din                 ),
+        .wr_data_count              ( data_fifo_wr_data_count       ),
         .prog_full                  ( data_fifo_almost_full         ),
         .full                       ( data_fifo_full                ),
+        .rd_clk                     ( i_vivo_clk                    ),
+        .rd_rstn                    ( rst_n_vivo                    ),
         .rd_en                      ( data_fifo_rd_en               ),
-        .empty                      ( data_fifo_empty               ),
         .dout                       ( data_fifo_dout                ),
         .valid                      ( data_fifo_valid               ),
-        .data_count                 (                               )
+        .rd_data_count              ( data_fifo_rd_data_count       ),
+        .pre_empty                  ( data_fifo_pre_empty           ),
+        .empty                      ( data_fifo_empty               )
     );
 
-    mg_sync_fifo
+    mg_async_fifo
     #(
-        .PROG_DEPTH                 ( 1                             ),
-        .DWIDTH                     ( CI_FIFO_W                     ),
-        .DEPTH                      ( CI_FIFO_DEPTH                 ),
+        .AF                         ( 1                             ),
+        .DATA_BITS                  ( CI_FIFO_W                     ),
+        .DEPTH_BITS                 ( CI_FIFO_DEPTH_BITS            ),
         .SHOW_AHEAD                 ( 1                             )
     )
     u_ci_fifo
     (
-        .clk                        ( clk                           ),
-        .rst_n                      ( rst_n_sys                     ),
-        .sclr                       ( 1'b0                          ),
+        .wr_clk                     ( clk                           ),
+        .wr_rstn                    ( rst_n_sys                     ),
         .wr_en                      ( ci_fifo_wr_en                 ),
         .din                        ( ci_fifo_din                   ),
-        .prog_full                  (                               ),
+        .wr_data_count              ( ci_fifo_wr_data_count         ),
+        .prog_full                  ( ci_fifo_prog_full             ),
         .full                       ( ci_fifo_full                  ),
+        .rd_clk                     ( i_vivo_clk                    ),
+        .rd_rstn                    ( rst_n_vivo                    ),
         .rd_en                      ( ci_fifo_rd_en                 ),
-        .empty                      ( ci_fifo_empty                 ),
         .dout                       ( ci_fifo_dout                  ),
         .valid                      ( ci_fifo_valid                 ),
-        .data_count                 (                               )
+        .rd_data_count              ( ci_fifo_rd_data_count         ),
+        .pre_empty                  ( ci_fifo_pre_empty             ),
+        .empty                      ( ci_fifo_empty                 )
     );
 
-    mg_sync_fifo
+    mg_async_fifo
     #(
-        .PROG_DEPTH                 ( 1                             ),
-        .DWIDTH                     ( COORD_FIFO_W                  ),
-        .DEPTH                      ( COORD_FIFO_DEPTH              ),
+        .AF                         ( 1                             ),
+        .DATA_BITS                  ( COORD_FIFO_W                  ),
+        .DEPTH_BITS                 ( COORD_FIFO_DEPTH_BITS         ),
         .SHOW_AHEAD                 ( 1                             )
     )
     u_coord_fifo
     (
-        .clk                        ( clk                           ),
-        .rst_n                      ( rst_n_sys                     ),
-        .sclr                       ( 1'b0                          ),
+        .wr_clk                     ( i_vivo_clk                    ),
+        .wr_rstn                    ( rst_n_vivo                    ),
         .wr_en                      ( coord_fifo_wr_en              ),
         .din                        ( coord_fifo_din                ),
-        .prog_full                  (                               ),
-        .full                       (                               ),
+        .wr_data_count              ( coord_fifo_wr_data_count      ),
+        .prog_full                  ( coord_fifo_prog_full          ),
+        .full                       ( coord_fifo_full               ),
+        .rd_clk                     ( clk                           ),
+        .rd_rstn                    ( rst_n_sys                     ),
         .rd_en                      ( coord_fifo_rd_en              ),
-        .empty                      (                               ),
         .dout                       ( coord_fifo_dout               ),
-        .valid                      (                               ),
-        .data_count                 (                               )
+        .valid                      ( coord_fifo_valid              ),
+        .rd_data_count              ( coord_fifo_rd_data_count      ),
+        .pre_empty                  ( coord_fifo_pre_empty          ),
+        .empty                      ( coord_fifo_empty              )
     );
 
     ubwc_enc_otf_data_packer u_otf_data_packer
@@ -719,13 +757,13 @@ module ubwc_enc_otf_to_tile
         .err_fifo_ovf               ( o_err_fifo_ovf                ),
         .err_clear                  ( i_err_clear                   ),
 
-        .otf_vsync                  ( i_otf_vsync                   ),
-        .otf_hsync                  ( i_otf_hsync                   ),
-        .otf_de                     ( i_otf_de                      ),
+        .otf_vsync                  ( otf_vsync_gated               ),
+        .otf_hsync                  ( otf_hsync_gated               ),
+        .otf_de                     ( otf_de_gated                  ),
         .otf_data                   ( i_otf_data                    ),
         .otf_fcnt                   ( i_otf_fcnt                    ),
         .otf_lcnt                   ( i_otf_lcnt                    ),
-        .otf_ready                  ( o_otf_ready                   ),
+        .otf_ready                  ( packer_otf_ready              ),
 
         .fifo_a_vld                 ( pack_fifo_a_vld               ),
         .fifo_a_rdy                 ( pack_fifo_a_rdy               ),

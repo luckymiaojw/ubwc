@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="820" viewBox="0 0 1440 820">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: 700; }
+      .lane { font-size: 16px; font-weight: 700; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .small { font-size: 14px; fill: #334155; }
+      .sig { font-size: 13px; fill: #0f172a; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.5; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #2563eb; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1440" height="820" fill="#f8fafc"/>
+  <rect width="1440" height="820" fill="url(#grid)" opacity="0.8"/>
+  <text x="40" y="48" class="title">DEC metadata + tile read 详图: metadata 解码驱动 tile AR</text>
+
+  <rect x="0" y="80" width="1440" height="280" fill="#ecfdf5" opacity="0.82"/>
+  <rect x="0" y="360" width="1440" height="200" fill="#fff7ed" opacity="0.78"/>
+  <rect x="0" y="560" width="1440" height="160" fill="#f5f3ff" opacity="0.82"/>
+  <text x="24" y="116" class="lane">AXI-core / i_axi_clk</text>
+  <text x="24" y="396" class="lane">metadata local SRAM</text>
+  <text x="24" y="596" class="lane">VIVO input side</text>
+
+  <rect x="80" y="160" width="170" height="72" class="box"/>
+  <text x="114" y="190">meta_get_cmd</text>
+  <text x="110" y="214" class="small">x/y/fcnt stream</text>
+
+  <rect x="320" y="160" width="190" height="72" class="box"/>
+  <text x="354" y="190">meta_axi_rcmd</text>
+  <text x="344" y="214" class="small">AR + response FIFO</text>
+
+  <rect x="580" y="160" width="190" height="72" class="box"/>
+  <text x="604" y="190">rdata_to_sram</text>
+  <text x="604" y="214" class="small">64b lane select</text>
+
+  <rect x="580" y="408" width="190" height="72" class="box"/>
+  <text x="610" y="438">meta SRAM A/B</text>
+  <text x="606" y="462" class="small">ping-pong group</text>
+
+  <rect x="840" y="408" width="190" height="72" class="box"/>
+  <text x="870" y="438">data_from_sram</text>
+  <text x="866" y="462" class="small">byte stream restore</text>
+
+  <rect x="1100" y="408" width="190" height="72" class="box"/>
+  <text x="1142" y="438">data_decode</text>
+  <text x="1124" y="462" class="small">flag / alen / payload</text>
+
+  <rect x="320" y="608" width="190" height="72" class="box"/>
+  <text x="354" y="638">tile_arcmd_gen</text>
+  <text x="348" y="662" class="small">AR split at 4KB</text>
+
+  <rect x="580" y="608" width="190" height="72" class="box"/>
+  <text x="622" y="638">tile rdata FIFO</text>
+  <text x="608" y="662" class="small">256b read payload</text>
+
+  <rect x="840" y="608" width="190" height="72" class="box"/>
+  <text x="902" y="638">CI / CVI</text>
+  <text x="874" y="662" class="small">to dec_vivo_top</text>
+
+  <path class="flow" d="M 250 196 H 320"/>
+  <text x="256" y="182" class="sig">meta_grp{x[7:0],y[12:0],fcnt[3:0]}</text>
+  <path class="flow" d="M 510 196 H 580"/>
+  <text x="516" y="182" class="sig">m_axi_araddr[63:0], arid[3:0]</text>
+  <path class="flow" d="M 770 196 H 820 V 444 H 770"/>
+  <text x="782" y="300" class="sig">selected_rdata[63:0], rid[3:0]</text>
+  <path class="flow" d="M 770 444 H 840"/>
+  <text x="776" y="430" class="sig">meta_byte[7:0], coord[31:0]</text>
+  <path class="flow" d="M 1030 444 H 1100"/>
+  <text x="1036" y="430" class="sig">meta_raw[7:0], fcnt[3:0]</text>
+  <path class="flow" d="M 1195 480 V 644 H 510"/>
+  <text x="734" y="630" class="sig">dec_meta{flag[2:0],alen[2:0],x[7:0],y[12:0],fcnt[3:0]}</text>
+  <path class="flow" d="M 510 644 H 580"/>
+  <text x="516" y="630" class="sig">tile_araddr[63:0], arlen[7:0]</text>
+  <path class="flow" d="M 770 644 H 840"/>
+  <text x="776" y="630" class="sig">tile_rdata[255:0], rlast</text>
+  <path class="flow" d="M 1030 644 H 1360"/>
+  <text x="1040" y="630" class="sig">ci_data[255:0], cvi_data[255:0], ci_sb[0]</text>
+
+  <path class="cfg" d="M 100 96 H 164 V 160"/>
+  <text x="116" y="84" class="sig">meta_base_y/uv[63:0], tile_count[15:0]</text>
+</svg>

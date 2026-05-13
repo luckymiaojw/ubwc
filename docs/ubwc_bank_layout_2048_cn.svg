@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1180" viewBox="0 0 1440 1180">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 14; }
+      .title { font: 700 30px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 16px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #475569; }
+      .head { font: 700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #111827; }
+      .label { font: 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #1f2937; }
+      .small { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #64748b; }
+      .mono { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; fill: #334155; }
+      .axis { stroke: #334155; stroke-width: 2; }
+      .tick { stroke: #334155; stroke-width: 2; }
+      .row0 { fill: #dbeafe; stroke: #2563eb; stroke-width: 1.5; }
+      .row1 { fill: #bfdbfe; stroke: #2563eb; stroke-width: 1.5; }
+      .row2 { fill: #93c5fd; stroke: #2563eb; stroke-width: 1.5; }
+      .row3 { fill: #60a5fa; stroke: #2563eb; stroke-width: 1.5; }
+      .y0 { fill: #dcfce7; stroke: #16a34a; stroke-width: 1.5; }
+      .y1 { fill: #bbf7d0; stroke: #16a34a; stroke-width: 1.5; }
+      .uv { fill: #fed7aa; stroke: #ea580c; stroke-width: 1.5; }
+      .unused { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 7 5; }
+      .note { fill: #fff7ed; stroke: #fb923c; stroke-width: 1.5; rx: 10; }
+      .formula { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; rx: 8; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1440" height="1180"/>
+
+  <text class="title" x="60" y="58">UBWC 外部工作 SRAM：单个 Bank 在 2048 像素宽度下的存储布局</text>
+  <text class="subtitle" x="60" y="88">条件：COM_BUF_AW = 12，COM_BUF_DW = 128 bit；一个地址 word = 16 Byte；一个 bank = 4096 word = 64 KiB。</text>
+
+  <rect class="panel" x="50" y="120" width="1340" height="315" rx="14"/>
+  <text class="head" x="80" y="158">1. RGBA8888：4 行工作组，连续存放在 bank 前半区</text>
+  <text class="subtitle" x="80" y="184">2048 px × 4 Byte = 8192 Byte/line = 512 word/line；4 行共 2048 word。</text>
+
+  <g transform="translate(80 220)">
+    <line class="axis" x1="0" y1="122" x2="1280" y2="122"/>
+    <line class="tick" x1="0" y1="112" x2="0" y2="132"/>
+    <line class="tick" x1="160" y1="112" x2="160" y2="132"/>
+    <line class="tick" x1="320" y1="112" x2="320" y2="132"/>
+    <line class="tick" x1="480" y1="112" x2="480" y2="132"/>
+    <line class="tick" x1="640" y1="112" x2="640" y2="132"/>
+    <line class="tick" x1="1280" y1="112" x2="1280" y2="132"/>
+
+    <rect class="row0" x="0" y="0" width="160" height="92"/>
+    <rect class="row1" x="160" y="0" width="160" height="92"/>
+    <rect class="row2" x="320" y="0" width="160" height="92"/>
+    <rect class="row3" x="480" y="0" width="160" height="92"/>
+    <rect class="unused" x="640" y="0" width="640" height="92"/>
+
+    <text class="label" x="48" y="34">Row 0</text>
+    <text class="mono" x="38" y="58">512w</text>
+    <text class="label" x="208" y="34">Row 1</text>
+    <text class="mono" x="198" y="58">512w</text>
+    <text class="label" x="368" y="34">Row 2</text>
+    <text class="mono" x="358" y="58">512w</text>
+    <text class="label" x="528" y="34">Row 3</text>
+    <text class="mono" x="518" y="58">512w</text>
+    <text class="label" x="900" y="34">Unused</text>
+    <text class="mono" x="870" y="58">2048 word</text>
+
+    <text class="mono" x="-8" y="154">0</text>
+    <text class="mono" x="132" y="154">512</text>
+    <text class="mono" x="282" y="154">1024</text>
+    <text class="mono" x="442" y="154">1536</text>
+    <text class="mono" x="602" y="154">2048</text>
+    <text class="mono" x="1238" y="154">4095</text>
+    <text class="small" x="0" y="184">地址含义：word index。RGBA8888 在 2048 宽度下只使用 word 0..2047。</text>
+  </g>
+
+  <rect class="panel" x="50" y="475" width="1340" height="315" rx="14"/>
+  <text class="head" x="80" y="513">2. YUV420_8 / NV12：Y upper / Y lower / UV 三段式存储</text>
+  <text class="subtitle" x="80" y="539">以 YUV420_8 / NV12 为例：Y 每行 2048 Byte = 128 word；UV 每行 2048 Byte = 128 word。</text>
+
+  <g transform="translate(80 575)">
+    <line class="axis" x1="0" y1="122" x2="1280" y2="122"/>
+    <line class="tick" x1="0" y1="112" x2="0" y2="132"/>
+    <line class="tick" x1="320" y1="112" x2="320" y2="132"/>
+    <line class="tick" x1="640" y1="112" x2="640" y2="132"/>
+    <line class="tick" x1="960" y1="112" x2="960" y2="132"/>
+    <line class="tick" x1="1280" y1="112" x2="1280" y2="132"/>
+
+    <rect class="y0" x="0" y="0" width="320" height="92"/>
+    <rect class="y1" x="320" y="0" width="320" height="92"/>
+    <rect class="uv" x="640" y="0" width="320" height="92"/>
+    <rect class="unused" x="960" y="0" width="320" height="92"/>
+
+    <text class="label" x="108" y="30">Y upper</text>
+    <text class="mono" x="88" y="54">Y row 0..7</text>
+    <text class="mono" x="116" y="74">1024w</text>
+
+    <text class="label" x="430" y="30">Y lower</text>
+    <text class="mono" x="408" y="54">Y row 8..15</text>
+    <text class="mono" x="436" y="74">1024w</text>
+
+    <text class="label" x="755" y="30">UV</text>
+    <text class="mono" x="728" y="54">UV row 0..7</text>
+    <text class="mono" x="756" y="74">1024w</text>
+
+    <text class="label" x="1060" y="30">Unused</text>
+    <text class="mono" x="1040" y="54">1024 word</text>
+
+    <text class="mono" x="-8" y="154">0</text>
+    <text class="mono" x="282" y="154">1024</text>
+    <text class="mono" x="602" y="154">2048</text>
+    <text class="mono" x="922" y="154">3072</text>
+    <text class="mono" x="1238" y="154">4095</text>
+    <text class="small" x="0" y="184">NV12 在 2048 宽度下使用 word 0..3071；每个 Y/UV row 都是 128 word。</text>
+  </g>
+
+  <rect class="panel" x="50" y="805" width="1340" height="315" rx="14"/>
+  <text class="head" x="80" y="843">3. P010 / YUV420_10：同样三段起始地址，但每行 word 数翻倍、行数减半</text>
+  <text class="subtitle" x="80" y="869">2048 px × 2 Byte = 4096 Byte/line = 256 word/line；Y 为 8 行，UV 为 4 行。</text>
+
+  <g transform="translate(80 905)">
+    <line class="axis" x1="0" y1="122" x2="1280" y2="122"/>
+    <line class="tick" x1="0" y1="112" x2="0" y2="132"/>
+    <line class="tick" x1="320" y1="112" x2="320" y2="132"/>
+    <line class="tick" x1="640" y1="112" x2="640" y2="132"/>
+    <line class="tick" x1="960" y1="112" x2="960" y2="132"/>
+    <line class="tick" x1="1280" y1="112" x2="1280" y2="132"/>
+
+    <rect class="y0" x="0" y="0" width="320" height="92"/>
+    <rect class="y1" x="320" y="0" width="320" height="92"/>
+    <rect class="uv" x="640" y="0" width="320" height="92"/>
+    <rect class="unused" x="960" y="0" width="320" height="92"/>
+
+    <text class="label" x="108" y="30">Y upper</text>
+    <text class="mono" x="88" y="54">Y row 0..3</text>
+    <text class="mono" x="116" y="74">1024w</text>
+
+    <text class="label" x="430" y="30">Y lower</text>
+    <text class="mono" x="408" y="54">Y row 4..7</text>
+    <text class="mono" x="436" y="74">1024w</text>
+
+    <text class="label" x="755" y="30">UV</text>
+    <text class="mono" x="728" y="54">UV row 0..3</text>
+    <text class="mono" x="756" y="74">1024w</text>
+
+    <text class="label" x="1060" y="30">Unused</text>
+    <text class="mono" x="1040" y="54">1024 word</text>
+
+    <text class="mono" x="-8" y="154">0</text>
+    <text class="mono" x="282" y="154">1024</text>
+    <text class="mono" x="602" y="154">2048</text>
+    <text class="mono" x="922" y="154">3072</text>
+    <text class="mono" x="1238" y="154">4095</text>
+    <text class="small" x="0" y="184">P010 和 NV12 的总占用区间相同，但行 stride 不同：P010 是 256 word/row，NV12 是 128 word/row。</text>
+  </g>
+
+  <rect class="note" x="80" y="1138" width="1280" height="34" rx="10"/>
+  <text class="small" x="100" y="1160">说明：bank0 和 bank1 是同构 ping-pong 工作区；本图只画一个 bank。YUV422-8 当前 RTL 不支持，本图不定义其 bank layout。</text>
+</svg>

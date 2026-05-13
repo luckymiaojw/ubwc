@@ -28,7 +28,7 @@
         <mxCell id="err_check" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=15;" value="&lt;b&gt;错误检查&lt;/b&gt;&lt;br&gt;短行：err_bline&lt;br&gt;短帧：err_bframe&lt;br&gt;ready 无效仍 de：err_fifo_ovf" vertex="1">
           <mxGeometry height="132" width="260" x="900" y="168" as="geometry" />
         </mxCell>
-        <mxCell id="stat_irq" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=15;" value="&lt;b&gt;OTF 统计 / 正确中断&lt;/b&gt;&lt;br&gt;按 fcnt[0] 分 slot0/1&lt;br&gt;de_count / line_count&lt;br&gt;倒数第 4 行 correct_irq" vertex="1">
+        <mxCell id="stat_irq" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=15;" value="&lt;b&gt;OTF 统计 / 正确中断&lt;/b&gt;&lt;br&gt;按 fcnt[0] 分 slot0/1&lt;br&gt;de_count / line_count&lt;br&gt;最后有效数据 correct_irq" vertex="1">
           <mxGeometry height="132" width="250" x="1240" y="168" as="geometry" />
         </mxCell>
         <mxCell id="lane_core" parent="1" style="swimlane;html=1;rounded=1;startSize=36;fillColor=#f8fafc;strokeColor=#cbd5e1;fontStyle=1;fontSize=18;fontColor=#334155;" value="core clk 域：格式拆分、行缓冲、tile 重排" vertex="1">

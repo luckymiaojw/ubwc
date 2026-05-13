@@ -42,7 +42,7 @@ ubwc_enc_apb_reg_blk,0x003c,REG_TILE_BASE_Y_HI,RW,0x00000000,31:0,y_base_offset_
 ubwc_enc_apb_reg_blk,0x0040,REG_META_BASE_UV_LO,RW,0x00000000,31:0,meta_uv_base_offset_addr[31:0],Low 32 bits of the UV metadata base address,"For RGBA formats, write 0. Example NV12 1996x1074: UV_meta_base=0xC23000."
 ubwc_enc_apb_reg_blk,0x0044,REG_META_BASE_UV_HI,RW,0x00000000,31:0,meta_uv_base_offset_addr[63:32],High 32 bits of the UV metadata base address,Forms the full 64-bit address when AXI_AW=64
 ubwc_enc_apb_reg_blk,0x0048,REG_TILE_BASE_UV_LO,RW,0x00000000,31:0,uv_base_offset_addr[31:0],Low 32 bits of the UV compressed data base address,"For RGBA formats, write 0. Example NV12 1996x1074: UV tile_base=0xC25000."
-ubwc_enc_apb_reg_blk,0x004c,REG_TILE_BASE_UV_HI,RW,0x00000000,31:0,uv_base_offset_addr[63:32],High 32 bits of the UV compressed data base address,Forms the full 64-bit address and commits the current frame address set
+ubwc_enc_apb_reg_blk,0x004c,REG_TILE_BASE_UV_HI,RW,0x00000000,31:0,uv_base_offset_addr[63:32],High 32 bits of the UV compressed data base address,Forms the full 64-bit address; software starts the frame with REG_IRQ_CTRL[5]
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,RW,0x00000000,15:0,meta_active_width_px,Metadata active-area width in pixels,Writing 0 means using the full-frame width
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,RW,0x00000000,31:16,meta_active_height_px,Metadata active-area height in pixels,Program metadata active height in pixels.
 ubwc_enc_apb_reg_blk,0x0054,REG_META_PITCH,RW,0x00000000,31:0,meta_data_plane_pitch,Metadata plane pitch,"Write meta_data_plane_pitch=align_up((align_up(width, tile_w*4)+tile_w-1)/tile_w, 64), matching ubwc_demo.cpp. Current encoder meta address path uses meta_data_plane_pitch<<4 as byte stride. Example NV12 1996x1074 Y plane: align_up((align_up(1996,128)+32-1)/32,64)=64. UV plane example from contiguous layout also uses meta_pitch=64."
@@ -59,3 +59,6 @@ ubwc_enc_apb_reg_blk,0x005c,REG_STATUS1,RO,dynamic,7:0,stage_done,Encoder stage 
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,RW/W1P,0x00000001,0,irq_enable,IRQ enable,Defaults to 1 after reset
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,W1P,0x00000001,1,irq_clear,IRQ clear pulse,Writing 1 generates an irq_clear pulse in the encoder clock domain; readback is 0
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,RO,dynamic,2,irq_pending,IRQ pending status,Synchronized into PCLK domain
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,RO,dynamic,3,irq_correct_pending,Correct/frame IRQ pending status,Synchronized into PCLK domain
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,RO,dynamic,4,irq_error_pending,Error IRQ pending status,Synchronized into PCLK domain
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,W1P,0x00000000,5,start,Frame start pulse,Write 1 after one full output address group has been configured; readback is 0

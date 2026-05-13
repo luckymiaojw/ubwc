@@ -121,7 +121,6 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     wire    [63                     :0] selected_rdata                ;
     wire                                rid_match                     ;
     wire                                r_fire                        ;
-    wire                                fifo_status_seen              ;
 
     reg     [2                      :0] byte_idx                      ;
 
@@ -215,9 +214,6 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     assign aligned_cmd_addr           = {meta_grp_addr[ADDR_WIDTH-1:5], 5'd0};
     assign cmd_lane_sel               = meta_grp_addr[4:3];
     assign cmd_addr_unaligned         = |meta_grp_addr[2:0];
-    assign fifo_status_seen           = cmd_fifo_prog_full | (|cmd_fifo_data_count) |
-                                        rsp_fifo_prog_full | (|rsp_fifo_data_count) |
-                                        out_fifo_prog_full | (|out_fifo_data_count);
     assign meta_fetch_ready           = meta_data_ready && cmd_fifo_empty && rsp_fifo_empty && out_fifo_empty;
     assign meta_grp_ready             = rst_n && !start && meta_fetch_ready &&
                                         !cmd_fifo_full && !rsp_fifo_full && !out_fifo_full;
@@ -292,8 +288,7 @@ module ubwc_dec_meta_axi_rcmd_gen #(
             error_cnt <= 32'd0;
         else if (start && (!cmd_fifo_empty || !rsp_fifo_empty || !out_fifo_empty))
             error_cnt <= error_cnt + 1'b1;
-        else if (meta_grp_valid && meta_grp_ready &&
-                 (cmd_addr_unaligned | (fifo_status_seen & 1'b0)))
+        else if (meta_grp_valid && meta_grp_ready && cmd_addr_unaligned)
             error_cnt <= error_cnt + 32'd1;
         else if (r_fire && m_axi_rlast && !rid_match)
             error_cnt <= error_cnt + 32'd1;

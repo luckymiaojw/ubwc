@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="760" viewBox="0 0 1440 760">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: 700; }
+      .lane { font-size: 16px; font-weight: 700; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .small { font-size: 14px; fill: #334155; }
+      .sig { font-size: 13px; fill: #0f172a; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.5; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #2563eb; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .err { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1440" height="760" fill="#f8fafc"/>
+  <rect width="1440" height="760" fill="url(#grid)" opacity="0.8"/>
+  <text x="40" y="48" class="title">ENC 系统块图: 主数据流 / 配置旁路 / 状态收口</text>
+
+  <rect x="0" y="80" width="1440" height="120" fill="#fff7ed" opacity="0.78"/>
+  <rect x="0" y="200" width="1440" height="160" fill="#eff6ff" opacity="0.82"/>
+  <rect x="0" y="360" width="1440" height="200" fill="#ecfdf5" opacity="0.82"/>
+  <rect x="0" y="560" width="1440" height="120" fill="#f5f3ff" opacity="0.82"/>
+  <text x="24" y="116" class="lane">APB / pclk</text>
+  <text x="24" y="236" class="lane">OTF / i_otf_clk 320MHz</text>
+  <text x="24" y="396" class="lane">AXI-core / i_clk 500MHz</text>
+  <text x="24" y="596" class="lane">VIVO / i_vivo_clk 200MHz</text>
+
+  <rect x="120" y="104" width="180" height="64" class="box"/>
+  <text x="150" y="132">ENC APB reg</text>
+  <text x="144" y="154" class="small">cfg / addr slot / IRQ</text>
+
+  <rect x="120" y="248" width="160" height="72" class="box"/>
+  <text x="150" y="278">OTF 输入</text>
+  <text x="138" y="302" class="small">vsync/hsync/de</text>
+
+  <rect x="360" y="248" width="200" height="72" class="box"/>
+  <text x="394" y="278">ubwc_enc_otf_to_tile</text>
+  <text x="392" y="302" class="small">pack + CDC + line_to_tile</text>
+
+  <rect x="640" y="408" width="180" height="72" class="box"/>
+  <text x="684" y="438">bank0 / bank1</text>
+  <text x="682" y="462" class="small">128b ping-pong SRAM</text>
+
+  <rect x="880" y="584" width="170" height="64" class="box"/>
+  <text x="914" y="612">ubwc_enc_vivo_top</text>
+  <text x="922" y="634" class="small">compress core</text>
+
+  <rect x="880" y="408" width="170" height="72" class="box"/>
+  <text x="912" y="436">tile/meta addr</text>
+  <text x="912" y="460" class="small">x/y/fcnt to addr</text>
+
+  <rect x="1120" y="408" width="170" height="72" class="box"/>
+  <text x="1164" y="436">AXI write</text>
+  <text x="1144" y="460" class="small">tile/meta wcmd + x2x</text>
+
+  <rect x="1320" y="408" width="88" height="72" class="box"/>
+  <text x="1340" y="438">AXI M</text>
+  <text x="1332" y="460" class="small">64b data</text>
+
+  <path class="flow" d="M 280 284 H 360"/>
+  <text x="288" y="270" class="sig">i_otf_data[127:0], fcnt[3:0]</text>
+  <path class="flow" d="M 560 284 H 620 V 444 H 640"/>
+  <text x="574" y="332" class="sig">tile line data[127:0]</text>
+  <path class="flow" d="M 820 444 H 880"/>
+  <text x="826" y="430" class="sig">coord{x[7:0],y[12:0],fcnt[3:0]}</text>
+  <path class="flow" d="M 820 480 V 616 H 880"/>
+  <text x="752" y="566" class="sig">rvi_data[255:0], rvi_keep[31:0]</text>
+  <path class="flow" d="M 1050 616 H 1100 V 444 H 1120"/>
+  <text x="1058" y="594" class="sig">cvo_data[255:0], sb[0]</text>
+  <path class="flow" d="M 1050 444 H 1120"/>
+  <text x="1060" y="430" class="sig">awaddr/waddr[63:0]</text>
+  <path class="flow" d="M 1290 444 H 1320"/>
+  <text x="1288" y="430" class="sig">m_axi_aw/w 64b</text>
+
+  <path class="cfg" d="M 300 136 H 460 V 248"/>
+  <text x="342" y="124" class="sig">format/size/tile cfg[31:0]</text>
+  <path class="cfg" d="M 300 152 H 970 V 408"/>
+  <text x="592" y="144" class="sig">base_addr[63:0] slot0/1</text>
+  <path class="err" d="M 1200 408 V 168 H 300"/>
+  <text x="1070" y="156" class="sig">status/irq/error[31:0]</text>
+</svg>

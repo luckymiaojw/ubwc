@@ -140,8 +140,10 @@ module tb_ubwc_enc_otf_to_tile #(
     ) dut (
         .clk            (clk),
         .i_otf_clk      (otf_clk),
+        .i_vivo_clk     (clk),
         .rst_n_sys      (rst_n),
         .rst_n_otf      (rst_n),
+        .rst_n_vivo     (rst_n),
         .i_cfg_format   (cfg_format),
         .i_cfg_width    (cfg_width),
         .i_cfg_height   (cfg_height),

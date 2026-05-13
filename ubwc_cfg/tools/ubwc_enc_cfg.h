@@ -36,7 +36,8 @@ enum {
     UBWC_ENC_REG_TILE_BASE_UV_LO  = 0x0048,
     UBWC_ENC_REG_TILE_BASE_UV_HI  = 0x004c,
     UBWC_ENC_REG_META_ACTIVE_SIZE = 0x0050,
-    UBWC_ENC_REG_META_PITCH       = 0x0054
+    UBWC_ENC_REG_META_PITCH       = 0x0054,
+    UBWC_ENC_REG_IRQ_CTRL         = 0x0060
 };
 
 typedef struct {
@@ -59,6 +60,28 @@ typedef struct {
     uint32_t tile_uv_size;
     uint32_t total_size;
 } ubwc_enc_layout_size_t;
+
+typedef struct {
+    uint32_t format;
+    uint32_t active_width_px;
+    uint32_t active_height_px;
+    uint32_t otf_width_px;
+    uint32_t otf_height_px;
+    ubwc_enc_base_cfg_t base;
+    uint32_t enc_ubwc_en;
+    uint32_t lvl1_bank_swizzle_en;
+    uint32_t lvl2_bank_swizzle_en;
+    uint32_t lvl3_bank_swizzle_en;
+    uint32_t highest_bank_bit;
+    uint32_t bank_spread_en;
+    uint32_t ci_input_type;
+    uint32_t ci_alen;
+    uint32_t ci_lossy;
+    uint32_t ci_cfg2;
+    uint32_t ci_cfg3;
+    uint32_t irq_enable;
+    uint32_t do_start;
+} ubwc_enc_config_t;
 
 static inline uint32_t ubwc_enc_align_up_u32(uint32_t value, uint32_t unit)
 {
@@ -314,36 +337,74 @@ static inline uint32_t ubwc_enc_reg_base_hi(uint64_t base_addr)
     return (uint32_t)((base_addr >> 32) & 0xffffffffull);
 }
 
-static inline size_t ubwc_enc_make_reg_writes(uint32_t format,
-                                              uint32_t width_px,
-                                              uint32_t height_px,
-                                              const ubwc_enc_base_cfg_t *base,
-                                              ubwc_enc_reg_write_t *out,
-                                              size_t out_count)
+static inline uint32_t ubwc_enc_reg_irq_ctrl(uint32_t irq_enable, uint32_t do_start)
+{
+    return (irq_enable & 1u) | ((do_start & 1u) << 5);
+}
+
+static inline ubwc_enc_config_t ubwc_enc_default_config(uint32_t format,
+                                                       uint32_t width_px,
+                                                       uint32_t height_px,
+                                                       const ubwc_enc_base_cfg_t *base)
 {
     ubwc_enc_base_cfg_t zero_base = {0u, 0u, 0u, 0u};
     const ubwc_enc_base_cfg_t *b = (base == 0) ? &zero_base : base;
+    ubwc_enc_config_t cfg;
+    uint32_t lossy = (format == UBWC_ENC_FMT_RGBA8888_L_2_1) ? 1u : 0u;
+
+    cfg.format = format;
+    cfg.active_width_px = width_px;
+    cfg.active_height_px = height_px;
+    cfg.otf_width_px = width_px;
+    cfg.otf_height_px = height_px;
+    cfg.base = *b;
+    cfg.enc_ubwc_en = 1u;
+    cfg.lvl1_bank_swizzle_en = 0u;
+    cfg.lvl2_bank_swizzle_en = 1u;
+    cfg.lvl3_bank_swizzle_en = 1u;
+    cfg.highest_bank_bit = 16u;
+    cfg.bank_spread_en = 1u;
+    cfg.ci_input_type = 1u;
+    cfg.ci_alen = 7u;
+    cfg.ci_lossy = lossy;
+    cfg.ci_cfg2 = ubwc_enc_reg_enc_ci_cfg2();
+    cfg.ci_cfg3 = ubwc_enc_reg_enc_ci_cfg3();
+    cfg.irq_enable = 1u;
+    cfg.do_start = 1u;
+    return cfg;
+}
+
+static inline size_t ubwc_enc_make_reg_writes_ex(const ubwc_enc_config_t *cfg,
+                                                 ubwc_enc_reg_write_t *out,
+                                                 size_t out_count)
+{
+    ubwc_enc_config_t zero_cfg = ubwc_enc_default_config(UBWC_ENC_FMT_RGBA8888,
+                                                        0u,
+                                                        0u,
+                                                        0);
+    const ubwc_enc_config_t *c = (cfg == 0) ? &zero_cfg : cfg;
     ubwc_enc_reg_write_t regs[] = {
-        {UBWC_ENC_REG_TILE_CFG1,        ubwc_enc_reg_tile_cfg1(format, width_px), "REG_TILE_CFG1"},
-        {UBWC_ENC_REG_TILE_CFG0,        ubwc_enc_reg_tile_cfg0(1u, 0u, 1u, 1u, 16u, 1u), "REG_TILE_CFG0"},
-        {UBWC_ENC_REG_META_BASE_Y_LO,   ubwc_enc_reg_base_lo(b->meta_base_y), "REG_META_BASE_Y_LO"},
-        {UBWC_ENC_REG_META_BASE_Y_HI,   ubwc_enc_reg_base_hi(b->meta_base_y), "REG_META_BASE_Y_HI"},
-        {UBWC_ENC_REG_TILE_BASE_Y_LO,   ubwc_enc_reg_base_lo(b->tile_base_y), "REG_TILE_BASE_Y_LO"},
-        {UBWC_ENC_REG_TILE_BASE_Y_HI,   ubwc_enc_reg_base_hi(b->tile_base_y), "REG_TILE_BASE_Y_HI"},
-        {UBWC_ENC_REG_META_BASE_UV_LO,  ubwc_enc_reg_base_lo(b->meta_base_uv), "REG_META_BASE_UV_LO"},
-        {UBWC_ENC_REG_META_BASE_UV_HI,  ubwc_enc_reg_base_hi(b->meta_base_uv), "REG_META_BASE_UV_HI"},
-        {UBWC_ENC_REG_TILE_BASE_UV_LO,  ubwc_enc_reg_base_lo(b->tile_base_uv), "REG_TILE_BASE_UV_LO"},
-        {UBWC_ENC_REG_TILE_BASE_UV_HI,  ubwc_enc_reg_base_hi(b->tile_base_uv), "REG_TILE_BASE_UV_HI"},
-        {UBWC_ENC_REG_ENC_CI_CFG1,      ubwc_enc_reg_enc_ci_cfg1(0u, format == UBWC_ENC_FMT_RGBA8888_L_2_1), "REG_ENC_CI_CFG1"},
-        {UBWC_ENC_REG_ENC_CI_CFG2,      ubwc_enc_reg_enc_ci_cfg2(), "REG_ENC_CI_CFG2"},
-        {UBWC_ENC_REG_ENC_CI_CFG3,      ubwc_enc_reg_enc_ci_cfg3(), "REG_ENC_CI_CFG3"},
-        {UBWC_ENC_REG_ENC_CI_CFG0,      ubwc_enc_reg_enc_ci_cfg0(1u, 7u), "REG_ENC_CI_CFG0"},
-        {UBWC_ENC_REG_OTF_CFG1,         ubwc_enc_reg_otf_cfg1(width_px, height_px), "REG_OTF_CFG1"},
-        {UBWC_ENC_REG_OTF_CFG2,         ubwc_enc_reg_otf_cfg2(format), "REG_OTF_CFG2"},
-        {UBWC_ENC_REG_OTF_CFG3,         ubwc_enc_reg_otf_cfg3(format, width_px), "REG_OTF_CFG3"},
-        {UBWC_ENC_REG_META_ACTIVE_SIZE, ubwc_enc_reg_meta_active_size(width_px, height_px), "REG_META_ACTIVE_SIZE"},
-        {UBWC_ENC_REG_META_PITCH,       ubwc_enc_reg_meta_pitch(format, width_px), "REG_META_PITCH"},
-        {UBWC_ENC_REG_OTF_CFG0,         ubwc_enc_reg_otf_cfg0(format), "REG_OTF_CFG0"}
+        {UBWC_ENC_REG_TILE_CFG1,        ubwc_enc_reg_tile_cfg1(c->format, c->active_width_px), "REG_TILE_CFG1"},
+        {UBWC_ENC_REG_TILE_CFG0,        ubwc_enc_reg_tile_cfg0(c->enc_ubwc_en, c->lvl1_bank_swizzle_en, c->lvl2_bank_swizzle_en, c->lvl3_bank_swizzle_en, c->highest_bank_bit, c->bank_spread_en), "REG_TILE_CFG0"},
+        {UBWC_ENC_REG_META_BASE_Y_LO,   ubwc_enc_reg_base_lo(c->base.meta_base_y), "REG_META_BASE_Y_LO"},
+        {UBWC_ENC_REG_META_BASE_Y_HI,   ubwc_enc_reg_base_hi(c->base.meta_base_y), "REG_META_BASE_Y_HI"},
+        {UBWC_ENC_REG_TILE_BASE_Y_LO,   ubwc_enc_reg_base_lo(c->base.tile_base_y), "REG_TILE_BASE_Y_LO"},
+        {UBWC_ENC_REG_TILE_BASE_Y_HI,   ubwc_enc_reg_base_hi(c->base.tile_base_y), "REG_TILE_BASE_Y_HI"},
+        {UBWC_ENC_REG_META_BASE_UV_LO,  ubwc_enc_reg_base_lo(c->base.meta_base_uv), "REG_META_BASE_UV_LO"},
+        {UBWC_ENC_REG_META_BASE_UV_HI,  ubwc_enc_reg_base_hi(c->base.meta_base_uv), "REG_META_BASE_UV_HI"},
+        {UBWC_ENC_REG_TILE_BASE_UV_LO,  ubwc_enc_reg_base_lo(c->base.tile_base_uv), "REG_TILE_BASE_UV_LO"},
+        {UBWC_ENC_REG_TILE_BASE_UV_HI,  ubwc_enc_reg_base_hi(c->base.tile_base_uv), "REG_TILE_BASE_UV_HI"},
+        {UBWC_ENC_REG_ENC_CI_CFG1,      ubwc_enc_reg_enc_ci_cfg1(0u, c->ci_lossy), "REG_ENC_CI_CFG1"},
+        {UBWC_ENC_REG_ENC_CI_CFG2,      c->ci_cfg2, "REG_ENC_CI_CFG2"},
+        {UBWC_ENC_REG_ENC_CI_CFG3,      c->ci_cfg3, "REG_ENC_CI_CFG3"},
+        {UBWC_ENC_REG_ENC_CI_CFG0,      ubwc_enc_reg_enc_ci_cfg0(c->ci_input_type, c->ci_alen), "REG_ENC_CI_CFG0"},
+        {UBWC_ENC_REG_OTF_CFG1,         ubwc_enc_reg_otf_cfg1(c->otf_width_px, c->otf_height_px), "REG_OTF_CFG1"},
+        {UBWC_ENC_REG_OTF_CFG2,         ubwc_enc_reg_otf_cfg2(c->format), "REG_OTF_CFG2"},
+        {UBWC_ENC_REG_OTF_CFG3,         ubwc_enc_reg_otf_cfg3(c->format, c->active_width_px), "REG_OTF_CFG3"},
+        {UBWC_ENC_REG_META_ACTIVE_SIZE, ubwc_enc_reg_meta_active_size(c->active_width_px, c->active_height_px), "REG_META_ACTIVE_SIZE"},
+        {UBWC_ENC_REG_META_PITCH,       ubwc_enc_reg_meta_pitch(c->format, c->active_width_px), "REG_META_PITCH"},
+        {UBWC_ENC_REG_OTF_CFG0,         ubwc_enc_reg_otf_cfg0(c->format), "REG_OTF_CFG0"},
+        {UBWC_ENC_REG_IRQ_CTRL,         ubwc_enc_reg_irq_ctrl(c->irq_enable, c->do_start), "REG_IRQ_CTRL"}
     };
     size_t n = sizeof(regs) / sizeof(regs[0]);
     size_t i;
@@ -355,6 +416,17 @@ static inline size_t ubwc_enc_make_reg_writes(uint32_t format,
         }
     }
     return n;
+}
+
+static inline size_t ubwc_enc_make_reg_writes(uint32_t format,
+                                              uint32_t width_px,
+                                              uint32_t height_px,
+                                              const ubwc_enc_base_cfg_t *base,
+                                              ubwc_enc_reg_write_t *out,
+                                              size_t out_count)
+{
+    ubwc_enc_config_t cfg = ubwc_enc_default_config(format, width_px, height_px, base);
+    return ubwc_enc_make_reg_writes_ex(&cfg, out, out_count);
 }
 
 static inline size_t ubwc_enc_make_reg_writes_from_base(uint32_t format,

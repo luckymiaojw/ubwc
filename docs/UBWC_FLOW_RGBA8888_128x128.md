@@ -83,13 +83,13 @@ The `dec` startup flow is:
 3. Write the VIVO configuration
 4. Write the metadata configuration
 5. Write the OTF configuration
-6. Write all four base address high words; DEC auto-starts when the address set is complete
+6. Write all four base address high words; DEC starts after software writes IRQ_CTRL[5]
 7. Poll STATUS1[4] and STATUS0[6]
 ```
 
 The most important points are:
 
-- `dec` auto-starts after the complete per-frame address set is valid
+- `dec` starts after the complete address set and IRQ_CTRL[5] start token are valid
 - For completion, check `STATUS1[4] = frame_done` first
 - Then check `STATUS0[6] = frame_idle_done`
 
@@ -99,7 +99,7 @@ The most important points are:
 - `pitch` is measured in **bytes**, so `128x128 RGBA8888` needs `512`
 - For `RGBA8888` on `enc`, the current address-selection logic uses `Y base / META_Y base`
 - For `RGBA8888` on `dec`, the current address-selection logic uses `RGBA_UV base / META_RGBA_UV base`
-- `dec` auto-starts after the complete per-frame address set is valid
+- `dec` starts after the complete address set and IRQ_CTRL[5] start token are valid
 - `enc` has no APB start; it starts from the OTF input stream
 
 ### 3.2 Part 2: Register Read/Write Information
@@ -197,7 +197,7 @@ Recommended register write order:
 3. Write OTF_CFG0/1/2/3/4
 4. Write APB_ADDR_META_CFG0 tile count
 5. Write REG_META_BASE_Y/UV and REG_TILE_BASE_Y/UV address pairs
-6. Hardware auto-starts when the complete per-frame address set is valid
+6. Software writes IRQ_CTRL[5] after the complete per-frame address set is valid
 7. Poll STATUS1[4], then poll STATUS0[6]
 ```
 

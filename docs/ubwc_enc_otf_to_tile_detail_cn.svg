@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="800" viewBox="0 0 1440 800">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: 700; }
+      .lane { font-size: 16px; font-weight: 700; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .small { font-size: 14px; fill: #334155; }
+      .sig { font-size: 13px; fill: #0f172a; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.5; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #2563eb; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1440" height="800" fill="#f8fafc"/>
+  <rect width="1440" height="800" fill="url(#grid)" opacity="0.8"/>
+  <text x="40" y="48" class="title">ENC OTF-to-tile 详图: 输入打包 / 跨域 / ping-pong SRAM / tile 输出</text>
+
+  <rect x="0" y="80" width="1440" height="200" fill="#eff6ff" opacity="0.82"/>
+  <rect x="0" y="280" width="1440" height="320" fill="#ecfdf5" opacity="0.82"/>
+  <rect x="0" y="600" width="1440" height="120" fill="#f5f3ff" opacity="0.82"/>
+  <text x="24" y="116" class="lane">OTF / i_otf_clk</text>
+  <text x="24" y="316" class="lane">AXI-core / i_clk</text>
+  <text x="24" y="636" class="lane">VIVO interface</text>
+
+  <rect x="120" y="136" width="180" height="72" class="box"/>
+  <text x="156" y="166">otf_data_packer</text>
+  <text x="146" y="190" class="small">format split + keep</text>
+
+  <rect x="380" y="136" width="160" height="72" class="box"/>
+  <text x="418" y="166">async FIFO A</text>
+  <text x="420" y="190" class="small">Y / RGBA</text>
+
+  <rect x="380" y="216" width="160" height="72" class="box"/>
+  <text x="418" y="246">async FIFO B</text>
+  <text x="438" y="270" class="small">UV</text>
+
+  <rect x="620" y="344" width="170" height="72" class="box"/>
+  <text x="662" y="374">skid + decode</text>
+  <text x="638" y="398" class="small">registered metadata</text>
+
+  <rect x="860" y="344" width="180" height="72" class="box"/>
+  <text x="900" y="374">line_to_tile</text>
+  <text x="884" y="398" class="small">incremental SRAM addr</text>
+
+  <rect x="860" y="464" width="180" height="72" class="box"/>
+  <text x="900" y="494">bank0 / bank1</text>
+  <text x="900" y="518" class="small">128b SRAM</text>
+
+  <rect x="1120" y="464" width="180" height="72" class="box"/>
+  <text x="1154" y="494">tile read scanner</text>
+  <text x="1146" y="518" class="small">x/y/fcnt ordered</text>
+
+  <rect x="1120" y="624" width="180" height="72" class="box"/>
+  <text x="1170" y="654">输出 FIFO</text>
+  <text x="1148" y="678" class="small">data / CI / coord</text>
+
+  <path class="flow" d="M 40 172 H 120"/>
+  <text x="44" y="158" class="sig">i_otf_data[127:0], de, fcnt[3:0]</text>
+  <path class="flow" d="M 300 160 H 380"/>
+  <text x="306" y="146" class="sig">a_pack_data[127:0]</text>
+  <path class="flow" d="M 300 184 H 340 V 252 H 380"/>
+  <text x="306" y="236" class="sig">b_pack_data[127:0]</text>
+  <path class="flow" d="M 540 172 H 580 V 380 H 620"/>
+  <text x="552" y="260" class="sig">fifo_a_data[127:0]</text>
+  <path class="flow" d="M 540 252 H 600 V 396 H 620"/>
+  <text x="552" y="332" class="sig">fifo_b_data[127:0]</text>
+  <path class="flow" d="M 790 380 H 860"/>
+  <text x="800" y="366" class="sig">group_id[15:0], fcnt[3:0]</text>
+  <path class="flow" d="M 950 416 V 464"/>
+  <text x="962" y="444" class="sig">sram_waddr[COM_BUF_AW-1:0]</text>
+  <path class="flow" d="M 1040 500 H 1120"/>
+  <text x="1046" y="486" class="sig">sram_rdata[127:0]</text>
+  <path class="flow" d="M 1210 536 V 624"/>
+  <text x="1222" y="584" class="sig">tile_data[255:0], coord[31:0]</text>
+  <path class="flow" d="M 1300 660 H 1400"/>
+  <text x="1306" y="646" class="sig">o_rvi_data[255:0], o_ci_sb[0]</text>
+
+  <path class="cfg" d="M 260 88 H 948 V 344"/>
+  <text x="520" y="76" class="sig">cfg_format[2:0], cfg_width[15:0], cfg_height[15:0]</text>
+</svg>

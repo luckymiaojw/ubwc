@@ -511,6 +511,11 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer COM_BUF_DW      = 128;
     localparam integer SB_WIDTH        = 1;
 
+    localparam real TB_APB_CLK_HALF_NS   = 5.0000;   // 100 MHz
+    localparam real TB_AXI_CLK_HALF_NS   = 1.0000;   // 500 MHz
+    localparam real TB_CORE_CLK_HALF_NS  = 2.5000;   // 200 MHz
+    localparam real TB_OTF_CLK_HALF_NS   = 1.5625;   // 320 MHz
+
     localparam integer NV12_ACTIVE_H   = 600;
     localparam integer NV12_Y_STORED_H = 640;
     localparam integer NV12_UV_STORED_H= 320;
@@ -632,6 +637,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
     reg                         clk;
     reg                         pclk;
+    reg                         vivo_clk;
     reg                         otf_clk;
     reg                         rst_n;
 
@@ -901,6 +907,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     reg                         ref_cmp_range_error;
     reg  [AXI_DW-1:0]           ref_cmp_expected_word;
     wire                        tb_output_activity;
+    wire                        ci_cmd_fire_w;
+    wire                        rvi_mon_fire_w;
+    wire [AXI_DW-1:0]           rvi_mon_data_w;
+    wire [31:0]                 rvi_mon_mask_w;
     wire                        meta_aw_fire_w;
     wire                        meta_w_fire_w;
     wire                        meta_use_curr_aw_w;
@@ -1735,7 +1745,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 $display("[TB][ERROR] meta last aw: y=0x%08x uv=0x%08x",
                          last_meta_aw_addr_y, last_meta_aw_addr_uv);
                 $display("[TB][ERROR] activity: tile_coord_vld=%0b rvi_valid=%0b enc_awvalid=%0b enc_wvalid=%0b meta_awvalid=%0b meta_wvalid=%0b active_cmd=%0b rvi_active_cmd=%0b main_burst=%0b meta_burst=%0b",
-                         (dut.enc_ci_valid && dut.enc_ci_ready), dut.rvi_valid, dut.enc_axi_awvalid, dut.enc_axi_wvalid,
+                         ci_cmd_fire_w, rvi_mon_fire_w, dut.enc_axi_awvalid, dut.enc_axi_wvalid,
                          dut.meta_axi_awvalid, dut.meta_axi_wvalid, active_cmd_valid, rvi_active_cmd_valid,
                          main_burst_active, meta_burst_active);
                 $display("[TB][ERROR] meta path state: data_vld=%0b data_rdy=%0b addr_vld=%0b addr_rdy=%0b data=0x%016x last_x=%0d",
@@ -1920,6 +1930,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             apb_write(16'h0050, reg20_data);
             apb_write(16'h0054, reg21_data);
             apb_write(16'h0020, reg8_data);
+            for (addr_cfg_idx = 0; addr_cfg_idx < tb_frame_repeat; addr_cfg_idx = addr_cfg_idx + 1) begin
+                apb_write(16'h0060, 32'h0000_0021);
+            end
         end
     endtask
 
@@ -1946,6 +1959,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .PRDATA          (PRDATA),
         .i_clk           (clk),
         .i_otf_clk       (otf_clk),
+        .i_vivo_clk      (vivo_clk),
         .i_rstn          (rst_n),
         .i_otf_vsync     (i_otf_vsync),
         .i_otf_hsync     (i_otf_hsync),
@@ -2110,21 +2124,25 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
     assign dbg_otf_to_tile_ci_valid  = dut.enc_ci_valid;
     assign dbg_otf_to_tile_ci_ready  = dut.enc_ci_ready;
-    assign dbg_otf_to_tile_coord_vld = dut.enc_ci_valid && dut.enc_ci_ready;
-    assign dbg_otf_to_tile_x         = dut.ubwc_enc_otf_to_tile_inst.o_tile_x;
-    assign dbg_otf_to_tile_y         = dut.ubwc_enc_otf_to_tile_inst.o_tile_y;
-    assign dbg_otf_to_tile_format    = dut.tile_format;
+    assign dbg_otf_to_tile_coord_vld = ci_cmd_fire_w;
+    assign dbg_otf_to_tile_x         = dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
+    assign dbg_otf_to_tile_y         = dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
+    assign dbg_otf_to_tile_format    = dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
     assign meta_aw_fire_w            = dut.meta_axi_awvalid && dut.meta_axi_awready;
     assign meta_w_fire_w             = dut.meta_axi_wvalid && dut.meta_axi_wready;
     assign meta_use_curr_aw_w        = meta_aw_fire_w && !meta_burst_active;
     assign meta_write_beat_addr_w    = meta_use_curr_aw_w ? dut.meta_axi_awaddr : meta_burst_addr;
     assign meta_write_underflow_w    = meta_w_fire_w && !meta_burst_active && !meta_use_curr_aw_w;
-    assign rvi_start_direct_w        = dut.ubwc_enc_otf_to_tile_inst.ci_fifo_wr_en &&
-                                       dut.rvi_valid && dut.rvi_ready &&
+    assign ci_cmd_fire_w             = dut.ubwc_enc_otf_to_tile_inst.ci_fifo_wr_en;
+    assign rvi_mon_fire_w            = dut.ubwc_enc_otf_to_tile_inst.data_fifo_wr_en;
+    assign rvi_mon_data_w            = dut.ubwc_enc_otf_to_tile_inst.data_fifo_din[0   +: 256];
+    assign rvi_mon_mask_w            = dut.ubwc_enc_otf_to_tile_inst.data_fifo_din[256 +: 32];
+    assign rvi_start_direct_w        = ci_cmd_fire_w &&
+                                       rvi_mon_fire_w &&
                                        !rvi_active_cmd_valid &&
                                        (rvi_cmd_rd_ptr >= rvi_cmd_wr_ptr);
     assign cvo_start_direct_w        = tb_fake_mode_en ?
-                                       (dut.ubwc_enc_otf_to_tile_inst.ci_fifo_wr_en &&
+                                       (ci_cmd_fire_w &&
                                         dut.enc_cvo_valid && dut.enc_cvo_ready &&
                                         !cvo_active_cmd_valid &&
                                         (cvo_cmd_rd_ptr >= cvo_cmd_wr_ptr)) :
@@ -2132,7 +2150,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                         dut.enc_cvo_valid && dut.enc_cvo_ready &&
                                         !cvo_active_cmd_valid &&
                                         (cvo_cmd_rd_ptr >= cvo_cmd_wr_ptr));
-    assign tb_output_activity        = (dut.enc_ci_valid && dut.enc_ci_ready) || dut.rvi_valid ||
+    assign tb_output_activity        = ci_cmd_fire_w || rvi_mon_fire_w ||
                                        dut.enc_axi_awvalid || dut.enc_axi_wvalid ||
                                        dut.meta_axi_awvalid || dut.meta_axi_wvalid ||
                                        active_cmd_valid || rvi_active_cmd_valid ||
@@ -2140,17 +2158,22 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
     initial begin
         clk = 1'b0;
-        forever #1 clk = ~clk;
+        forever #(TB_AXI_CLK_HALF_NS) clk = ~clk;
     end
 
     initial begin
         pclk = 1'b0;
-        forever #5 pclk = ~pclk;
+        forever #(TB_APB_CLK_HALF_NS) pclk = ~pclk;
+    end
+
+    initial begin
+        vivo_clk = 1'b0;
+        forever #(TB_CORE_CLK_HALF_NS) vivo_clk = ~vivo_clk;
     end
 
     initial begin
         otf_clk = 1'b0;
-        forever #5 otf_clk = ~otf_clk;
+        forever #(TB_OTF_CLK_HALF_NS) otf_clk = ~otf_clk;
     end
 
     initial begin
@@ -2646,19 +2669,19 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 end
             end
 
-            if (dut.enc_ci_valid && dut.enc_ci_ready) begin
+            if (ci_cmd_fire_w) begin
                 coord_count <= coord_count + 1;
                 if (tb_fake_mode_en) begin
                     if (cmd_wr_ptr < TILE_QUEUE_CAPACITY) begin
-                        cmd_fmt_queue[cmd_wr_ptr] <= dut.tile_format;
-                        cmd_x_queue[cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.o_tile_x;
-                        cmd_y_queue[cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.o_tile_y;
+                        cmd_fmt_queue[cmd_wr_ptr] <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
+                        cmd_x_queue[cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
+                        cmd_y_queue[cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
                         cmd_wr_ptr                <= cmd_wr_ptr + 1;
                     end
                 end
             end
 
-            if (dut.ubwc_enc_otf_to_tile_inst.ci_fifo_wr_en) begin
+            if (ci_cmd_fire_w) begin
                 if (!rvi_start_direct_w && (rvi_cmd_wr_ptr < TILE_QUEUE_CAPACITY)) begin
                     rvi_fmt_queue[rvi_cmd_wr_ptr] <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
                     rvi_x_queue[rvi_cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
@@ -2688,12 +2711,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 end
             end
 
-            if (dut.rvi_valid && dut.rvi_ready) begin
+            if (rvi_mon_fire_w) begin
                 rvi_beat_count <= rvi_beat_count + 1;
                 if (!rvi_active_cmd_valid) begin
                     if (rvi_start_direct_w) begin
-                        if (masked_axi_word_mismatch(dut.rvi_data,
-                                                     dut.rvi_mask,
+                        if (masked_axi_word_mismatch(rvi_mon_data_w,
+                                                     rvi_mon_mask_w,
                                                      pack_expected_tile_axi_word(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
                                                                                  dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
                                                                                  dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
@@ -2709,7 +2732,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                                                                               dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
                                                                                               dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
                                                                                               0);
-                                first_rvi_data_actual        <= dut.rvi_data;
+                                first_rvi_data_actual        <= rvi_mon_data_w;
                             end
                         end
                         rvi_active_cmd_valid <= 1'b1;
@@ -2726,11 +2749,11 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                             first_rvi_data_y             <= 16'd0;
                             first_rvi_data_beat          <= 0;
                             first_rvi_data_expected      <= {AXI_DW{1'b0}};
-                            first_rvi_data_actual        <= dut.rvi_data;
+                            first_rvi_data_actual        <= rvi_mon_data_w;
                         end
                     end else begin
-                        if (masked_axi_word_mismatch(dut.rvi_data,
-                                                     dut.rvi_mask,
+                        if (masked_axi_word_mismatch(rvi_mon_data_w,
+                                                     rvi_mon_mask_w,
                                                      pack_expected_tile_axi_word(rvi_fmt_queue[rvi_cmd_rd_ptr],
                                                                                  rvi_x_queue[rvi_cmd_rd_ptr],
                                                                                  rvi_y_queue[rvi_cmd_rd_ptr],
@@ -2746,7 +2769,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                                                                               rvi_x_queue[rvi_cmd_rd_ptr],
                                                                                               rvi_y_queue[rvi_cmd_rd_ptr],
                                                                                               0);
-                                first_rvi_data_actual        <= dut.rvi_data;
+                                first_rvi_data_actual        <= rvi_mon_data_w;
                             end
                         end
                         rvi_active_cmd_valid <= 1'b1;
@@ -2757,8 +2780,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                         rvi_beat_idx         <= 1;
                     end
                 end else begin
-                    if (masked_axi_word_mismatch(dut.rvi_data,
-                                                 dut.rvi_mask,
+                    if (masked_axi_word_mismatch(rvi_mon_data_w,
+                                                 rvi_mon_mask_w,
                                                  pack_expected_tile_axi_word(rvi_active_cmd_fmt,
                                                                              rvi_active_cmd_x,
                                                                              rvi_active_cmd_y,
@@ -2774,7 +2797,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                                                                           rvi_active_cmd_x,
                                                                                           rvi_active_cmd_y,
                                                                                           rvi_beat_idx);
-                            first_rvi_data_actual        <= dut.rvi_data;
+                            first_rvi_data_actual        <= rvi_mon_data_w;
                         end
                     end
                     if (rvi_beat_idx == 7) begin
@@ -3292,8 +3315,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 $display("  aw_count            : %0d / %0d", aw_count, expected_tiles_total);
                 $display("  w_count             : %0d / %0d", w_count, expected_beats_total);
 
-                $display("  dut top handshake   : rvi_v=%0b rvi_r=%0b ci_v=%0b ci_r=%0b",
-                         dut.rvi_valid, dut.rvi_ready, dut.enc_ci_valid, dut.enc_ci_ready);
+                $display("  dut top handshake   : rvi_mon_fire=%0b ci_cmd_fire=%0b",
+                         rvi_mon_fire_w, ci_cmd_fire_w);
                 $display("  wcmd_gen state      : st=%0d cmd_cnt=%0d data_cnt=%0d awv=%0b wv=%0b cvo_rdy=%0b",
                          dut.ubwc_tile_enc_axi_wcmd_gen_inst.state_r,
                          dut.ubwc_tile_enc_axi_wcmd_gen_inst.cmd_count_r,

@@ -199,6 +199,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
             apb_write(16'h0044, 32'h0000_0000);
             apb_write(16'h0048, 32'h0000_0000);
             apb_write(16'h004c, 32'h0000_0000);
+            apb_write(16'h0060, 32'h0000_0021);
         end
     endtask
 
@@ -242,6 +243,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
         .PSLVERR           (PSLVERR),
         .PRDATA            (PRDATA),
         .i_otf_clk         (i_otf_clk),
+        .i_vivo_clk        (i_axi_clk),
         .i_otf_rstn        (i_otf_rstn),
         .o_otf_vsync       (o_otf_vsync),
         .o_otf_hsync       (o_otf_hsync),

@@ -125,6 +125,7 @@ module ubwc_dec_apb_reg_blk #(
     localparam  [4                      :0]         APB_ADDR_STAT_OTF_TILE          = 5'h1c; // 0x70
     localparam  [4                      :0]         APB_ADDR_STAT_OTF_LINE          = 5'h1d; // 0x74
     localparam  [4                      :0]         APB_ADDR_STAT_OTF_DE            = 5'h1e; // 0x78
+    localparam  integer                             IRQ_CTRL_START_BIT              = 5;
     localparam  integer                             STATUS_BUS_W                    = 30;
     localparam  integer                             BASE_FIFO_DEPTH                 = 4;
     localparam  integer                             BASE_FIFO_PTR_W                 = 2;
@@ -173,6 +174,7 @@ module ubwc_dec_apb_reg_blk #(
     reg                                             r_vivo_sreset                   ;
     reg                                             r_meta_start_toggle             ;
     reg                                             r_start_wait_busy_seen          ;
+    reg         [BASE_FIFO_CNT_W     -1 :0]         r_start_request_count           ;
     reg         [4                      :0]         r_meta_base_format              ;
     reg         [AXI_AW              -1 :0]         r_meta_base_addr_rgba_y         ;
     reg         [AXI_AW              -1 :0]         r_meta_base_addr_uv             ;
@@ -305,18 +307,31 @@ module ubwc_dec_apb_reg_blk #(
     wire                                            meta_launch_slot_free_pclk      ;
     assign meta_launch_slot_free_pclk = !status_frame_active_pclk ||
                                             status_stage_done_pclk[0];
-    wire                                            base_fifo_start_pclk            ;
-    assign base_fifo_start_pclk = base_fifo_all_valid_pclk &&
-                                      !r_start_wait_busy_seen &&
-                                      !status_meta_busy_pclk &&
-                                      meta_launch_slot_free_pclk;
     wire                                            base_fifo_stall                 ;
     assign base_fifo_stall = apb_access &&
-                                 (base_fifo_start_pclk ||
-                                  (PWRITE && apb_decode_valid &&
-                                   base_fifo_high_write && base_fifo_write_full));
+                                 PWRITE &&
+                                 apb_decode_valid &&
+                                 base_fifo_high_write &&
+                                 base_fifo_write_full;
     wire                                            apb_write                       ;
     assign apb_write = apb_access && PWRITE && apb_decode_valid && !base_fifo_stall;
+    wire                                            start_request_pclk              ;
+    assign start_request_pclk = apb_write &&
+                                (apb_addr == APB_ADDR_IRQ_CTRL) &&
+                                PWDATA[IRQ_CTRL_START_BIT];
+    wire                                            start_request_full_pclk         ;
+    assign start_request_full_pclk = (r_start_request_count == BASE_FIFO_DEPTH_COUNT);
+    wire                                            start_request_push_pclk         ;
+    assign start_request_push_pclk = start_request_pclk && !start_request_full_pclk;
+    wire                                            start_request_available_pclk    ;
+    assign start_request_available_pclk = (r_start_request_count != {BASE_FIFO_CNT_W{1'b0}}) ||
+                                          start_request_push_pclk;
+    wire                                            base_fifo_start_pclk            ;
+    assign base_fifo_start_pclk = start_request_available_pclk &&
+                                  base_fifo_all_valid_pclk &&
+                                  !r_start_wait_busy_seen &&
+                                  !status_meta_busy_pclk &&
+                                  meta_launch_slot_free_pclk;
     wire                                            push_tile_rgba_y_fifo           ;
     assign push_tile_rgba_y_fifo = apb_write && (apb_addr == REG_TILE_BASE_Y_HI);
     wire                                            push_tile_uv_fifo               ;
@@ -366,6 +381,7 @@ module ubwc_dec_apb_reg_blk #(
             r_vivo_sreset                       <= 1'b0;
             r_meta_start_toggle                 <= 1'b0;
             r_start_wait_busy_seen              <= 1'b0;
+            r_start_request_count               <= {BASE_FIFO_CNT_W{1'b0}};
             r_meta_base_format                  <= 5'd0;
             r_meta_base_addr_rgba_y             <= {AXI_AW{1'b0}};
             r_meta_base_addr_uv                 <= {AXI_AW{1'b0}};
@@ -406,6 +422,12 @@ module ubwc_dec_apb_reg_blk #(
             end else if (status_meta_busy_pclk || status_stage_done_pclk[0]) begin
                 r_start_wait_busy_seen   <= 1'b0;
             end
+
+            case ({start_request_push_pclk, base_fifo_start_pclk})
+                2'b10: r_start_request_count <= r_start_request_count + 1'b1;
+                2'b01: r_start_request_count <= r_start_request_count - 1'b1;
+                default: r_start_request_count <= r_start_request_count;
+            endcase
 
             if (push_tile_rgba_y_fifo) begin
                 fifo_tile_base_addr_rgba_y[fifo_tile_rgba_y_wr_ptr] <= {PWDATA[AXI_AW-33:0], r_tile_base_addr_rgba_y[31:0]};
@@ -776,7 +798,8 @@ module ubwc_dec_apb_reg_blk #(
                 r_prdata = {{(DW-7){1'b0}}, status_vivo_error_bits_pclk};
             end
             APB_ADDR_IRQ_CTRL: begin
-                r_prdata = {{(DW-5){1'b0}},
+                r_prdata = {{(DW-6){1'b0}},
+                            1'b0,
                             status_irq_correct_pending_pclk,
                             status_irq_error_pending_pclk,
                             status_irq_pending_pclk,

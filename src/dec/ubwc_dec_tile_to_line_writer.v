@@ -77,10 +77,8 @@ module tile_to_line_writer #(
     wire                                            data_fifo_prog_full             ;
     wire                                            data_fifo_valid                 ;
     wire        [5                   -1 :0]         data_fifo_data_count            ;
-    wire                                            fifo_status_seen                ;
     wire                                            tile_hdr_fire                   ;
     wire                                            data_credit_has_room            ;
-    wire        [15                     :0]         hdr_fifo_tile_y                 ;
     wire        [255                    :0]         cur_tdata                       ;
     wire                                            cur_tlast                       ;
     wire        [15                     :0]         cur_tile_x                      ;
@@ -169,15 +167,11 @@ module tile_to_line_writer #(
     );
 
     assign frame_start                = (i_frame_start == 1'b1);
-    assign hdr_fifo_tile_y            = hdr_fifo_dout[15:0];
-    assign fifo_status_seen           = hdr_fifo_prog_full | hdr_fifo_valid | (|hdr_fifo_data_count) |
-                                        (|hdr_fifo_tile_y) |
-                                        data_fifo_prog_full | data_fifo_valid | (|data_fifo_data_count);
     assign data_credit_has_room       = (data_credit_used <= DATA_CREDIT_W'(TILE_WRITER_FIFO_DEPTH - TILE_DATA_BEATS));
     assign s_axis_tile_ready          = ~hdr_fifo_full && data_credit_has_room;
     assign tile_hdr_fire              = s_axis_tile_valid && s_axis_tile_ready;
     assign tile_ctx_available         = !hdr_fifo_empty || (s_axis_tile_valid && s_axis_tile_ready);
-    assign s_axis_tready              = ~data_fifo_full && tile_ctx_available && !(fifo_status_seen & 1'b0);
+    assign s_axis_tready              = ~data_fifo_full && tile_ctx_available;
     assign cur_tdata                  = data_fifo_dout[255:0];
     assign cur_tlast                  = data_fifo_dout[256];
     assign cur_tile_x                 = hdr_fifo_dout[31:16];

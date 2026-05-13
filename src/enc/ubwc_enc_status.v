@@ -117,17 +117,17 @@ module ubwc_enc_status
     assign stage_done_next[1]        = stage_done_r[1] |
                                        (i_addr_cfg_done_event &  i_addr_cfg_done_slot);
     assign stage_done_next[2]        = stage_done_r[2] |
-                                       (i_addr_cfg_done_event & ~i_addr_cfg_done_slot);
+                                       (i_correct_irq_event & ~i_correct_irq_slot);
     assign stage_done_next[3]        = stage_done_r[3] |
-                                       (i_addr_cfg_done_event &  i_addr_cfg_done_slot);
+                                       (i_correct_irq_event &  i_correct_irq_slot);
     assign stage_done_next[4]        = stage_done_r[4] |
                                        (i_correct_irq_event & ~i_correct_irq_slot);
     assign stage_done_next[5]        = stage_done_r[5] |
                                        (i_correct_irq_event &  i_correct_irq_slot);
     assign stage_done_next[6]        = stage_done_r[6] |
-                                       (i_addr_cfg_done_event & ~i_addr_cfg_done_slot);
+                                       (i_correct_irq_event & ~i_correct_irq_slot);
     assign stage_done_next[7]        = stage_done_r[7] |
-                                       (i_addr_cfg_done_event &  i_addr_cfg_done_slot);
+                                       (i_correct_irq_event &  i_correct_irq_slot);
     assign o_stage_done              = stage_done_r;
     assign o_frame_done              = frame_done_r;
     assign o_irq_correct_pending     = irq_correct_pending_r;

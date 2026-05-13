@@ -39,7 +39,7 @@ ubwc_enc_apb_reg_blk,0x003C,REG_TILE_BASE_Y_HI,读写,0x00000000,31:0,y_base_off
 ubwc_enc_apb_reg_blk,0x0040,REG_META_BASE_UV_LO,读写,0x00000000,31:0,meta_uv_base_offset_addr[31:0],ENC UV metadata base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_enc_apb_reg_blk,0x0044,REG_META_BASE_UV_HI,读写,0x00000000,31:0,meta_uv_base_offset_addr[63:32],ENC UV metadata base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_enc_apb_reg_blk,0x0048,REG_TILE_BASE_UV_LO,读写,0x00000000,31:0,uv_base_offset_addr[31:0],ENC UV tile/pixel 数据 base 地址，RGBA 图像不关心。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
-ubwc_enc_apb_reg_blk,0x004C,REG_TILE_BASE_UV_HI,读写,0x00000000,31:0,uv_base_offset_addr[63:32],ENC UV tile/pixel 数据 base 地址，RGBA 图像不关心。,每帧配置；该高 32 bit 写入必须最后写，会提交当前四个 base 地址为一组帧地址。
+ubwc_enc_apb_reg_blk,0x004C,REG_TILE_BASE_UV_HI,读写,0x00000000,31:0,uv_base_offset_addr[63:32],ENC UV tile/pixel 数据 base 地址，RGBA 图像不关心。,每帧配置；写完四个 base 地址后，软件写 REG_IRQ_CTRL[5] 启动本帧。
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,读写,0x00000000,15:0,meta_active_width_px,metadata active 区域宽度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,读写,0x00000000,31:16,meta_active_height_px,metadata active 区域高度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0054,REG_META_PITCH,读写,0x00000000,31:0,meta_data_plane_pitch,metadata plane pitch 配置。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
@@ -61,6 +61,7 @@ ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,写 1 脉冲,0x00000000,1,irq_clear,中
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,只读,dynamic,2,irq_pending,任意中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,只读,dynamic,3,irq_correct_pending,正确完成中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,只读,dynamic,4,irq_error_pending,错误状态位。,运行中或中断后读取，用于调试和状态确认。
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,写 1 脉冲,0x00000000,5,start,帧启动写 1 脉冲。,每帧地址配置完成后写 1；读回为 0。
 ubwc_enc_apb_reg_blk,0x0064,REG_STATUS2,只读,dynamic,2:0,irq_status,中断状态位图。,运行中或中断后读取，用于调试和状态确认。
 ubwc_enc_apb_reg_blk,0x0068,REG_META_COUNT0,只读,dynamic,31:0,meta_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x0069,REG_META_COUNT1,只读,dynamic,31:0,meta_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
@@ -129,6 +130,7 @@ ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,写 1 脉冲,0x00000000,1,irq_clea
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,只读,dynamic,2,irq_pending,任意中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,只读,dynamic,3,irq_error_pending,错误状态位。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,只读,dynamic,4,irq_correct_pending,正确完成中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,写 1 脉冲,0x00000000,5,start,帧启动写 1 脉冲。,每帧输入 UBWC 地址配置完成后写 1；读回为 0。
 ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_STATUS4,只读,dynamic,2:0,irq_status,中断状态位图。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0068,APB_ADDR_STAT_META,只读,dynamic,31:0,stat_meta_tile_cnt,DEC metadata 有效 tile 计数。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x006C,APB_ADDR_STAT_TILE,只读,dynamic,31:0,stat_tile_addr_cnt,DEC tile 地址生成有效 tile 计数。,运行中或中断后读取，用于调试和状态确认。

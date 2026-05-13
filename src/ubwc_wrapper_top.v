@@ -53,6 +53,7 @@ module ubwc_wrapper_top #(
     // ---------------------------------------------------------------------
     input  wire                             enc_i_clk,
     input  wire                             enc_i_otf_clk,
+    input  wire                             enc_i_vivo_clk,
     input  wire                             enc_i_rstn,
 
     // ---------------------------------------------------------------------
@@ -130,6 +131,7 @@ module ubwc_wrapper_top #(
     // Decoder OTF output clock/reset
     // ---------------------------------------------------------------------
     input  wire                             dec_i_otf_clk,
+    input  wire                             dec_i_vivo_clk,
     input  wire                             dec_i_otf_rstn,
     output wire                             dec_o_otf_vsync,
     output wire                             dec_o_otf_hsync,
@@ -205,6 +207,7 @@ module ubwc_wrapper_top #(
         .PRDATA         (enc_PRDATA),
         .i_clk          (enc_i_clk),
         .i_otf_clk      (enc_i_otf_clk),
+        .i_vivo_clk     (enc_i_vivo_clk),
         .i_rstn         (enc_i_rstn),
         .i_otf_vsync    (enc_i_otf_vsync),
         .i_otf_hsync    (enc_i_otf_hsync),
@@ -272,6 +275,7 @@ module ubwc_wrapper_top #(
         .PSLVERR            (dec_PSLVERR),
         .PRDATA             (dec_PRDATA),
         .i_otf_clk          (dec_i_otf_clk),
+        .i_vivo_clk         (dec_i_vivo_clk),
         .i_otf_rstn         (dec_i_otf_rstn),
         .o_otf_vsync        (dec_o_otf_vsync),
         .o_otf_hsync        (dec_o_otf_hsync),

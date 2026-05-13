@@ -181,6 +181,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     localparam integer CASE_HIGHEST_BANK = CASE_IS_G016 ? G016_HIGHEST_BANK :
                                            (CASE_IS_NV12 ? NV12_HIGHEST_BANK : RGBA_HIGHEST_BANK);
 
+    localparam real TB_APB_CLK_HALF_NS   = 5.0000;   // 100 MHz
+    localparam real TB_AXI_CLK_HALF_NS   = 1.0000;   // 500 MHz
+    localparam real TB_CORE_CLK_HALF_NS  = 2.5000;   // 200 MHz
+    localparam real TB_OTF_CLK_HALF_NS   = 1.5625;   // 320 MHz
+
     reg                       PCLK;
     reg                       PRESETn;
     reg                       PSEL;
@@ -194,6 +199,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
     reg                       i_axi_clk;
     reg                       i_axi_rstn;
+    reg                       i_vivo_clk;
     reg                       i_otf_clk;
     reg                       i_otf_rstn;
 
@@ -1497,6 +1503,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 apb_write(16'h0044, CASE_META_BASE_ADDR_UV[63:32]);
                 apb_write(16'h0048, CASE_TILE_BASE_ADDR_UV[31:0]);
                 apb_write(16'h004c, CASE_TILE_BASE_ADDR_UV[63:32]);
+                apb_write(16'h0060, 32'h0000_0021);
             end
         end
     endtask
@@ -1575,6 +1582,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .PSLVERR           (PSLVERR),
         .PRDATA            (PRDATA),
         .i_otf_clk         (i_otf_clk),
+        .i_vivo_clk        (i_vivo_clk),
         .i_otf_rstn        (i_otf_rstn),
         .o_otf_vsync       (o_otf_vsync),
         .o_otf_hsync       (o_otf_hsync),
@@ -1673,17 +1681,22 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
     initial begin
         PCLK = 1'b0;
-        forever #5 PCLK = ~PCLK;
+        forever #(TB_APB_CLK_HALF_NS) PCLK = ~PCLK;
     end
 
     initial begin
         i_axi_clk = 1'b0;
-        forever #1 i_axi_clk = ~i_axi_clk;
+        forever #(TB_AXI_CLK_HALF_NS) i_axi_clk = ~i_axi_clk;
+    end
+
+    initial begin
+        i_vivo_clk = 1'b0;
+        forever #(TB_CORE_CLK_HALF_NS) i_vivo_clk = ~i_vivo_clk;
     end
 
     initial begin
         i_otf_clk = 1'b0;
-        forever #5 i_otf_clk = ~i_otf_clk;
+        forever #(TB_OTF_CLK_HALF_NS) i_otf_clk = ~i_otf_clk;
     end
 
     always @(posedge i_otf_clk or negedge i_otf_rstn) begin
@@ -1933,15 +1946,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 if (TB_REAL_VIVO_MODE == 0) begin
                     fake_ci_fifo_wr_cnt <= fake_ci_fifo_wr_cnt + 1;
                 end
-                write_vivo_ci_dump(dut.u_dec_vivo_top.i_ci_format,
+                write_vivo_ci_dump(dut.tile_ci_format_int,
                                    dut.tile_x_coord_int,
                                    dut.tile_y_coord_int,
-                                   dut.u_dec_vivo_top.i_ci_input_type,
-                                   dut.u_dec_vivo_top.i_ci_alen,
-                                   dut.u_dec_vivo_top.i_ci_metadata,
-                                   dut.u_dec_vivo_top.i_ci_lossy,
-                                   dut.u_dec_vivo_top.i_ci_alpha_mode,
-                                   dut.u_dec_vivo_top.i_ci_sb);
+                                   dut.tile_ci_input_type_int,
+                                   dut.tile_ci_alen_int,
+                                   dut.tile_ci_metadata_int,
+                                   dut.tile_ci_lossy_int,
+                                   dut.tile_ci_alpha_mode_int,
+                                   dut.tile_ci_sb_int);
                 last_progress_cycle  <= cycle_cnt;
             end
 
@@ -1953,9 +1966,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                         ci_x_queue[cvi_tile_rd_ptr],
                                         ci_y_queue[cvi_tile_rd_ptr],
                                         cvi_tile_beat_idx,
-                                        dut.u_dec_vivo_top.i_cvi_last,
-                                        dut.u_dec_vivo_top.i_cvi_data);
-                    if (dut.u_dec_vivo_top.i_cvi_last) begin
+                                        dut.tile_cvi_last_int,
+                                        dut.tile_cvi_data_int);
+                    if (dut.tile_cvi_last_int) begin
                         cvi_tile_rd_ptr   <= cvi_tile_rd_ptr + 1;
                         cvi_tile_beat_idx <= 0;
                     end else begin
@@ -2096,11 +2109,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             end
 
             if (dut.tile_m_axi_rvalid && dut.tile_m_axi_rready &&
-                !(dut.vivo_rvo_valid && dut.vivo_rvo_ready)) begin
+                !(dut.otf_axis_tvalid && dut.otf_axis_tready_int)) begin
                 tile_rbeat_no_rvo_cnt <= tile_rbeat_no_rvo_cnt + 1;
             end
 
-            if (dut.vivo_rvo_valid && dut.vivo_rvo_ready) begin
+            if (dut.otf_axis_tvalid && dut.otf_axis_tready_int) begin
                 rvo_beat_cnt       <= rvo_beat_cnt + 1;
                 last_progress_cycle<= cycle_cnt;
                 if (cmp_tile_rd_ptr >= ci_queue_wr_ptr) begin
@@ -2111,12 +2124,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                         first_rvo_mismatch_y    <= 10'd0;
                         first_rvo_mismatch_beat <= cmp_tile_beat_idx;
                         first_rvo_expected_data <= {AXI_DW{1'b0}};
-                        first_rvo_actual_data   <= dut.vivo_rvo_data;
+                        first_rvo_actual_data   <= dut.otf_axis_tdata;
                         first_rvo_expected_alen <= 3'd7;
-                        first_rvo_actual_last   <= dut.vivo_rvo_last;
+                        first_rvo_actual_last   <= dut.otf_axis_tlast;
                     end
                 end else begin
-                    if (dut.vivo_rvo_data !== pack_ref_tile_axi_word(ci_fmt_queue[cmp_tile_rd_ptr],
+                    if (dut.otf_axis_tdata !== pack_ref_tile_axi_word(ci_fmt_queue[cmp_tile_rd_ptr],
                                                                      ci_x_queue[cmp_tile_rd_ptr],
                                                                      ci_y_queue[cmp_tile_rd_ptr],
                                                                      cmp_tile_beat_idx)) begin
@@ -2130,12 +2143,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                                                                ci_x_queue[cmp_tile_rd_ptr],
                                                                                ci_y_queue[cmp_tile_rd_ptr],
                                                                                cmp_tile_beat_idx);
-                            first_rvo_actual_data   <= dut.vivo_rvo_data;
+                            first_rvo_actual_data   <= dut.otf_axis_tdata;
                             first_rvo_expected_alen <= 3'd7;
-                            first_rvo_actual_last   <= dut.vivo_rvo_last;
+                            first_rvo_actual_last   <= dut.otf_axis_tlast;
                         end
                     end
-                    if (dut.vivo_rvo_last !== (cmp_tile_beat_idx == (CASE_FULL_TILE_BEATS - 1))) begin
+                    if (dut.otf_axis_tlast !== (cmp_tile_beat_idx == (CASE_FULL_TILE_BEATS - 1))) begin
                         rvo_last_mismatch_cnt <= rvo_last_mismatch_cnt + 1;
                         if ((rvo_data_mismatch_cnt == 0) && (rvo_last_mismatch_cnt == 0)) begin
                             first_rvo_mismatch_fmt  <= ci_fmt_queue[cmp_tile_rd_ptr];
@@ -2146,12 +2159,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                                                                                ci_x_queue[cmp_tile_rd_ptr],
                                                                                ci_y_queue[cmp_tile_rd_ptr],
                                                                                cmp_tile_beat_idx);
-                            first_rvo_actual_data   <= dut.vivo_rvo_data;
+                            first_rvo_actual_data   <= dut.otf_axis_tdata;
                             first_rvo_expected_alen <= 3'd7;
-                            first_rvo_actual_last   <= dut.vivo_rvo_last;
+                            first_rvo_actual_last   <= dut.otf_axis_tlast;
                         end
                     end
-                    if (dut.vivo_rvo_last) begin
+                    if (dut.otf_axis_tlast) begin
                         rvo_last_cnt <= rvo_last_cnt + 1;
                         if (TB_REAL_VIVO_MODE == 0) begin
                             fake_ci_fifo_rd_cnt <= fake_ci_fifo_rd_cnt + 1;
@@ -2161,19 +2174,19 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     if (stream_fd != 0) begin
                         $fwrite(stream_fd, "%0d %0d %0d %0d %064h\n",
                                 ci_fmt_queue[cmp_tile_rd_ptr], ci_x_queue[cmp_tile_rd_ptr], ci_y_queue[cmp_tile_rd_ptr],
-                                cmp_tile_beat_idx, dut.vivo_rvo_data);
+                                cmp_tile_beat_idx, dut.otf_axis_tdata);
                     end
                     write_vivo_rvo_dump(ci_fmt_queue[cmp_tile_rd_ptr],
                                         ci_x_queue[cmp_tile_rd_ptr],
                                         ci_y_queue[cmp_tile_rd_ptr],
                                         cmp_tile_beat_idx,
-                                        dut.u_dec_vivo_top.o_rvo_last,
-                                        dut.u_dec_vivo_top.o_rvo_data);
+                                        dut.otf_axis_tlast,
+                                        dut.otf_axis_tdata);
                     capture_rvo_beat_to_plane_mem(ci_fmt_queue[cmp_tile_rd_ptr],
                                                   ci_x_queue[cmp_tile_rd_ptr],
                                                   ci_y_queue[cmp_tile_rd_ptr],
                                                   cmp_tile_beat_idx,
-                                                  dut.vivo_rvo_data);
+                                                  dut.otf_axis_tdata);
                     if (expected_stream_fd != 0) begin
                         $fwrite(expected_stream_fd, "%0d %0d %0d %0d %064h\n",
                                 ci_fmt_queue[cmp_tile_rd_ptr], ci_x_queue[cmp_tile_rd_ptr], ci_y_queue[cmp_tile_rd_ptr],

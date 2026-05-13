@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="760" viewBox="0 0 1440 760">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: 700; }
+      .lane { font-size: 16px; font-weight: 700; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .small { font-size: 14px; fill: #334155; }
+      .sig { font-size: 13px; fill: #0f172a; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.5; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #2563eb; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .err { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1440" height="760" fill="#f8fafc"/>
+  <rect width="1440" height="760" fill="url(#grid)" opacity="0.8"/>
+  <text x="40" y="48" class="title">ENC AXI write 详图: tile/meta 地址生成与 AXI 写合并</text>
+
+  <rect x="0" y="80" width="1440" height="120" fill="#f5f3ff" opacity="0.82"/>
+  <rect x="0" y="200" width="1440" height="400" fill="#ecfdf5" opacity="0.82"/>
+  <rect x="0" y="600" width="1440" height="80" fill="#fff7ed" opacity="0.78"/>
+  <text x="24" y="116" class="lane">VIVO / i_vivo_clk</text>
+  <text x="24" y="236" class="lane">AXI-core / i_clk</text>
+  <text x="24" y="636" class="lane">APB config / status</text>
+
+  <rect x="120" y="108" width="170" height="64" class="box"/>
+  <text x="158" y="136">VIVO CVO</text>
+  <text x="142" y="158" class="small">compressed stream</text>
+
+  <rect x="120" y="260" width="170" height="72" class="box"/>
+  <text x="168" y="290">CDC FIFO</text>
+  <text x="140" y="314" class="small">cvo + coord + sb</text>
+
+  <rect x="360" y="260" width="180" height="72" class="box"/>
+  <text x="410" y="290">tile_addr</text>
+  <text x="382" y="314" class="small">Y/UV base select</text>
+
+  <rect x="360" y="420" width="180" height="72" class="box"/>
+  <text x="396" y="450">meta_addr_gen</text>
+  <text x="382" y="474" class="small">meta byte address</text>
+
+  <rect x="620" y="260" width="190" height="72" class="box"/>
+  <text x="654" y="290">tile_axi_wcmd_gen</text>
+  <text x="654" y="314" class="small">burst write</text>
+
+  <rect x="620" y="420" width="190" height="72" class="box"/>
+  <text x="650" y="450">meta_axi_wcmd_gen</text>
+  <text x="660" y="474" class="small">single beat</text>
+
+  <rect x="900" y="340" width="180" height="72" class="box"/>
+  <text x="950" y="370">axi_2t1</text>
+  <text x="928" y="394" class="small">tile/meta write arb</text>
+
+  <rect x="1160" y="340" width="170" height="72" class="box"/>
+  <text x="1198" y="370">x2x bridge</text>
+  <text x="1192" y="394" class="small">ID 4b/5b + width</text>
+
+  <path class="flow" d="M 290 140 H 320 V 296 H 360"/>
+  <text x="304" y="126" class="sig">cvo_data[255:0], cvo_keep[31:0]</text>
+  <path class="flow" d="M 290 296 H 360"/>
+  <text x="296" y="282" class="sig">coord{x[7:0],y[12:0],fcnt[3:0]}</text>
+  <path class="flow" d="M 540 296 H 620"/>
+  <text x="548" y="282" class="sig">tile_awaddr[63:0], tile_wdata[63:0]</text>
+  <path class="flow" d="M 540 456 H 620"/>
+  <text x="548" y="442" class="sig">meta_awaddr[63:0], meta_wdata[63:0]</text>
+  <path class="flow" d="M 810 296 H 860 V 360 H 900"/>
+  <text x="814" y="282" class="sig">tile_aw/w/b id[4:0]</text>
+  <path class="flow" d="M 810 456 H 860 V 392 H 900"/>
+  <text x="814" y="442" class="sig">meta_aw/w/b id[4:0]</text>
+  <path class="flow" d="M 1080 376 H 1160"/>
+  <text x="1090" y="362" class="sig">merged AXI4 write[64b]</text>
+  <path class="flow" d="M 1330 376 H 1400"/>
+  <text x="1328" y="362" class="sig">m_axi_awaddr[63:0], wdata[63:0]</text>
+
+  <path class="cfg" d="M 180 640 H 450 V 332"/>
+  <text x="202" y="628" class="sig">base_y/uv/meta[63:0], addr_cfg_valid[1:0]</text>
+  <path class="err" d="M 990 340 V 640 H 280"/>
+  <text x="692" y="628" class="sig">write_err[3:0], irq_pending[0]</text>
+</svg>

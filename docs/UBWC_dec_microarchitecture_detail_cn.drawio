@@ -1,0 +1,199 @@
+<mxfile host="Electron" agent="Codex" version="24.7.8" pages="1">
+  <diagram id="dec_current_rtl_backbone" name="DEC Current RTL Backbone">
+    <mxGraphModel dx="2480" dy="1600" grid="1" gridSize="40" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2480" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="DEC Microarchitecture Detail - Current RTL" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="40" y="28" width="560" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Continuous frame-data backbone. Side branches show AXI read fabric, config, and status without crossing module boxes." style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;fontColor=#475569;align=left;verticalAlign=middle;" parent="1" vertex="1">
+          <mxGeometry x="40" y="60" width="860" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane_apb" value="APB / pclk" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=none;opacity=70;fontSize=15;fontStyle=1;align=left;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="0" y="100" width="2480" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_axi" value="AXI-control / i_axi_clk" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=none;opacity=78;fontSize=15;fontStyle=1;align=left;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="0" y="300" width="2480" height="620" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_vivo" value="VIVO / i_vivo_clk" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=none;opacity=80;fontSize=15;fontStyle=1;align=left;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="0" y="940" width="2480" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_otf" value="OTF / i_otf_clk + line SRAM" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=none;opacity=80;fontSize=15;fontStyle=1;align=left;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="0" y="1140" width="2480" height="360" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1" value="1. Reset / APB / frame fcnt / status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=2;fontSize=15;fontStyle=1;align=left;verticalAlign=top;arcSize=8;spacingLeft=24;spacingTop=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="120" width="1520" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="rstn" value="ubwc_dec_rstn_gen&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;ctrl/sram/vivo/otf reset&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#c2410c;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="120" y="170" width="210" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="apb" value="ubwc_dec_apb_reg_blk&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;cfg, address slot, IRQ ctrl&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#c2410c;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="420" y="170" width="230" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="fcnt" value="frame fcnt logic&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;active/next fcnt[3:0]&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#c2410c;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="740" y="170" width="210" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="status" value="ubwc_dec_status&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;done/error/count/IRQ&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#c2410c;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1040" y="170" width="210" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="cfg_tag" value="cfg_bus[31:0]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="1320" y="160" width="190" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="fcnt_tag" value="frame_start + fcnt[3:0]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="1320" y="205" width="190" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2" value="2. Metadata path: ubwc_dec_meta_data_gen" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=2;fontSize=15;fontStyle=1;align=left;verticalAlign=top;arcSize=8;spacingLeft=24;spacingTop=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="320" width="1380" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="meta_get" value="meta_get_cmd_gen&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;meta base by fcnt[0]&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="120" y="410" width="240" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="meta_axi" value="meta_axi_rcmd_gen&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;AR + rsp FIFO + lane select&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="460" y="410" width="260" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="meta_decode" value="meta_data_decode&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;metadata byte to dec_meta&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="820" y="410" width="250" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="dec_meta_tag" value="dec_meta_bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="1140" y="402" width="220" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="meta_axi_tag" value="meta_axi_bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="1140" y="455" width="220" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="warn" value="Current RTL: no metadata ping-pong SRAM here. metadata = get_cmd + axi_rcmd + decode." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#b45309;strokeWidth=1.5;fontSize=11;fontStyle=1;fontColor=#9a3412;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="120" y="495" width="660" height="34" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fabric_panel" value="Shared AXI read fabric" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=2;fontSize=15;fontStyle=1;align=left;verticalAlign=top;arcSize=8;spacingLeft=24;spacingTop=12;" parent="1" vertex="1">
+          <mxGeometry x="1500" y="320" width="900" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="axi_merge" value="axi_2t1_int_DW_axi&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;merge meta/tile AR/R&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1580" y="410" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="x2x" value="ubwc_x2x_DW_axi_x2x&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;internal 256b to external&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1900" y="410" width="230" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="axi_m" value="AXI M&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;AR/R external&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="2220" y="410" width="130" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p3" value="3. Tile read path: ubwc_dec_tile_arcmd_gen" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=2;fontSize=15;fontStyle=1;align=left;verticalAlign=top;arcSize=8;spacingLeft=24;spacingTop=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="590" width="1740" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="tile_addr" value="ubwc_tile_addr&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;tile base by fcnt[0]&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="120" y="690" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="ci_fifo" value="u_ci_fifo&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;cmd + coord + fcnt&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="430" y="690" width="190" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_split" value="AR split logic&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;4KB boundary split&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="710" y="690" width="190" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="ci_pending" value="u_ci_pending_fifo&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;CI waits for payload&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="990" y="690" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="rdata_fifo" value="u_rdata_fifo&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;tile R[255:0]+last&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#047857;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1300" y="690" width="200" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="tile_axi_tag" value="tile_axi_bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="1560" y="674" width="170" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="tile_to_vivo_tag" value="tile_to_vivo_bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="1560" y="730" width="170" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p4" value="4. VIVO clock crossing and decompression" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=2;fontSize=15;fontStyle=1;align=left;verticalAlign=top;arcSize=8;spacingLeft=24;spacingTop=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="890" width="2360" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="ci_async" value="u_vivo_ci_async_fifo&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;i_axi_clk to i_vivo_clk&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="120" y="990" width="230" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="cvi_async" value="u_vivo_cvi_async_fifo&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;data[255:0] CDC&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="450" y="990" width="230" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="vivo_top" value="ubwc_dec_vivo_top&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;decompression core&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="780" y="990" width="230" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="rvo_async" value="u_vivo_rvo_async_fifo&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;i_vivo_clk to i_axi_clk&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1110" y="990" width="230" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="rvo_tag" value="rvo_bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="1440" y="1005" width="180" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p5" value="5. ubwc_dec_tile_to_otf current internal implementation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=2;fontSize=15;fontStyle=1;align=left;verticalAlign=top;arcSize=8;spacingLeft=24;spacingTop=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="1150" width="2360" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="rvo_tag2" value="rvo_bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="120" y="1215" width="180" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="header_tag" value="tile_header_bus: format/x/y/fcnt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.5;fontSize=11;fontStyle=1;arcSize=50;" parent="1" vertex="1">
+          <mxGeometry x="340" y="1215" width="300" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="writer" value="tile_to_line_writer&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;i_frame_start tied 0&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="120" y="1280" width="240" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="sram" value="bank0 / bank1&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;external SRAM, 128b&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfeff;strokeColor=#0891b2;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="460" y="1280" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="fetcher" value="sram_read_fetcher&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;pending bank fetch&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="770" y="1280" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="cdc_fifo0" value="u_cdc_fifo0&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;sram clk to otf clk&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1090" y="1280" width="200" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="otf_driver" value="otf_driver&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;timing, unpack, counters&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1390" y="1280" width="200" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="otf_out" value="OTF output&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;vsync/hsync/de/data[127:0]&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontSize=13;fontStyle=1;arcSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1690" y="1280" width="220" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_rst_apb" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#2563eb;strokeWidth=2;" parent="1" source="rstn" target="apb" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_apb_fcnt" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#2563eb;strokeWidth=2;" parent="1" source="apb" target="fcnt" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_fcnt_status" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#2563eb;strokeWidth=2;" parent="1" source="fcnt" target="status" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_cfg_tag" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;dashed=1;strokeColor=#2563eb;strokeWidth=2;" parent="1" source="apb" target="cfg_tag" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_fcnt_tag" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;dashed=1;strokeColor=#2563eb;strokeWidth=2;" parent="1" source="fcnt" target="fcnt_tag" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="e_cfg_meta" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;dashed=1;strokeColor=#2563eb;strokeWidth=2;" parent="1" source="cfg_tag" target="meta_get" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1415" y="282" /><mxPoint x="240" y="282" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_meta_get_axi" value="meta_grp addr/x/y/fcnt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="meta_get" target="meta_axi" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_meta_axi_dec" value="meta_data[7:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="meta_axi" target="meta_decode" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_dec_meta" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#0f172a;strokeWidth=3;" parent="1" source="meta_decode" target="dec_meta_tag" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_meta_axi_bus" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="meta_axi" target="meta_axi_tag" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="590" y="486" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_meta_to_fabric" value="meta_axi_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="meta_axi_tag" target="axi_merge" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1520" y="471" /><mxPoint x="1520" y="441" /></Array></mxGeometry></mxCell>
+
+        <mxCell id="e_decmeta_tile" value="dec_meta_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#0f172a;strokeWidth=3;" parent="1" source="dec_meta_tag" target="tile_addr" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1250" y="620" /><mxPoint x="230" y="620" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_cfg_tile" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;dashed=1;strokeColor=#2563eb;strokeWidth=2;" parent="1" source="cfg_tag" target="tile_addr" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1415" y="282" /><mxPoint x="160" y="282" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_tile_ci" value="cmd_addr[63:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="tile_addr" target="ci_fifo" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_ci_ar" value="ci_fifo_dout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="ci_fifo" target="ar_split" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_ar_pending" value="AR fire" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="ar_split" target="ci_pending" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_pending_rdata" value="AXI R[255:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="ci_pending" target="rdata_fifo" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_rdata_vivo" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#0f172a;strokeWidth=3;" parent="1" source="rdata_fifo" target="tile_to_vivo_tag" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_tile_axi_tag" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="ar_split" target="tile_axi_tag" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="805" y="640" /><mxPoint x="1645" y="640" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_tile_axi_fabric" value="tile_axi_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="tile_axi_tag" target="axi_merge" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1645" y="555" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_merge_x2x" value="core AXI[256]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="axi_merge" target="x2x" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_x2x_axi" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="x2x" target="axi_m" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="e_vivo_start" value="tile_to_vivo_bus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#0f172a;strokeWidth=3;" parent="1" source="tile_to_vivo_tag" target="ci_async" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1645" y="850" /><mxPoint x="235" y="850" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_ci_cvi" value="CI fields" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#7c3aed;strokeWidth=2;" parent="1" source="ci_async" target="cvi_async" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_cvi_vivo" value="CVI[255:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#7c3aed;strokeWidth=2;" parent="1" source="cvi_async" target="vivo_top" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_vivo_rvo" value="RVO[255:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#7c3aed;strokeWidth=2;" parent="1" source="vivo_top" target="rvo_async" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_rvo_tag" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#0f172a;strokeWidth=3;" parent="1" source="rvo_async" target="rvo_tag" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="e_rvo_writer" value="RVO data[255:0], last" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#0f172a;strokeWidth=3;" parent="1" source="rvo_tag" target="writer" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1530" y="1215" /><mxPoint x="210" y="1215" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_header_writer" value="tile header from tile_arcmd_gen" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#0f172a;strokeWidth=3;" parent="1" source="tile_to_vivo_tag" target="header_tag" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1645" y="1195" /><mxPoint x="490" y="1195" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_header_writer2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#0f172a;strokeWidth=3;" parent="1" source="header_tag" target="writer" edge="1"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="490" y="1260" /><mxPoint x="240" y="1260" /></Array></mxGeometry></mxCell>
+        <mxCell id="e_writer_sram" value="waddr/wdata[127:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="writer" target="sram" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_sram_fetcher" value="raddr/rdata[127:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="sram" target="fetcher" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_fetch_cdc" value="fifo_wdata[255:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="fetcher" target="cdc_fifo0" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_cdc_driver" value="otf payload[255:0]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#7c3aed;strokeWidth=2;" parent="1" source="cdc_fifo0" target="otf_driver" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e_driver_out" value="data[127:0]+sync" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;strokeColor=#334155;strokeWidth=2;" parent="1" source="otf_driver" target="otf_out" edge="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

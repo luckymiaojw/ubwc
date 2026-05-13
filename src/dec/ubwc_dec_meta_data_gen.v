@@ -71,7 +71,6 @@ module ubwc_dec_meta_data_gen
     wire        [12                  -1 :0]         meta_data_xcoord                ;
     wire        [10                  -1 :0]         meta_data_ycoord                ;
     wire        [4                   -1 :0]         meta_data_fcnt                  ;
-    wire                                            tile_number_high_seen           ;
     wire        [4                   -1 :0]         meta_fcnt                       ;
     wire        [12                  -1 :0]         tile_x_numbers_12b              ;
     wire        [10                  -1 :0]         tile_y_numbers_10b              ;
@@ -79,7 +78,7 @@ module ubwc_dec_meta_data_gen
     assign tile_x_numbers_12b        = tile_x_numbers[11:0];
     assign tile_y_numbers_10b        = tile_y_numbers[9:0];
 
-    ubwc_enc_meta_get_cmd_gen #(
+    ubwc_dec_meta_get_cmd_gen #(
         .ADDR_WIDTH             ( ADDR_WIDTH                            ),
         .TW_DW                  ( 12                                    ),
         .TH_DW                  ( 10                                    )
@@ -168,8 +167,7 @@ module ubwc_dec_meta_data_gen
         .o_dec_fcnt             ( o_dec_fcnt                            )
     );
 
-    assign tile_number_high_seen = (|tile_x_numbers[15:12]) | (|tile_y_numbers[15:10]);
     assign o_busy = meta_grp_valid | m_axi_arvalid | m_axi_rvalid | meta_data_valid |
-                    o_dec_valid | (tile_number_high_seen & 1'b0);
+                    o_dec_valid;
 
 endmodule

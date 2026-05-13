@@ -64,7 +64,7 @@
         <mxCell id="x2x" value="&lt;b&gt;ubwc_x2x_DW_axi_x2x&lt;/b&gt;&lt;br&gt;AXI width/adapter bridge&lt;br&gt;输出 o_m_axi_aw/w/b" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#64748b;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="1835" y="1045" width="260" height="112" as="geometry"/>
         </mxCell>
-        <mxCell id="note" value="fcnt 主线：i_otf_fcnt → otf_to_tile → rvi_fcnt / b_tile_fcnt → tile/meta addr → AXI ID；fcnt[0] 选择地址 slot0/slot1。&lt;br&gt;错误/中断：OTF bad line/frame、FIFO overflow、metadata error、VIVO error 与地址无效进入 APB/status；正确中断由 OTF_TO_TILE 在倒数第 4 行 hsync 对齐点产生。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=13;fontColor=#64748b;align=left;verticalAlign=middle;spacingLeft=24;" vertex="1" parent="1">
+        <mxCell id="note" value="fcnt 主线：i_otf_fcnt → otf_to_tile → rvi_fcnt / b_tile_fcnt → tile/meta addr → AXI ID；fcnt[0] 选择地址 slot0/slot1。&lt;br&gt;错误/中断：OTF bad line/frame、FIFO overflow、metadata error、VIVO error 与地址无效进入 APB/status；正确中断由 OTF_TO_TILE 在最后一笔有效输出数据完成后产生。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=13;fontColor=#64748b;align=left;verticalAlign=middle;spacingLeft=24;" vertex="1" parent="1">
           <mxGeometry x="50" y="1190" width="2060" height="88" as="geometry"/>
         </mxCell>
 

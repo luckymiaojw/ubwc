@@ -103,7 +103,7 @@
 
   <rect class="lane" x="50" y="1120" width="1870" height="86" rx="16"/>
   <text class="small" x="85" y="1150">fcnt 路径：APB 地址组启动时生成 dec_frame_fcnt → metadata 读命令 AXI ID → tile read AXI ID → tile coord / CI sb → VIVO → tile_to_otf → o_otf_fcnt。</text>
-  <text class="small" x="85" y="1174">中断路径：tile_to_otf 在倒数第 4 行 hsync 输出时产生 correct_irq；metadata/tile/VIVO/OTF 的 busy、done 和统计计数进入 ubwc_dec_status，再由 APB 读出。</text>
+  <text class="small" x="85" y="1174">中断路径：tile_to_otf 在最后一个有效数据输出时产生 correct_irq/frame_done；metadata/tile/VIVO/OTF 的 busy、done 和统计计数进入 ubwc_dec_status，再由 APB 读出。</text>
 
   <path class="dash" d="M425 220 L500 220"/>
   <path class="dash" d="M830 220 L905 220"/>

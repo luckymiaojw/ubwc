@@ -15,22 +15,28 @@ module ubwc_dec_rstn_gen (
     input   wire                                        i_axi_rstn                      ,
     input   wire                                        i_otf_clk                       ,
     input   wire                                        i_otf_rstn                      ,
+    input   wire                                        i_vivo_clk                      ,
     output  wire                                        o_ctrl_rst_n                    ,
     output  wire                                        o_sram_rst_n                    ,
-    output  wire                                        o_otf_rst_n
+    output  wire                                        o_otf_rst_n                     ,
+    output  wire                                        o_vivo_rst_n
 );
 
     wire                                            ctrl_rst_n_async                ;
     wire                                            otf_rst_n_async                 ;
+    wire                                            vivo_rst_n_async                ;
 
     reg         [1                      :0]         ctrl_rst_n_sync                 ;
     reg         [1                      :0]         otf_rst_n_sync                  ;
+    reg         [1                      :0]         vivo_rst_n_sync                 ;
 
     assign ctrl_rst_n_async = i_presetn & i_axi_rstn;
     assign otf_rst_n_async = i_presetn & i_axi_rstn & i_otf_rstn;
+    assign vivo_rst_n_async = i_presetn & i_axi_rstn;
     assign o_ctrl_rst_n = ctrl_rst_n_sync[1];
     assign o_sram_rst_n = ctrl_rst_n_sync[1];
     assign o_otf_rst_n  = otf_rst_n_sync[1];
+    assign o_vivo_rst_n = vivo_rst_n_sync[1];
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n_async) begin
         if (!ctrl_rst_n_async) begin
@@ -45,6 +51,14 @@ module ubwc_dec_rstn_gen (
             otf_rst_n_sync <= 2'b00;
         end else begin
             otf_rst_n_sync <= {otf_rst_n_sync[0], 1'b1};
+        end
+    end
+
+    always @(posedge i_vivo_clk or negedge vivo_rst_n_async) begin
+        if (!vivo_rst_n_async) begin
+            vivo_rst_n_sync <= 2'b00;
+        end else begin
+            vivo_rst_n_sync <= {vivo_rst_n_sync[0], 1'b1};
         end
     end
 

@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rotation 图像旋转模块产品说明书</title>
+  <style>
+    :root {
+      --text: #1f2937;
+      --muted: #5b6472;
+      --line: #d8dee9;
+      --blue: #eaf4ff;
+      --green: #eefbf1;
+      --orange: #fff5e6;
+      --purple: #f6efff;
+      --red: #fff1f2;
+      --code: #f6f8fa;
+    }
+    body {
+      margin: 0;
+      background: #f3f5f8;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      background: #fff;
+      min-height: 100vh;
+    }
+    header {
+      padding: 36px 46px 28px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+    }
+    h1 { margin: 0; font-size: 32px; }
+    .subtitle { color: var(--muted); margin: 10px 0 0; max-width: 1080px; }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .meta div {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #fff;
+    }
+    .meta span { display: block; color: var(--muted); font-size: 13px; }
+    .meta strong { display: block; font-size: 18px; margin-top: 4px; }
+    .layout {
+      display: grid;
+      grid-template-columns: 255px 1fr;
+      gap: 0;
+    }
+    nav {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100vh;
+      overflow: auto;
+      border-right: 1px solid var(--line);
+      padding: 24px 22px;
+      background: #fbfcfe;
+    }
+    nav h2 { font-size: 16px; margin: 0 0 12px; }
+    nav a {
+      display: block;
+      color: #334155;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 5px 0;
+    }
+    main { padding: 30px 44px 70px; }
+    section { margin-bottom: 42px; }
+    h2 {
+      font-size: 24px;
+      margin: 0 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    h3 { font-size: 18px; margin: 24px 0 10px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      vertical-align: top;
+    }
+    th { background: #f8fafc; text-align: left; }
+    pre {
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      overflow: auto;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+    }
+    .card strong { display: block; margin-bottom: 6px; }
+    .note {
+      border-left: 4px solid #357abd;
+      background: #eff6ff;
+      padding: 12px 14px;
+      margin: 14px 0;
+      border-radius: 8px;
+    }
+    figure { margin: 14px 0 18px; }
+    figure img {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+    figcaption { margin-top: 8px; color: var(--muted); font-size: 13px; }
+    .tag {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--blue);
+      margin-right: 6px;
+      font-size: 12px;
+    }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: static; height: auto; }
+      .meta, .cards { grid-template-columns: 1fr; }
+      main, header { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Rotation 图像旋转模块产品说明书</h1>
+      <p class="subtitle">内部集成使用的 YUV420 OTF 图像旋转 IP，支持 8bit/10bit 输入、双帧 FBC buffer、512bit packet 对齐访问、多时钟域处理和 bypass 输出。</p>
+      <div class="meta">
+        <div><span>版本寄存器</span><strong>0x26050001</strong></div>
+        <div><span>日期寄存器</span><strong>0x20260506</strong></div>
+        <div><span>最大旋转分辨率</span><strong>1920 x 1080</strong></div>
+        <div><span>Line-to-band SRAM</span><strong>360 KiB</strong></div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav>
+        <h2>目录</h2>
+        <a href="#overview">1. 产品概述</a>
+        <a href="#features">2. 主要特性</a>
+        <a href="#architecture">3. 系统架构</a>
+        <a href="#workflow">4. 工作流程</a>
+        <a href="#format">5. 数据格式</a>
+        <a href="#rotation">6. 旋转模式</a>
+        <a href="#sram">7. SRAM 说明</a>
+        <a href="#fbc">8. FBC 存储布局</a>
+        <a href="#clock">9. 时钟和复位</a>
+        <a href="#registers">10. APB 寄存器</a>
+        <a href="#interfaces">11. 顶层接口</a>
+        <a href="#timing">12. 接口时序</a>
+        <a href="#software">13. 软件配置建议</a>
+        <a href="#limits">14. 使用限制</a>
+        <a href="#verification">15. 验证说明</a>
+        <a href="#delivery">16. 交付文件</a>
+      </nav>
+
+      <main>
+        <section id="overview">
+          <h2>1. 产品概述</h2>
+          <p><code>Rotation</code> 图像旋转模块用于对 OTF 输入的 YUV420 图像进行旋转处理，并通过外部 FBC buffer 完成中间帧缓存和输出重排。模块支持 8bit/10bit 输入，内部统一扩展为 16bit，支持 bypass、90 度、180 度、270 度输出。</p>
+          <p>该模块为内部集成使用的 ASIC 图像处理 IP，设计重点是统一封装 OTF 时序、跨时钟、band SRAM 重排、512bit FBC packet 对齐访问、双帧 base address 管理和连续帧输出控制。</p>
+        </section>
+
+        <section id="features">
+          <h2>2. 主要特性</h2>
+          <div class="cards">
+            <div class="card"><strong>格式</strong>YUV420 OTF stream，8bit/10bit 输入，内部 Y16/U16/V16。</div>
+            <div class="card"><strong>旋转</strong>bypass、rot90、rot180、rot270，超 1920x1080 自动 bypass。</div>
+            <div class="card"><strong>FBC</strong>512bit packet，外部 32bit read/write bus，16 beat 传输。</div>
+            <div class="card"><strong>连续帧</strong>frame0/frame1 双 base，通过 1bit frame_id 选择。</div>
+          </div>
+          <ul>
+            <li>Y/UV stride 支持软件配置，单位为 512bit word。</li>
+            <li>APB、OTF input、core、OTF output 多时钟域独立。</li>
+            <li>OTF input 到 core、core 到 OTF output 使用 <code>mg_async_fifo</code>。</li>
+            <li>line-to-band 使用 Y/UV 独立 ping-pong SRAM。</li>
+          </ul>
+        </section>
+
+        <section id="architecture">
+          <h2>3. 系统架构</h2>
+          <figure>
+            <img src="../build/doc/rotation_design_block_diagram.svg" alt="Rotation 系统架构图">
+            <figcaption>图 3-1 Rotation 系统架构。可编辑源文件：<code>doc/rotation_system_architecture.drawio</code></figcaption>
+          </figure>
+          <table>
+            <thead><tr><th>区域</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>Input OTF domain</td><td>接收 OTF 输入，解析 YUV420 beat，并向 core 侧异步 FIFO 写入数据。</td></tr>
+              <tr><td>Core clock domain</td><td>完成格式拆分、band SRAM 写入、旋转读出、512bit pack 和 FBC 调度。</td></tr>
+              <tr><td>FBC / Output side</td><td>通过外部 FBC buffer 完成帧缓存，再送入输出侧 OTF driver。</td></tr>
+              <tr><td>APB clock domain</td><td>软件寄存器配置和状态读取，通过 CDC 同步到 core/OTF 相关时钟域。</td></tr>
+            </tbody>
+          </table>
+          <pre><code>正常旋转路径:
+otf_parser -> u_otf_in_fifo -> otf_yuv420_stream_adapter
+  -> rotation_band_engine -> fbc_write_scheduler -> fbc_writer
+  -> External FBC Buffer -> fbc_read_path
+  -> u_y_out_fifo / u_uv_out_fifo -> otf_driver
+  -> rotation_output_mux -> out_otf_* output
+
+Bypass 路径:
+otf_parser -> rotation_bypass_path -> rotation_output_mux -> out_otf_* output</code></pre>
+        </section>
+
+        <section id="workflow">
+          <h2>4. 工作流程</h2>
+          <h3>4.1 软件配置</h3>
+          <ol>
+            <li>APB 读取 <code>VERSION</code> 和 <code>DATE</code>。</li>
+            <li>配置 <code>IN_SIZE</code>、<code>CTRL</code>、frame0/frame1 base 和 Y/UV stride。</li>
+            <li>每次合法配置写入后，<code>rotation_apb_regs</code> toggle <code>cfg_update_toggle_o</code>。</li>
+            <li><code>rotation_cfg_cdc</code> 在 core 时钟域检测 toggle，同步配置。</li>
+            <li>软件读取 <code>STATUS</code>，确认 size overflow、force bypass 或 stride clamp。</li>
+            <li>上游开始送 OTF 输入帧。</li>
+          </ol>
+          <div class="note">建议在 OTF 输入未启动或帧间空闲时完成寄存器配置。当前 APB 配置 CDC 是逐寄存器更新，不提供多寄存器原子提交屏障。</div>
+
+          <h3>4.2 输入接收</h3>
+          <p><code>otf_parser</code> 根据 <code>cfg_in_10bit</code> 解析 <code>otf_pixdata_i[39:0]</code>，8bit/10bit 输入均扩展到 16bit。非 bypass 时，<code>{frame_id, vsync, hsync, fcnt, lcnt, y0, y1, u, v}</code> 写入输入异步 FIFO；bypass 时，数据进入 <code>rotation_bypass_path</code> 内部异步 FIFO。</p>
+
+          <h3>4.3 Band SRAM 和 FBC 写入</h3>
+          <ol>
+            <li><code>rotation_frame_ctrl</code> 产生 <code>core_frame_start</code>。</li>
+            <li><code>rotation_band_engine</code> 启动 Y path 和 UV path。</li>
+            <li><code>linear_to_band_sram</code> 将线性 sample 写入当前 band SRAM。</li>
+            <li><code>rotate_band_reader</code> 按旋转后的输出顺序读取 SRAM。</li>
+            <li><code>row_512_packer</code> 收集同一输出行上的连续 sample，形成 512bit packet。</li>
+            <li><code>fbc_write_scheduler</code> 根据 <code>line/word_x</code> 计算 FBC 写地址。</li>
+            <li><code>fbc_writer</code> 将 512bit packet 拆成 16 个 32bit beat 写出。</li>
+          </ol>
+
+          <h3>4.4 FBC 读出和 OTF 输出</h3>
+          <ol>
+            <li>Y/UV write path 完成并且 FBC write path drain 后，<code>rotation_frame_ctrl</code> 产生 <code>rd_start</code>。</li>
+            <li><code>fbc_read_path</code> 根据输出高度、stride、frame_id 和 base address 依次发起 read。</li>
+            <li><code>fbc_reader</code> 收集 16 个 32bit beat，还原 512bit Y 或 UV packet。</li>
+            <li>Y/UV packet 通过两个 512bit async FIFO 送入 OTF 输出时钟域。</li>
+            <li><code>otf_driver</code> 消耗 Y/UV packet，生成 normal OTF 输出。</li>
+            <li><code>rotation_output_mux</code> 在 normal OTF 和 bypass OTF 之间选择最终输出。</li>
+          </ol>
+
+          <h3>4.5 连续帧 frame_id</h3>
+          <pre><code>frame_id = 0 -> 使用 Y_BASE / UV_BASE
+frame_id = 1 -> 使用 Y_BASE1 / UV_BASE1</code></pre>
+          <p><code>frame_id</code> 在 OTF 输入帧开始时 toggle，并跟随数据经过 input FIFO、band engine、FBC write/read 和 output path，用于连续帧双 buffer 管理。</p>
+        </section>
+
+        <section id="format">
+          <h2>5. 数据格式</h2>
+          <h3>5.1 OTF 输入 bit mapping</h3>
+          <table>
+            <thead><tr><th>输入精度</th><th>bit field</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>10bit</td><td>[39:30]</td><td>Y1</td></tr>
+              <tr><td>10bit</td><td>[29:20]</td><td>Y0</td></tr>
+              <tr><td>10bit</td><td>[19:10]</td><td>U</td></tr>
+              <tr><td>10bit</td><td>[9:0]</td><td>V</td></tr>
+              <tr><td>8bit</td><td>[39:32]</td><td>Y1</td></tr>
+              <tr><td>8bit</td><td>[29:22]</td><td>Y0</td></tr>
+              <tr><td>8bit</td><td>[19:12]</td><td>U</td></tr>
+              <tr><td>8bit</td><td>[9:2]</td><td>V</td></tr>
+            </tbody>
+          </table>
+          <pre><code>10bit input -> {sample[9:0], 6'b0}
+8bit input  -> {sample[7:0], 8'b0}
+
+Y sample  = 16bit
+UV pair   = 32bit = {U16, V16}
+
+Y packet  = 32 x Y16       = 512bit
+UV packet = 16 x {U16,V16} = 512bit
+beat0     = packet[31:0]
+beat15    = packet[511:480]</code></pre>
+        </section>
+
+        <section id="rotation">
+          <h2>6. 旋转模式</h2>
+          <table>
+            <thead><tr><th>模式</th><th>编码</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>bypass</td><td>0</td><td>不旋转，原始方向输出</td></tr>
+              <tr><td>rot90</td><td>1</td><td>顺时针旋转 90 度</td></tr>
+              <tr><td>rot180</td><td>2</td><td>旋转 180 度</td></tr>
+              <tr><td>rot270</td><td>3</td><td>顺时针旋转 270 度</td></tr>
+            </tbody>
+          </table>
+          <div class="note">当输入尺寸大于 1920 x 1080 时，硬件强制 <code>cfg_rot_mode_o = ROT_BYPASS</code>。</div>
+        </section>
+
+        <section id="sram">
+          <h2>7. Line-to-Band SRAM 说明</h2>
+          <h3>7.1 32x32 Y Tile 一列搬运到 FBC 的过程</h3>
+          <figure>
+            <img src="../build/doc/y_tile_column_to_fbc_512.svg" alt="Y tile 一列搬运到 FBC">
+            <figcaption>图 7-1 32x32 Y tile 中一列 32 个 Y16 搬运到 FBC 512bit word 的过程。</figcaption>
+          </figure>
+          <p>以 rot90 为例，输入 tile 中固定一列 <code>C</code> 的 32 个 Y16 sample，在旋转后会成为输出图像中的一段连续 32 个 Y sample。</p>
+          <pre><code>Y tile = 32 x 32
+选中输入列 C:
+  Y[0 ][C]
+  Y[1 ][C]
+  ...
+  Y[31][C]
+
+rot90 read order:
+  lane 0  &lt;- Y[31][C]
+  lane 1  &lt;- Y[30][C]
+  ...
+  lane 31 &lt;- Y[0 ][C]</code></pre>
+          <p><code>row_512_packer</code> 根据 <code>sample_lane</code> 将 32 个 Y16 写入 512bit packet，随后写入 FBC 中对应的 row-linear 地址。</p>
+          <pre><code>packet[15:0]     = lane 0
+packet[31:16]    = lane 1
+...
+packet[511:496]  = lane 31
+
+32 x Y16 = 512bit
+
+out_line = C
+word_x   = output_x / 32
+addr     = Y_BASE + out_line * Y_STRIDE + word_x</code></pre>
+          <p>关键点：tile 在 SRAM 内用于旋转读出组织；进入 FBC 后不是按 tile-major 存储，而是按输出行 row-linear 的 512bit word 存储。</p>
+
+          <h3>7.2 Tile 大小和 512bit 对齐关系</h3>
+          <pre><code>Y tile  = 32 x 32
+32 x Y16 = 512bit
+
+UV tile = 16 x 16
+16 x {U16,V16} = 512bit</code></pre>
+
+          <h3>7.3 SRAM 容量计算</h3>
+          <figure>
+            <img src="../build/doc/rotation_sram_capacity_calculation.svg" alt="SRAM 容量计算图">
+            <figcaption>图 7-2 Line-to-Band SRAM 容量计算。可编辑源文件：<code>doc/rotation_sram_capacity_calculation.drawio</code></figcaption>
+          </figure>
+          <pre><code>Y one bank    = 1920 x 32 x 16bit = 120 KiB
+Y ping-pong   = 2 x 120 KiB = 240 KiB
+RTL parameter = DATA_W=16, ADDR_W=16, DEPTH=61440
+
+UV one bank   = 960 x 16 x 32bit = 60 KiB
+UV ping-pong  = 2 x 60 KiB = 120 KiB
+RTL parameter = DATA_W=32, ADDR_W=14, DEPTH=15360
+
+Total = 360 KiB = 368640 byte = 2949120 bit</code></pre>
+          <p>1080 高度决定一帧需要处理多少个 band，不决定单个 SRAM bank 的深度。最后一个 band 不满 32/16 行时复用同一组物理 SRAM。</p>
+        </section>
+
+        <section id="fbc">
+          <h2>8. FBC 存储布局</h2>
+          <pre><code>frame_id = 0:
+  Y  base = cfg_y_base
+  UV base = cfg_uv_base
+
+frame_id = 1:
+  Y  base = cfg_y_base1
+  UV base = cfg_uv_base1
+
+addr = base + line * stride_words + word_x</code></pre>
+          <table>
+            <thead><tr><th>字段</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>base</code></td><td>当前 frame_id 和 plane 对应的 base address。</td></tr>
+              <tr><td><code>line</code></td><td>输出图像中的行号。</td></tr>
+              <tr><td><code>stride_words</code></td><td>每行占用的 512bit word 数，由软件配置并经硬件 clamp。</td></tr>
+              <tr><td><code>word_x</code></td><td>当前行内第几个 512bit word。</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="clock">
+          <h2>9. 时钟和复位</h2>
+          <table>
+            <thead><tr><th>时钟/复位</th><th>方向</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>clk_i</code></td><td>input</td><td>core clock</td></tr>
+              <tr><td><code>rstn</code></td><td>input</td><td>core 低有效复位</td></tr>
+              <tr><td><code>apb_clk_i</code></td><td>input</td><td>APB clock</td></tr>
+              <tr><td><code>apb_rstn</code></td><td>input</td><td>APB 低有效复位</td></tr>
+              <tr><td><code>otf_clk_i</code></td><td>input</td><td>OTF 输入 clock</td></tr>
+              <tr><td><code>otf_rstn</code></td><td>input</td><td>OTF 输入低有效复位</td></tr>
+              <tr><td><code>out_otf_clk_i</code></td><td>input</td><td>OTF 输出 clock</td></tr>
+              <tr><td><code>out_otf_rstn</code></td><td>input</td><td>OTF 输出低有效复位</td></tr>
+            </tbody>
+          </table>
+          <table>
+            <thead><tr><th>跨时钟路径</th><th>实现</th></tr></thead>
+            <tbody>
+              <tr><td>APB -> core</td><td><code>rotation_cfg_cdc</code> toggle 同步。</td></tr>
+              <tr><td>OTF input -> core</td><td><code>u_otf_in_fifo</code>，67bit <code>mg_async_fifo</code>。</td></tr>
+              <tr><td>core -> OTF output</td><td><code>u_y_out_fifo</code> / <code>u_uv_out_fifo</code>，512bit <code>mg_async_fifo</code>。</td></tr>
+              <tr><td>core -> output start/config</td><td><code>rotation_out_cdc</code>。</td></tr>
+              <tr><td>bypass input -> output</td><td><code>rotation_bypass_path</code> 内部 66bit <code>mg_async_fifo</code>。</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="registers">
+          <h2>10. APB 寄存器说明</h2>
+          <p>APB 地址按 32bit word 对齐。<code>apb_pready_o</code> 固定为 1。地址非 4-byte 对齐或访问未定义地址时，<code>apb_pslverr_o</code> 在 access phase 置 1。</p>
+          <h3>10.1 Register map</h3>
+          <table>
+            <thead><tr><th>地址</th><th>名称</th><th>属性</th><th>Reset</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>0x000</td><td>VERSION</td><td>RO</td><td>0x26050001</td><td>版本号</td></tr>
+              <tr><td>0x004</td><td>DATE</td><td>RO</td><td>0x20260506</td><td>日期</td></tr>
+              <tr><td>0x008</td><td>IN_SIZE</td><td>RW</td><td>0x00000000</td><td>输入宽高</td></tr>
+              <tr><td>0x00C</td><td>CTRL</td><td>RW/RO</td><td>0x00000100</td><td>旋转控制和输入 bit depth</td></tr>
+              <tr><td>0x010</td><td>Y_BASE</td><td>RW</td><td>0x00000000</td><td>frame0 Y base</td></tr>
+              <tr><td>0x014</td><td>UV_BASE</td><td>RW</td><td>0x00000000</td><td>frame0 UV base</td></tr>
+              <tr><td>0x018</td><td>Y_STRIDE</td><td>RW</td><td>0x00000000</td><td>Y stride，单位 512bit word</td></tr>
+              <tr><td>0x01C</td><td>UV_STRIDE</td><td>RW</td><td>0x00000000</td><td>UV stride，单位 512bit word</td></tr>
+              <tr><td>0x020</td><td>STATUS</td><td>RO</td><td>0x00000000</td><td>状态</td></tr>
+              <tr><td>0x024</td><td>Y_BASE1</td><td>RW</td><td>0x00000000</td><td>frame1 Y base</td></tr>
+              <tr><td>0x028</td><td>UV_BASE1</td><td>RW</td><td>0x00000000</td><td>frame1 UV base</td></tr>
+            </tbody>
+          </table>
+
+          <h3>10.2 Bit field</h3>
+          <table>
+            <thead><tr><th>寄存器</th><th>bit</th><th>属性</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>VERSION</td><td>[31:0]</td><td>RO</td><td>固定 <code>0x26050001</code></td></tr>
+              <tr><td>DATE</td><td>[31:0]</td><td>RO</td><td>固定 <code>0x20260506</code></td></tr>
+              <tr><td>IN_SIZE</td><td>[12:0]</td><td>RW</td><td>输入 Y 宽度</td></tr>
+              <tr><td>IN_SIZE</td><td>[28:16]</td><td>RW</td><td>输入 Y 高度</td></tr>
+              <tr><td>CTRL</td><td>[1:0]</td><td>RW</td><td>请求旋转模式：0 bypass，1 rot90，2 rot180，3 rot270</td></tr>
+              <tr><td>CTRL</td><td>[3]</td><td>RO</td><td><code>cfg_force_bypass</code></td></tr>
+              <tr><td>CTRL</td><td>[8]</td><td>RW</td><td><code>cfg_in_10bit</code>，1 为 10bit，0 为 8bit</td></tr>
+              <tr><td>Y_BASE/UV_BASE/Y_BASE1/UV_BASE1</td><td>[31:0]</td><td>RW</td><td>对应 plane/frame 的 base address</td></tr>
+              <tr><td>Y_STRIDE</td><td>[12:0]</td><td>RW/RO</td><td>软件写入 Y stride；读回为 clamp 后有效值</td></tr>
+              <tr><td>UV_STRIDE</td><td>[12:0]</td><td>RW/RO</td><td>软件写入 UV stride；读回为 clamp 后有效值</td></tr>
+              <tr><td>STATUS</td><td>[0]</td><td>RO</td><td><code>force_bypass</code></td></tr>
+              <tr><td>STATUS</td><td>[1]</td><td>RO</td><td><code>force_bypass</code> mirror</td></tr>
+              <tr><td>STATUS</td><td>[2]</td><td>RO</td><td><code>size_over_limit</code></td></tr>
+              <tr><td>STATUS</td><td>[3]</td><td>RO</td><td><code>y_stride_clamp</code></td></tr>
+              <tr><td>STATUS</td><td>[4]</td><td>RO</td><td><code>uv_stride_clamp</code></td></tr>
+            </tbody>
+          </table>
+
+          <h3>10.3 APB access timing</h3>
+          <pre><code>Write:
+cycle N:   psel=1, penable=0, pwrite=1, addr/data valid
+cycle N+1: psel=1, penable=1, pready=1
+           if pslverr=0, register is written in this cycle
+
+Read:
+cycle N:   psel=1, penable=0, pwrite=0, addr valid
+cycle N+1: psel=1, penable=1, pready=1
+           prdata is valid in this access phase</code></pre>
+        </section>
+
+        <section id="interfaces">
+          <h2>11. 顶层接口说明</h2>
+          <h3>11.1 Core clock / reset</h3>
+          <table>
+            <thead><tr><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>clk_i</code></td><td>input</td><td>1</td><td>core clock</td></tr>
+              <tr><td><code>rstn</code></td><td>input</td><td>1</td><td>core 低有效复位</td></tr>
+            </tbody>
+          </table>
+
+          <h3>11.2 APB interface</h3>
+          <table>
+            <thead><tr><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>apb_clk_i</code></td><td>input</td><td>1</td><td>APB clock</td></tr>
+              <tr><td><code>apb_rstn</code></td><td>input</td><td>1</td><td>APB 低有效复位</td></tr>
+              <tr><td><code>apb_psel_i</code></td><td>input</td><td>1</td><td>APB select</td></tr>
+              <tr><td><code>apb_penable_i</code></td><td>input</td><td>1</td><td>APB enable</td></tr>
+              <tr><td><code>apb_pwrite_i</code></td><td>input</td><td>1</td><td>1 write，0 read</td></tr>
+              <tr><td><code>apb_paddr_i</code></td><td>input</td><td>APB_ADDR_W</td><td>APB byte address</td></tr>
+              <tr><td><code>apb_pwdata_i</code></td><td>input</td><td>32</td><td>APB write data</td></tr>
+              <tr><td><code>apb_prdata_o</code></td><td>output</td><td>32</td><td>APB read data</td></tr>
+              <tr><td><code>apb_pready_o</code></td><td>output</td><td>1</td><td>APB ready，当前固定 1</td></tr>
+              <tr><td><code>apb_pslverr_o</code></td><td>output</td><td>1</td><td>APB error</td></tr>
+            </tbody>
+          </table>
+
+          <h3>11.3 OTF input interface</h3>
+          <table>
+            <thead><tr><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>otf_clk_i</code></td><td>input</td><td>1</td><td>OTF 输入 clock</td></tr>
+              <tr><td><code>otf_rstn</code></td><td>input</td><td>1</td><td>OTF 输入低有效复位</td></tr>
+              <tr><td><code>otf_vsync_i</code></td><td>input</td><td>1</td><td>输入 frame/first-line sync 标记</td></tr>
+              <tr><td><code>otf_hsync_i</code></td><td>input</td><td>1</td><td>输入 line sync 标记</td></tr>
+              <tr><td><code>otf_fcnt_i</code></td><td>input</td><td>4</td><td>输入数据帧号；normal path 随帧元数据传递，bypass path 逐 beat 透传</td></tr>
+              <tr><td><code>otf_lcnt_i</code></td><td>input</td><td>12</td><td>输入行号；bypass path 逐 beat 透传</td></tr>
+              <tr><td><code>otf_de_i</code></td><td>input</td><td>1</td><td>输入 data enable</td></tr>
+              <tr><td><code>otf_pixdata_i</code></td><td>input</td><td>40</td><td>输入 YUV420 pixel beat</td></tr>
+              <tr><td><code>otf_ready_o</code></td><td>output</td><td>1</td><td>模块可接收当前 beat</td></tr>
+            </tbody>
+          </table>
+
+          <h3>11.4 FBC write interface</h3>
+          <table>
+            <thead><tr><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>w_cmd_vld_o</code></td><td>output</td><td>1</td><td>写命令 valid</td></tr>
+              <tr><td><code>w_cmd_rdy_i</code></td><td>input</td><td>1</td><td>写命令 ready</td></tr>
+              <tr><td><code>w_addr_o</code></td><td>output</td><td>ADDR_W</td><td>写地址</td></tr>
+              <tr><td><code>w_burst_length_o</code></td><td>output</td><td>8</td><td>当前 RTL 固定为 1</td></tr>
+              <tr><td><code>w_data_vld_o</code></td><td>output</td><td>1</td><td>写数据 valid</td></tr>
+              <tr><td><code>w_data_rdy_i</code></td><td>input</td><td>1</td><td>写数据 ready</td></tr>
+              <tr><td><code>w_data_o</code></td><td>output</td><td>32</td><td>写数据 beat</td></tr>
+            </tbody>
+          </table>
+
+          <h3>11.5 FBC read interface</h3>
+          <table>
+            <thead><tr><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>r_cmd_vld_o</code></td><td>output</td><td>1</td><td>读命令 valid</td></tr>
+              <tr><td><code>r_cmd_rdy_i</code></td><td>input</td><td>1</td><td>读命令 ready</td></tr>
+              <tr><td><code>r_addr_o</code></td><td>output</td><td>ADDR_W</td><td>读地址</td></tr>
+              <tr><td><code>r_burst_length_o</code></td><td>output</td><td>8</td><td>当前 RTL 固定为 1</td></tr>
+              <tr><td><code>r_data_vld_i</code></td><td>input</td><td>1</td><td>读数据 valid</td></tr>
+              <tr><td><code>r_data_rdy_o</code></td><td>output</td><td>1</td><td>读数据 ready</td></tr>
+              <tr><td><code>r_data_i</code></td><td>input</td><td>32</td><td>读数据 beat</td></tr>
+            </tbody>
+          </table>
+
+          <h3>11.6 OTF output interface</h3>
+          <table>
+            <thead><tr><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>out_otf_clk_i</code></td><td>input</td><td>1</td><td>OTF 输出 clock</td></tr>
+              <tr><td><code>out_otf_rstn</code></td><td>input</td><td>1</td><td>OTF 输出低有效复位</td></tr>
+              <tr><td><code>out_otf_vsync_o</code></td><td>output</td><td>1</td><td>输出 vsync</td></tr>
+              <tr><td><code>out_otf_hsync_o</code></td><td>output</td><td>1</td><td>输出 hsync</td></tr>
+              <tr><td><code>out_otf_fcnt_o</code></td><td>output</td><td>4</td><td>输出数据帧号；normal path 等于该输出帧对应的输入 <code>fcnt</code></td></tr>
+              <tr><td><code>out_otf_lcnt_o</code></td><td>output</td><td>12</td><td>输出行号；normal path 为旋转后输出行号，bypass path 为输入 <code>lcnt</code></td></tr>
+              <tr><td><code>out_otf_de_o</code></td><td>output</td><td>1</td><td>输出 data enable</td></tr>
+              <tr><td><code>out_otf_pixdata_o</code></td><td>output</td><td>64</td><td>输出 pixel beat</td></tr>
+              <tr><td><code>out_otf_ready_i</code></td><td>input</td><td>1</td><td>下游 ready</td></tr>
+              <tr><td><code>out_frame_done_o</code></td><td>output</td><td>1</td><td>一帧输出完成 pulse</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="timing">
+          <h2>12. 接口时序说明</h2>
+          <h3>12.1 OTF input</h3>
+          <pre><code>accept = otf_de_i &amp;&amp; otf_ready_o
+
+当 otf_ready_o=0 时，上游需要保持或暂停当前 beat。
+otf_vsync_i / otf_hsync_i 与被接受的 pixel beat 一起采样进输入 FIFO。</code></pre>
+
+          <h3>12.2 OTF input -> core CDC</h3>
+          <pre><code>write side: otf_clk_i, wr_en = !force_bypass &amp;&amp; y_valid &amp;&amp; uv_valid
+read side : clk_i,     rd_en = adapter_in_valid &amp;&amp; adapter_in_ready
+data      : {frame_id, vsync, hsync, fcnt, lcnt, y0, y1, u, v}</code></pre>
+
+          <h3>12.3 FBC write</h3>
+          <pre><code>cmd handshake:
+w_cmd_vld_o &amp;&amp; w_cmd_rdy_i
+
+data handshake:
+w_data_vld_o &amp;&amp; w_data_rdy_i
+
+每个写命令对应一个 512bit packet。
+写命令握手后输出 16 个 32bit data beat。</code></pre>
+
+          <h3>12.4 FBC read</h3>
+          <pre><code>cmd handshake:
+r_cmd_vld_o &amp;&amp; r_cmd_rdy_i
+
+data return:
+r_data_vld_i &amp;&amp; r_data_rdy_o
+
+每个读命令期望返回 16 个 32bit beat。
+fbc_reader 收满 16 beat 后输出一个 512bit packet。</code></pre>
+
+          <h3>12.5 Core -> OTF output CDC</h3>
+          <pre><code>Y path : rd_y_pkt_data[511:0]  -> u_y_out_fifo  -> fifo_y_pkt_data[511:0]
+UV path: rd_uv_pkt_data[511:0] -> u_uv_out_fifo -> fifo_uv_pkt_data[511:0]</code></pre>
+
+          <h3>12.6 OTF output</h3>
+          <pre><code>out_accept = out_otf_de_o &amp;&amp; out_otf_ready_i
+
+当前 RTL 行为:
+- out_otf_vsync_o 在输出第 0 行时为 1
+- out_otf_hsync_o 在每行第一个 pixel pair 时为 1
+- out_otf_de_o 在发送 pixel beat 时为 1
+- out_otf_ready_i=0 时，otf_driver 停止推进 x/y/lane 计数
+
+even output line: {24'b0, Y1[9:0], Y0[9:0], U[9:0], V[9:0]}
+odd  output line: {24'b0, Y1[9:0], Y0[9:0], 20'b0}</code></pre>
+
+          <h3>12.7 Bypass</h3>
+          <p>当 <code>cfg_force_bypass_out=1</code> 时，<code>rotation_output_mux</code> 选择 bypass path 输出。bypass path 使用内部 66bit async FIFO 从 <code>otf_clk_i</code> 跨到 <code>out_otf_clk_i</code>，不访问 FBC，也不经过 <code>otf_driver</code>。</p>
+        </section>
+
+        <section id="software">
+          <h2>13. 软件配置建议</h2>
+          <ol>
+            <li>保持上游 OTF 输入停止。</li>
+            <li>读取 <code>VERSION</code>、<code>DATE</code>。</li>
+            <li>写 <code>IN_SIZE</code>。</li>
+            <li>写 <code>CTRL</code>。</li>
+            <li>写 frame0 base：<code>Y_BASE</code>、<code>UV_BASE</code>。</li>
+            <li>写 frame1 base：<code>Y_BASE1</code>、<code>UV_BASE1</code>。</li>
+            <li>写 <code>Y_STRIDE</code>、<code>UV_STRIDE</code>。</li>
+            <li>读回 stride，确认是否被 clamp。</li>
+            <li>读取 <code>STATUS</code>。</li>
+            <li>启动上游 OTF 输入。</li>
+          </ol>
+        </section>
+
+        <section id="limits">
+          <h2>14. 使用限制和集成注意事项</h2>
+          <ul>
+            <li>输入宽高建议为偶数，以匹配 YUV420。</li>
+            <li>旋转处理最大支持 1920 x 1080。</li>
+            <li>超过最大尺寸时硬件强制 bypass。</li>
+            <li>FBC base address 需要满足系统 FBC 地址对齐要求。</li>
+            <li>FBC 每个命令对应 16 个 32bit data beat。</li>
+            <li>软件需要提供 frame0/frame1 两套 Y/UV base address。</li>
+            <li>多寄存器配置建议在帧间或输入停止时完成。</li>
+            <li>APB 未定义地址访问会返回 <code>apb_pslverr_o=1</code>。</li>
+          </ul>
+        </section>
+
+        <section id="verification">
+          <h2>15. 验证说明</h2>
+          <p>当前验证覆盖 Python golden model、bypass / rot90 / rot180 / rot270、8bit / 10bit 输入、Y/UV line-to-band、rotate reader、row_512_packer、FBC write/read、APB register、双 frame base、连续 20 帧、random valid/ready backpressure、多尺寸矩阵回归和超 1920 x 1080 bypass-only case。</p>
+          <pre><code>/home/eda/work/rotation/build/vcs_matrix_all_20frames
+/home/eda/work/rotation/build/vcs_matrix_10bit_case014_on
+
+summary:
+server_summary.csv</code></pre>
+        </section>
+
+        <section id="delivery">
+          <h2>16. 交付文件</h2>
+          <pre><code>rtl/
+  rotation_top.sv
+  rotation_apb_regs.sv
+  rotation_cfg_cdc.sv
+  rotation_frame_ctrl.sv
+  rotation_band_engine.sv
+  rotation_plane_write_path.sv
+  linear_to_band_sram.sv
+  rotation_sram_pingpong_wrap.sv
+  rotation_sram_1p.sv
+  rotate_band_reader.sv
+  row_512_packer.sv
+  fbc_write_scheduler.sv
+  fbc_writer.sv
+  fbc_read_path.sv
+  fbc_read_scheduler.sv
+  fbc_reader.sv
+  otf_parser.sv
+  otf_yuv420_stream_adapter.sv
+  rotation_bypass_path.sv
+  rotation_out_cdc.sv
+  rotation_output_mux.sv
+  otf_driver.sv
+  mg_sync_fifo.v
+  mg_async_fifo.v
+
+doc/
+  rotation_product_manual.md
+  rotation_product_manual.html
+  rotation_system_architecture.drawio
+  rotation_sram_capacity_calculation.drawio
+
+build/doc/
+  rotation_design_block_diagram.svg
+  y_tile_column_to_fbc_512.svg
+  rotation_sram_capacity_calculation.svg</code></pre>
+          <p>
+            <span class="tag">YUV420</span>
+            <span class="tag">512bit FBC</span>
+            <span class="tag">ASIC RTL</span>
+          </p>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -17,6 +17,8 @@
 `timescale 1ns / 1ps
 
 module tb_ubwc_enc_meta_get_cmd_gen();
+    // Legacy testbench name is kept for the existing Makefile target.
+    // The DUT below is the DEC metadata command generator.
 
     parameter ADDR_WIDTH = 32;
     localparam [4:0] BASE_FMT_RGBA8888    = 5'b00000;
@@ -45,7 +47,7 @@ module tb_ubwc_enc_meta_get_cmd_gen();
     wire [15:0]           meta_ycoord;
     wire [3:0]            meta_fcnt;
 
-    ubwc_enc_meta_get_cmd_gen#(
+    ubwc_dec_meta_get_cmd_gen#(
         .ADDR_WIDTH(ADDR_WIDTH)
     ) dut (
         .clk(clk),
@@ -102,7 +104,7 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         start = 1;
         @(negedge clk);
         start = 0;
-        wait (dut.frame_done == 1'b1);
+        wait (dut.scan_active == 1'b0);
 
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000; // Frame interval: 1us (1000ns)
@@ -118,7 +120,7 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         start = 1;
         @(negedge clk);
         start = 0;
-        wait (dut.frame_done == 1'b1);
+        wait (dut.scan_active == 1'b0);
 
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000; // Frame interval: 1us (1000ns)
@@ -134,7 +136,7 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         start = 1;
         @(negedge clk);
         start = 0;
-        wait (dut.frame_done == 1'b1);
+        wait (dut.scan_active == 1'b0);
 
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000; // Frame interval: 1us (1000ns)
@@ -150,7 +152,7 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         start = 1;
         @(negedge clk);
         start = 0;
-        wait (dut.frame_done == 1'b1);
+        wait (dut.scan_active == 1'b0);
 
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000;
@@ -163,7 +165,7 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         start = 1;
         @(negedge clk);
         start = 0;
-        wait (dut.frame_done == 1'b1);
+        wait (dut.scan_active == 1'b0);
 
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000;
@@ -176,7 +178,7 @@ module tb_ubwc_enc_meta_get_cmd_gen();
         start = 1;
         @(negedge clk);
         start = 0;
-        wait (dut.frame_done == 1'b1);
+        wait (dut.scan_active == 1'b0);
 
         $display(">>> [FRAME DONE] Waiting 1us... <<<");
         #1000; // Frame interval: 1us (1000ns)

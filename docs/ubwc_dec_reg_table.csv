@@ -56,6 +56,7 @@ ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,W1P,0x00000001,1,irq_clear,IRQ cle
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,dynamic,2,irq_pending,IRQ pending status,Synchronized into PCLK domain
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,dynamic,3,irq_error_pending,Error IRQ pending status,Synchronized into PCLK domain
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,dynamic,4,irq_correct_pending,Correct/frame IRQ pending status,Synchronized into PCLK domain
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,W1P,0x00000000,5,start,Frame start pulse,Write 1 after one full input UBWC address group has been configured; readback is 0
 ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_STATUS4,RO,dynamic,2:0,irq_status,"Bit0 any IRQ, bit1 error IRQ, bit2 correct IRQ",Synchronized into PCLK domain
 ubwc_dec_apb_reg_blk,0x0068,APB_ADDR_STAT_META,RO,dynamic,31:0,stat_meta_tile_cnt,Metadata valid tile count,Current or last frame debug counter
 ubwc_dec_apb_reg_blk,0x006c,APB_ADDR_STAT_TILE,RO,dynamic,31:0,stat_tile_addr_cnt,Tile address valid tile count,Current or last frame debug counter

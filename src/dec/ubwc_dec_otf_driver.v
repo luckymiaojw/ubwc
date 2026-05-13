@@ -35,9 +35,6 @@ module otf_driver (
     input   wire                                        i_fifo_empty0                   ,
     input   wire    [255                    :0]         i_fifo_rdata0                   ,
     output  wire                                        o_fifo_rd_en0                   ,
-    input   wire                                        i_fifo_empty1                   ,
-    input   wire    [255                    :0]         i_fifo_rdata1                   ,
-    output  wire                                        o_fifo_rd_en1                   ,
     output  wire                                        o_busy                          ,
     output  wire    [3                      :0]         o_active_fcnt                   ,
     output  reg                                         o_frame_done_pulse              ,
@@ -66,15 +63,15 @@ module otf_driver (
     wire                                            is_hsync                        ;
     wire                                            is_act                          ;
     wire        [15                     :0]         active_line_raw                 ;
-    wire        [15                     :0]         correct_irq_line                ;
-    wire                                            correct_irq_hit                 ;
     wire                                            otf_line_fire                   ;
     wire                                            otf_de_fire                     ;
+    wire                                            otf_last_active_col             ;
+    wire                                            otf_last_active_row             ;
+    wire                                            otf_last_de_fire                ;
     wire        [11                     :0]         active_line                     ;
     wire                                            line_has_uv                     ;
     wire                                            is_rgba                         ;
     wire                                            is_yuv420_10                    ;
-    wire                                            fifo_sel                        ;
     wire                                            fifo_empty_sel                  ;
     wire        [255                    :0]         fifo_rdata_sel                  ;
     wire                                            active_data_stall               ;
@@ -149,20 +146,23 @@ module otf_driver (
     assign is_hsync                   = is_active_line && (h_cnt < h_sync_beats);
     assign is_act                     = is_active_line && (h_cnt >= h_act_start) && (h_cnt < h_act_end);
     assign active_line_raw            = v_cnt - v_act_start;
-    assign correct_irq_line           = (cfg_otf_v_act > 16'd4) ? (cfg_otf_v_act - 16'd4) : 16'd0;
-    assign correct_irq_hit            = stream_started && i_otf_ready && is_hsync &&
-                                        (h_cnt == 16'd0) && (active_line_raw == correct_irq_line);
     assign otf_line_fire              = stream_started && i_otf_ready && is_active_line && (h_cnt == 16'd0);
     assign otf_de_fire                = stream_started && i_otf_ready && is_act;
+    assign otf_last_active_col        = (h_act_beats != 16'd0) &&
+                                        (h_cnt == (h_act_end - 16'd1));
+    assign otf_last_active_row        = (cfg_otf_v_act != 16'd0) &&
+                                        (active_line_raw == (cfg_otf_v_act - 16'd1));
+    assign otf_last_de_fire           = otf_step_fire && is_act &&
+                                        otf_last_active_col &&
+                                        otf_last_active_row;
     assign active_line                = (v_cnt >= v_act_start) ?
                                         ((|active_line_raw[15:12]) ? 12'hfff : active_line_raw[11:0]) :
                                                                  12'd0;
     assign line_has_uv                = active_line[0];
     assign is_rgba                    = (cfg_format == 5'b00000) || (cfg_format == 5'b00001);
     assign is_yuv420_10               = (cfg_format == 5'b00011);
-    assign fifo_sel                   = 1'b0;
-    assign fifo_empty_sel             = fifo_sel ? i_fifo_empty1 : i_fifo_empty0;
-    assign fifo_rdata_sel             = fifo_sel ? i_fifo_rdata1 : i_fifo_rdata0;
+    assign fifo_empty_sel             = i_fifo_empty0;
+    assign fifo_rdata_sel             = i_fifo_rdata0;
     assign active_data_stall          = stream_started && is_act && i_otf_ready &&
                                         (phase == 2'd0) && fifo_empty_sel;
     assign h_last                     = (h_cnt == (h_total_beats - 16'd1));
@@ -173,11 +173,10 @@ module otf_driver (
     assign otf_frame_end_fire         = otf_step_fire && h_last && v_last;
     assign otf_output_update          = i_otf_ready;
     assign phase_busy                 = (phase != 2'd0);
-    assign fifo_busy                  = !i_fifo_empty0 | !i_fifo_empty1;
+    assign fifo_busy                  = !i_fifo_empty0;
     assign stream_busy                = stream_started;
     assign need_data                  = stream_started && is_act && i_otf_ready && (phase == 0);
-    assign o_fifo_rd_en0              = need_data && !fifo_sel && !i_fifo_empty0;
-    assign o_fifo_rd_en1              = need_data &&  fifo_sel && !i_fifo_empty1;
+    assign o_fifo_rd_en0              = need_data && !i_fifo_empty0;
     assign o_active_fcnt              = stream_started ? otf_fcnt_core : pending_frame_fcnt;
     assign o_busy                     = stream_busy | fifo_busy | phase_busy;
     assign phase_out                  = phase - 2'd1;
@@ -236,14 +235,14 @@ module otf_driver (
         if (!rst_n)
             frame_done_pulse_core <= 1'b0;
         else
-            frame_done_pulse_core <= otf_frame_end_fire;
+            frame_done_pulse_core <= otf_last_de_fire;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             correct_irq_pulse_core <= 1'b0;
         else
-            correct_irq_pulse_core <= otf_step_fire && correct_irq_hit;
+            correct_irq_pulse_core <= otf_last_de_fire;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin

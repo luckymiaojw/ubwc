@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="760" viewBox="0 0 1440 760">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: 700; }
+      .lane { font-size: 16px; font-weight: 700; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .small { font-size: 14px; fill: #334155; }
+      .sig { font-size: 13px; fill: #0f172a; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.5; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #2563eb; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .err { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1440" height="760" fill="#f8fafc"/>
+  <rect width="1440" height="760" fill="url(#grid)" opacity="0.8"/>
+  <text x="40" y="48" class="title">DEC 系统块图: metadata 驱动 tile fetch, VIVO 解压, OTF 输出</text>
+
+  <rect x="0" y="80" width="1440" height="120" fill="#fff7ed" opacity="0.78"/>
+  <rect x="0" y="200" width="1440" height="240" fill="#ecfdf5" opacity="0.82"/>
+  <rect x="0" y="440" width="1440" height="120" fill="#f5f3ff" opacity="0.82"/>
+  <rect x="0" y="560" width="1440" height="120" fill="#eff6ff" opacity="0.82"/>
+  <text x="24" y="116" class="lane">APB / pclk</text>
+  <text x="24" y="236" class="lane">AXI-core / i_axi_clk 500MHz</text>
+  <text x="24" y="476" class="lane">VIVO / i_vivo_clk 200MHz</text>
+  <text x="24" y="596" class="lane">OTF / i_otf_clk 320MHz</text>
+
+  <rect x="120" y="104" width="180" height="64" class="box"/>
+  <text x="150" y="132">DEC APB reg</text>
+  <text x="144" y="154" class="small">cfg / addr slot / IRQ</text>
+
+  <rect x="120" y="264" width="170" height="72" class="box"/>
+  <text x="164" y="294">AXI read M</text>
+  <text x="142" y="318" class="small">metadata/tile read</text>
+
+  <rect x="360" y="224" width="190" height="72" class="box"/>
+  <text x="398" y="254">meta_data_gen</text>
+  <text x="394" y="278" class="small">read + decode meta</text>
+
+  <rect x="360" y="344" width="190" height="72" class="box"/>
+  <text x="396" y="374">tile_arcmd_gen</text>
+  <text x="386" y="398" class="small">tile address by meta</text>
+
+  <rect x="640" y="344" width="180" height="72" class="box"/>
+  <text x="682" y="374">tile data FIFO</text>
+  <text x="666" y="398" class="small">CI / CVI / coord</text>
+
+  <rect x="900" y="464" width="170" height="64" class="box"/>
+  <text x="934" y="492">ubwc_dec_vivo_top</text>
+  <text x="942" y="514" class="small">decompress core</text>
+
+  <rect x="900" y="592" width="170" height="64" class="box"/>
+  <text x="940" y="620">tile_to_otf</text>
+  <text x="934" y="642" class="small">line buffer + timing</text>
+
+  <rect x="1160" y="592" width="170" height="64" class="box"/>
+  <text x="1192" y="620">OTF 输出</text>
+  <text x="1182" y="642" class="small">vsync/hsync/de/data</text>
+
+  <path class="flow" d="M 290 300 H 360"/>
+  <text x="294" y="286" class="sig">m_axi_rdata[255:0], rid[3:0]</text>
+  <path class="flow" d="M 550 260 H 600 V 380 H 550"/>
+  <text x="562" y="322" class="sig">dec_meta{x,y,flag,alen,fcnt}</text>
+  <path class="flow" d="M 550 380 H 640"/>
+  <text x="558" y="366" class="sig">tile_rdata[255:0], coord[31:0]</text>
+  <path class="flow" d="M 820 380 H 860 V 496 H 900"/>
+  <text x="828" y="458" class="sig">ci/cvi_data[255:0], ci_sb[0]</text>
+  <path class="flow" d="M 1070 496 H 1120 V 624 H 1070"/>
+  <text x="1084" y="562" class="sig">rvo_data[255:0], rvo_keep[31:0]</text>
+  <path class="flow" d="M 1070 624 H 1160"/>
+  <text x="1076" y="610" class="sig">otf_data[127:0], fcnt[3:0]</text>
+  <path class="flow" d="M 1330 624 H 1400"/>
+  <text x="1328" y="610" class="sig">o_otf_vsync/hsync/de/data[127:0]</text>
+
+  <path class="cfg" d="M 300 136 H 455 V 224"/>
+  <text x="322" y="124" class="sig">meta/tile base[63:0], format[4:0]</text>
+  <path class="cfg" d="M 300 152 H 985 V 592"/>
+  <text x="590" y="144" class="sig">OTF timing h/v[15:0]</text>
+  <path class="err" d="M 985 592 V 168 H 300"/>
+  <text x="850" y="156" class="sig">stage_done/error_irq[31:0]</text>
+</svg>

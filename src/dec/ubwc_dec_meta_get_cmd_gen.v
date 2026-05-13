@@ -16,7 +16,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns/1ps
 
-module ubwc_enc_meta_get_cmd_gen #(
+module ubwc_dec_meta_get_cmd_gen #(
     parameter                                       ADDR_WIDTH                      = 32,
     parameter                                       TW_DW                           = 16,
     parameter                                       TH_DW                           = 16

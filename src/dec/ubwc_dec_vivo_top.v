@@ -44,7 +44,6 @@ module ubwc_dec_vivo_top #(
     wire                                            ci_period_hit                   ;
     wire                                            ci_fire                         ;
     wire                                            out_fire                        ;
-    wire                                            sideband_seen                   ;
     wire                                            need_input_beat                 ;
     wire                                            pad_active                      ;
 
@@ -62,8 +61,6 @@ module ubwc_dec_vivo_top #(
                          (r_tile_active ? ((r_in_beats_left != 4'd0) ? i_rvo_ready : 1'b1) : 1'b1);
     assign ci_fire  = i_ci_valid  && o_ci_ready;
     assign out_fire = o_rvo_valid && i_rvo_ready;
-    assign sideband_seen = i_ci_input_type | (|i_ci_format) | (|i_ci_metadata[2:0]) |
-                           i_ci_lossy | (|i_ci_alpha_mode) | i_cvi_last;
     assign o_co_valid = r_tile_active;
     assign o_co_alen  = r_ci_alen;
     assign o_co_sb    = r_ci_sb;
@@ -80,7 +77,7 @@ module ubwc_dec_vivo_top #(
     assign o_idle[4] = !o_co_valid || i_co_ready;
     assign o_idle[5] = !o_rvo_valid || i_rvo_ready;
     assign o_idle[6] = !r_reset_sync;
-    assign o_error = {6'd0, sideband_seen & 1'b0};
+    assign o_error = 7'd0;
 
     always @(posedge i_clk or posedge i_reset) begin
         if (i_reset) begin

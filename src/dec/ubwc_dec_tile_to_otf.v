@@ -102,7 +102,6 @@ module ubwc_dec_tile_to_otf #(
     wire                                            fifo_rd_en1                     ;
     wire        [255                    :0]         fifo_wdata                      ;
     wire        [255                    :0]         fifo_rdata0                     ;
-    wire        [255                    :0]         fifo_rdata1                     ;
     wire                                            fifo_full0                      ;
     wire                                            fifo_full1                      ;
     wire                                            fifo_empty0                     ;
@@ -181,8 +180,11 @@ module ubwc_dec_tile_to_otf #(
     assign fetcher_req_fcnt           = pending_a_can_fetch ? sram_a_fcnt : sram_b_fcnt;
     assign fetcher_req_fifo_full      = fifo_full0;
     assign fetcher_req                = pending_a_can_fetch | pending_b_can_fetch;
+    assign fifo_rd_en1                = 1'b0;
+    assign fifo_full1                 = 1'b0;
+    assign fifo_empty1                = 1'b1;
     assign o_busy                     = s_axis_tile_valid | s_axis_tvalid | writer_vld | fetcher_req |
-                                        !fifo_empty0 | !fifo_empty1 | pending_a | pending_b |
+                                        !fifo_empty0 | pending_a | pending_b |
                                         !sram_a_free | !sram_b_free | otf_driver_busy;
 
     always @(posedge clk_sram or negedge rst_sram_n) begin
@@ -425,30 +427,6 @@ module ubwc_dec_tile_to_otf #(
         .empty         (fifo_empty0)
     );
 
-    mg_async_fifo #(
-        .AF         (1),
-        .DATA_BITS  (256),
-        .DEPTH_BITS (5),
-        .SHOW_AHEAD (1),
-        .RAM_STYLE  ("block")
-    ) u_cdc_fifo1 (
-        .wr_clk        (clk_sram),
-        .wr_rstn       (rst_sram_n),
-        .wr_en         (1'b0),
-        .din           (fifo_wdata),
-        .wr_data_count (),
-        .prog_full     (),
-        .full          (fifo_full1),
-        .rd_clk        (clk_otf),
-        .rd_rstn       (rst_otf_n),
-        .rd_en         (fifo_rd_en1),
-        .dout          (fifo_rdata1),
-        .valid         (),
-        .rd_data_count (),
-        .pre_empty     (),
-        .empty         (fifo_empty1)
-    );
-
     otf_driver u_otf_driver (
         .clk_otf        (clk_otf),
         .rst_n          (rst_otf_n),
@@ -467,9 +445,6 @@ module ubwc_dec_tile_to_otf #(
         .i_fifo_empty0  (fifo_empty0),
         .i_fifo_rdata0  (fifo_rdata0),
         .o_fifo_rd_en0  (fifo_rd_en0),
-        .i_fifo_empty1  (fifo_empty1),
-        .i_fifo_rdata1  (fifo_rdata1),
-        .o_fifo_rd_en1  (fifo_rd_en1),
         .o_busy         (otf_driver_busy),
         .o_active_fcnt  (),
         .o_frame_done_pulse(otf_frame_done_pulse),

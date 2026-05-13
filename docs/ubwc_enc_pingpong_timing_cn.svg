@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: 700; }
+      .lane { font-size: 16px; font-weight: 700; }
+      .bar0 { fill: #bfdbfe; stroke: #1d4ed8; stroke-width: 2; rx: 8; }
+      .bar1 { fill: #bbf7d0; stroke: #15803d; stroke-width: 2; rx: 8; }
+      .bar2 { fill: #fde68a; stroke: #b45309; stroke-width: 2; rx: 8; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.5; marker-end: url(#arrow); }
+      .sig { font-size: 13px; fill: #0f172a; }
+      .small { font-size: 14px; fill: #334155; }
+    </style>
+  </defs>
+  <rect width="1280" height="640" fill="#f8fafc"/>
+  <rect width="1280" height="640" fill="url(#grid)" opacity="0.8"/>
+  <text x="40" y="48" class="title">ENC ping-pong SRAM 时序图: 一次只讲 bank 占用和释放</text>
+
+  <rect x="0" y="80" width="1280" height="120" fill="#eff6ff" opacity="0.78"/>
+  <rect x="0" y="200" width="1280" height="120" fill="#ecfdf5" opacity="0.78"/>
+  <rect x="0" y="320" width="1280" height="120" fill="#f5f3ff" opacity="0.78"/>
+  <rect x="0" y="440" width="1280" height="120" fill="#fff7ed" opacity="0.78"/>
+  <text x="24" y="116" class="lane">T0</text>
+  <text x="184" y="116" class="lane">T1</text>
+  <text x="344" y="116" class="lane">T2</text>
+  <text x="504" y="116" class="lane">T3</text>
+  <text x="664" y="116" class="lane">T4</text>
+  <text x="824" y="116" class="lane">T5</text>
+  <text x="984" y="116" class="lane">T6</text>
+
+  <text x="40" y="168" class="lane">bank0</text>
+  <text x="40" y="288" class="lane">bank1</text>
+  <text x="40" y="408" class="lane">write side</text>
+  <text x="40" y="528" class="lane">read side</text>
+
+  <rect x="160" y="136" width="240" height="64" class="bar0"/>
+  <text x="218" y="166">写 Group N</text>
+  <text x="200" y="188" class="small">wr_data[127:0], fcnt[3:0]</text>
+
+  <rect x="440" y="136" width="240" height="64" class="bar1"/>
+  <text x="498" y="166">读 Group N</text>
+  <text x="488" y="188" class="small">rd_tile[255:0]</text>
+
+  <rect x="720" y="136" width="160" height="64" class="bar2"/>
+  <text x="764" y="166">释放</text>
+  <text x="742" y="188" class="small">bank0_free</text>
+
+  <rect x="920" y="136" width="240" height="64" class="bar0"/>
+  <text x="970" y="166">写 Group N+2</text>
+  <text x="964" y="188" class="small">wr_addr[11:0]</text>
+
+  <rect x="280" y="256" width="240" height="64" class="bar0"/>
+  <text x="338" y="286">写 Group N+1</text>
+  <text x="320" y="308" class="small">wr_data[127:0], fcnt[3:0]</text>
+
+  <rect x="600" y="256" width="240" height="64" class="bar1"/>
+  <text x="658" y="286">读 Group N+1</text>
+  <text x="648" y="308" class="small">rd_tile[255:0]</text>
+
+  <rect x="880" y="256" width="160" height="64" class="bar2"/>
+  <text x="924" y="286">释放</text>
+  <text x="902" y="308" class="small">bank1_free</text>
+
+  <path class="flow" d="M 400 168 H 440"/>
+  <text x="405" y="154" class="sig">group_done[0]</text>
+  <path class="flow" d="M 680 168 H 720"/>
+  <text x="686" y="154" class="sig">read_done[0]</text>
+  <path class="flow" d="M 880 168 H 920"/>
+  <text x="886" y="154" class="sig">reuse_bank0</text>
+
+  <path class="flow" d="M 520 288 H 600"/>
+  <text x="526" y="274" class="sig">group_done[1]</text>
+  <path class="flow" d="M 840 288 H 880"/>
+  <text x="846" y="274" class="sig">read_done[1]</text>
+
+  <path class="flow" d="M 160 408 H 520 V 256"/>
+  <text x="190" y="394" class="sig">wr_bank_sel toggles after group_done</text>
+  <path class="flow" d="M 440 528 H 720 V 200"/>
+  <text x="470" y="514" class="sig">rd_bank_sel follows safe_for_read</text>
+  <path class="flow" d="M 720 528 H 960 V 320"/>
+  <text x="750" y="514" class="sig">addr_cfg_pop_slot[1:0] on frame_done</text>
+</svg>

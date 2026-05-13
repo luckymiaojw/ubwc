@@ -107,7 +107,6 @@ module ubwc_dec_meta_data_from_sram
     wire                                            yuv420_uv_int_fifo_empty        ;
     wire                                            yuv420_uv_int_fifo_full         ;
     wire                                            yuv420_uv_int_fifo_prog_full    ;
-    wire                                            fifo_status_seen                ;
     wire                                            legacy_req_vld                  ;
     wire        [40                     :0]         legacy_req_data                 ;
     wire                                            req_ready                       ;
@@ -453,14 +452,6 @@ module ubwc_dec_meta_data_from_sram
     assign base_is_rgba = (base_format == BASE_FMT_RGBA8888) || (base_format == BASE_FMT_RGBA1010102);
     assign base_is_yuv420 = (base_format == BASE_FMT_YUV420_8) || (base_format == BASE_FMT_YUV420_10);
     assign base_supported = base_is_rgba || base_is_yuv420;
-    assign fifo_status_seen = in_bfifo_full |
-                              legacy_int_fifo_full | legacy_int_fifo_prog_full |
-                              yuv420_y0_fifo_prog_full |
-                              yuv420_y1_fifo_prog_full |
-                              yuv420_uv_fifo_prog_full |
-                              yuv420_y0_int_fifo_full | yuv420_y0_int_fifo_prog_full |
-                              yuv420_y1_int_fifo_full | yuv420_y1_int_fifo_prog_full |
-                              yuv420_uv_int_fifo_full | yuv420_uv_int_fifo_prog_full;
     assign legacy_req_vld = (row_phase == 3'd0) ? ~in_bfifo_empty : ~legacy_int_fifo_empty;
     assign legacy_req_data = (row_phase == 3'd0) ? in_bfifo_rdata  : legacy_int_fifo_rdata;
     assign req_ready = (state == ST_IDLE);
@@ -567,7 +558,7 @@ module ubwc_dec_meta_data_from_sram
                                  (row_phase != 3'd7);
     assign release_fire = serialize_last_fire && meta_eol_reg &&
                           meta_last_pass_reg && meta_release_on_done_reg;
-    assign fifo_vld = (state == ST_SERIALIZE) | (fifo_status_seen & 1'b0);
+    assign fifo_vld = (state == ST_SERIALIZE);
     assign fifo_wdata = {
         meta_error_reg,                             // error
         meta_eol_reg,                               // is_eol

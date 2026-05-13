@@ -49,6 +49,11 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
     localparam integer DEC_SB_WIDTH = 3;
     localparam integer COM_BUF_DW = 128;
 
+    localparam real TB_APB_CLK_HALF_NS   = 5.0000;   // 100 MHz
+    localparam real TB_AXI_CLK_HALF_NS   = 1.0000;   // 500 MHz
+    localparam real TB_CORE_CLK_HALF_NS  = 2.5000;   // 200 MHz
+    localparam real TB_OTF_CLK_HALF_NS   = 1.5625;   // 320 MHz
+
     localparam integer IMG_W           = 4096;
     localparam integer IMG_H_ACTIVE    = 600;
     localparam integer Y_H_STORED      = 640;
@@ -82,6 +87,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
 
     reg                       clk;
     reg                       pclk;
+    reg                       vivo_clk;
     reg                       i_otf_clk;
 
     reg                       enc_rst_n;
@@ -589,6 +595,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             enc_apb_write(16'h0028, reg10_data);
             enc_apb_write(16'h002c, reg11_data);
             enc_apb_write(16'h0020, reg8_data);
+            enc_apb_write(16'h0060, 32'h0000_0021);
         end
     endtask
 
@@ -635,6 +642,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             dec_apb_write(16'h0044, META_BASE_ADDR_UV[63:32]);
             dec_apb_write(16'h0048, 32'd0);
             dec_apb_write(16'h004c, 32'd0);
+            dec_apb_write(16'h0060, 32'h0000_0021);
         end
     endtask
 
@@ -656,17 +664,22 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
 
     initial begin
         clk = 1'b0;
-        forever #1 clk = ~clk;
+        forever #(TB_AXI_CLK_HALF_NS) clk = ~clk;
     end
 
     initial begin
         pclk = 1'b0;
-        forever #5 pclk = ~pclk;
+        forever #(TB_APB_CLK_HALF_NS) pclk = ~pclk;
+    end
+
+    initial begin
+        vivo_clk = 1'b0;
+        forever #(TB_CORE_CLK_HALF_NS) vivo_clk = ~vivo_clk;
     end
 
     initial begin
         i_otf_clk = 1'b0;
-        forever #5 i_otf_clk = ~i_otf_clk;
+        forever #(TB_OTF_CLK_HALF_NS) i_otf_clk = ~i_otf_clk;
     end
 
     always @(posedge clk) begin
@@ -771,6 +784,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         .PRDATA          (enc_PRDATA),
         .i_clk           (clk),
         .i_otf_clk       (i_otf_clk),
+        .i_vivo_clk      (vivo_clk),
         .i_rstn          (enc_rst_n),
         .i_otf_vsync     (enc_i_otf_vsync),
         .i_otf_hsync     (enc_i_otf_hsync),
@@ -837,6 +851,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         .PSLVERR           (dec_PSLVERR),
         .PRDATA            (dec_PRDATA),
         .i_otf_clk         (i_otf_clk),
+        .i_vivo_clk        (vivo_clk),
         .i_otf_rstn        (dec_otf_rstn),
         .o_otf_vsync       (dec_o_otf_vsync),
         .o_otf_hsync       (dec_o_otf_hsync),

@@ -41,6 +41,7 @@ module ubwc_enc_wrapper_top
     // clock/reset
         input   wire                                        i_clk                           ,
         input   wire                                        i_otf_clk                       ,
+        input   wire                                        i_vivo_clk                      ,
         input   wire                                        i_rstn                          ,
 
     // OTF input
@@ -101,6 +102,10 @@ module ubwc_enc_wrapper_top
     localparam  integer                             COORD_FIFO_DEPTH                = 32;
     localparam  integer                             TH_DW                           = 13;
     localparam  integer                             TW_DW                           = 8;
+    localparam  integer                             ENC_CO_FIFO_W                   = 3 + 1;
+    localparam  integer                             ENC_CVO_FIFO_W                  = 256 + 32 + 1;
+    localparam  integer                             ENC_CO_FIFO_DEPTH_BITS          = 4;
+    localparam  integer                             ENC_CVO_FIFO_DEPTH_BITS         = 4;
 
     wire        [3                   -1 :0]         otf_cfg_format                  ;
     wire        [16                  -1 :0]         otf_cfg_width                   ;
@@ -156,6 +161,7 @@ module ubwc_enc_wrapper_top
     wire                                            enc_irq_pending                 ;
     wire                                            enc_irq_correct_pending         ;
     wire                                            enc_irq_error_pending           ;
+    wire                                            enc_start_pulse                 ;
     wire                                            enc_irq_enable                  ;
     wire                                            enc_irq_clear_pulse             ;
     wire                                            enc_correct_irq_pulse           ;
@@ -186,6 +192,10 @@ module ubwc_enc_wrapper_top
     wire                                            rvi_ready                       ;
     wire                                            rvi_last                        ;
     wire        [4                   -1 :0]         rvi_fcnt                        ;
+    wire                                            rvi_stat_valid                  ;
+    wire                                            rvi_stat_ready                  ;
+    wire                                            rvi_stat_last                   ;
+    wire                                            rvi_stat_slot                   ;
     wire                                            coord_fifo_wr_en                ;
     wire                                            coord_fifo_rd_en                ;
     wire        [5                   -1 :0]         b_tile_format                   ;
@@ -203,13 +213,44 @@ module ubwc_enc_wrapper_top
     wire        [3                   -1 :0]         enc_co_alen                     ;
     wire        [SB_WIDTH            -1 :0]         enc_co_sb                       ;
     wire                                            enc_co_pcm                      ;
+    wire                                            enc_vivo_co_valid               ;
+    wire                                            enc_vivo_co_ready               ;
+    wire        [3                   -1 :0]         enc_vivo_co_alen                ;
+    wire                                            enc_vivo_co_pcm                 ;
+    wire                                            enc_co_fifo_full                ;
+    wire                                            enc_co_fifo_prog_full           ;
+    wire                                            enc_co_fifo_empty               ;
+    wire        [ENC_CO_FIFO_W       -1 :0]         enc_co_fifo_din                 ;
+    wire        [ENC_CO_FIFO_W       -1 :0]         enc_co_fifo_dout                ;
+    wire                                            enc_co_fifo_wr_en               ;
+    wire                                            enc_co_fifo_rd_en               ;
+    wire        [ENC_CO_FIFO_DEPTH_BITS  :0]        enc_co_fifo_wr_data_count       ;
+    wire        [ENC_CO_FIFO_DEPTH_BITS  :0]        enc_co_fifo_rd_data_count       ;
+    wire                                            enc_co_fifo_pre_empty           ;
     wire                                            enc_cvo_valid                   ;
     wire                                            enc_cvo_ready                   ;
     wire        [256                 -1 :0]         enc_cvo_data                    ;
     wire        [32                  -1 :0]         enc_cvo_mask                    ;
     wire                                            enc_cvo_last                    ;
+    wire                                            enc_vivo_cvo_valid              ;
+    wire                                            enc_vivo_cvo_ready              ;
+    wire        [256                 -1 :0]         enc_vivo_cvo_data               ;
+    wire        [32                  -1 :0]         enc_vivo_cvo_mask               ;
+    wire                                            enc_vivo_cvo_last               ;
+    wire                                            enc_cvo_fifo_full               ;
+    wire                                            enc_cvo_fifo_prog_full          ;
+    wire                                            enc_cvo_fifo_empty              ;
+    wire        [ENC_CVO_FIFO_W      -1 :0]         enc_cvo_fifo_din                ;
+    wire        [ENC_CVO_FIFO_W      -1 :0]         enc_cvo_fifo_dout               ;
+    wire                                            enc_cvo_fifo_wr_en              ;
+    wire                                            enc_cvo_fifo_rd_en              ;
+    wire        [ENC_CVO_FIFO_DEPTH_BITS :0]        enc_cvo_fifo_wr_data_count      ;
+    wire        [ENC_CVO_FIFO_DEPTH_BITS :0]        enc_cvo_fifo_rd_data_count      ;
+    wire                                            enc_cvo_fifo_pre_empty          ;
     wire                                            enc_idle                        ;
     wire                                            enc_error                       ;
+    wire                                            enc_vivo_idle                   ;
+    wire                                            enc_vivo_error                  ;
     wire        [66                  -1 :0]         meta_data                       ;
     wire        [AXI_AW              -1 :0]         meta_addr                       ;
     wire        [4                   -1 :0]         meta_fcnt                       ;
@@ -223,7 +264,10 @@ module ubwc_enc_wrapper_top
     wire                                            rst                             ;
     wire                                            rst_n_sys                       ;
     wire                                            rst_n_otf                       ;
+    wire                                            rst_n_vivo                      ;
     wire                                            srst                            ;
+    wire                                            srst_vivo                       ;
+    wire                                            rst_vivo                        ;
     wire                                            enc_meta_srstn                  ;
     wire                                            rvi_slot                        ;
     wire                                            b_tile_slot                     ;
@@ -306,9 +350,15 @@ module ubwc_enc_wrapper_top
     wire        [256                 -1 :0]         rvi_data                        ;
     wire        [32                  -1 :0]         rvi_mask                        ;
 
+    reg                                             enc_vivo_idle_meta              ;
+    reg                                             enc_vivo_idle_sync              ;
+    reg                                             enc_vivo_error_meta             ;
+    reg                                             enc_vivo_error_sync             ;
+
     assign rst                = ~rst_n_sys;
+    assign rst_vivo           = ~rst_n_vivo;
     assign enc_meta_srstn     = ~srst;
-    assign rvi_slot           = rvi_fcnt[0];
+    assign rvi_slot           = rvi_stat_slot;
     assign b_tile_slot        = b_tile_fcnt[0];
     assign tile_addr_slot     = tile_addr_fcnt[0];
     assign meta_slot          = meta_fcnt[0];
@@ -318,6 +368,24 @@ module ubwc_enc_wrapper_top
     assign meta_axi_awlock_bit = meta_axi_awlock[0];
     assign core_m_axi_awsize_3b = core_m_axi_awsize[2:0];
     assign enc_co_fire        = enc_co_valid & enc_co_ready;
+    assign rvi_stat_ready     = 1'b1;
+    assign enc_co_fifo_din    = {enc_vivo_co_alen, enc_vivo_co_pcm};
+    assign enc_co_fifo_wr_en  = enc_vivo_co_valid & enc_vivo_co_ready;
+    assign enc_co_fifo_rd_en  = enc_co_valid & enc_co_ready;
+    assign enc_vivo_co_ready  = !enc_co_fifo_full;
+    assign enc_co_valid       = enc_co_fifo_empty ? 1'b0 : 1'b1;
+    assign enc_co_alen        = enc_co_fifo_dout[1 +: 3];
+    assign enc_co_pcm         = enc_co_fifo_dout[0];
+    assign enc_cvo_fifo_din   = {enc_vivo_cvo_last, enc_vivo_cvo_mask, enc_vivo_cvo_data};
+    assign enc_cvo_fifo_wr_en = enc_vivo_cvo_valid & enc_vivo_cvo_ready;
+    assign enc_cvo_fifo_rd_en = enc_cvo_valid & enc_cvo_ready;
+    assign enc_vivo_cvo_ready = !enc_cvo_fifo_full;
+    assign enc_cvo_valid      = enc_cvo_fifo_empty ? 1'b0 : 1'b1;
+    assign enc_cvo_data       = enc_cvo_fifo_dout[0   +: 256];
+    assign enc_cvo_mask       = enc_cvo_fifo_dout[256 +: 32];
+    assign enc_cvo_last       = enc_cvo_fifo_dout[288];
+    assign enc_idle           = enc_vivo_idle_sync;
+    assign enc_error          = enc_vivo_error_sync;
     assign core_m_axi_awlock  = {1'b0, core_m_axi_awlock_int};
     assign axi_id_zero        = {AXI_IDW{1'b0}};
     assign axi_id_ext_zero    = {(AXI_IDW+1){1'b0}};
@@ -343,9 +411,9 @@ module ubwc_enc_wrapper_top
         .i_error_irq_event               ( enc_error_irq_event             ),
         .i_addr_cfg_invalid              ( addr_cfg_invalid                ),
 
-        .i_rvi_valid                     ( rvi_valid                       ),
-        .i_rvi_ready                     ( rvi_ready                       ),
-        .i_rvi_last                      ( rvi_last                        ),
+        .i_rvi_valid                     ( rvi_stat_valid                  ),
+        .i_rvi_ready                     ( rvi_stat_ready                  ),
+        .i_rvi_last                      ( rvi_stat_last                   ),
         .i_rvi_slot                      ( rvi_slot                        ),
         .i_tile_addr_vld                 ( tile_addr_vld                   ),
         .i_tile_addr_slot                ( tile_addr_slot                  ),
@@ -400,10 +468,13 @@ module ubwc_enc_wrapper_top
     (
         .i_clk                           ( i_clk                           ),
         .i_otf_clk                       ( i_otf_clk                       ),
+        .i_vivo_clk                      ( i_vivo_clk                      ),
         .i_rstn                          ( i_rstn                          ),
         .o_rst                           (                                 ),
         .o_rst_n_sys                     ( rst_n_sys                       ),
         .o_rst_n_otf                     ( rst_n_otf                       ),
+        .o_rst_n_vivo                    ( rst_n_vivo                      ),
+        .o_srst_vivo                     ( srst_vivo                       ),
         .o_srst                          ( srst                            )
     );
 
@@ -485,7 +556,7 @@ module ubwc_enc_wrapper_top
         .o_addr_cfg_invalid              ( addr_cfg_invalid                ),
         .o_error_irq_event               ( enc_error_irq_event             ),
 
-        .i_otf_to_tile_busy              ( rvi_valid                       ),
+        .i_otf_to_tile_busy              ( rvi_stat_valid                  ),
         .i_otf_to_tile_overflow          ( err_fifo_ovf                    ),
         .i_otf_err_bline                 ( otf_err_bline                   ),
         .i_otf_err_bframe                ( otf_err_bframe                  ),
@@ -511,6 +582,7 @@ module ubwc_enc_wrapper_top
         .i_tile_axi_w_count1             ( enc_tile_axi_w_count1           ),
         .i_meta_axi_w_count0             ( enc_meta_axi_w_count0           ),
         .i_meta_axi_w_count1             ( enc_meta_axi_w_count1           ),
+        .o_start_pulse                   ( enc_start_pulse                 ),
         .o_irq_enable                    ( enc_irq_enable                  ),
         .o_irq_clear_pulse               ( enc_irq_clear_pulse             )
     );
@@ -527,8 +599,11 @@ module ubwc_enc_wrapper_top
     (
         .clk                             ( i_clk                           ),
         .i_otf_clk                       ( i_otf_clk                       ),
+        .i_vivo_clk                      ( i_vivo_clk                      ),
         .rst_n_sys                       ( rst_n_sys                       ),
         .rst_n_otf                       ( rst_n_otf                       ),
+        .rst_n_vivo                      ( rst_n_vivo                      ),
+        .i_start_pulse                   ( enc_start_pulse                 ),
 
         .i_cfg_format                    ( otf_cfg_format                  ),
         .i_cfg_width                     ( otf_cfg_width                   ),
@@ -572,6 +647,9 @@ module ubwc_enc_wrapper_top
         .o_tile_data                     ( rvi_data                        ),
         .o_tile_keep                     ( rvi_mask                        ),
         .o_tile_last                     ( rvi_last                        ),
+        .o_tile_stat_valid               ( rvi_stat_valid                  ),
+        .o_tile_stat_last                ( rvi_stat_last                   ),
+        .o_tile_stat_slot                ( rvi_stat_slot                   ),
 
         .o_ci_valid                      ( enc_ci_valid                    ),
         .i_ci_ready                      ( enc_ci_ready                    ),
@@ -606,10 +684,10 @@ module ubwc_enc_wrapper_top
     )
     ubwc_enc_vivo_top_inst
     (
-        .i_clk                           ( i_clk                           ),
+        .i_clk                           ( i_vivo_clk                      ),
 
-        .i_reset                         ( rst                             ),
-        .i_sreset                        ( srst                            ),
+        .i_reset                         ( rst_vivo                        ),
+        .i_sreset                        ( srst_vivo                       ),
 
         .i_ubwc_en                       ( enc_ubwc_en                     ),
         .i_ci_alen                       ( enc_ci_alen                     ),
@@ -638,20 +716,100 @@ module ubwc_enc_wrapper_top
         .i_rvi_data                      ( rvi_data                        ),
         .i_rvi_mask                      ( rvi_mask                        ),
 
-        .o_co_valid                      ( enc_co_valid                    ),
-        .i_co_ready                      ( enc_co_ready                    ),
-        .o_co_alen                       ( enc_co_alen                     ),
-        .o_co_pcm                        ( enc_co_pcm                      ),
+        .o_co_valid                      ( enc_vivo_co_valid               ),
+        .i_co_ready                      ( enc_vivo_co_ready               ),
+        .o_co_alen                       ( enc_vivo_co_alen                ),
+        .o_co_pcm                        ( enc_vivo_co_pcm                 ),
 
-        .o_cvo_valid                     ( enc_cvo_valid                   ),
-        .i_cvo_ready                     ( enc_cvo_ready                   ),
-        .o_cvo_data                      ( enc_cvo_data                    ),
-        .o_cvo_mask                      ( enc_cvo_mask                    ),
-        .o_cvo_last                      ( enc_cvo_last                    ),
+        .o_cvo_valid                     ( enc_vivo_cvo_valid              ),
+        .i_cvo_ready                     ( enc_vivo_cvo_ready              ),
+        .o_cvo_data                      ( enc_vivo_cvo_data               ),
+        .o_cvo_mask                      ( enc_vivo_cvo_mask               ),
+        .o_cvo_last                      ( enc_vivo_cvo_last               ),
 
-        .o_idle                          ( enc_idle                        ),
-        .o_error                         ( enc_error                       )
+        .o_idle                          ( enc_vivo_idle                   ),
+        .o_error                         ( enc_vivo_error                  )
     );
+
+    mg_async_fifo
+    #(
+        .AF                              ( 1                             ),
+        .DATA_BITS                       ( ENC_CO_FIFO_W                 ),
+        .DEPTH_BITS                      ( ENC_CO_FIFO_DEPTH_BITS        ),
+        .SHOW_AHEAD                      ( 1                             )
+    )
+    u_enc_co_async_fifo
+    (
+        .wr_clk                          ( i_vivo_clk                    ),
+        .wr_rstn                         ( rst_n_vivo                    ),
+        .wr_en                           ( enc_co_fifo_wr_en             ),
+        .din                             ( enc_co_fifo_din               ),
+        .wr_data_count                   ( enc_co_fifo_wr_data_count     ),
+        .prog_full                       ( enc_co_fifo_prog_full         ),
+        .full                            ( enc_co_fifo_full              ),
+        .rd_clk                          ( i_clk                         ),
+        .rd_rstn                         ( rst_n_sys                     ),
+        .rd_en                           ( enc_co_fifo_rd_en             ),
+        .dout                            ( enc_co_fifo_dout              ),
+        .valid                           (                               ),
+        .rd_data_count                   ( enc_co_fifo_rd_data_count     ),
+        .pre_empty                       ( enc_co_fifo_pre_empty         ),
+        .empty                           ( enc_co_fifo_empty             )
+    );
+
+    mg_async_fifo
+    #(
+        .AF                              ( 1                             ),
+        .DATA_BITS                       ( ENC_CVO_FIFO_W                ),
+        .DEPTH_BITS                      ( ENC_CVO_FIFO_DEPTH_BITS       ),
+        .SHOW_AHEAD                      ( 1                             )
+    )
+    u_enc_cvo_async_fifo
+    (
+        .wr_clk                          ( i_vivo_clk                    ),
+        .wr_rstn                         ( rst_n_vivo                    ),
+        .wr_en                           ( enc_cvo_fifo_wr_en            ),
+        .din                             ( enc_cvo_fifo_din              ),
+        .wr_data_count                   ( enc_cvo_fifo_wr_data_count    ),
+        .prog_full                       ( enc_cvo_fifo_prog_full        ),
+        .full                            ( enc_cvo_fifo_full             ),
+        .rd_clk                          ( i_clk                         ),
+        .rd_rstn                         ( rst_n_sys                     ),
+        .rd_en                           ( enc_cvo_fifo_rd_en            ),
+        .dout                            ( enc_cvo_fifo_dout             ),
+        .valid                           (                               ),
+        .rd_data_count                   ( enc_cvo_fifo_rd_data_count    ),
+        .pre_empty                       ( enc_cvo_fifo_pre_empty        ),
+        .empty                           ( enc_cvo_fifo_empty            )
+    );
+
+    always @(posedge i_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            enc_vivo_idle_meta <= 1'b0;
+        else
+            enc_vivo_idle_meta <= enc_vivo_idle;
+    end
+
+    always @(posedge i_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            enc_vivo_idle_sync <= 1'b0;
+        else
+            enc_vivo_idle_sync <= enc_vivo_idle_meta;
+    end
+
+    always @(posedge i_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            enc_vivo_error_meta <= 1'b0;
+        else
+            enc_vivo_error_meta <= enc_vivo_error;
+    end
+
+    always @(posedge i_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            enc_vivo_error_sync <= 1'b0;
+        else
+            enc_vivo_error_sync <= enc_vivo_error_meta;
+    end
 
     ubwc_enc_tile_addr
     #(

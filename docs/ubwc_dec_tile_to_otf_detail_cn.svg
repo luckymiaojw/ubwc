@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="800" viewBox="0 0 1440 800">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: 700; }
+      .lane { font-size: 16px; font-weight: 700; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 8; }
+      .small { font-size: 14px; fill: #334155; }
+      .sig { font-size: 13px; fill: #0f172a; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.5; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #2563eb; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .err { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1440" height="800" fill="#f8fafc"/>
+  <rect width="1440" height="800" fill="url(#grid)" opacity="0.8"/>
+  <text x="40" y="48" class="title">DEC tile-to-OTF 详图: rvo 写 line buffer, OTF timing 读出</text>
+
+  <rect x="0" y="80" width="1440" height="160" fill="#f5f3ff" opacity="0.82"/>
+  <rect x="0" y="240" width="1440" height="240" fill="#ecfdf5" opacity="0.82"/>
+  <rect x="0" y="480" width="1440" height="200" fill="#eff6ff" opacity="0.82"/>
+  <text x="24" y="116" class="lane">VIVO / i_vivo_clk</text>
+  <text x="24" y="276" class="lane">core / i_axi_clk</text>
+  <text x="24" y="516" class="lane">OTF / i_otf_clk</text>
+
+  <rect x="120" y="128" width="170" height="72" class="box"/>
+  <text x="160" y="158">VIVO RVO</text>
+  <text x="142" y="182" class="small">decompressed tile</text>
+
+  <rect x="360" y="288" width="190" height="72" class="box"/>
+  <text x="382" y="318">tile_to_line_writer</text>
+  <text x="386" y="342" class="small">tile to line order</text>
+
+  <rect x="640" y="288" width="180" height="72" class="box"/>
+  <text x="682" y="318">bank0 / bank1</text>
+  <text x="674" y="342" class="small">line buffer SRAM</text>
+
+  <rect x="900" y="288" width="190" height="72" class="box"/>
+  <text x="926" y="318">sram_read_fetcher</text>
+  <text x="932" y="342" class="small">compact line read</text>
+
+  <rect x="900" y="528" width="190" height="72" class="box"/>
+  <text x="954" y="558">CDC FIFO</text>
+  <text x="930" y="582" class="small">core to OTF domain</text>
+
+  <rect x="1160" y="528" width="180" height="72" class="box"/>
+  <text x="1202" y="558">otf_driver</text>
+  <text x="1182" y="582" class="small">timing + unpack</text>
+
+  <path class="flow" d="M 290 164 H 320 V 324 H 360"/>
+  <text x="300" y="150" class="sig">rvo_data[255:0], rvo_keep[31:0]</text>
+  <path class="flow" d="M 550 324 H 640"/>
+  <text x="558" y="310" class="sig">line_wdata[127:0], line_addr[COM_BUF_AW-1:0]</text>
+  <path class="flow" d="M 820 324 H 900"/>
+  <text x="826" y="310" class="sig">line_rdata[127:0], pending_line[15:0]</text>
+  <path class="flow" d="M 995 360 V 528"/>
+  <text x="1008" y="452" class="sig">compact_data[255:0], line_id[15:0]</text>
+  <path class="flow" d="M 1090 564 H 1160"/>
+  <text x="1096" y="550" class="sig">otf_payload[255:0], valid</text>
+  <path class="flow" d="M 1340 564 H 1400"/>
+  <text x="1328" y="550" class="sig">o_otf_data[127:0], vsync, hsync, de</text>
+
+  <path class="cfg" d="M 120 500 H 1250 V 528"/>
+  <text x="150" y="488" class="sig">h_total/h_sync/h_bp/h_act/v_total/v_sync/v_bp/v_act[15:0]</text>
+  <path class="err" d="M 1250 600 V 700 H 360"/>
+  <text x="760" y="688" class="sig">correct_irq_pulse[0], otf_de_count[31:0], line_count[31:0]</text>
+</svg>

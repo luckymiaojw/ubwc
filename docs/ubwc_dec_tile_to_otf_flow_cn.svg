@@ -109,7 +109,7 @@
   <rect class="block red" x="1355" y="790" width="400" height="126"/>
   <text class="box-title" x="1555" y="822" text-anchor="middle">done / correct irq / counters</text>
   <text class="box-text" x="1555" y="850" text-anchor="middle">frame end 产生 frame_done_pulse</text>
-  <text class="box-text" x="1555" y="872" text-anchor="middle">倒数第 4 行 hsync 产生 correct_irq</text>
+  <text class="box-text" x="1555" y="872" text-anchor="middle">最后有效数据输出后产生 correct_irq</text>
   <text class="small" x="1555" y="896" text-anchor="middle">line_count / de_count 回同步到 axi 域</text>
 
   <path class="line" d="M305 321 L305 370"/>

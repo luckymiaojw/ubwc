@@ -587,6 +587,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             program_wrapper_static_cfg();
             for (cfg_frame_idx = 0; cfg_frame_idx < tb_frame_repeat; cfg_frame_idx = cfg_frame_idx + 1) begin
                 push_wrapper_base_cfg();
+                apb_write(16'h0060, 32'h0000_0021);
             end
         end
     endtask
@@ -668,6 +669,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         .PSLVERR           (PSLVERR),
         .PRDATA            (PRDATA),
         .i_otf_clk         (i_otf_clk),
+        .i_vivo_clk        (i_axi_clk),
         .i_otf_rstn        (i_otf_rstn),
         .o_otf_vsync       (o_otf_vsync),
         .o_otf_hsync       (o_otf_hsync),

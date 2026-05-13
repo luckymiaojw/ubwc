@@ -132,7 +132,7 @@
 
   <rect class="lane" x="50" y="1190" width="2060" height="88" rx="16"/>
   <text class="small" x="85" y="1220">fcnt 主线：i_otf_fcnt → otf_to_tile → rvi_fcnt / b_tile_fcnt → tile/meta addr → AXI ID；fcnt[0] 选择地址 slot0/slot1，并随统计计数进入 status。</text>
-  <text class="small" x="85" y="1245">错误/中断：OTF bad line/frame、FIFO overflow、metadata error、VIVO error 与地址无效进入 APB/status；正确中断由 OTF_TO_TILE 在倒数第 4 行 hsync 对齐点产生。</text>
+  <text class="small" x="85" y="1245">错误/中断：OTF bad line/frame、FIFO overflow、metadata error、VIVO error 与地址无效进入 APB/status；正确中断由 OTF_TO_TILE 在最后一个有效 tile 输出完成点产生。</text>
 
   <path class="line" d="M405 520 L485 520"/>
   <path class="line" d="M875 500 L955 500"/>

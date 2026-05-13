@@ -18,11 +18,14 @@ module ubwc_enc_rst_mdl
     (
         input   wire                                        i_clk                           ,
         input   wire                                        i_otf_clk                       ,
+        input   wire                                        i_vivo_clk                      ,
         input   wire                                        i_rstn                          ,
 
         output  wire                                        o_rst                           ,
         output  wire                                        o_rst_n_sys                     ,
         output  wire                                        o_rst_n_otf                     ,
+        output  wire                                        o_rst_n_vivo                    ,
+        output  reg                                         o_srst_vivo                     ,
         output  reg                                         o_srst
     );
 
@@ -32,10 +35,15 @@ module ubwc_enc_rst_mdl
     (* async_reg = "true" *) reg                                         rst_n_sys_sync                  ;
     (* async_reg = "true" *) reg                                         rst_n_otf_meta                  ;
     (* async_reg = "true" *) reg                                         rst_n_otf_sync                  ;
+    (* async_reg = "true" *) reg                                         rst_n_vivo_meta                 ;
+    (* async_reg = "true" *) reg                                         rst_n_vivo_sync                 ;
 
-    assign  o_rst           = ~i_rstn   ;
+    reg                                             srst_vivo_d                     ;
+
+    assign  o_rst           = ~rst_n_sys_sync;
     assign  o_rst_n_sys     = rst_n_sys_sync;
     assign  o_rst_n_otf     = rst_n_otf_sync;
+    assign  o_rst_n_vivo    = rst_n_vivo_sync;
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
@@ -65,6 +73,20 @@ module ubwc_enc_rst_mdl
             rst_n_otf_sync <= rst_n_otf_meta;
     end
 
+    always @(posedge i_vivo_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            rst_n_vivo_meta <= 1'b0;
+        else
+            rst_n_vivo_meta <= 1'b1;
+    end
+
+    always @(posedge i_vivo_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            rst_n_vivo_sync <= 1'b0;
+        else
+            rst_n_vivo_sync <= rst_n_vivo_meta;
+    end
+
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
             srst_d      <= 1'b1 ;
@@ -77,6 +99,20 @@ module ubwc_enc_rst_mdl
             o_srst      <= 1'b1 ;
         else
             o_srst      <= srst_d ;
+    end
+
+    always @(posedge i_vivo_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            srst_vivo_d      <= 1'b1 ;
+        else
+            srst_vivo_d      <= ~rst_n_vivo_sync;
+    end
+
+    always @(posedge i_vivo_clk or negedge i_rstn) begin
+        if(~i_rstn)
+            o_srst_vivo      <= 1'b1 ;
+        else
+            o_srst_vivo      <= srst_vivo_d ;
     end
 
 endmodule

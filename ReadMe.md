@@ -33,6 +33,27 @@ VCS 默认打开 `+define+FSDB`，对应 case 的 `.fsdb` 会留在各自 build 
 ./vrf/sim/run_fake_all.sh dec --dry-run
 ```
 
+当前 wrapper 多帧随机接口回归基线：
+
+```text
+OTF clock  = 320 MHz
+core clock = 200 MHz
+AXI clock  = 500 MHz
+APB clock  = 100 MHz
+```
+
+2026-05-11 在服务器 `10.168.1.199:/home/eda/work/ubwc/trunk` 执行：
+
+```bash
+tcsh -c 'source prj_setup.env; make -C vrf/sim random_if_fake_all'
+```
+
+结果为 `Summary: pass=8 fail=0`，log 位于：
+
+```text
+vrf/sim/build/regress_logs/random_if_clk320_200_500_rerun_20260511_100738.log
+```
+
 当前 fake-all 范围：
 
 - DEC: `RGBA8888`、`RGBA1010102`、`NV12`、`G016`、`NV12 OTF`

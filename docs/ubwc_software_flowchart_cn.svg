@@ -62,7 +62,7 @@
 
   <rect x="130" y="880" width="410" height="92" class="box"/>
   <text x="335" y="911" text-anchor="middle" class="box-title">6. OTF 输入自动驱动</text>
-  <text x="335" y="938" text-anchor="middle" class="box-text">ENC 无 APB start</text>
+  <text x="335" y="938" text-anchor="middle" class="box-text">ENC 写 IRQ_CTRL[5] START</text>
   <text x="335" y="962" text-anchor="middle" class="box-text">vsync / hsync / de / data 进入流水线</text>
 
   <rect x="660" y="880" width="410" height="74" class="note"/>

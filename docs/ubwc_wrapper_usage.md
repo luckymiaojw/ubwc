@@ -14,6 +14,19 @@ Additional output file:
 
 Note: the file you mentioned `ubwc_enc_wrapper_top.v`, is actually named in this repository as `ubwc_enc/ubwc_enc_wrapper_top.sv`.
 
+## 0. Current Clock Profile
+
+The current wrapper-level regression baseline uses the following independent clock domains:
+
+| Domain | Frequency | Encoder port | Decoder port |
+| --- | --- | --- | --- |
+| APB | 100 MHz | `PCLK` | `PCLK` |
+| AXI/control | 500 MHz | `i_clk` | `i_axi_clk` |
+| Core/VIVO | 200 MHz | `i_vivo_clk` | `i_vivo_clk` |
+| OTF | 320 MHz | `i_otf_clk` | `i_otf_clk` |
+
+The AXI/control, Core/VIVO, and OTF interfaces are independent clock domains. Integration must keep data movement between these domains on async FIFO or explicit CDC paths.
+
 ## 1. ubwc_enc_wrapper_top Usage Guide
 
 ### 1.1 Module Responsibilities
@@ -33,18 +46,17 @@ The APB side of this wrapper only handles configuration and does not provide an 
 - Tile address related:`0x0008 REG_TILE_CFG0`, `0x000c REG_TILE_CFG1`
 - Encoder CI related:`0x0010 REG_ENC_CI_CFG0` ~ `0x001c REG_ENC_CI_CFG3`
 - OTF input related:`0x0020 REG_OTF_CFG0` ~ `0x002c REG_OTF_CFG3`
-- Main-image output address:`0x0030` ~ `0x003c`
-- Metadata output address:`0x0040` ~ `0x004c`
+- Per-frame output address:`0x0030` ~ `0x004c`
 - Metadata active area:`0x0050 REG_META_ACTIVE_SIZE`
 
 ### 1.3 Recommended Configuration Order
 
 The current RTL has several designs that emit a valid pulse when a specific register is written, so the order should be fixed:
 
-1. Write `REG_TILE_CFG1 (0x000c)`, then write `REG_TILE_CFG0 (0x0008)`.
-2. Write the main-image/metadata base address.
-3. Write `REG_ENC_CI_CFG1/2/3`, write last `REG_ENC_CI_CFG0 (0x0010)`.
-4. Write `REG_OTF_CFG1/2/3` and `REG_META_ACTIVE_SIZE (0x0050)`, write last `REG_OTF_CFG0 (0x0020)`.
+1. Write static format/layout configuration: `REG_TILE_CFG1 (0x000c)`, then `REG_TILE_CFG0 (0x0008)`.
+2. Write `REG_ENC_CI_CFG1/2/3`, then write `REG_ENC_CI_CFG0 (0x0010)`.
+3. Write `REG_OTF_CFG1/2/3`, `REG_META_ACTIVE_SIZE (0x0050)`, `REG_META_PITCH (0x0054)`, then `REG_OTF_CFG0 (0x0020)`.
+4. For each frame/output buffer, write the four 64-bit base addresses from `0x0030` to `0x004c`. The write to `REG_TILE_BASE_UV_HI (0x004c)` commits one frame address set.
 
 The corresponding testbench uses the same actual order because:
 
@@ -80,15 +92,6 @@ Example minimal APB configuration order:
 write(0x000c, tile_cfg1);
 write(0x0008, tile_cfg0);
 
-write(0x0030, tile_base_y_lo);
-write(0x0034, tile_base_y_hi);
-write(0x0038, tile_base_uv_lo);
-write(0x003c, tile_base_uv_hi);
-write(0x0040, meta_base_y_lo);
-write(0x0044, meta_base_y_hi);
-write(0x0048, meta_base_uv_lo);
-write(0x004c, meta_base_uv_hi);
-
 write(0x0014, enc_ci_cfg1);
 write(0x0018, enc_ci_cfg2);
 write(0x001c, enc_ci_cfg3);
@@ -98,14 +101,25 @@ write(0x0024, otf_cfg1);
 write(0x0028, otf_cfg2);
 write(0x002c, otf_cfg3);
 write(0x0050, meta_active_size);
+write(0x0054, meta_pitch);
 write(0x0020, otf_cfg0);
+
+write(0x0030, meta_base_y_lo);
+write(0x0034, meta_base_y_hi);
+write(0x0038, tile_base_y_lo);
+write(0x003c, tile_base_y_hi);
+write(0x0040, meta_base_uv_lo);
+write(0x0044, meta_base_uv_hi);
+write(0x0048, tile_base_uv_lo);
+write(0x004c, tile_base_uv_hi);
+write(0x0060, irq_enable | (1 << 5));  // start one frame
 
 start_otf_input_stream();
 ```
 
-### 1.5 Completion Detection
+### 1.5 Completion and Error Detection
 
-Pay special attention here:current `ubwc_enc_apb_reg_blk.v` exposes `REG_STATUS0 (0x0058)`:
+Current `ubwc_enc_apb_reg_blk.v` exposes `REG_STATUS0 (0x0058)`:
 
 - `bit0`: `enc_idle`
 - `bit1`: `enc_error`
@@ -115,24 +129,19 @@ Pay special attention here:current `ubwc_enc_apb_reg_blk.v` exposes `REG_STATUS0
 - `bit5`: `otf_err_bframe`
 - `bit6`: `meta_err_0`, currently tied low
 - `bit7`: `meta_err_1`, currently tied low
-- `bit8`: `meta_frame_done`, currently tied low
+- `bit8`: `frame_done`
+- `bit9`: `addr_cfg_invalid`
+- `bit10`: `addr_cfg_valid0`
+- `bit11`: `addr_cfg_valid1`
 
-These are live status bits, not sticky completion bits.
+`REG_STATUS1 (0x005c)` exposes stage-done information, and `IRQ_CTRL (0x0060)` exposes interrupt enable/clear/pending state.
 
-There are two safer completion-detection methods in the current version:
+For software:
 
-1. Simulation/integration method
-   The upstream source confirms the input frame has been fully sent, then observe that the AXI write channel has no new `AW/W` activity for a period of time, or directly observe internal `enc_idle`
-2. Production-driver method
-   Poll `REG_STATUS0`, especially `enc_idle` plus error bits; add a sticky frame-done bit later if dec-style completion polling is required
-
-The testbench uses this detection idea:
-
-- The input source `otf_done` has arrived
-- Then wait for a"no-output-activity"window
-- In multi-frame scenarios, make sure the wrapper returns to idle before starting the next frame
-
-So if you are writing a software driver, use `REG_STATUS0 (0x0058)` for basic live completion/error observation.
+- Correct IRQ indicates the frame completion point.
+- Error IRQ indicates address-slot missing, OTF bad line/frame, FIFO overflow, VIVO/encoder errors, or metadata errors.
+- `addr_cfg_invalid` means the current `fcnt[0]` selected an address slot that software has not configured.
+- Statistic registers are for debug/visibility and should not be used as the primary frame-done condition.
 
 ## 2. ubwc_dec_wrapper_top Usage Guide
 
@@ -168,7 +177,7 @@ Recommended write order:
 2. Write `VIVO_CFG`
 3. Write `OTF_CFG0/1/2/3/4`
 4. Write `APB_ADDR_META_CFG0` tile count
-5. Write all four per-frame base address pairs; hardware auto-starts when they are all valid
+5. Write all four per-frame base address pairs; software writes IRQ_CTRL[5] after they are all valid
 
 The key point is that software no longer writes a `meta_start` pulse. DEC starts automatically after the complete per-frame address set is valid.
 
@@ -177,16 +186,11 @@ The key point is that software no longer writes a `meta_start` pulse. DEC starts
 `ubwc_dec_wrapper_top.v` starts automatically after software writes a complete set of per-frame base addresses:
 
 ```text
-write META RGBA/Y low/high
-write META UV low/high
-write TILE RGBA/Y low/high
-write TILE UV low/high
+write REG_META_BASE_Y_LO/HI
+write REG_TILE_BASE_Y_LO/HI
+write REG_META_BASE_UV_LO/HI
+write REG_TILE_BASE_UV_LO/HI
 ```
-
-Meaning:
-
-- `META_CFG0[8:4]`: metadata/base format
-- `META_CFG0[0]`: reserved, readback fixed to `0`
 
 RTL behavior:
 
@@ -216,8 +220,8 @@ The meanings of these two bits are:
 
 It is not recommended to only check `STATUS0[5]` or `STATUS0[6]`, because they may also be 1 before startup; the safest method is:
 
-- Use an explicit start as the boundary
-- ThenPoll `STATUS1[4]`
+- Use the address-group commit as the frame boundary
+- Then poll `STATUS1[4]`
 - Finally use `STATUS0[6]` to confirm the pipeline is fully idle
 
 ### 2.6 Decoder Usage Flowchart
@@ -227,12 +231,12 @@ It is not recommended to only check `STATUS0[5]` or `STATUS0[6]`, because they m
 ```mermaid
 flowchart TD
     A[Reset released] --> B[Write TILE_CFG0/1/2]
-    B --> C[Write REG_META_BASE_Y/UV and REG_TILE_BASE_Y/UV]
-    C --> D[Write VIVO_CFG]
-    D --> E[Write APB_ADDR_META_CFG0 tile count]
-    E --> F[Write OTF_CFG0/1/2/3/4]
-    F --> G[Write META_CFG0: bit0=1, base_format in bit8:4]
-    G --> H[APB start toggle crosses to AXI clock]
+    B --> C[Write VIVO_CFG]
+    C --> D[Write APB_ADDR_META_CFG0 tile count]
+    D --> E[Write OTF_CFG0/1/2/3/4]
+    E --> F[Write REG_META_BASE_Y/TILE_BASE_Y/META_BASE_UV/TILE_BASE_UV]
+    F --> G[Last high-word write completes one frame address set]
+    G --> H[Hardware locks address slot and creates frame_start in AXI clock]
     H --> I[Metadata AXI read starts]
     H --> J[Tile AXI read starts]
     I --> K[VIVO UBWC decode]
@@ -246,7 +250,7 @@ flowchart TD
     O -- Yes --> P[Frame complete; next frame can start]
 ```
 
-Key usage rule: `META_CFG0[0]` is reserved. DEC frame start is driven by address availability, not by a software start pulse.
+Key usage rule: DEC frame start is driven by address availability, not by a software start pulse.
 
 #### 2.6.2 `ubwc_dec_tile_to_otf_line_ring` Data Flow
 
@@ -400,13 +404,13 @@ This example uses a simplified OTF timing setup for bring-up:
 3. Write the VIVO configuration
 4. Write the metadata configuration
 5. Write the OTF configuration
-6. write the four per-frame base address pairs; DEC auto-starts when they are all valid
+6. write the four per-frame base address pairs; DEC starts after software writes IRQ_CTRL[5]
 7. Poll STATUS1[4] and STATUS0[6]
 ```
 
 The most important points are:
 
-- `dec` auto-starts after the complete per-frame address set is valid
+- `dec` starts after the complete address set and IRQ_CTRL[5] start token are valid
 - For completion, check `STATUS1[4] = frame_done`
 - then check `STATUS0[6] = frame_idle_done`
 
@@ -416,7 +420,7 @@ The most important points are:
 - `tile_pitch` is measured in **bytes**, `128x128 RGBA8888` needs `512`
 - For `RGBA8888` on `enc`, the current address-selection logic uses `Y base / META_Y base`
 - For `RGBA8888` on `dec`, the current address-selection logic uses `RGBA_UV base / META_RGBA_UV base`
-- `dec` auto-starts after the complete per-frame address set is valid
+- `dec` starts after the complete address set and IRQ_CTRL[5] start token are valid
 - `enc` has no APB start, it starts from the OTF input stream
 
 ### 3.2 Part 2: Register Read/Write Information
