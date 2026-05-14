@@ -98,6 +98,7 @@ ENC_FIELDS = [
     ("ENC", h(0x060), "REG_IRQ_CTRL", "2", "irq_pending", "RO", "dynamic", "Any pending interrupt."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "3", "irq_correct_pending", "RO", "dynamic", "Correct/frame-done interrupt pending."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "4", "irq_error_pending", "RO", "dynamic", "Error interrupt pending."),
+    ("ENC", h(0x060), "REG_IRQ_CTRL", "5", "start", "W1P", "0", "Write 1 after one full output address group has been configured. Address writes only fill the pending address queues; start is a separate frame token."),
     ("ENC", h(0x064), "REG_STATUS2", "2:0", "irq_status", "RO", "dynamic", "Bit0 any IRQ, bit1 correct IRQ, bit2 error IRQ."),
 ]
 
@@ -107,11 +108,11 @@ for idx, name in enumerate(
         "REG_OTF_TILE_COUNT0", "REG_OTF_TILE_COUNT1", "REG_OTF_DE_COUNT0", "REG_OTF_DE_COUNT1",
         "REG_OTF_LINE_COUNT0", "REG_OTF_LINE_COUNT1", "REG_TILE_AXI_W_CNT0", "REG_TILE_AXI_W_CNT1",
         "REG_META_AXI_W_CNT0", "REG_META_AXI_W_CNT1",
-    ],
-    start=0x068,
+    ]
 ):
+    addr = 0x068 + (idx * 4)
     desc = name.replace("REG_", "").lower() + " statistic counter; suffix 0/1 follows fcnt[0] address slot."
-    ENC_FIELDS.append(("ENC", h(idx), name, "31:0", name[4:].lower(), "RO", "dynamic", desc))
+    ENC_FIELDS.append(("ENC", h(addr), name, "31:0", name[4:].lower(), "RO", "dynamic", desc))
 
 
 DEC_FIELDS = [
@@ -166,6 +167,7 @@ DEC_FIELDS = [
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "2", "irq_pending", "RO", "dynamic", "Any pending interrupt."),
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "3", "irq_error_pending", "RO", "dynamic", "Error interrupt pending."),
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "4", "irq_correct_pending", "RO", "dynamic", "Correct/frame interrupt pending."),
+    ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "5", "start", "W1P", "0", "Write 1 after one full input UBWC address group has been configured. Address writes only fill the pending address queues; start is a separate frame token."),
     ("DEC", h(0x064), "APB_ADDR_STATUS4", "2:0", "irq_status", "RO", "dynamic", "Bit0 any IRQ, bit1 error IRQ, bit2 correct IRQ."),
     ("DEC", h(0x068), "APB_ADDR_STAT_META", "31:0", "stat_meta_tile_cnt", "RO", "dynamic", "Metadata valid tile count for the current/last frame."),
     ("DEC", h(0x06C), "APB_ADDR_STAT_TILE", "31:0", "stat_tile_addr_cnt", "RO", "dynamic", "Tile address generator valid tile count."),
@@ -187,7 +189,7 @@ PROGRAMMING = [
     ["ENC CI 配置", "ENC", "图像格式发生变化时配置", "8", "WRITE 0x014/0x018/0x01C", "先写 CI_CFG1/2/3。保留 cfg bit 建议写 0。"],
     ["ENC CI 配置", "ENC", "图像格式发生变化时配置", "9", "WRITE 0x010 REG_ENC_CI_CFG0", "最后写 CI_CFG0，配置 enc_ci_input_type 和 enc_ci_alen。当前软件通常写 input_type=1、alen=7。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "10", "WRITE 0x024 REG_OTF_CFG1", "配置 width[15:0] 和 height[31:16]。连续帧尺寸不变时不需要重写。"],
-    ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "11", "WRITE 0x028 REG_OTF_CFG2", "配置 tile_w 和 tile_h。RGBA=16x4，YUV420=32x8。"],
+    ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "11", "WRITE 0x028 REG_OTF_CFG2", "配置 tile_w 和 tile_h。RGBA=16x4，YUV420_8=32x8，YUV420_10=32x4。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "12", "WRITE 0x02C REG_OTF_CFG3", "配置 y_tile_cols 和 uv_tile_cols。RGBA: y=ceil(width/16), uv=0；YUV: y=ceil(width/32), uv=ceil(width/32)。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "13", "WRITE 0x050 REG_META_ACTIVE_SIZE", "配置 metadata active width/height。active 尺寸不变时不需要重写。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "14", "WRITE 0x054 REG_META_PITCH", "配置 metadata pitch。宽度和格式不变时不需要重写。"],
@@ -197,12 +199,12 @@ PROGRAMMING = [
     ["ENC 每帧地址", "ENC", "每帧都要配置", "18", "WRITE 0x040/0x044", "配置 UV metadata base 低/高 32 bit，RGBA 写 0。"],
     ["ENC 每帧地址", "ENC", "每帧都要配置", "19", "WRITE 0x048", "配置 UV tile data base 低 32 bit，RGBA 写 0。"],
     ["ENC 每帧地址", "ENC", "每帧都要配置", "20", "WRITE 0x04C REG_TILE_BASE_UV_HI", "配置 UV tile data base 高 32 bit，RGBA 写 0。本写入会提交当前四个 64 bit base address 为一组帧地址，必须最后写。"],
-    ["ENC 启动", "ENC", "每帧", "21", "Start OTF input stream", "ENC 没有 APB start。上游 OTF vsync/hsync/de/data 进入后开始处理；fcnt[0] 用于选择地址 slot 和 sideband。"],
+    ["ENC 启动", "ENC", "每帧", "21", "WRITE 0x060 bit[5]=1", "写 START token。地址写入只填充地址队列，不再作为 start 标志；写 START 后再送入对应 OTF vsync/hsync/de/data。"],
     ["ENC 监控", "ENC", "运行中", "22", "READ 0x058/0x05C/0x060/0x064", "读取 STATUS0、STATUS1、IRQ_CTRL、STATUS2。addr_cfg_invalid 表示当前 fcnt[0] 对应地址 slot 未配置。IRQ bit 区分 correct/error pending。"],
     ["ENC 清中断", "ENC", "软件处理中断后", "23", "WRITE 0x060 bit[1]=1", "清除 ENC 中断 pending。统计计数仍可用于调试。"],
     ["DEC 静态配置", "DEC", "图像格式发生变化时配置", "24", "WRITE 0x008 APB_ADDR_TILE_CFG0", "配置 bank swizzle、bank spread、4-line format、lossy_rgba_2_1_format。这些配置在 frame start 时锁存到 AXI 域。"],
     ["DEC 静态配置", "DEC", "图像格式发生变化时配置", "25", "WRITE 0x00C APB_ADDR_TILE_CFG1", "配置 tile_cfg_pitch，单位 16 byte。"],
-    ["DEC CI 配置", "DEC", "图像格式发生变化时配置", "26", "WRITE 0x010 APB_ADDR_TILE_CFG2", "配置 CI input type、sideband、lossy、alpha mode。当前 tiled UBWC 流通常写 input_type=1。"],
+    ["DEC CI 配置", "DEC", "图像格式发生变化时配置", "26", "WRITE 0x010 APB_ADDR_TILE_CFG2", "配置 CI input type、lossy、alpha mode。当前 tiled UBWC 流通常写 input_type=1。"],
     ["DEC VIVO 配置", "DEC", "图像格式发生变化时配置", "27", "WRITE 0x014 APB_ADDR_VIVO_CFG", "配置 vivo_ubwc_en 和 vivo_sreset。通常 vivo_ubwc_en 复位后保持 1。"],
     ["DEC 几何配置", "DEC", "图像格式发生变化时配置", "28", "WRITE 0x018 APB_ADDR_OTF_CFG0", "配置输出 img_width 和 format，同时更新 meta_base_format。"],
     ["DEC OTF timing", "DEC", "图像格式发生变化时配置", "29", "WRITE 0x01C/0x020", "配置 h_total、h_sync、h_bp、h_act。输出 timing 不变时连续帧不需要重写。"],
@@ -212,7 +214,7 @@ PROGRAMMING = [
     ["DEC 每帧地址", "DEC", "每帧都要配置", "33", "WRITE 0x038 then 0x03C", "配置 RGBA/Y compressed tile base 低/高 32 bit。"],
     ["DEC 每帧地址", "DEC", "每帧都要配置", "34", "WRITE 0x040 then 0x044", "配置 UV metadata base 低/高 32 bit。"],
     ["DEC 每帧地址", "DEC", "每帧都要配置", "35", "WRITE 0x048 then 0x04C", "配置 UV compressed tile base 低/高 32 bit，RGBA 图像不关心。"],
-    ["DEC 自动启动", "DEC", "硬件自动", "36", "不需要 APB start", "完整地址组有效、metadata 不 busy、launch slot 可用时，硬件自动锁存本帧地址，产生 frame_start 并启动 decode。"],
+    ["DEC 启动", "DEC", "每帧", "36", "WRITE 0x060 bit[5]=1", "写 START token。完整地址组和 START token 都有效，且 metadata stage 可接受新帧时，硬件锁存本帧地址并启动 decode。"],
     ["DEC 监控", "DEC", "运行中", "37", "READ 0x050/0x054/0x060/0x064", "读取 STATUS0、STATUS1、IRQ_CTRL、STATUS4。STATUS1[4] 是 frame_done。STATUS4/IRQ_CTRL 区分 correct/error pending。"],
     ["DEC 统计", "DEC", "运行中调试", "38", "READ 0x068/0x06C/0x070/0x074/0x078", "读取 metadata tile count、tile address count、OTF tile count、OTF line count、OTF de beat count。"],
     ["DEC 清中断", "DEC", "软件处理中断后", "39", "WRITE 0x060 bit[1]=1", "清除 DEC 中断 pending。VIVO idle/error 状态和统计计数仍可读。"],
@@ -229,13 +231,13 @@ ADDRESS_RULES = [
     ["Item", "Rule"],
     ["Address map", "APB registers are 32-bit word aligned. ENC defined range is 0x000..0x09C. DEC defined range is 0x000..0x078."],
     ["ENC address slots", "Two alternating address slots hold frame address sets for fcnt[0]=0/1. Each entry contains Y metadata base, Y tile base, UV metadata base, and UV tile base."],
-    ["ENC address commit", "Write REG_TILE_BASE_UV_HI @0x04C last. That write snapshots the current META_BASE_Y, TILE_BASE_Y, META_BASE_UV and the just-written TILE_BASE_UV value."],
-    ["DEC address set", "Software writes metadata/tile bases for RGBA/Y and UV. A complete address set is required for each frame."],
-    ["DEC auto start", "A decode frame starts automatically when a complete DEC address set is valid, metadata is not busy, and the metadata launch slot is free."],
+    ["ENC address commit", "Write REG_TILE_BASE_UV_HI @0x04C last. That write snapshots the current META_BASE_Y, TILE_BASE_Y, META_BASE_UV and the just-written TILE_BASE_UV value. A separate IRQ_CTRL[5] start write is still required for the frame."],
+    ["DEC address set", "Software writes metadata/tile bases for RGBA/Y and UV. A complete address set plus a separate IRQ_CTRL[5] start write is required for each frame."],
+    ["DEC start token", "A decode frame starts when a complete DEC address set and a START token are both valid, metadata is not busy, and the metadata launch slot is free."],
     ["Contiguous UBWC layout", "For YUV: Y metadata, Y tile data, UV metadata, UV tile data. For RGBA: RGBA metadata and RGBA tile data are enough; unused Y/UV partner bases may be written 0 as required by the wrapper path."],
     ["Metadata pitch", "meta_pitch=align_up(ceil(plane_width/tile_w),64). Metadata size aligns meta_pitch*align_up(tile_rows,16) to 4KB."],
     ["Tile pitch", "tile_pitch register is in 16-byte units. pixel_pitch=align_up(width*bpp,tile_w*4*bpp); tile_pitch=pixel_pitch/16."],
-    ["IRQ timing", "Correct IRQ is produced near the output hsync of the 4th line before frame end. Error IRQ is produced when an error condition is latched."],
+    ["IRQ timing", "Correct IRQ/frame_done is produced after the final valid frame output/data completion event. Error IRQ is produced when an error condition is latched."],
 ]
 
 
@@ -257,6 +259,8 @@ def cfg_note(block: str, addr: str, field: str, access: str) -> str:
     addr_i = int(addr, 16)
     if field in {"version", "date"}:
         return "上电后读取一次，用于确认软件和 RTL 版本匹配。"
+    if field == "start":
+        return "每帧地址组写完整后写 1；读回为 0。地址写入不再单独启动帧。"
     if "irq_enable" in field:
         return "上电后或中断策略变化时配置。"
     if "irq_clear" in field:
@@ -276,6 +280,33 @@ def cfg_note(block: str, addr: str, field: str, access: str) -> str:
     if access == "RO":
         return "只读状态或统计信息。"
     return "图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。"
+
+
+def cfg_note_en(block: str, addr: str, field: str, access: str) -> str:
+    addr_i = int(addr, 16)
+    if field in {"version", "date"}:
+        return "Read once after reset to confirm software/RTL compatibility."
+    if field == "start":
+        return "Write 1 after the per-frame address group is complete; readback is 0. Address writes do not start a frame by themselves."
+    if "irq_enable" in field:
+        return "Configure after reset or when the interrupt policy changes."
+    if "irq_clear" in field:
+        return "Write 1 after software handles the interrupt; readback is 0."
+    if "irq_" in field or field.startswith("stat_") or field.endswith("_cnt") or "status" in field:
+        return "Read during runtime or after interrupt handling for status/debug."
+    if block == "ENC" and 0x030 <= addr_i <= 0x04C:
+        if addr == h(0x04C):
+            return "Per-frame configuration. This high-word write must be last and commits the four base addresses as one frame address group."
+        return "Per-frame configuration. Low/high words form one 64-bit base address."
+    if block == "DEC" and addr_i in {0x030, 0x034, 0x038, 0x03C, 0x040, 0x044, 0x048, 0x04C}:
+        if addr_i in {0x034, 0x03C, 0x044, 0x04C}:
+            return "Per-frame configuration. Low/high words complete this base address."
+        return "Per-frame configuration. Low/high words form one 64-bit base address."
+    if "pending" in field or "busy" in field or "idle" in field or "error" in field or "done" in field:
+        return "Read during runtime."
+    if access == "RO":
+        return "Read-only status or statistic information."
+    return "Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 
 
 def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
@@ -323,7 +354,7 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
     if "tile_w" in lower:
         return "tile 宽度，单位像素；RGBA=16，YUV420=32。"
     if "tile_h" in lower:
-        return "tile 高度，单位像素；RGBA=4，YUV420=8。"
+        return "tile 高度，单位像素；RGBA=4，YUV420_8=8，YUV420_10=4。"
     if "y_tile_cols" in lower:
         return "Y tile 列数；RGBA 格式使用该字段表示 RGBA tile 列数。"
     if "uv_tile_cols" in lower:
@@ -404,6 +435,8 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
         return "中断使能。"
     if "irq_clear" in lower:
         return "中断清除写 1 脉冲。"
+    if lower == "start":
+        return "帧 START 写 1 脉冲；地址组写完后再写该 bit 启动本帧。"
     if "irq_pending" in lower:
         return "任意中断 pending 状态。"
     if "irq_correct_pending" in lower:
@@ -424,7 +457,7 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
         if "otf_de" in lower:
             return "DEC OTF 输出 de && ready 有效 beat 计数。"
         return "DEC 统计计数器。"
-    if lower.endswith("_cnt") or "count" in lower:
+    if lower.endswith("_cnt") or "_cnt" in lower or "count" in lower:
         return "ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。"
     return desc
 
@@ -437,13 +470,45 @@ def reset_cn(reset: str) -> str:
     return reset
 
 
+ENG_HEADER = ["Module", "Register Address", "Register Name", "Access", "Reset Value", "Bit Field", "Field Name", "Description", "Notes"]
+
+
+def addr4(addr: str) -> str:
+    return f"0x{int(addr, 16):04x}"
+
+
+def english_table_rows(block: str, fields: list[tuple[str, str, str, str, str, str, str, str]]) -> list[list[str]]:
+    module = "ubwc_enc_apb_reg_blk" if block == "ENC" else "ubwc_dec_apb_reg_blk"
+    rows = [ENG_HEADER]
+    for _, addr, reg, bits, field, access, reset, desc in fields:
+        rows.append([
+            module,
+            addr4(addr),
+            reg,
+            access,
+            reset if reset == "dynamic" else reset_cn(reset),
+            bits,
+            field,
+            desc,
+            cfg_note_en(block, addr, field, access),
+        ])
+    return rows
+
+
+def write_rows_csv(path: Path, rows: list[list[str]]) -> None:
+    with path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerows(rows)
+    print(f"wrote {path}")
+
+
 def cn_table_rows(block: str, fields: list[tuple[str, str, str, str, str, str, str, str]]) -> list[list[str]]:
     module = "ubwc_enc_apb_reg_blk" if block == "ENC" else "ubwc_dec_apb_reg_blk"
     rows = [CN_HEADER]
     for _, addr, reg, bits, field, access, reset, desc in fields:
         rows.append([
             module,
-            addr.replace("0x", "0x0") if len(addr) == 5 else addr,
+            addr4(addr),
             reg,
             access_cn(access),
             reset_cn(reset),
@@ -674,8 +739,10 @@ def address_rules_for(block: str) -> list[list[str]]:
 
 
 def main() -> None:
-    enc_rows = load_csv_rows(ENC_CSV)
-    dec_rows = load_csv_rows(DEC_CSV)
+    enc_rows = english_table_rows("ENC", ENC_FIELDS)
+    dec_rows = english_table_rows("DEC", DEC_FIELDS)
+    write_rows_csv(ENC_CSV, enc_rows)
+    write_rows_csv(DEC_CSV, dec_rows)
     table_widths = [24, 18, 26, 12, 16, 18, 34, 70, 90]
     combined_sheets = [
         ("ubwc_enc_apb", enc_rows, table_widths, {1}),
@@ -712,9 +779,9 @@ def main() -> None:
             ["ENC 地址 slot", "ENC 使用两个交替地址 slot，对应 fcnt[0]=0/1。每项包含 Y metadata base、Y tile base、UV metadata base、UV tile base。"],
             ["ENC 地址提交", "每帧写完四个 64-bit base 后，最后写 REG_TILE_BASE_UV_HI @0x04C。该写入会提交当前四个 base 为一组帧地址。"],
             ["DEC 地址组", "DEC 每帧写 metadata/tile 的 RGBA/Y 与 UV base 地址。完整地址组有效后可启动 decode。"],
-            ["DEC 自动启动", "完整 DEC 地址组有效、metadata 不 busy、launch slot 可用时，硬件自动锁存本帧地址并启动 decode。"],
+            ["DEC START", "完整 DEC 地址组和 START token 都有效、metadata 不 busy、launch slot 可用时，硬件锁存本帧地址并启动 decode。"],
             ["连续 layout", "YUV 通常按 Y metadata、Y tile data、UV metadata、UV tile data 连续排列。RGBA 只需要 RGBA metadata 和 RGBA tile data。"],
-            ["中断", "correct IRQ 在帧末倒数第 4 行 hsync 附近产生；error IRQ 在错误条件锁存时产生。"],
+            ["中断", "correct IRQ/frame_done 在最后一个有效帧输出/数据完成事件后产生；error IRQ 在错误条件锁存时产生。"],
         ], [28, 120], {1}),
     ]
     DOCS_DIR.mkdir(parents=True, exist_ok=True)

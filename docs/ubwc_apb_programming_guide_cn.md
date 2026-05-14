@@ -237,7 +237,7 @@ read(0x004); // REG_DATE
 ```text
 write(0x008, APB_ADDR_TILE_CFG0); // swizzle, spread, 4line, lossy_rgba_2_1
 write(0x00c, APB_ADDR_TILE_CFG1); // tile_cfg_pitch
-write(0x010, APB_ADDR_TILE_CFG2); // ci_input_type, ci_sb, ci_lossy, alpha
+write(0x010, APB_ADDR_TILE_CFG2); // ci_input_type, ci_lossy, alpha
 ```
 
 3. 配置 VIVO：

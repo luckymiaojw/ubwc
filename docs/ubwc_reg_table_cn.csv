@@ -7,9 +7,9 @@ ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,2,lvl2_bank_swizzle_
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,3,lvl3_bank_swizzle_en,三级 bank swizzle 使能。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,12:8,highest_bank_bit,最高 bank bit 配置。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0008,REG_TILE_CFG0,读写,0x00000000,16,bank_spread_en,bank spread 使能。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_enc_apb_reg_blk,0x000C,REG_TILE_CFG1,读写,0x00000000,0,four_line_format,4-line tile format 选择；RGBA 通常为 1，YUV420 通常为 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_enc_apb_reg_blk,0x000C,REG_TILE_CFG1,读写,0x00000000,1,is_lossy_rgba_2_1_format,RGBA8888 2:1 有损 layout 选择。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_enc_apb_reg_blk,0x000C,REG_TILE_CFG1,读写,0x00000000,26:16,tile_pitch,tile surface pitch 配置，单位为 16 byte。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,0,four_line_format,4-line tile format 选择；RGBA 通常为 1，YUV420 通常为 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,1,is_lossy_rgba_2_1_format,RGBA8888 2:1 有损 layout 选择。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_enc_apb_reg_blk,0x000c,REG_TILE_CFG1,读写,0x00000000,26:16,tile_pitch,tile surface pitch 配置，单位为 16 byte。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,0,enc_ci_input_type,CI 输入类型配置；tiled UBWC 数据通常写 1。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0010,REG_ENC_CI_CFG0,读写,0x00000000,10:8,enc_ci_alen,CI AXI burst length/ALEN 配置。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0014,REG_ENC_CI_CFG1,读写,0x00000000,16,enc_ci_lossy,CI 有损模式使能。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
@@ -23,23 +23,23 @@ ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,23:22,enc_ci_ubwc_
 ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,25:24,enc_ci_ubwc_cfg_7,保留 UBWC CI 配置位，软件建议写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,27:26,enc_ci_ubwc_cfg_8,保留 UBWC CI 配置位，软件建议写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0018,REG_ENC_CI_CFG2,读写,0x00000000,30:28,enc_ci_ubwc_cfg_9,保留 UBWC CI 配置位，软件建议写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_enc_apb_reg_blk,0x001C,REG_ENC_CI_CFG3,读写,0x00000000,5:0,enc_ci_ubwc_cfg_10,保留 UBWC CI 配置位，软件建议写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_enc_apb_reg_blk,0x001C,REG_ENC_CI_CFG3,读写,0x00000000,13:8,enc_ci_ubwc_cfg_11,保留 UBWC CI 配置位，软件建议写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,读写,0x00000000,5:0,enc_ci_ubwc_cfg_10,保留 UBWC CI 配置位，软件建议写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_enc_apb_reg_blk,0x001c,REG_ENC_CI_CFG3,读写,0x00000000,13:8,enc_ci_ubwc_cfg_11,保留 UBWC CI 配置位，软件建议写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0020,REG_OTF_CFG0,读写,0x00000000,2:0,otf_cfg_format,OTF 图像格式编码：0=RGBA8888，1=RGBA1010102，2=YUV420_8/NV12，3=YUV420_10/P010。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,读写,0x00000000,15:0,otf_cfg_width,图像宽度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0024,REG_OTF_CFG1,读写,0x00000000,31:16,otf_cfg_height,图像高度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,读写,0x00000000,15:0,otf_cfg_tile_w,tile 宽度，单位像素；RGBA=16，YUV420=32。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,读写,0x00000000,19:16,otf_cfg_tile_h,tile 高度，单位像素；RGBA=4，YUV420=8。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_enc_apb_reg_blk,0x002C,REG_OTF_CFG3,读写,0x00000000,15:0,otf_cfg_y_tile_cols,Y tile 列数；RGBA 格式使用该字段表示 RGBA tile 列数。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_enc_apb_reg_blk,0x002C,REG_OTF_CFG3,读写,0x00000000,31:16,otf_cfg_uv_tile_cols,UV tile 列数；RGBA 格式通常写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_enc_apb_reg_blk,0x0028,REG_OTF_CFG2,读写,0x00000000,19:16,otf_cfg_tile_h,tile 高度，单位像素；RGBA=4，YUV420_8=8，YUV420_10=4。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,读写,0x00000000,15:0,otf_cfg_y_tile_cols,Y tile 列数；RGBA 格式使用该字段表示 RGBA tile 列数。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_enc_apb_reg_blk,0x002c,REG_OTF_CFG3,读写,0x00000000,31:16,otf_cfg_uv_tile_cols,UV tile 列数；RGBA 格式通常写 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0030,REG_META_BASE_Y_LO,读写,0x00000000,31:0,meta_y_base_offset_addr[31:0],ENC Y/RGBA metadata base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_enc_apb_reg_blk,0x0034,REG_META_BASE_Y_HI,读写,0x00000000,31:0,meta_y_base_offset_addr[63:32],ENC Y/RGBA metadata base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_enc_apb_reg_blk,0x0038,REG_TILE_BASE_Y_LO,读写,0x00000000,31:0,y_base_offset_addr[31:0],ENC Y tile/pixel 数据 base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
-ubwc_enc_apb_reg_blk,0x003C,REG_TILE_BASE_Y_HI,读写,0x00000000,31:0,y_base_offset_addr[63:32],ENC Y tile/pixel 数据 base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
+ubwc_enc_apb_reg_blk,0x003c,REG_TILE_BASE_Y_HI,读写,0x00000000,31:0,y_base_offset_addr[63:32],ENC Y tile/pixel 数据 base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_enc_apb_reg_blk,0x0040,REG_META_BASE_UV_LO,读写,0x00000000,31:0,meta_uv_base_offset_addr[31:0],ENC UV metadata base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_enc_apb_reg_blk,0x0044,REG_META_BASE_UV_HI,读写,0x00000000,31:0,meta_uv_base_offset_addr[63:32],ENC UV metadata base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_enc_apb_reg_blk,0x0048,REG_TILE_BASE_UV_LO,读写,0x00000000,31:0,uv_base_offset_addr[31:0],ENC UV tile/pixel 数据 base 地址，RGBA 图像不关心。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
-ubwc_enc_apb_reg_blk,0x004C,REG_TILE_BASE_UV_HI,读写,0x00000000,31:0,uv_base_offset_addr[63:32],ENC UV tile/pixel 数据 base 地址，RGBA 图像不关心。,每帧配置；写完四个 base 地址后，软件写 REG_IRQ_CTRL[5] 启动本帧。
+ubwc_enc_apb_reg_blk,0x004c,REG_TILE_BASE_UV_HI,读写,0x00000000,31:0,uv_base_offset_addr[63:32],ENC UV tile/pixel 数据 base 地址，RGBA 图像不关心。,每帧配置；该高 32 bit 写入必须最后写，会提交当前四个 base 地址为一组帧地址。
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,读写,0x00000000,15:0,meta_active_width_px,metadata active 区域宽度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0050,REG_META_ACTIVE_SIZE,读写,0x00000000,31:16,meta_active_height_px,metadata active 区域高度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_enc_apb_reg_blk,0x0054,REG_META_PITCH,读写,0x00000000,31:0,meta_data_plane_pitch,metadata plane pitch 配置。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
@@ -55,28 +55,28 @@ ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,8,frame_done,当前/上�
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,9,addr_cfg_invalid,当前 fcnt[0] 对应地址 slot 未配置，数据会被阻塞并上报错误。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,10,addr_cfg_valid0,ENC 地址 slot0 中存在已配置地址。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,11,addr_cfg_valid1,ENC 地址 slot1 中存在已配置地址。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x005C,REG_STATUS1,只读,dynamic,7:0,stage_done,stage done 位图。,运行中读取。
+ubwc_enc_apb_reg_blk,0x005c,REG_STATUS1,只读,dynamic,7:0,stage_done,stage done 位图。,运行中读取。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,读写,0x00000001,0,irq_enable,中断使能。,上电后或中断策略变化时配置。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,写 1 脉冲,0x00000000,1,irq_clear,中断清除写 1 脉冲。,软件处理中断后写 1；读回为 0。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,只读,dynamic,2,irq_pending,任意中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,只读,dynamic,3,irq_correct_pending,正确完成中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,只读,dynamic,4,irq_error_pending,错误状态位。,运行中或中断后读取，用于调试和状态确认。
-ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,写 1 脉冲,0x00000000,5,start,帧启动写 1 脉冲。,每帧地址配置完成后写 1；读回为 0。
+ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,写 1 脉冲,0x00000000,5,start,帧 START 写 1 脉冲；地址组写完后再写该 bit 启动本帧。,每帧地址组写完整后写 1；读回为 0。地址写入不再单独启动帧。
 ubwc_enc_apb_reg_blk,0x0064,REG_STATUS2,只读,dynamic,2:0,irq_status,中断状态位图。,运行中或中断后读取，用于调试和状态确认。
 ubwc_enc_apb_reg_blk,0x0068,REG_META_COUNT0,只读,dynamic,31:0,meta_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0069,REG_META_COUNT1,只读,dynamic,31:0,meta_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x006A,REG_TILEADDR_COUNT0,只读,dynamic,31:0,tileaddr_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x006B,REG_TILEADDR_COUNT1,只读,dynamic,31:0,tileaddr_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x006C,REG_OTF_TILE_COUNT0,只读,dynamic,31:0,otf_tile_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x006D,REG_OTF_TILE_COUNT1,只读,dynamic,31:0,otf_tile_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x006E,REG_OTF_DE_COUNT0,只读,dynamic,31:0,otf_de_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x006F,REG_OTF_DE_COUNT1,只读,dynamic,31:0,otf_de_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0070,REG_OTF_LINE_COUNT0,只读,dynamic,31:0,otf_line_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0071,REG_OTF_LINE_COUNT1,只读,dynamic,31:0,otf_line_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0072,REG_TILE_AXI_W_CNT0,只读,dynamic,31:0,tile_axi_w_cnt0,tile_axi_w_cnt0 statistic counter; suffix 0/1 follows fcnt[0] address slot.,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0073,REG_TILE_AXI_W_CNT1,只读,dynamic,31:0,tile_axi_w_cnt1,tile_axi_w_cnt1 statistic counter; suffix 0/1 follows fcnt[0] address slot.,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0074,REG_META_AXI_W_CNT0,只读,dynamic,31:0,meta_axi_w_cnt0,meta_axi_w_cnt0 statistic counter; suffix 0/1 follows fcnt[0] address slot.,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0075,REG_META_AXI_W_CNT1,只读,dynamic,31:0,meta_axi_w_cnt1,meta_axi_w_cnt1 statistic counter; suffix 0/1 follows fcnt[0] address slot.,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x006c,REG_META_COUNT1,只读,dynamic,31:0,meta_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0070,REG_TILEADDR_COUNT0,只读,dynamic,31:0,tileaddr_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0074,REG_TILEADDR_COUNT1,只读,dynamic,31:0,tileaddr_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0078,REG_OTF_TILE_COUNT0,只读,dynamic,31:0,otf_tile_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x007c,REG_OTF_TILE_COUNT1,只读,dynamic,31:0,otf_tile_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0080,REG_OTF_DE_COUNT0,只读,dynamic,31:0,otf_de_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0084,REG_OTF_DE_COUNT1,只读,dynamic,31:0,otf_de_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0088,REG_OTF_LINE_COUNT0,只读,dynamic,31:0,otf_line_count0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x008c,REG_OTF_LINE_COUNT1,只读,dynamic,31:0,otf_line_count1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0090,REG_TILE_AXI_W_CNT0,只读,dynamic,31:0,tile_axi_w_cnt0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0094,REG_TILE_AXI_W_CNT1,只读,dynamic,31:0,tile_axi_w_cnt1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0098,REG_META_AXI_W_CNT0,只读,dynamic,31:0,meta_axi_w_cnt0,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x009c,REG_META_AXI_W_CNT1,只读,dynamic,31:0,meta_axi_w_cnt1,ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。,只读状态或统计信息。
 ""
 模块,寄存器地址,寄存器名称,访问类型,复位值,位域,字段名,说明,备注
 ubwc_dec_apb_reg_blk,0x0000,REG_VERSION,只读,0x00010000,31:0,version,IP 版本号。,上电后读取一次，用于确认软件和 RTL 版本匹配。
@@ -88,7 +88,7 @@ ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,8:4,tile_cfg_hi
 ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,9,tile_cfg_bank_spread_en,bank spread 使能。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,10,tile_cfg_4line_format,4-line tile format 选择；RGBA 通常为 1，YUV420 通常为 0。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,读写,0x00000000,11,tile_cfg_is_lossy_rgba_2_1_format,RGBA8888 2:1 有损 layout 选择。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_dec_apb_reg_blk,0x000C,APB_ADDR_TILE_CFG1,读写,0x00000000,11:0,tile_cfg_pitch,tile surface pitch 配置，单位为 16 byte。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_dec_apb_reg_blk,0x000c,APB_ADDR_TILE_CFG1,读写,0x00000000,11:0,tile_cfg_pitch,tile surface pitch 配置，单位为 16 byte。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,0,tile_cfg_ci_input_type,CI 输入类型配置；tiled UBWC 数据通常写 1。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,8,tile_cfg_ci_lossy,CI 有损模式使能。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,读写,0x00000000,10:9,tile_cfg_ci_alpha_mode,CI alpha mode 配置。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
@@ -96,24 +96,24 @@ ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,读写,0x00000001,0,vivo_ubwc_en,U
 ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,读写,0x00000000,1,vivo_sreset,VIVO 子模块软复位。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_OTF_CFG0,读写,0x00000000,15:0,otf_cfg_img_width,图像宽度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_OTF_CFG0,读写,0x00000000,20:16,otf_cfg_format,OTF 图像格式编码：0=RGBA8888，1=RGBA1010102，2=YUV420_8/NV12，3=YUV420_10/P010。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_dec_apb_reg_blk,0x001C,APB_ADDR_OTF_CFG1,读写,0x00000000,15:0,otf_cfg_h_total,OTF 水平 total，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_dec_apb_reg_blk,0x001C,APB_ADDR_OTF_CFG1,读写,0x00000000,31:16,otf_cfg_h_sync,OTF 水平 sync 宽度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_OTF_CFG1,读写,0x00000000,15:0,otf_cfg_h_total,OTF 水平 total，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_dec_apb_reg_blk,0x001c,APB_ADDR_OTF_CFG1,读写,0x00000000,31:16,otf_cfg_h_sync,OTF 水平 sync 宽度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0020,APB_ADDR_OTF_CFG2,读写,0x00000000,15:0,otf_cfg_h_bp,OTF 水平 back porch，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0020,APB_ADDR_OTF_CFG2,读写,0x00000000,31:16,otf_cfg_h_act,OTF 水平 active 宽度，单位像素。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_OTF_CFG3,读写,0x00000000,15:0,otf_cfg_v_total,OTF 垂直 total，单位行。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0024,APB_ADDR_OTF_CFG3,读写,0x00000000,31:16,otf_cfg_v_sync,OTF 垂直 sync 宽度，单位行。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_OTF_CFG4,读写,0x00000000,15:0,otf_cfg_v_bp,OTF 垂直 back porch，单位行。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_OTF_CFG4,读写,0x00000000,31:16,otf_cfg_v_act,OTF 垂直 active 高度，单位行。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_dec_apb_reg_blk,0x002C,APB_ADDR_META_CFG0,读写,0x00000000,15:0,meta_tile_x_numbers,Y/RGBA metadata 水平方向 tile 数量；YUV420 的 UV metadata tile 数由格式内部推导。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
-ubwc_dec_apb_reg_blk,0x002C,APB_ADDR_META_CFG0,读写,0x00000000,31:16,meta_tile_y_numbers,Y/RGBA metadata 垂直方向 tile 数量；YUV420 的 UV metadata 行数由格式内部推导。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG0,读写,0x00000000,15:0,meta_tile_x_numbers,Y/RGBA metadata 水平方向 tile 数量；YUV420 的 UV metadata tile 数由格式内部推导。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
+ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG0,读写,0x00000000,31:16,meta_tile_y_numbers,Y/RGBA metadata 垂直方向 tile 数量；YUV420 的 UV metadata 行数由格式内部推导。,图像格式、尺寸、layout 或 timing 变化时配置；连续帧只换 buffer 地址时通常不需要重写。
 ubwc_dec_apb_reg_blk,0x0030,REG_META_BASE_Y_LO,读写,0x00000000,31:0,meta_base_addr_rgba_y[31:0],DEC RGBA 或 Y metadata base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_dec_apb_reg_blk,0x0034,REG_META_BASE_Y_HI,读写,0x00000000,31:0,meta_base_addr_rgba_y[63:32],DEC RGBA 或 Y metadata base 地址。,每帧配置；低/高 32 bit 写完整后形成该 base 地址。
 ubwc_dec_apb_reg_blk,0x0038,REG_TILE_BASE_Y_LO,读写,0x00000000,31:0,tile_base_addr_rgba_y[31:0],DEC RGBA 或 Y tile 数据 base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
-ubwc_dec_apb_reg_blk,0x003C,REG_TILE_BASE_Y_HI,读写,0x00000000,31:0,tile_base_addr_rgba_y[63:32],DEC RGBA 或 Y tile 数据 base 地址。,每帧配置；低/高 32 bit 写完整后形成该 base 地址。
+ubwc_dec_apb_reg_blk,0x003c,REG_TILE_BASE_Y_HI,读写,0x00000000,31:0,tile_base_addr_rgba_y[63:32],DEC RGBA 或 Y tile 数据 base 地址。,每帧配置；低/高 32 bit 写完整后形成该 base 地址。
 ubwc_dec_apb_reg_blk,0x0040,REG_META_BASE_UV_LO,读写,0x00000000,31:0,meta_base_addr_uv[31:0],DEC UV metadata base 地址。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
 ubwc_dec_apb_reg_blk,0x0044,REG_META_BASE_UV_HI,读写,0x00000000,31:0,meta_base_addr_uv[63:32],DEC UV metadata base 地址。,每帧配置；低/高 32 bit 写完整后形成该 base 地址。
 ubwc_dec_apb_reg_blk,0x0048,REG_TILE_BASE_UV_LO,读写,0x00000000,31:0,tile_base_addr_uv[31:0],DEC UV tile 数据 base 地址，RGBA 图像不关心。,每帧配置，低/高 32 bit 共同组成 64 bit base 地址。
-ubwc_dec_apb_reg_blk,0x004C,REG_TILE_BASE_UV_HI,读写,0x00000000,31:0,tile_base_addr_uv[63:32],DEC UV tile 数据 base 地址，RGBA 图像不关心。,每帧配置；低/高 32 bit 写完整后形成该 base 地址。
+ubwc_dec_apb_reg_blk,0x004c,REG_TILE_BASE_UV_HI,读写,0x00000000,31:0,tile_base_addr_uv[63:32],DEC UV tile 数据 base 地址，RGBA 图像不关心。,每帧配置；低/高 32 bit 写完整后形成该 base 地址。
 ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,只读,dynamic,0,frame_active,DEC 当前是否有 frame active。,只读状态或统计信息。
 ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,只读,dynamic,1,meta_busy,对应处理 stage 的 busy 状态。,运行中读取。
 ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,只读,dynamic,2,tile_busy,对应处理 stage 的 busy 状态。,运行中读取。
@@ -124,16 +124,16 @@ ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,只读,dynamic,6,frame_idle_done,�
 ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS1,只读,dynamic,4:0,stage_done,stage done 位图。,运行中读取。
 ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS1,只读,dynamic,8:5,stage_seen,stage 曾经 busy 的记录位图。,只读状态或统计信息。
 ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS2,只读,dynamic,6:0,vivo_idle_bits,对应模块或整体流水线 idle 状态。,运行中读取。
-ubwc_dec_apb_reg_blk,0x005C,APB_ADDR_STATUS3,只读,dynamic,6:0,vivo_error_bits,错误状态位。,运行中读取。
+ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS3,只读,dynamic,6:0,vivo_error_bits,错误状态位。,运行中读取。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,读写,0x00000001,0,irq_enable,中断使能。,上电后或中断策略变化时配置。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,写 1 脉冲,0x00000000,1,irq_clear,中断清除写 1 脉冲。,软件处理中断后写 1；读回为 0。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,只读,dynamic,2,irq_pending,任意中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,只读,dynamic,3,irq_error_pending,错误状态位。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,只读,dynamic,4,irq_correct_pending,正确完成中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。
-ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,写 1 脉冲,0x00000000,5,start,帧启动写 1 脉冲。,每帧输入 UBWC 地址配置完成后写 1；读回为 0。
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,写 1 脉冲,0x00000000,5,start,帧 START 写 1 脉冲；地址组写完后再写该 bit 启动本帧。,每帧地址组写完整后写 1；读回为 0。地址写入不再单独启动帧。
 ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_STATUS4,只读,dynamic,2:0,irq_status,中断状态位图。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0068,APB_ADDR_STAT_META,只读,dynamic,31:0,stat_meta_tile_cnt,DEC metadata 有效 tile 计数。,运行中或中断后读取，用于调试和状态确认。
-ubwc_dec_apb_reg_blk,0x006C,APB_ADDR_STAT_TILE,只读,dynamic,31:0,stat_tile_addr_cnt,DEC tile 地址生成有效 tile 计数。,运行中或中断后读取，用于调试和状态确认。
+ubwc_dec_apb_reg_blk,0x006c,APB_ADDR_STAT_TILE,只读,dynamic,31:0,stat_tile_addr_cnt,DEC tile 地址生成有效 tile 计数。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0070,APB_ADDR_STAT_OTF_TILE,只读,dynamic,31:0,stat_otf_tile_cnt,DEC tile-to-OTF 接收 tile 计数。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0074,APB_ADDR_STAT_OTF_LINE,只读,dynamic,31:0,stat_otf_line_cnt,DEC OTF 输出行计数。,运行中或中断后读取，用于调试和状态确认。
 ubwc_dec_apb_reg_blk,0x0078,APB_ADDR_STAT_OTF_DE,只读,dynamic,31:0,stat_otf_de_cnt,DEC OTF 输出 de && ready 有效 beat 计数。,运行中或中断后读取，用于调试和状态确认。

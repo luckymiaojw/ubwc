@@ -172,7 +172,7 @@ YUV420_10 / P010:
   <section id="freq">
     <h2>4. 首次配置和后续配置</h2>
     <table><thead><tr><th>场景</th><th>软件动作</th></tr></thead><tbody><tr><td>首次配置</td><td>读取 VERSION/DATE；使能中断；配置格式、尺寸、tile layout、CI/VIVO、metadata geometry、DEC OTF timing；写入第一帧 ENC/DEC 地址。</td></tr>
-<tr><td>后续帧配置</td><td>如果格式、尺寸、layout、timing 不变，只写新一帧的 base address；ENC 等上游 OTF 输入，DEC 地址写好后硬件按配置自动处理。</td></tr>
+<tr><td>后续帧配置</td><td>如果格式、尺寸、layout、timing 不变，只写新一帧的 base address；ENC/DEC 都需要在本帧地址组写完整后写 <code>IRQ_CTRL[5]=1</code> 作为 START token。</td></tr>
 <tr><td>重新配置静态项</td><td>只有格式、分辨率、layout 或 DEC OTF timing 变化时才重写静态项；应先确认当前帧处理完成，再切换静态配置。</td></tr></tbody></table>
     <h3>4.1 ENC 配置清单</h3>
     <table><thead><tr><th>寄存器地址</th><th>寄存器功能</th><th>配置模式</th><th>默认配置/说明</th></tr></thead><tbody><tr><td>0x000</td><td>VERSION</td><td>上电后读取一次</td><td>只读</td></tr>
@@ -219,7 +219,8 @@ YUV420_10 / P010:
 <tr><td>0x040</td><td>REG_META_BASE_UV_LO</td><td>每次配置</td><td>UV PLANE metadata 读取基地址低 32 bit</td></tr>
 <tr><td>0x044</td><td>REG_META_BASE_UV_HI</td><td>每次配置</td><td>UV PLANE metadata 读取基地址高 32 bit</td></tr>
 <tr><td>0x048</td><td>REG_TILE_BASE_UV_LO</td><td>每次配置</td><td>UV PLANE 压缩数据读取基地址低 32 bit；RGBA 图像不关心</td></tr>
-<tr><td>0x04C</td><td>REG_TILE_BASE_UV_HI</td><td>每次配置</td><td>UV PLANE 压缩数据读取基地址高 32 bit；RGBA 图像不关心</td></tr></tbody></table>
+<tr><td>0x04C</td><td>REG_TILE_BASE_UV_HI</td><td>每次配置</td><td>UV PLANE 压缩数据读取基地址高 32 bit；RGBA 图像不关心</td></tr>
+<tr><td>0x060[5]</td><td>START</td><td>每次配置</td><td>地址组写完整后写 1；地址写入只填充队列，不单独启动帧</td></tr></tbody></table>
     <h3>4.3 ENC 分辨率参考配置</h3>
     <p>下面只列 ENC 静态几何相关寄存器，覆盖 RGBA8888、YUV420_8/NV12、YUV420_10/P010。每帧 base address 仍按实际输出 buffer 地址单独写入。</p>
     <table><thead><tr><th>格式</th><th>分辨率</th><th>关键计算</th><th>ENC 写值参考</th></tr></thead><tbody><tr><td>RGBA8888</td><td>128x128</td><td>tile=16x4, bpp=4<br>Y cols/rows=8/32<br>UV cols/rows=0/0<br>stored Y/UV=128/0<br>tile_pitch=32, meta_pitch=64<br>size Y(meta/tile)=0x1000/0x10000<br>size UV(meta/tile)=0x0/0x0</td><td>0x00C REG_TILE_CFG1       = 0x00200001<br>0x024 REG_OTF_CFG1        = 0x00800080<br>0x028 REG_OTF_CFG2        = 0x00040010<br>0x02C REG_OTF_CFG3        = 0x00000008<br>0x050 REG_META_ACTIVE_SIZE= 0x00800080<br>0x054 REG_META_PITCH      = 0x00000040<br>0x020 REG_OTF_CFG0        = 0x00000000</td></tr>
@@ -351,7 +352,7 @@ write(0x020, REG_OTF_CFG0);       // [2:0] format</pre>
 <tr><td>UV tile base</td><td>0x048 / 0x04C</td><td>低 32 bit / 高 32 bit；写完四个地址后写 IRQ_CTRL[5] 启动本帧</td></tr></tbody></table>
     <p><b>写入顺序建议：</b>按 meta Y、tile Y、meta UV、tile UV 顺序写。四个地址建议按顺序写完，然后写 <code>REG_IRQ_CTRL[5]=1</code> 启动本帧。</p>
     <h3>5.3 后续帧配置</h3>
-    <p>如果格式和尺寸不变，后续帧只需要重复 5.2 的每帧地址配置，然后送入下一帧 OTF 输入流。</p>
+    <p>如果格式和尺寸不变，后续帧只需要重复 5.2 的每帧地址配置，写 <code>REG_IRQ_CTRL[5]=1</code>，然后送入下一帧 OTF 输入流。</p>
   </section>
 
   <section id="dec">
@@ -374,8 +375,9 @@ write(0x028, OTF_CFG4);           // [15:0] v_bp/VBP; [31:16] v_act/VACT</pre>
     <table><thead><tr><th>地址项</th><th>APB 地址</th><th>说明</th></tr></thead><tbody><tr><td>metadata RGBA/Y base</td><td>0x030 / 0x034</td><td>低 32 bit / 高 32 bit</td></tr>
 <tr><td>tile RGBA/Y base</td><td>0x038 / 0x03C</td><td>低 32 bit / 高 32 bit</td></tr>
 <tr><td>metadata UV base</td><td>0x040 / 0x044</td><td>低 32 bit / 高 32 bit</td></tr>
-<tr><td>tile UV base</td><td>0x048 / 0x04C</td><td>低 32 bit / 高 32 bit；RGBA 图像不关心</td></tr></tbody></table>
-    <p><b>写入顺序建议：</b>每个 64 bit 地址都按 low word、high word 顺序写。四类地址都写完后，该帧输入 buffer 地址配置完成。后续帧如果格式和 timing 不变，只重复本节地址配置。</p>
+<tr><td>tile UV base</td><td>0x048 / 0x04C</td><td>低 32 bit / 高 32 bit；RGBA 图像不关心</td></tr>
+<tr><td>START</td><td>0x060[5]</td><td>四类地址都写完后写 1；地址写入只填充队列，不单独启动帧</td></tr></tbody></table>
+    <p><b>写入顺序建议：</b>每个 64 bit 地址都按 low word、high word 顺序写。四类地址都写完后，该帧输入 buffer 地址配置完成；随后写 <code>IRQ_CTRL[5]=1</code> 启动本帧。后续帧如果格式和 timing 不变，只重复本节地址配置和 START。</p>
   </section>
 
   <section id="otf">
@@ -421,16 +423,16 @@ write(0x060, old_irq_enable | (1 &lt;&lt; 1));</pre>
 
   <section id="regression">
     <h2>9. 当前回归基线</h2>
-    <p>2026-05-11 在服务器 <code>10.168.1.199:/home/eda/work/ubwc/trunk</code> 以 OTF 320 MHz、core/VIVO 200 MHz、AXI 500 MHz 完成多帧 fake 回归。</p>
-    <pre>tcsh -c "source prj_setup.env; make -C vrf/sim random_if_fake_all"</pre>
+    <p>2026-05-14 在服务器 <code>10.168.1.199:/home/eda/work/ubwc/trunk</code> 完成 4096 宽、<code>COM_BUF_AW=12</code>、两帧 VCS fake 回归。</p>
+    <pre>make -C vrf/sim SRAM_PROFILE=4096 RUN_ARGS=+tb_frame_repeat=2 enc_wrapper_tajmahal_4096x600_nv12_fake_all
+make -C vrf/sim SRAM_PROFILE=4096 RUN_ARGS=+tb_frame_repeat=2 enc_wrapper_k_outdoor61_4096x600_g016_fake_all</pre>
     <table><thead><tr><th>Case</th><th>结果</th><th>说明</th></tr></thead><tbody>
 <tr><td>wrapper_tajmahal_4096x600_nv12_otf_fake_all</td><td>PASS</td><td>DEC NV12 OTF fake，多帧随机接口</td></tr>
 <tr><td>wrapper_k_outdoor61_4096x600_g016_vivo_fake_all</td><td>PASS</td><td>DEC G016/P010 fake VIVO，多帧随机接口</td></tr>
 <tr><td>enc_wrapper_tajmahal_4096x600_nv12_fake_all</td><td>PASS</td><td>ENC NV12 fake，多帧随机接口</td></tr>
 <tr><td>enc_wrapper_k_outdoor61_4096x600_g016_fake_all</td><td>PASS</td><td>ENC G016/P010 fake，多帧随机接口</td></tr>
     </tbody></table>
-    <p>上述 4 个 case 使用两组随机 seed 重复执行，共 8 项，最终结果为 <code>Summary: pass=8 fail=0</code>。</p>
-    <p>服务器 log：<code>/home/eda/work/ubwc/trunk/vrf/sim/build/regress_logs/random_if_clk320_200_500_rerun_20260511_100738.log</code></p>
+    <p>本轮重点验证 ENC YUV420 在 4096 宽、每个 bank 固定 4096 x 128 bit 时的地址、layout、AXI 写、OTF 和连续帧行为；两个 case 最终均为 PASS。</p>
   </section>
 
   <footer>UBWC ENC/DEC software usage guide. Generated from repository configuration notes and current APB register semantics.</footer>

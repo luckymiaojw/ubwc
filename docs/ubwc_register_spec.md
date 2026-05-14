@@ -196,7 +196,7 @@ Recommended configuration order:
 | `0x0008` | `TILE_CFG0` | `RW` | `0x0000_0000` | UBWC enable and swizzle configuration |
 | `0x000c` | `TILE_CFG1` | `RW` | `0x0000_0000` | 4-line/lossy/pitch configuration |
 | `0x0010` | `ENC_CI_CFG0` | `RW` | `0x0000_0000` | CI input type, alen, and reserved fields |
-| `0x0014` | `ENC_CI_CFG1` | `RW` | `0x0000_0000` | CI sideband and lossy |
+| `0x0014` | `ENC_CI_CFG1` | `RW` | `0x0000_0000` | CI lossy and reserved fields |
 | `0x0018` | `ENC_CI_CFG2` | `RW` | `0x0000_0000` | Reserved |
 | `0x001c` | `ENC_CI_CFG3` | `RW` | `0x0000_0000` | Reserved |
 | `0x0020` | `OTF_CFG0` | `RW` | `0x0000_0000` | Input OTF format |

@@ -52,7 +52,7 @@
 | `0x008` | `REG_TILE_CFG0` | RW | UBWC enable、bank swizzle、highest bank bit、bank spread | 格式/尺寸/layout 变化时配置 |
 | `0x00C` | `REG_TILE_CFG1` | RW | 4-line format、RGBA lossy 2:1、tile pitch | 格式/尺寸/layout 变化时配置 |
 | `0x010` | `REG_ENC_CI_CFG0` | RW | CI input type、ALEN | 格式变化时配置 |
-| `0x014` | `REG_ENC_CI_CFG1` | RW | CI lossy，sideband 保留 | 格式变化时配置 |
+| `0x014` | `REG_ENC_CI_CFG1` | RW | CI lossy 和保留字段 | 格式变化时配置 |
 | `0x018` | `REG_ENC_CI_CFG2` | RW | 保留 UBWC CI cfg，软件写 0 | 格式变化时配置 |
 | `0x01C` | `REG_ENC_CI_CFG3` | RW | 保留 UBWC CI cfg，软件写 0 | 格式变化时配置 |
 | `0x020` | `REG_OTF_CFG0` | RW | 输入 OTF format | 格式变化时配置 |
