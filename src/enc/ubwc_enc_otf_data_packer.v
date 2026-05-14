@@ -83,6 +83,9 @@ module ubwc_enc_otf_data_packer
     wire                                            line_cnt_inc                    ;
     wire                                            pixel_cnt_clear                 ;
     wire                                            pixel_cnt_inc                   ;
+    wire                                            otf_stall                       ;
+    wire        [146                    :0]         otf_stall_sig                   ;
+    wire                                            otf_stall_sig_changed           ;
     wire                                            err_bline_set_otf               ;
     wire                                            err_bframe_set_otf              ;
     wire                                            err_fifo_ovf_set_otf            ;
@@ -158,6 +161,8 @@ module ubwc_enc_otf_data_packer
     reg                                             err_bline_pending_otf           ;
     reg                                             err_bframe_pending_otf          ;
     reg                                             err_fifo_ovf_pending_otf        ;
+    reg                                             otf_stall_hold_valid            ;
+    reg         [146                    :0]         otf_stall_hold_sig              ;
     reg                                             err_bline_toggle_otf            ;
     reg                                             err_bframe_toggle_otf           ;
     reg                                             err_fifo_ovf_toggle_otf         ;
@@ -214,11 +219,16 @@ module ubwc_enc_otf_data_packer
     assign line_cnt_inc               = hsync_rising;
     assign pixel_cnt_clear            = hsync_rising;
     assign pixel_cnt_inc              = !hsync_rising && otf_fire;
+    assign otf_stall                  = otf_de && !otf_ready;
+    assign otf_stall_sig              = {otf_vsync, otf_hsync, otf_de, otf_fcnt, otf_lcnt, otf_data};
+    assign otf_stall_sig_changed      = otf_stall_hold_valid &&
+                                        otf_stall &&
+                                        (otf_stall_sig != otf_stall_hold_sig);
     assign err_bline_set_otf          = hsync_rising && (pixel_cnt_in > 0) &&
                                         (pixel_cnt_in != cfg_width);
     assign err_bframe_set_otf         = vsync_rising && (line_cnt_in > 0) &&
                                         (line_cnt_in != cfg_height);
-    assign err_fifo_ovf_set_otf       = otf_de && in_fifo_full;
+    assign err_fifo_ovf_set_otf       = otf_stall_sig_changed;
     assign err_clear_otf              = err_clear_otf_ff2 ^ err_clear_otf_ff3;
     assign err_bline_new_otf          = err_bline_set_otf &&
                                         !err_bline_pending_otf &&
@@ -405,6 +415,20 @@ module ubwc_enc_otf_data_packer
             err_fifo_ovf_pending_otf <= 1'b0;
         else if (err_fifo_ovf_set_otf)
             err_fifo_ovf_pending_otf <= 1'b1;
+    end
+
+    always @(posedge i_otf_clk or negedge rst_n_otf) begin
+        if (!rst_n_otf)
+            otf_stall_hold_valid <= 1'b0;
+        else if (!otf_stall)
+            otf_stall_hold_valid <= 1'b0;
+        else
+            otf_stall_hold_valid <= 1'b1;
+    end
+
+    always @(posedge i_otf_clk) begin
+        if (otf_stall && !otf_stall_hold_valid)
+            otf_stall_hold_sig <= otf_stall_sig;
     end
 
     always @(posedge i_otf_clk or negedge rst_n_otf) begin

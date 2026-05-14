@@ -556,8 +556,8 @@ OTF_CFG4 = {v_act,  v_bp}</pre>
         <tr><th>模块</th><th>当前默认 COM_BUF_AW</th><th>每个 bank 容量</th><th>说明</th></tr>
       </thead>
       <tbody>
-        <tr><td>ENC</td><td>12</td><td>4096 x 128 bit = 64 KiB</td><td>当前默认参数；若支持 4096 宽 YUV420，建议仿真/集成按 13 bit 评估</td></tr>
-        <tr><td>DEC</td><td>12</td><td>4096 x 128 bit = 64 KiB</td><td>当前默认参数；外部实例可按目标最大宽度调整</td></tr>
+        <tr><td>ENC</td><td>12</td><td>4096 x 128 bit = 64 KiB</td><td>当前默认参数；4096 宽 RGBA/YUV420 均固定 12 bit，YUV420 通过 Y/UV 同 bank 时分调度覆盖</td></tr>
+        <tr><td>DEC</td><td>12</td><td>4096 x 128 bit = 64 KiB</td><td>当前默认参数；4096 宽 RGBA/YUV420 均按 12 bit 工作 bank 集成</td></tr>
       </tbody>
     </table>
     <pre>bank_words = 2 ^ COM_BUF_AW

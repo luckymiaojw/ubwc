@@ -412,7 +412,7 @@ module ubwc_enc_otf_to_tile
                                         (coord_tile_y_u16 == (coord_tile_rows - 16'd1));
     assign coord_frame_last           = coord_last_col &&
                                         coord_last_row &&
-                                        (!coord_is_yuv420 || coord_is_uv_plane);
+                                        (!coord_is_yuv420 || !coord_is_uv_plane);
     assign o_addr_cfg_done_pulse      = coord_fifo_rd_en && coord_frame_last;
     assign o_addr_cfg_done_slot       = o_co_tile_fcnt[0];
     assign otf_frame_start            = i_otf_vsync & ~otf_vsync_d &

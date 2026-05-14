@@ -10,7 +10,7 @@ SRAM_PROFILE ?= 4096
 ifeq ($(strip $(SRAM_PROFILE)),2048)
 SRAM_PROFILE_COM_BUF_AW := 12
 else ifeq ($(strip $(SRAM_PROFILE)),4096)
-SRAM_PROFILE_COM_BUF_AW := 13
+SRAM_PROFILE_COM_BUF_AW := 12
 else
 $(error Unsupported SRAM_PROFILE=$(SRAM_PROFILE), expected 2048 or 4096)
 endif

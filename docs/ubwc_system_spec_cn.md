@@ -288,8 +288,8 @@ ENC 和 DEC wrapper 都使用外部 bank0/bank1 作为 ping-pong 工作 SRAM，�
 
 | 模块 | 当前默认 `COM_BUF_AW` | 每个 bank 容量 | 说明 |
 | --- | --- | --- | --- |
-| ENC | 12 | 4096 x 128 bit = 64 KiB | 当前默认参数；若支持 4096 宽 YUV420，建议仿真/集成按 13 bit 评估 |
-| DEC | 12 | 4096 x 128 bit = 64 KiB | 当前默认参数；外部实例可按目标最大宽度调整 |
+| ENC | 12 | 4096 x 128 bit = 64 KiB | 当前默认参数；4096 宽 RGBA/YUV420 均固定 12 bit，YUV420 通过 Y/UV 同 bank 时分调度覆盖 |
+| DEC | 12 | 4096 x 128 bit = 64 KiB | 当前默认参数；4096 宽 RGBA/YUV420 均按 12 bit 工作 bank 集成 |
 
 容量规则以最终集成参数为准：
 

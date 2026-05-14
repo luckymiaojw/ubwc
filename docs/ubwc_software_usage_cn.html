@@ -125,7 +125,7 @@
 <tr><td>DEC</td><td>bank0</td><td><code>COM_BUF_AW=12</code>, <code>COM_BUF_DW=128</code></td><td>4096 x 128 bit = 64 KiB = 512 Kbit</td><td>与 bank1 对称，是 tile-to-OTF 的 ping-pong 工作区，不固定对应 Y/UV。</td></tr>
 <tr><td>DEC</td><td>bank1</td><td><code>COM_BUF_AW=12</code>, <code>COM_BUF_DW=128</code></td><td>4096 x 128 bit = 64 KiB = 512 Kbit</td><td>与 bank0 对称。当前默认 DEC 两个 bank 合计 128 KiB。</td></tr>
     </tbody></table>
-    <div class="callout warn">默认 <code>COM_BUF_AW=12</code> 可以覆盖 4096 宽 RGBA 场景；如果要覆盖 4096 宽 YUV420_8/YUV420_10，请在仿真或集成参数中使用 <code>COM_BUF_AW=13</code>，也就是每个 bank 128 KiB。这里的 SRAM 是 wrapper 外部的临时工作 RAM，不是压缩后 UBWC frame buffer。</div>
+    <div class="callout">当前默认 <code>COM_BUF_AW=12</code> 覆盖 4096 宽 RGBA 与 YUV420 场景。ENC YUV420 采用偶数 Y tile-row 与对应 UV tile-row 共用同一 bank 的时分调度，单端口 SRAM 在冲突周期按读 1 拍、写 1 拍交替，因此每个 bank 固定 4096 x 128 bit 即可。这里的 SRAM 是 wrapper 外部的临时工作 RAM，不是压缩后 UBWC frame buffer。</div>
     <h3>3.1 ENC bank 容量计算</h3>
     <p>ENC 的 bank0/bank1 用在 <code>ubwc_enc_line_to_tile</code>，作用是把 OTF 输入行数据重排成 tile 输出。两个 bank 轮流写入/读出，所以每个 bank 都要能容纳一个完整工作组。</p>
     <pre>// 128 bit word, 1 word = 16 byte
@@ -138,34 +138,34 @@ RGBA8888 / RGBA10:
 
 YUV420_8 / NV12:
 YUV420_10 / P010:
-    enc_bank_words = (2 * y_tile_cols + uv_tile_cols) * 16
-    // 通常 uv_tile_cols == y_tile_cols，所以等价于 y_tile_cols * 48
+    enc_bank_words = (y_tile_cols + uv_tile_cols) * 16
+    // 偶数 Y tile-row 和对应 UV tile-row 放在同一个 bank
+    // 通常 uv_tile_cols == y_tile_cols，所以等价于 y_tile_cols * 32
 
 // 参数化实现时
 enc_bank_addr_width = ceil_log2(enc_bank_words)
 enc_bank_bytes      = 2^enc_bank_addr_width * 16</pre>
     <table><thead><tr><th>最大宽度场景</th><th>格式</th><th>y_tile_cols</th><th>最小有效 word 数</th><th>建议地址宽度</th><th>每个 bank 容量</th></tr></thead><tbody>
 <tr><td>4096 px</td><td>RGBA8888/RGBA10</td><td>256</td><td>4096</td><td>12 bit</td><td>64 KiB</td></tr>
-<tr><td>4096 px</td><td>YUV420_8/NV12</td><td>128</td><td>6144</td><td>13 bit</td><td>128 KiB</td></tr>
-<tr><td>4096 px</td><td>YUV420_10/P010</td><td>128</td><td>6144</td><td>13 bit</td><td>128 KiB</td></tr>
+<tr><td>4096 px</td><td>YUV420_8/NV12</td><td>128</td><td>4096</td><td>12 bit</td><td>64 KiB</td></tr>
+<tr><td>4096 px</td><td>YUV420_10/P010</td><td>128</td><td>4096</td><td>12 bit</td><td>64 KiB</td></tr>
     </tbody></table>
-    <p>因此如果 ENC 只需要支持 4096 宽 RGBA，默认 <code>COM_BUF_AW=12</code> 足够；如果要支持 4096 宽 YUV420，建议使用 <code>COM_BUF_AW=13</code>、每个 bank 128 KiB。</p>
+    <p>因此当前 ENC 最大 4096 宽配置统一使用 <code>COM_BUF_AW=12</code>，每个 bank 64 KiB，不再为 YUV420 增加到 13 bit。</p>
     <h3>3.2 DEC bank 容量计算</h3>
     <p>DEC 的 bank0/bank1 用在 <code>ubwc_dec_tile_to_otf</code>，作用是把 VIVO 解出的 tile 数据重组成 OTF 输出行。外部 bank 容量由顶层参数 <code>COM_BUF_AW</code> 决定。</p>
     <pre>// DEC 地址空间，128 bit word
 dec_bank_words = 2 ^ COM_BUF_AW
 dec_bank_bytes = dec_bank_words * 16
 
-// COM_BUF_AW=13 时，4096 像素宽度下的有效地址使用范围
+// COM_BUF_AW=12 时，4096 像素宽度下的有效地址使用范围
 RGBA8888 / RGBA10:
     word 0 .. 4095
 
 YUV420_8 / NV12:
 YUV420_10 / P010:
-    Y upper region : word 0    .. 2047
-    Y lower region : word 2048 .. 4095
-    UV region      : word 4096 .. 6143
-    word 6144 .. 8191 为余量</pre>
+    Y upper region : word 0    .. 1023
+    Y lower region : word 1024 .. 2047
+    UV region      : word 2048 .. 4095</pre>
     <p>DEC 的 bank0 和 bank1 是双 buffer 关系：一个 bank 可以保存当前已解好的工作组，另一个 bank 可以继续接收下一组数据。它们不是固定的 Y bank / UV bank，软件也不需要关心 bank 选择。</p>
   </section>
 

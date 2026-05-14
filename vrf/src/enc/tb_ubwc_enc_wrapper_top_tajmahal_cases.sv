@@ -1681,6 +1681,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
     task automatic pulse_start_otf;
         begin
+            wait (o_otf_ready == 1'b1);
+            @(posedge otf_clk);
             start_otf = 1'b1;
             repeat (2) @(posedge otf_clk);
             start_otf = 1'b0;

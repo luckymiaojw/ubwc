@@ -153,13 +153,25 @@ module ubwc_enc_line_to_tile#(
     wire        [3                      :0]         sel_bank_fcnt                   ;
     wire                                            sel_group_start                 ;
     wire                                            sel_a_done                      ;
-    wire                                            sel_b_done                      ;
     wire                                            fifo_a_bank_ok                  ;
     wire                                            fifo_b_bank_ok                  ;
     wire                                            fifo_a_group_ok                 ;
     wire                                            fifo_b_group_ok                 ;
+    wire                                            fifo_b_hit_bank0                ;
+    wire                                            fifo_b_hit_bank1                ;
+    wire                                            fifo_b_target_bank              ;
+    wire        [15                     :0]         fifo_b_pair_group_id            ;
+    wire                                            fifo_b_target_b_done            ;
     wire                                            fifo_a_can_fire                 ;
     wire                                            fifo_b_can_fire                 ;
+    wire                                            fire_a_req                      ;
+    wire                                            fire_b_req                      ;
+    wire                                            fire_req                        ;
+    wire                                            fire_req_bank                   ;
+    wire                                            fire_req_rd_bank                ;
+    wire                                            read_write_conflict             ;
+    wire                                            read_wins_conflict              ;
+    wire                                            write_blocked_by_read           ;
     wire                                            fire_a                          ;
     wire                                            fire_b                          ;
     wire                                            write_input_seen                ;
@@ -223,6 +235,11 @@ module ubwc_enc_line_to_tile#(
     wire                                            read_grant                      ;
     wire                                            read_data_vld                   ;
     wire        [127                    :0]         read_data                       ;
+    wire                                            rd_selected_b_done              ;
+    wire                                            rd_selected_has_uv              ;
+    wire                                            rd_uv_read_allowed              ;
+    wire                                            rd_yuv_y_done_no_uv             ;
+    wire                                            rd_y_subrow                     ;
     wire                                            a_wr_bank0                      ;
     wire                                            b_wr_bank0                      ;
     wire                                            a_wr_bank1                      ;
@@ -343,13 +360,13 @@ module ubwc_enc_line_to_tile#(
     reg         [ADDR_W              -1 :0]         bank1_b_wr_addr                 ;
     reg         [ADDR_W              -1 :0]         bank1_b_wr_line_base            ;
     reg                                             rd_plane                        ;
-    reg                                             rd_y_subrow                     ;
     reg         [15                     :0]         rd_tile_x                       ;
     reg         [15                     :0]         rd_word_in_tile                 ;
     reg         [15                     :0]         rd_group_y                      ;
     reg         [3                      :0]         rd_fcnt                         ;
     reg         [ADDR_W              -1 :0]         rd_addr_cur                     ;
     reg         [15                     :0]         rd_tile_grp_y_cnt               ; // Read-side core Tile Y row counter
+    reg                                             rw_turn_read                    ;
 
     // ------------------------------------------------------------------------
     // Format MUX (lookup-table based, eliminating runtime calculations)
@@ -394,7 +411,7 @@ module ubwc_enc_line_to_tile#(
     assign cfg_tile_h_act                = (is_rgba_format || is_g016_format) ? 16'd4 :
                                            is_yuv_8_format                    ? 16'd8 :
                                                                                 16'd0;
-    assign a_total_lines                 = is_yuv420 ? {cfg_tile_h_act[14:0], 1'b0} : cfg_tile_h_act;
+    assign a_total_lines                 = cfg_tile_h_act;
     assign b_total_lines                 = cfg_tile_h_act;
     assign fifo_a_skid_vld               = (fifo_a_skid_count != 2'd0);
     assign fifo_b_skid_vld               = (fifo_b_skid_count != 2'd0);
@@ -402,8 +419,8 @@ module ubwc_enc_line_to_tile#(
     assign fifo_b_skid_data              = fifo_b_skid_data0;
     assign fifo_a_skid_lcnt              = fifo_a_skid_data[158:147];
     assign fifo_b_skid_lcnt              = fifo_b_skid_data[158:147];
-    assign fifo_a_dec_group_id_next      = is_yuv420_10 ? {7'd0, fifo_a_skid_lcnt[11:3]} :
-                                                          {8'd0, fifo_a_skid_lcnt[11:4]};
+    assign fifo_a_dec_group_id_next      = is_yuv420_10 ? {6'd0, fifo_a_skid_lcnt[11:2]} :
+                                                          {7'd0, fifo_a_skid_lcnt[11:3]};
     assign fifo_b_dec_group_id_next      = is_yuv420_10 ? {7'd0, fifo_b_skid_lcnt[11:3]} :
                                                           {8'd0, fifo_b_skid_lcnt[11:4]};
     assign a_fcnt                        = fifo_a_dec_data[162:159];
@@ -418,14 +435,15 @@ module ubwc_enc_line_to_tile#(
     assign b_tdata                       = fifo_b_dec_data[127:0];
     assign a_group_id                    = fifo_a_dec_group_id;
     assign b_group_id                    = fifo_b_dec_group_id;
+    assign fifo_b_pair_group_id          = {fifo_b_dec_group_id[14:0], 1'b0};
     assign bank0_next_group_waiting_next = is_yuv420 && (wr_bank_sel == 1'b0) &&
                                            bank0_group_vld &&
-                                           ((fifo_a_dec_vld && (a_group_id != bank0_group_id)) ||
-                                           (need_b && fifo_b_dec_vld && (b_group_id != bank0_group_id)));
+                                           fifo_a_dec_vld &&
+                                           (a_group_id != bank0_group_id);
     assign bank1_next_group_waiting_next = is_yuv420 && (wr_bank_sel == 1'b1) &&
                                            bank1_group_vld &&
-                                           ((fifo_a_dec_vld && (a_group_id != bank1_group_id)) ||
-                                           (need_b && fifo_b_dec_vld && (b_group_id != bank1_group_id)));
+                                           fifo_a_dec_vld &&
+                                           (a_group_id != bank1_group_id);
     assign bank0_group_start             = (bank0_a_line_idx == 16'd0) &&
                                            (bank0_a_tile_x == 16'd0) &&
                                            (bank0_a_word_in_tile == 16'd0) &&
@@ -458,19 +476,27 @@ module ubwc_enc_line_to_tile#(
     assign sel_bank_fcnt                 = (wr_bank_sel_eff == 1'b0) ? bank0_fcnt : bank1_fcnt;
     assign sel_group_start               = (wr_bank_sel_eff == 1'b0) ? bank0_group_start : bank1_group_start;
     assign sel_a_done                    = (wr_bank_sel_eff == 1'b0) ? bank0_a_done : bank1_a_done;
-    assign sel_b_done                    = (wr_bank_sel_eff == 1'b0) ? bank0_b_done : bank1_b_done;
-    assign fifo_a_bank_ok                = !(is_yuv420 && need_b && sel_a_done && !sel_b_done);
-    assign fifo_b_bank_ok                = !(is_yuv420 && need_b && sel_b_done && !sel_a_done);
+    assign fifo_b_hit_bank0              = is_yuv420 && bank0_group_vld &&
+                                           (fifo_b_pair_group_id == bank0_group_id) &&
+                                           (b_fcnt == bank0_fcnt) &&
+                                           !bank0_b_done;
+    assign fifo_b_hit_bank1              = is_yuv420 && bank1_group_vld &&
+                                           (fifo_b_pair_group_id == bank1_group_id) &&
+                                           (b_fcnt == bank1_fcnt) &&
+                                           !bank1_b_done;
+    assign fifo_b_target_bank            = fifo_b_hit_bank0 ? 1'b0 :
+                                           fifo_b_hit_bank1 ? 1'b1 :
+                                                              wr_bank_sel_eff;
+    assign fifo_b_target_b_done          = (fifo_b_target_bank == 1'b0) ? bank0_b_done :
+                                                                           bank1_b_done;
+    assign fifo_a_bank_ok                = !(is_yuv420 && need_b && sel_a_done);
+    assign fifo_b_bank_ok                = !(is_yuv420 && need_b && fifo_b_target_b_done);
     assign fifo_a_group_ok               = !is_yuv420 || !sel_group_vld ||
                                            a_vsync ||
                                            (a_fcnt != sel_bank_fcnt) ||
                                            (sel_group_start && (a_group_id > sel_group_id)) ||
                                            (a_group_id <= sel_group_id);
-    assign fifo_b_group_ok               = !is_yuv420 || !sel_group_vld ||
-                                           b_vsync ||
-                                           (b_fcnt != sel_bank_fcnt) ||
-                                           (sel_group_start && (b_group_id > sel_group_id)) ||
-                                           (b_group_id <= sel_group_id);
+    assign fifo_b_group_ok               = !is_yuv420 || fifo_b_hit_bank0 || fifo_b_hit_bank1;
     assign bank0_ready_for_read          = bank0_ready_for_read_r;
     assign bank1_ready_for_read          = bank1_ready_for_read_r;
     assign fifo_a_dec_accept             = !fifo_a_dec_vld || fire_a;
@@ -485,14 +511,25 @@ module ubwc_enc_line_to_tile#(
                                            fifo_a_bank_ok && fifo_a_group_ok;
     assign fifo_b_can_fire               = need_b && fifo_b_dec_vld &&
                                            fifo_b_bank_ok && fifo_b_group_ok;
-    assign fire_a                        = !write_side_block && fifo_a_can_fire;
-    assign fire_b                        = !write_side_block && !fifo_a_can_fire && fifo_b_can_fire;
+    assign fire_a_req                    = !write_side_block && fifo_a_can_fire;
+    assign fire_b_req                    = (!write_side_block || fifo_b_hit_bank0 || fifo_b_hit_bank1) &&
+                                           !fire_a_req && fifo_b_can_fire;
+    assign fire_req                      = fire_a_req || fire_b_req;
+    assign fire_req_bank                 = fire_a_req ? wr_bank_sel_eff : fifo_b_target_bank;
+    assign fire_req_rd_bank              = (fire_req_bank == rd_bank_sel_act);
+    assign read_write_conflict           = issue_read && fire_req && fire_req_rd_bank;
+    assign read_wins_conflict            = read_write_conflict && rw_turn_read;
+    assign write_blocked_by_read         = read_wins_conflict;
+    assign fire_a                        = fire_a_req && !write_blocked_by_read;
+    assign fire_b                        = fire_b_req && !write_blocked_by_read;
     assign write_input_seen              = fifo_a_dec_vld || fifo_a_skid_vld ||
                                            (need_b && (fifo_b_dec_vld || fifo_b_skid_vld));
     assign bank0_safe_for_read           = bank0_ready_for_read &&
-                                           ((wr_bank_sel != 1'b0) || !write_input_seen);
+                                           (is_yuv420 ||
+                                           ((wr_bank_sel != 1'b0) || !write_input_seen));
     assign bank1_safe_for_read           = bank1_ready_for_read &&
-                                           ((wr_bank_sel != 1'b1) || !write_input_seen);
+                                           (is_yuv420 ||
+                                           ((wr_bank_sel != 1'b1) || !write_input_seen));
     assign fifo_a_skid_push              = fifo_a_vld && fifo_a_rdy;
     assign fifo_b_skid_push              = fifo_b_vld && fifo_b_rdy;
     assign fifo_a_skid_count_calc        = {1'b0, fifo_a_skid_count} +
@@ -536,13 +573,17 @@ module ubwc_enc_line_to_tile#(
     assign bank1_b_wr_line_base_next     = bank1_b_wr_line_base + b_wr_line_step;
     assign a_wr_addr_cur                 = (wr_bank_sel_eff == 1'b0) ? bank0_a_wr_addr :
                                                                        bank1_a_wr_addr;
-    assign b_wr_addr_cur                 = (wr_bank_sel_eff == 1'b0) ? bank0_b_wr_addr :
-                                                                       bank1_b_wr_addr;
+    assign b_wr_addr_cur                 = (fifo_b_target_bank == 1'b0) ? bank0_b_wr_addr :
+                                                                          bank1_b_wr_addr;
     assign cur_tile_cols                 = (rd_plane == 1'b0) ? cfg_y_tile_cols : cfg_uv_tile_cols;
-    assign rd_read_y                     = (is_yuv420 && !rd_plane) ?
-                                                                      {rd_group_y[14:0], rd_y_subrow} :
-                                                                      rd_group_y;
+    assign rd_read_y                     = (is_yuv420 && rd_plane) ? {1'b0, rd_group_y[15:1]} :
+                                                                        rd_group_y;
+    assign rd_selected_b_done            = rd_bank_sel_act ? bank1_b_done : bank0_b_done;
+    assign rd_selected_has_uv            = is_yuv420 && !rd_group_y[0];
+    assign rd_uv_read_allowed            = !is_yuv420 || !rd_plane ||
+                                           !rd_selected_has_uv || rd_selected_b_done;
     assign issue_read                    = (rd_state == RD_ACT) &&
+                                           rd_uv_read_allowed &&
                                            !resp_fifo_almost_full &&
                                            !read_meta_fifo_almost_full;
     assign read_meta_fifo_din            = {rd_fcnt, rd_read_y, rd_tile_x,
@@ -571,9 +612,9 @@ module ubwc_enc_line_to_tile#(
     assign o_tile_y                      = resp_fifo_dout[162 +: 16];
     assign o_tile_fcnt                   = resp_fifo_dout[RESP_FIFO_W-1 -: 4];
     assign a_wr_bank0                    = fire_a && (wr_bank_sel_eff == 1'b0);
-    assign b_wr_bank0                    = fire_b && (wr_bank_sel_eff == 1'b0);
+    assign b_wr_bank0                    = fire_b && (fifo_b_target_bank == 1'b0);
     assign a_wr_bank1                    = fire_a && (wr_bank_sel_eff == 1'b1);
-    assign b_wr_bank1                    = fire_b && (wr_bank_sel_eff == 1'b1);
+    assign b_wr_bank1                    = fire_b && (fifo_b_target_bank == 1'b1);
     assign do_wr_bank0                   = a_wr_bank0 || b_wr_bank0;
     assign do_wr_bank1                   = a_wr_bank1 || b_wr_bank1;
     assign wr_addr_bank0                 = a_wr_bank0 ? a_wr_addr_cur :
@@ -588,7 +629,8 @@ module ubwc_enc_line_to_tile#(
     assign wr_data_bank1                 = a_wr_bank1 ? a_tdata :
                                            b_wr_bank1 ? b_tdata :
                                                         128'd0;
-    assign read_grant                    = issue_read;
+    assign read_grant                    = issue_read &&
+                                           (!read_write_conflict || read_wins_conflict);
     assign rd_bank0                      = read_grant && (rd_bank_sel_act == 1'b0);
     assign rd_bank1                      = read_grant && (rd_bank_sel_act == 1'b1);
     assign bank0_en_next                 = do_wr_bank0 || rd_bank0;
@@ -608,33 +650,33 @@ module ubwc_enc_line_to_tile#(
     assign bank0_release                 = rd_bank_release && (rd_bank_sel_act == 1'b0);
     assign bank1_release                 = rd_bank_release && (rd_bank_sel_act == 1'b1);
     assign bank0_fire_a                  = fire_a && (wr_bank_sel_eff == 1'b0);
-    assign bank0_fire_b                  = fire_b && (wr_bank_sel_eff == 1'b0);
+    assign bank0_fire_b                  = fire_b && (fifo_b_target_bank == 1'b0);
     assign bank0_fire                    = bank0_fire_a || bank0_fire_b;
     assign bank0_fire_vsync              = (bank0_fire_a && a_vsync) ||
                                            (bank0_fire_b && b_vsync);
     assign bank0_fire_fcnt               = bank0_fire_a ? a_fcnt : b_fcnt;
     assign bank0_fire_group              = bank0_fire_a ? a_group_id : b_group_id;
-    assign bank0_group_load              = bank0_fire && is_yuv420 &&
-                                           (bank0_fire_vsync ||
+    assign bank0_group_load              = bank0_fire_a && is_yuv420 &&
+                                           (a_vsync ||
                                            !bank0_group_vld ||
                                            !bank0_meta_vld ||
-                                           (bank0_group_start && (bank0_fire_group > bank0_group_id)) ||
-                                           (bank0_fire_group < bank0_group_id) ||
-                                           (bank0_fcnt != bank0_fire_fcnt));
+                                           (bank0_group_start && (a_group_id > bank0_group_id)) ||
+                                           (a_group_id < bank0_group_id) ||
+                                           (bank0_fcnt != a_fcnt));
     assign bank1_fire_a                  = fire_a && (wr_bank_sel_eff == 1'b1);
-    assign bank1_fire_b                  = fire_b && (wr_bank_sel_eff == 1'b1);
+    assign bank1_fire_b                  = fire_b && (fifo_b_target_bank == 1'b1);
     assign bank1_fire                    = bank1_fire_a || bank1_fire_b;
     assign bank1_fire_vsync              = (bank1_fire_a && a_vsync) ||
                                            (bank1_fire_b && b_vsync);
     assign bank1_fire_fcnt               = bank1_fire_a ? a_fcnt : b_fcnt;
     assign bank1_fire_group              = bank1_fire_a ? a_group_id : b_group_id;
-    assign bank1_group_load              = bank1_fire && is_yuv420 &&
-                                           (bank1_fire_vsync ||
+    assign bank1_group_load              = bank1_fire_a && is_yuv420 &&
+                                           (a_vsync ||
                                            !bank1_group_vld ||
                                            !bank1_meta_vld ||
-                                           (bank1_group_start && (bank1_fire_group > bank1_group_id)) ||
-                                           (bank1_fire_group < bank1_group_id) ||
-                                           (bank1_fcnt != bank1_fire_fcnt));
+                                           (bank1_group_start && (a_group_id > bank1_group_id)) ||
+                                           (a_group_id < bank1_group_id) ||
+                                           (bank1_fcnt != a_fcnt));
     assign bank0_a_done_set              = bank0_fire_a && a_tlast &&
                                            (bank0_a_line_idx + 16'd1 >= a_total_lines);
     assign bank0_b_done_set              = bank0_fire_b && b_tlast &&
@@ -654,11 +696,9 @@ module ubwc_enc_line_to_tile#(
                                            (bank1_next_group_waiting_r &&
                                            (bank1_a_line_idx + 16'd1 >= a_total_lines));
     assign bank0_ready_for_read_next     = bank0_ready_for_read_r ||
-                                           (bank0_a_done_eff_next &&
-                                           (!need_b || bank0_b_done || bank0_b_done_set));
+                                           bank0_a_done_eff_next;
     assign bank1_ready_for_read_next     = bank1_ready_for_read_r ||
-                                           (bank1_a_done_eff_next &&
-                                           (!need_b || bank1_b_done || bank1_b_done_set));
+                                           bank1_a_done_eff_next;
     assign rd_state_idle                 = (rd_state == RD_IDLE);
     assign rd_state_act                  = (rd_state == RD_ACT);
     assign rd_state_fin                  = (rd_state == RD_FIN);
@@ -674,14 +714,16 @@ module ubwc_enc_line_to_tile#(
     assign rd_last_tile_word             = rd_read_advance && last_word_in_tile;
     assign rd_advance_word               = rd_read_advance && !last_word_in_tile;
     assign rd_advance_tile               = rd_last_tile_word && !rd_last_col;
-    assign rd_yuv_y_first_subrow_done    = rd_last_tile_word && rd_last_col &&
-                                           is_yuv420 && !rd_plane && !rd_y_subrow;
+    assign rd_yuv_y_first_subrow_done    = 1'b0;
+    assign rd_y_subrow                   = 1'b0;
     assign rd_yuv_y_second_subrow_done   = rd_last_tile_word && rd_last_col &&
-                                           is_yuv420 && !rd_plane && rd_y_subrow;
+                                           is_yuv420 && !rd_plane && rd_selected_has_uv;
+    assign rd_yuv_y_done_no_uv           = rd_last_tile_word && rd_last_col &&
+                                           is_yuv420 && !rd_plane && !rd_selected_has_uv;
     assign rd_non_yuv_to_b               = rd_last_tile_word && rd_last_col &&
                                            !is_yuv420 && !rd_plane && need_b;
     assign rd_frame_read_done            = rd_last_tile_word && rd_last_col &&
-                                           ((is_yuv420 && rd_plane) ||
+                                           ((is_yuv420 && (rd_plane || rd_yuv_y_done_no_uv)) ||
                                            (!is_yuv420 && (rd_plane || !need_b)));
     assign rd_return_idle                = rd_state_fin && rd_bank_release;
     assign rd_reset_tile_x               = rd_yuv_y_first_subrow_done ||
@@ -904,6 +946,13 @@ module ubwc_enc_line_to_tile#(
         end else if (wr_bank_switch) begin
             wr_bank_sel <= ~wr_bank_sel;
         end
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            rw_turn_read <= 1'b0;
+        else if (read_write_conflict)
+            rw_turn_read <= ~rw_turn_read;
     end
 
     // ------------------------------------------------------------------------
@@ -1383,17 +1432,6 @@ module ubwc_enc_line_to_tile#(
             rd_plane <= 1'b0;
         else if (rd_yuv_y_second_subrow_done || rd_non_yuv_to_b)
             rd_plane <= 1'b1;
-    end
-
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n)
-            rd_y_subrow <= 1'b0;
-        else if (rd_start)
-            rd_y_subrow <= 1'b0;
-        else if (rd_yuv_y_first_subrow_done)
-            rd_y_subrow <= 1'b1;
-        else if (rd_yuv_y_second_subrow_done)
-            rd_y_subrow <= 1'b0;
     end
 
     always @(posedge clk or negedge rst_n) begin
