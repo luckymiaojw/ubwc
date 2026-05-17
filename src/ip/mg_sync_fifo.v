@@ -28,7 +28,6 @@ module mg_sync_fifo
     // system signal
         input   wire                    clk,
         input   wire                    rst_n,
-        input   wire                    sclr,
 
     // write
         input   wire                    wr_en,
@@ -83,8 +82,6 @@ module mg_sync_fifo
     always @(posedge clk or negedge rst_n) begin
         if (~rst_n)
             waddr <= ADDR_ZERO;
-        else if (sclr)
-            waddr <= ADDR_ZERO;
         else
             waddr <= wnext;
     end
@@ -92,16 +89,12 @@ module mg_sync_fifo
     always @(posedge clk or negedge rst_n) begin
         if (~rst_n)
             raddr <= ADDR_ZERO;
-        else if (sclr)
-            raddr <= ADDR_ZERO;
         else
             raddr <= rnext;
     end
 
     always @(posedge clk or negedge rst_n) begin
         if (~rst_n)
-            data_count <= COUNT_ZERO;
-        else if (sclr)
             data_count <= COUNT_ZERO;
         else if ((~full & wr_en) & ~(~empty & rd_en))
             data_count <= data_count + COUNT_ONE;
@@ -112,8 +105,6 @@ module mg_sync_fifo
     always @(posedge clk or negedge rst_n) begin
         if (~rst_n)
             full <= 1'b0;
-        else if (sclr)
-            full <= 1'b0;
         else if ((~full & wr_en) & ~(~empty & rd_en))
             full <= (data_count == DEPTH - 1);
         else if (~(~full & wr_en) & (~empty & rd_en))
@@ -123,16 +114,12 @@ module mg_sync_fifo
     always @(posedge clk or negedge rst_n) begin
         if (~rst_n)
             prog_full <= 1'b0;
-        else if (sclr)
-            prog_full <= 1'b0;
         else
             prog_full <= (data_count >= PROG_FULL_LEVEL) ? 1'b1 : 1'b0;
     end
 
     always @(posedge clk or negedge rst_n) begin
         if (~rst_n)
-            empty <= 1'b1;
-        else if (sclr)
             empty <= 1'b1;
         else if ((~full & wr_en) & ~(~empty & rd_en))
             empty <= 1'b0;
@@ -150,7 +137,7 @@ module mg_sync_fifo
                 mem[a] <= {DWIDTH{1'b0}};
         end else
 `endif
-        if (!sclr && ~full & wr_en)
+        if (~full & wr_en)
             mem[waddr] <= din;
     end
 
@@ -164,20 +151,16 @@ module mg_sync_fifo
             always @(posedge clk or negedge rst_n) begin
                 if (~rst_n)
                     q_buf <= {DWIDTH{1'b0}};
-                else if (sclr)
-                    q_buf <= {DWIDTH{1'b0}};
                 else
                     q_buf <= mem[rnext];
             end
 
             always @(*) begin
-                valid = !sclr && ~empty;
+                valid = ~empty;
             end
 
             always @(posedge clk or negedge rst_n) begin
                 if (~rst_n)
-                    q_tmp <= {DWIDTH{1'b0}};
-                else if (sclr)
                     q_tmp <= {DWIDTH{1'b0}};
                 else if (~full & wr_en)
                     q_tmp <= din;
@@ -185,8 +168,6 @@ module mg_sync_fifo
 
             always @(posedge clk or negedge rst_n) begin
                 if (~rst_n)
-                    show_ahead <= 1'b0;
-                else if (sclr)
                     show_ahead <= 1'b0;
                 else if (~full & wr_en)
                     show_ahead <= (waddr == rnext);
@@ -198,9 +179,6 @@ module mg_sync_fifo
 
             always @(posedge clk or negedge rst_n) begin
                 if (~rst_n) begin
-                    q_buf <= {DWIDTH{1'b0}};
-                    valid <= 1'b0;
-                end else if (sclr) begin
                     q_buf <= {DWIDTH{1'b0}};
                     valid <= 1'b0;
                 end else if (~empty & rd_en) begin

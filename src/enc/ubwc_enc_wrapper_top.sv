@@ -39,10 +39,12 @@ module ubwc_enc_wrapper_top
         output  wire    [APB_DW              -1 :0]         PRDATA                          ,
 
     // clock/reset
-        input   wire                                        i_clk                           ,
+        input   wire                                        i_axi_clk                       ,
         input   wire                                        i_otf_clk                       ,
         input   wire                                        i_vivo_clk                      ,
-        input   wire                                        i_rstn                          ,
+        input   wire                                        i_axi_rstn                      ,
+        input   wire                                        i_otf_rstn                      ,
+        input   wire                                        i_vivo_rstn                     ,
 
     // OTF input
         input   wire                                        i_otf_vsync                     ,
@@ -265,8 +267,6 @@ module ubwc_enc_wrapper_top
     wire                                            rst_n_sys                       ;
     wire                                            rst_n_otf                       ;
     wire                                            rst_n_vivo                      ;
-    wire                                            srst                            ;
-    wire                                            srst_vivo                       ;
     wire                                            rst_vivo                        ;
     wire                                            enc_meta_srstn                  ;
     wire                                            rvi_slot                        ;
@@ -354,9 +354,11 @@ module ubwc_enc_wrapper_top
     reg                                             enc_vivo_idle_sync              ;
     reg                                             enc_vivo_error_meta             ;
     reg                                             enc_vivo_error_sync             ;
+    reg                                             srst_d                          ;
+    reg                                             srst                            ;
+    reg                                             srst_vivo_d                     ;
+    reg                                             srst_vivo                       ;
 
-    assign rst                = ~rst_n_sys;
-    assign rst_vivo           = ~rst_n_vivo;
     assign enc_meta_srstn     = ~srst;
     assign rvi_slot           = rvi_stat_slot;
     assign b_tile_slot        = b_tile_fcnt[0];
@@ -397,10 +399,43 @@ module ubwc_enc_wrapper_top
     assign axi_burst_zero     = 2'd0;
     assign core_axi_data_zero = {CORE_AXI_DW{1'b0}};
     assign axi_data_zero      = {AXI_DW{1'b0}};
+    assign rst_n_sys          = i_axi_rstn;
+    assign rst_n_otf          = i_otf_rstn;
+    assign rst_n_vivo         = i_vivo_rstn;
+    assign rst                = ~rst_n_sys;
+    assign rst_vivo           = ~rst_n_vivo;
+
+    always @(posedge i_axi_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            srst_d <= 1'b1;
+        else
+            srst_d <= 1'b0;
+    end
+
+    always @(posedge i_axi_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            srst <= 1'b1;
+        else
+            srst <= srst_d;
+    end
+
+    always @(posedge i_vivo_clk or negedge rst_n_vivo) begin
+        if (!rst_n_vivo)
+            srst_vivo_d <= 1'b1;
+        else
+            srst_vivo_d <= 1'b0;
+    end
+
+    always @(posedge i_vivo_clk or negedge rst_n_vivo) begin
+        if (!rst_n_vivo)
+            srst_vivo <= 1'b1;
+        else
+            srst_vivo <= srst_vivo_d;
+    end
 
     ubwc_enc_status u_enc_status
     (
-        .i_clk                           ( i_clk                           ),
+        .i_clk                           ( i_axi_clk                       ),
         .i_rstn                          ( rst_n_sys                       ),
         .i_enc_ubwc_en                   ( enc_ubwc_en                     ),
 
@@ -464,20 +499,6 @@ module ubwc_enc_wrapper_top
         .o_meta_axi_w_count1             ( enc_meta_axi_w_count1           )
     );
 
-    ubwc_enc_rst_mdl u_enc_rst_mdl
-    (
-        .i_clk                           ( i_clk                           ),
-        .i_otf_clk                       ( i_otf_clk                       ),
-        .i_vivo_clk                      ( i_vivo_clk                      ),
-        .i_rstn                          ( i_rstn                          ),
-        .o_rst                           (                                 ),
-        .o_rst_n_sys                     ( rst_n_sys                       ),
-        .o_rst_n_otf                     ( rst_n_otf                       ),
-        .o_rst_n_vivo                    ( rst_n_vivo                      ),
-        .o_srst_vivo                     ( srst_vivo                       ),
-        .o_srst                          ( srst                            )
-    );
-
     ubwc_enc_apb_reg_blk
     #(
         .AW                              ( APB_AW                          ),
@@ -498,7 +519,7 @@ module ubwc_enc_wrapper_top
         .PREADY                          ( PREADY                          ),
         .PSLVERR                         ( PSLVERR                         ),
         .PRDATA                          ( PRDATA                          ),
-        .i_clk                           ( i_clk                           ),
+        .i_clk                           ( i_axi_clk                       ),
         .i_rstn                          ( rst_n_sys                       ),
 
         .o_otf_cfg_format                ( otf_cfg_format                  ),
@@ -597,7 +618,7 @@ module ubwc_enc_wrapper_top
     )
     ubwc_enc_otf_to_tile_inst
     (
-        .clk                             ( i_clk                           ),
+        .clk                             ( i_axi_clk                       ),
         .i_otf_clk                       ( i_otf_clk                       ),
         .i_vivo_clk                      ( i_vivo_clk                      ),
         .rst_n_sys                       ( rst_n_sys                       ),
@@ -747,7 +768,7 @@ module ubwc_enc_wrapper_top
         .wr_data_count                   ( enc_co_fifo_wr_data_count     ),
         .prog_full                       ( enc_co_fifo_prog_full         ),
         .full                            ( enc_co_fifo_full              ),
-        .rd_clk                          ( i_clk                         ),
+        .rd_clk                          ( i_axi_clk                     ),
         .rd_rstn                         ( rst_n_sys                     ),
         .rd_en                           ( enc_co_fifo_rd_en             ),
         .dout                            ( enc_co_fifo_dout              ),
@@ -773,7 +794,7 @@ module ubwc_enc_wrapper_top
         .wr_data_count                   ( enc_cvo_fifo_wr_data_count    ),
         .prog_full                       ( enc_cvo_fifo_prog_full        ),
         .full                            ( enc_cvo_fifo_full             ),
-        .rd_clk                          ( i_clk                         ),
+        .rd_clk                          ( i_axi_clk                     ),
         .rd_rstn                         ( rst_n_sys                     ),
         .rd_en                           ( enc_cvo_fifo_rd_en            ),
         .dout                            ( enc_cvo_fifo_dout             ),
@@ -783,28 +804,28 @@ module ubwc_enc_wrapper_top
         .empty                           ( enc_cvo_fifo_empty            )
     );
 
-    always @(posedge i_clk or negedge rst_n_sys) begin
+    always @(posedge i_axi_clk or negedge rst_n_sys) begin
         if (!rst_n_sys)
             enc_vivo_idle_meta <= 1'b0;
         else
             enc_vivo_idle_meta <= enc_vivo_idle;
     end
 
-    always @(posedge i_clk or negedge rst_n_sys) begin
+    always @(posedge i_axi_clk or negedge rst_n_sys) begin
         if (!rst_n_sys)
             enc_vivo_idle_sync <= 1'b0;
         else
             enc_vivo_idle_sync <= enc_vivo_idle_meta;
     end
 
-    always @(posedge i_clk or negedge rst_n_sys) begin
+    always @(posedge i_axi_clk or negedge rst_n_sys) begin
         if (!rst_n_sys)
             enc_vivo_error_meta <= 1'b0;
         else
             enc_vivo_error_meta <= enc_vivo_error;
     end
 
-    always @(posedge i_clk or negedge rst_n_sys) begin
+    always @(posedge i_axi_clk or negedge rst_n_sys) begin
         if (!rst_n_sys)
             enc_vivo_error_sync <= 1'b0;
         else
@@ -819,7 +840,7 @@ module ubwc_enc_wrapper_top
     )
     ubwc_tile_addr_inst
     (
-        .i_clk                           ( i_clk                           ),
+        .i_clk                           ( i_axi_clk                       ),
         .i_rstn                          ( rst_n_sys                       ),
 
         .i_lvl1_bank_swizzle_en          ( lvl1_bank_swizzle_en            ),
@@ -862,7 +883,7 @@ module ubwc_enc_wrapper_top
     )
     ubwc_enc_meta_addr_gen_inst
     (
-        .i_clk                           ( i_clk                           ),
+        .i_clk                           ( i_axi_clk                       ),
         .i_rstn                          ( rst_n_sys                       ),
         .i_srstn                         ( enc_meta_srstn                  ),
         .i_meta_data_plane_pitch         ( meta_data_plane_pitch           ),
@@ -903,7 +924,7 @@ module ubwc_enc_wrapper_top
     )
     ubwc_tile_enc_axi_wcmd_gen_inst
     (
-        .i_aclk                          ( i_clk                           ),
+        .i_aclk                          ( i_axi_clk                       ),
         .i_aresetn                       ( rst_n_sys                       ),
 
         .i_tile_addr                     ( tile_addr                       ),
@@ -950,7 +971,7 @@ module ubwc_enc_wrapper_top
     )
     ubwc_enc_meta_axi_wcmd_gen_inst
     (
-        .i_aclk                          ( i_clk                           ),
+        .i_aclk                          ( i_axi_clk                       ),
         .i_aresetn                       ( rst_n_sys                       ),
 
         .i_meta_data_valid               ( meta_data_valid                 ),
@@ -986,7 +1007,7 @@ module ubwc_enc_wrapper_top
 
     axi_2t1_int_DW_axi axi_2t1_int_DW_axi_inst
     (
-        .aclk                            ( i_clk                           ),
+        .aclk                            ( i_axi_clk                       ),
         .aresetn                         ( rst_n_sys                       ),
 
         .awvalid_m1                      ( enc_axi_awvalid                 ),
@@ -1141,7 +1162,7 @@ module ubwc_enc_wrapper_top
 
     ubwc_x2x_DW_axi_x2x u_axi_wr_x2x
     (
-        .aclk_m                          ( i_clk                           ),
+        .aclk_m                          ( i_axi_clk                       ),
         .aresetn_m                       ( rst_n_sys                       ),
 
         .awvalid_m                       ( core_m_axi_awvalid              ),

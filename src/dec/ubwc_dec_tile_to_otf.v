@@ -119,6 +119,11 @@ module ubwc_dec_tile_to_otf #(
     wire                                            writer_axis_tile_ready          ;
     wire                                            fetcher_done_a                  ;
     wire                                            fetcher_done_b                  ;
+    wire                                            cfg_wide_profile                ;
+    wire                                            cfg_yuv420_profile              ;
+    wire                                            cfg_wide_yuv420_profile         ;
+    wire                                            writer_uses_both_banks          ;
+    wire                                            fetcher_done_both_banks         ;
     wire                                            pending_a_avail                 ;
     wire                                            pending_b_avail                 ;
     wire                                            pending_a_fifo_full             ;
@@ -167,8 +172,20 @@ module ubwc_dec_tile_to_otf #(
     assign o_otf_de_count             = otf_de_count_sram;
     assign tile_fcnt_accept           = !accept_fcnt_valid_sram || (s_axis_tile_fcnt == accept_fcnt_sram);
     assign s_axis_tile_ready          = writer_axis_tile_ready && tile_fcnt_accept;
-    assign fetcher_done_a             = fetcher_done && (fetcher_bank == 1'b0);
-    assign fetcher_done_b             = fetcher_done && (fetcher_bank == 1'b1);
+    assign cfg_wide_profile           = (cfg_img_width > 16'd2048);
+    assign cfg_yuv420_profile         = (cfg_format == 5'b00010) ||
+                                        (cfg_format == 5'b00011) ||
+                                        (cfg_format == 5'b01000) ||
+                                        (cfg_format == 5'b01001) ||
+                                        (cfg_format == 5'b01110) ||
+                                        (cfg_format == 5'b01111);
+    assign cfg_wide_yuv420_profile    = cfg_wide_profile && cfg_yuv420_profile;
+    assign writer_uses_both_banks     = writer_vld && cfg_wide_yuv420_profile;
+    assign fetcher_done_both_banks    = fetcher_done && cfg_wide_yuv420_profile;
+    assign fetcher_done_a             = fetcher_done && ((fetcher_bank == 1'b0) ||
+                                        fetcher_done_both_banks);
+    assign fetcher_done_b             = fetcher_done && ((fetcher_bank == 1'b1) ||
+                                        fetcher_done_both_banks);
     assign pending_a_avail            = pending_a && !fetcher_done_a;
     assign pending_b_avail            = pending_b && !fetcher_done_b;
     assign pending_a_fifo_full        = fifo_full0;
@@ -301,7 +318,7 @@ module ubwc_dec_tile_to_otf #(
             sram_a_free <= 1'b1;
         else if (fetcher_done_a)
             sram_a_free <= 1'b1;
-        else if (writer_vld && (writer_bank == 1'b0))
+        else if (writer_vld && ((writer_bank == 1'b0) || writer_uses_both_banks))
             sram_a_free <= 1'b0;
     end
 
@@ -310,7 +327,7 @@ module ubwc_dec_tile_to_otf #(
             sram_b_free <= 1'b1;
         else if (fetcher_done_b)
             sram_b_free <= 1'b1;
-        else if (writer_vld && (writer_bank == 1'b1))
+        else if (writer_vld && ((writer_bank == 1'b1) || writer_uses_both_banks))
             sram_b_free <= 1'b0;
     end
 

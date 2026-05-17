@@ -1,0 +1,401 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="dec_microarch" name="DEC microarchitecture (current RTL)">
+    <mxGraphModel dx="5020" dy="1691" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=18;fontStyle=1;" value="DEC 微架构图 (按当前 RTL 实际实现)&#xa;ubwc_dec_wrapper_top · meta path 为 3 级直通流水 (无中间 SRAM) · tile_to_otf 内部含单 CDC FIFO" vertex="1">
+          <mxGeometry height="60" width="1800" x="40" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lane1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=none;opacity=50;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;" value="Lane 1 · 控制 / APB / 复位 / status 汇聚" vertex="1">
+          <mxGeometry height="140" width="2400" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="lane2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=none;opacity=50;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;" value="Lane 2 · i_axi_clk · 压缩数据读 (metadata + tile)" vertex="1">
+          <mxGeometry height="440" width="2400" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="lane3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fed7aa;strokeColor=none;opacity=45;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;" value="Lane 3 · i_vivo_clk · UBWC 解压 + tile→line" vertex="1">
+          <mxGeometry height="280" width="2400" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="lane4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=none;opacity=50;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;" value="Lane 4 · i_vivo_clk → i_otf_clk · tile_to_otf 后段 + OTF 输出" vertex="1">
+          <mxGeometry height="320" width="2400" y="960" as="geometry" />
+        </mxCell>
+        <mxCell id="lane5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=none;opacity=45;fontSize=14;fontStyle=1;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;" value="Lane 5 · status / IRQ taps · 跨域同步回 APB 域读出" vertex="1">
+          <mxGeometry height="140" width="2400" y="1280" as="geometry" />
+        </mxCell>
+        <mxCell id="apb" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontSize=12;" value="apb_reg_blk&#xa;&#xa;PCLK · 静态 cfg + base addr&#xa;slot[0:1] × {meta,tile}/{Y,UV}" vertex="1">
+          <mxGeometry height="80" width="220" x="60" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="rst" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;" value="rstn_gen&#xa;&#xa;ctrl_rst_n / sram_rst_n&#xa;otf_rst_n (sync 释放)" vertex="1">
+          <mxGeometry height="80" width="180" x="320" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="stat" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=2;fontSize=12;" value="dec_status&#xa;&#xa;stage_done · busy · count&#xa;correct/error pending" vertex="1">
+          <mxGeometry height="80" width="220" x="540" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="axim" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfeff;strokeColor=#0e7490;strokeWidth=2;fontSize=11;verticalAlign=top;spacingTop=10;" value="AXI master out&#xa;(wrapper level · x2x bridge)&#xa;&#xa;合并 meta + tile&#xa;o_m_axi_ar/r (DEC)&#xa;o_m_axi_aw/w/b (ENC)&#xa;&#xa;256b · 4 ppc · 500 MHz&#xa;id[3:0] = {fcnt[0], src, lane}" vertex="1">
+          <mxGeometry height="540" width="240" x="2080" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="mdgw" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#475569;strokeWidth=2;dashed=1;fontSize=12;fontStyle=2;verticalAlign=top;align=left;spacingTop=8;spacingLeft=12;" value="ubwc_dec_meta_data_gen  [wrapper 模块]" vertex="1">
+          <mxGeometry height="380" width="860" x="200" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="fst" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;" value="frame_start_axi&#xa;&#xa;addr 组完整 → 启动&#xa;dec_frame_fcnt 递增" vertex="1">
+          <mxGeometry height="100" width="140" x="40" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="mgc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="meta_get_cmd_gen&#xa;&#xa;· 枚举 tile_x / tile_y / fcnt&#xa;· 输出 meta_grp 取指流&#xa;· Y / UV plane 分别遍历" vertex="1">
+          <mxGeometry height="160" width="240" x="240" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="mar" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="meta_axi_rcmd_gen&#xa;&#xa;· cmd FIFO · rsp FIFO · out FIFO&#xa;· 发起 meta AR · 收 R beat&#xa;· rid 匹配 · 256b → byte 串流&#xa;· cmd_addr 必须 32B 对齐" vertex="1">
+          <mxGeometry height="160" width="260" x="500" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="mdd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="meta_data_decode&#xa;&#xa;· meta byte → flag&#xa;· compressed_size[8:0] → alen[2:0]&#xa;· has_payload (=0 → PCM)&#xa;· 携带 x/y/fcnt 输出" vertex="1">
+          <mxGeometry height="160" width="260" x="780" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="mdg_out_lbl" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#1d4ed8;fontStyle=2;" value="wrapper out:&#xa;dec_meta_valid · format · alen · has_payload · x[11:0] · y[9:0] · fcnt[3:0]" vertex="1">
+          <mxGeometry height="40" width="780" x="240" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="taw" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#475569;strokeWidth=2;dashed=1;fontSize=12;fontStyle=2;verticalAlign=top;align=left;spacingTop=8;spacingLeft=12;" value="ubwc_dec_tile_arcmd_gen  [含 ubwc_tile_addr]" vertex="1">
+          <mxGeometry height="380" width="660" x="1100" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="tad" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="ubwc_tile_addr&#xa;&#xa;· coord+fcnt → tile_addr&#xa;· bank swizzle (HBB)&#xa;· bank spread · 4-line / RGBA&#xa;· lossy 2:1 减半逻辑&#xa;&#xa;(独立组合逻辑模块)" vertex="1">
+          <mxGeometry height="180" width="240" x="1130" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="tar" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="AR FSM + CI/CVI gen&#xa;&#xa;· AR 拆 4K 边界&#xa;· cmd FIFO + pending FIFO&#xa;· rdata FIFO 收 R beat&#xa;· 输出 CI / CVI / tile coord&#xa;· sb = fcnt[0]&#xa;· forced_pcm (边界 tile)" vertex="1">
+          <mxGeometry height="180" width="320" x="1410" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="tar_out_lbl" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#1d4ed8;fontStyle=2;" value="→ vivo_top: CI bus (fmt/alen/lossy/alpha/sb), CVI bus (256b · last)&#xa;→ tile_to_otf: tile coord (tile_x · tile_y · format · fcnt)" vertex="1">
+          <mxGeometry height="40" width="600" x="1130" y="540" as="geometry" />
+        </mxCell>
+        <mxCell id="viv" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2.5;fontSize=12;verticalAlign=top;spacingTop=10;" value="ubwc_dec_vivo_top&#xa;&#xa;[UBWC 解压核 · i_vivo_clk]&#xa;· CI + CVI → RVO&#xa;· 按 alen 读 bitstream&#xa;· 解出 mask + alpha&#xa;· 输出 256b tile&#xa;&#xa;200 MHz · 16B/clock · 4 ppc&#xa;i_control = { input_type, alen[2:0], lossy, alpha_mode[1:0] }" vertex="1">
+          <mxGeometry height="220" width="360" x="40" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="toow" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#475569;strokeWidth=2;dashed=1;fontSize=12;fontStyle=2;verticalAlign=top;align=left;spacingTop=8;spacingLeft=12;" value="ubwc_dec_tile_to_otf  [wrapper 模块]" vertex="1">
+          <mxGeometry height="540" width="1560" x="440" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="tlw" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="tile_to_line_writer&#xa;&#xa;· RVO tile → line slot&#xa;· header FIFO + data FIFO&#xa;· credit 计数&#xa;· RGBA / NV12 / P010 各自映射&#xa;&#xa;写 line SRAM A / B&#xa;o_buffer_vld → pending_a/b" vertex="1">
+          <mxGeometry height="180" width="280" x="480" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="srf" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="sram_read_fetcher&#xa;&#xa;· ST_IDLE → ISSUE_FIRST&#xa;   → ISSUE_SECOND → PUSH&#xa;· 两次读 → 256b compact&#xa;· target_bank · raddr&#xa;&#xa;从 line SRAM A/B 读&#xa;写入 async FIFO" vertex="1">
+          <mxGeometry height="180" width="280" x="800" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="caf" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#faf5ff;strokeColor=#9333ea;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="mg_async_fifo&#xa;&#xa;· clk_sram 写&#xa;· clk_otf 读&#xa;· show-ahead&#xa;· 256b + fcnt + first/last&#xa;&#xa;仅 1 个 FIFO&#xa;(fifo1 已删,文档曾计划双 FIFO)" vertex="1">
+          <mxGeometry height="180" width="240" x="1120" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="cdc_bar" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=2;fontColor=#94a3b8;rotation=-90;" value="async FIFO · CDC sram_clk → otf_clk" vertex="1">
+          <mxGeometry height="20" width="200" x="1370" y="960" as="geometry" />
+        </mxCell>
+        <mxCell id="pab" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="pending_a / pending_b&#xa;&#xa;· writer_vld 标 bank 满&#xa;· fetcher_done 清 pending&#xa;控制 fetcher_bank_sel" vertex="1">
+          <mxGeometry height="110" width="280" x="480" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="afs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="accept_fcnt_sram&#xa;&#xa;· tile_fcnt_accept 控 ready&#xa;· 一帧粒度&#xa;⚠ frame_done 不重装 (D3)" vertex="1">
+          <mxGeometry height="110" width="280" x="480" y="1130" as="geometry" />
+        </mxCell>
+        <mxCell id="fsc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="frame_start CDC (sram → otf)&#xa;&#xa;· toggle → 2FF → edge&#xa;· frame_fcnt 双拍同步&#xa;⚠ 仅事件,无 payload 握手 (D4)" vertex="1">
+          <mxGeometry height="110" width="280" x="800" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="otfctrl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f9ff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="otf 域控制信号汇聚&#xa;&#xa;· need_data → fifo_rd_en&#xa;· line/de count 回同步 axi" vertex="1">
+          <mxGeometry height="110" width="280" x="800" y="1130" as="geometry" />
+        </mxCell>
+        <mxCell id="otf" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontSize=12;verticalAlign=top;spacingTop=8;" value="otf_driver&#xa;&#xa;· timing FSM (H/V counter)&#xa;· active 内 fifo_rd_en 取数&#xa;· phase 0/1/2 → 256→128 切片&#xa;· 格式解包 (RGBA / NV12 / P010)&#xa;&#xa;输出 vsync/hsync/de/data/fcnt/lcnt&#xa;倒数第 4 行 hsync → correct_irq" vertex="1">
+          <mxGeometry height="240" width="380" x="1400" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="b0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" value="bank0&#xa;外部 SRAM A&#xa;128b × N (line buffer)&#xa;port: o_bank0_*&#xa;读+写共享端口" vertex="1">
+          <mxGeometry height="120" width="160" x="2080" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#16a34a;strokeWidth=2;fontSize=11;" value="bank1&#xa;外部 SRAM B&#xa;128b × N (line buffer)&#xa;port: o_bank1_*&#xa;读+写共享端口" vertex="1">
+          <mxGeometry height="120" width="160" x="2080" y="920" as="geometry" />
+        </mxCell>
+        <mxCell id="oot" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfeff;strokeColor=#0e7490;strokeWidth=2;fontSize=11;verticalAlign=top;spacingTop=10;" value="OTF output port&#xa;&#xa;o_vsync · hsync · de&#xa;o_data[127:0]&#xa;o_fcnt[3:0] · o_lcnt[15:0]&#xa;i_otf_ready (反压)&#xa;&#xa;i_otf_clk · 320 MHz · 8 ppc" vertex="1">
+          <mxGeometry height="180" width="240" x="2080" y="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="tci" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=2;fontSize=12;" value="correct_irq&#xa;倒数第 4 行 hsync · otf 域" vertex="1">
+          <mxGeometry height="60" width="200" x="60" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="tfd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=2;fontSize=12;" value="frame_done&#xa;otf 域 frame end" vertex="1">
+          <mxGeometry height="60" width="200" x="300" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="tlc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=2;fontSize=12;" value="line / de count&#xa;otf 域计数 → 回同步 axi" vertex="1">
+          <mxGeometry height="60" width="240" x="540" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="tme" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=2;fontSize=12;" value="meta error · cmd ok/fail&#xa;axi 域统计 (rcmd_gen)" vertex="1">
+          <mxGeometry height="60" width="260" x="820" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="tsd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=2;fontSize=12;" value="stage_done · busy&#xa;APB STATUS1 镜像" vertex="1">
+          <mxGeometry height="60" width="220" x="1120" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="tda" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dc2626;strokeWidth=3;fontSize=12;" value="dec_irq · pending&#xa;correct + error 聚合输出" vertex="1">
+          <mxGeometry height="60" width="220" x="1380" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fst_mgc" edge="1" parent="1" source="fst" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mgc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fst_mgc_lbl" connectable="0" parent="e_fst_mgc" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="start · fcnt" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mgc_mar" edge="1" parent="1" source="mgc" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mar">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mgc_mar_lbl" connectable="0" parent="e_mgc_mar" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="meta_grp · x/y/fcnt" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mar_mdd" edge="1" parent="1" source="mar" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mdd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mar_mdd_lbl" connectable="0" parent="e_mar_mdd" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="raw byte · 64b lane" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mar_axim_ar" edge="1" parent="1" source="mar" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;" target="axim">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="630" y="240" />
+              <mxPoint x="2050" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_mar_axim_ar_lbl" connectable="0" parent="e_mar_axim_ar" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="m_axi_meta_ar · arid · arlen" vertex="1">
+          <mxGeometry relative="1" x="0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_axim_mar_r" edge="1" parent="1" source="axim" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.7;entryY=0;entryDx=0;entryDy=0;" target="mar">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2050" y="260" />
+              <mxPoint x="682" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_axim_mar_r_lbl" connectable="0" parent="e_axim_mar_r" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="m_axi_r_meta [255:0] · rid · rlast" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mdd_tad" edge="1" parent="1" source="mdd" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="tad">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mdd_tad_lbl" connectable="0" parent="e_mdd_tad" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="dec_meta {flag,alen,x,y,fcnt}" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tad_tar" edge="1" parent="1" source="tad" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="tar">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tad_tar_lbl" connectable="0" parent="e_tad_tar" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="tile_addr" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tar_axim_ar" edge="1" parent="1" source="tar" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.55;entryDx=0;entryDy=0;" target="axim">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tar_axim_ar_lbl" connectable="0" parent="e_tar_axim_ar" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="tile m_axi_ar · arlen · arid" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_axim_tar_r" edge="1" parent="1" source="axim" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=0;exitY=0.65;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" target="tar">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_axim_tar_r_lbl" connectable="0" parent="e_axim_tar_r" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="tile m_axi_r [255:0]" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tar_viv" edge="1" parent="1" source="tar" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.4;entryDx=0;entryDy=0;" target="viv">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tar_viv_lbl" connectable="0" parent="e_tar_viv" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="CI bus + CVI bus" vertex="1">
+          <mxGeometry relative="1" x="0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tar_toow" edge="1" parent="1" source="tar" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tlw">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1506" y="670" />
+              <mxPoint x="620" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_tar_toow_lbl" connectable="0" parent="e_tar_toow" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="tile coord (tile_x · tile_y · fmt · fcnt)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_viv_tlw" edge="1" parent="1" source="viv" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="tlw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_viv_tlw_lbl" connectable="0" parent="e_viv_tlw" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="RVO bus (256b · mask · last)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tlw_b0" edge="1" parent="1" source="tlw" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;" target="b0">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2030" y="834" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_tlw_b0_lbl" connectable="0" parent="e_tlw_b0" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="sram_a_wen / waddr / wdata[128]" vertex="1">
+          <mxGeometry relative="1" x="0.6" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tlw_b1" edge="1" parent="1" source="tlw" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.4;entryDx=0;entryDy=0;" target="b1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2030" y="870" />
+              <mxPoint x="2030" y="968" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_tlw_b1_lbl" connectable="0" parent="e_tlw_b1" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="sram_b_wen / waddr / wdata[128]" vertex="1">
+          <mxGeometry relative="1" x="0.6" as="geometry" />
+        </mxCell>
+        <mxCell id="e_b0_srf" edge="1" parent="1" source="b0" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.7;entryDx=0;entryDy=0;" target="srf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_b0_srf_lbl" connectable="0" parent="e_b0_srf" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="bank0_rdata[128]" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_b1_srf" edge="1" parent="1" source="b1" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.85;entryDx=0;entryDy=0;" target="srf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_b1_srf_lbl" connectable="0" parent="e_b1_srf" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="bank1_rdata[128]" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_srf_caf" edge="1" parent="1" source="srf" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="caf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_srf_caf_lbl" connectable="0" parent="e_srf_caf" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="compact[256] + fcnt + first/last" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_caf_otf" edge="1" parent="1" source="caf" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" target="otf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_caf_otf_lbl" connectable="0" parent="e_caf_otf" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="async FIFO read (otf 域)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_otf_oot" edge="1" parent="1" source="otf" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#0f172a;strokeWidth=2.2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="oot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_otf_oot_lbl" connectable="0" parent="e_otf_oot" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=11;" value="data + de + sync + fcnt/lcnt" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tlw_pab" edge="1" parent="1" source="tlw" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#64748b;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="pab">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_tlw_pab_lbl" connectable="0" parent="e_tlw_pab" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=10;" value="o_buffer_vld · bank · fcnt" vertex="1">
+          <mxGeometry relative="1" x="-0.2" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pab_srf" edge="1" parent="1" source="pab" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#64748b;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="srf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pab_srf_lbl" connectable="0" parent="e_pab_srf" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=10;" value="fetcher_bank_sel" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_afs_tlw" edge="1" parent="1" source="afs" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#64748b;strokeWidth=1.5;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="tlw">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="1185" />
+              <mxPoint x="450" y="870" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_afs_tlw_lbl" connectable="0" parent="e_afs_tlw" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=10;" value="tile_fcnt_accept" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fst_fsc" edge="1" parent="1" source="fst" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#64748b;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="fsc">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="110" y="710" />
+              <mxPoint x="940" y="710" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_fst_fsc_lbl" connectable="0" parent="e_fst_fsc" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=10;" value="frame_start · fcnt" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fsc_otf" edge="1" parent="1" source="fsc" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#64748b;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" target="otf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fsc_otf_lbl" connectable="0" parent="e_fsc_otf" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=10;" value="frame_start_otf · fcnt_otf" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fst_afs" edge="1" parent="1" source="fst" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#64748b;strokeWidth=1.5;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="afs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="20" y="370" />
+              <mxPoint x="20" y="1185" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_fst_afs_lbl" connectable="0" parent="e_fst_afs" style="edgeLabel;html=1;align=center;verticalAlign=middle;background=#ffffff;fontFamily=Menlo;fontSize=10;fontColor=#b91c1c;" value="frame_start_sram (load once · D3)" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_apb_mdgw" edge="1" parent="1" source="apb" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#2563eb;strokeWidth=1.5;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" target="mdgw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_apb_mdgw_lbl" connectable="0" parent="e_apb_mdgw" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontColor=#2563eb;background=#ffffff;fontSize=10;fontStyle=2;" value="meta_base · pitch" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_apb_taw" edge="1" parent="1" source="apb" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#2563eb;strokeWidth=1.5;dashed=1;exitX=0.8;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" target="taw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_apb_taw_lbl" connectable="0" parent="e_apb_taw" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontColor=#2563eb;background=#ffffff;fontSize=10;fontStyle=2;" value="tile_base · bank · CI cfg" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_apb_viv" edge="1" parent="1" source="apb" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#2563eb;strokeWidth=1.5;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;" target="viv">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="20" y="180" />
+              <mxPoint x="20" y="764" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_apb_viv_lbl" connectable="0" parent="e_apb_viv" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontColor=#2563eb;background=#ffffff;fontSize=10;fontStyle=2;" value="vivo cfg" vertex="1">
+          <mxGeometry relative="1" x="-0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_apb_otf" edge="1" parent="1" source="apb" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#2563eb;strokeWidth=1.5;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.2;entryDx=0;entryDy=0;" target="otf">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2360" y="180" />
+              <mxPoint x="2360" y="1048" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_apb_otf_lbl" connectable="0" parent="e_apb_otf" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontColor=#2563eb;background=#ffffff;fontSize=10;fontStyle=2;" value="H/V timing · format" vertex="1">
+          <mxGeometry relative="1" x="0.1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_mar_tme" edge="1" parent="1" source="mar" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#dc2626;strokeWidth=1.5;dashed=1;exitX=1;exitY=0.8;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tme">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1080" y="460" />
+              <mxPoint x="1080" y="1310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_otf_tci" edge="1" parent="1" source="otf" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#dc2626;strokeWidth=1.5;dashed=1;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tci">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1400" y="1290" />
+              <mxPoint x="160" y="1290" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_otf_tfd" edge="1" parent="1" source="otf" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#dc2626;strokeWidth=1.5;dashed=1;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tfd">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1480" y="1300" />
+              <mxPoint x="400" y="1300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_otf_tlc" edge="1" parent="1" source="otf" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#dc2626;strokeWidth=1.5;dashed=1;exitX=0.4;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tlc">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1560" y="1310" />
+              <mxPoint x="660" y="1310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_stat_tda" edge="1" parent="1" source="stat" style="endArrow=classic;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;strokeColor=#dc2626;strokeWidth=1.5;dashed=1;exitX=1;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tda">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="760" y="125" />
+              <mxPoint x="2360" y="125" />
+              <mxPoint x="2360" y="1305" />
+              <mxPoint x="1490" y="1305" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_stat_tda_lbl" connectable="0" parent="e_stat_tda" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontColor=#dc2626;background=#ffffff;fontSize=10;fontStyle=2;" value="stage_done · busy → APB STATUS" vertex="1">
+          <mxGeometry relative="1" x="0.4" as="geometry" />
+        </mxCell>
+        <mxCell id="note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=11;align=left;verticalAlign=top;spacingTop=10;spacingLeft=12;" value="实现要点&#xa;&#xa;· meta 路径是 3 级直通流水 (meta_get_cmd_gen → meta_axi_rcmd_gen → meta_data_decode),无中间 SRAM 缓存 — 文档曾计划的 pingpong/rdata_to_sram/data_from_sram 三模块为 orphan,未实例化&#xa;· tile_to_otf 内部曾计划双 CDC FIFO,实际 fifo1 已删,只剩 1 个 mg_async_fifo&#xa;· 外部 bank0/bank1 是 line buffer (非 compressed buffer),读写共用同一物理 SRAM 端口,wrapper 顶层 mux 切换&#xa;· 红色边框 + ⚠ 标记是当前已知的功能 bug (D3 / D4),详见 review 报告" vertex="1">
+          <mxGeometry height="60" width="2280" x="40" y="1430" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

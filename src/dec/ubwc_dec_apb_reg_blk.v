@@ -38,8 +38,8 @@ module ubwc_dec_apb_reg_blk #(
     input   wire                                        i_any_stage_busy_axi            ,
     input   wire    [3                      :0]         i_stage_seen_axi                ,
     input   wire    [4                      :0]         i_stage_done_axi                ,
-    input   wire    [6                      :0]         i_vivo_idle_bits_axi            ,
-    input   wire    [6                      :0]         i_vivo_error_bits_axi           ,
+    input   wire                                        i_vivo_idle_axi                 ,
+    input   wire                                        i_vivo_error_axi                ,
     input   wire                                        i_irq_pending_axi               ,
     input   wire                                        i_irq_correct_pending_axi       ,
     input   wire                                        i_irq_error_pending_axi         ,
@@ -126,7 +126,7 @@ module ubwc_dec_apb_reg_blk #(
     localparam  [4                      :0]         APB_ADDR_STAT_OTF_LINE          = 5'h1d; // 0x74
     localparam  [4                      :0]         APB_ADDR_STAT_OTF_DE            = 5'h1e; // 0x78
     localparam  integer                             IRQ_CTRL_START_BIT              = 5;
-    localparam  integer                             STATUS_BUS_W                    = 30;
+    localparam  integer                             STATUS_BUS_W                    = 18;
     localparam  integer                             BASE_FIFO_DEPTH                 = 4;
     localparam  integer                             BASE_FIFO_PTR_W                 = 2;
     localparam  integer                             BASE_FIFO_CNT_W                 = 3;
@@ -288,8 +288,8 @@ module ubwc_dec_apb_reg_blk #(
     wire                                            frame_start_toggle_seen_axi     ;
     assign frame_start_toggle_seen_axi = r_meta_start_sync_ff1 ^ r_meta_start_sync_ff2;
     wire        [STATUS_BUS_W        -1 :0]         status_bus_axi                  ;
-    wire        [6                      :0]         status_vivo_error_bits_pclk     ;
-    wire        [6                      :0]         status_vivo_idle_bits_pclk      ;
+    wire                                            status_vivo_error_pclk          ;
+    wire                                            status_vivo_idle_pclk           ;
     wire        [4                      :0]         status_stage_done_pclk          ;
     wire        [3                      :0]         status_stage_seen_pclk          ;
     wire                                            status_meta_busy_pclk           ;
@@ -652,8 +652,8 @@ module ubwc_dec_apb_reg_blk #(
                              i_meta_busy_axi,
                              i_stage_seen_axi,
                              i_stage_done_axi,
-                             i_vivo_idle_bits_axi,
-                             i_vivo_error_bits_axi};
+                             i_vivo_idle_axi,
+                             i_vivo_error_axi};
 
     always @(posedge PCLK or negedge PRESETn) begin
         if (!PRESETn) begin
@@ -689,17 +689,17 @@ module ubwc_dec_apb_reg_blk #(
         end
     end
 
-    assign status_vivo_error_bits_pclk = r_status_sync_ff2[6:0];
-    assign status_vivo_idle_bits_pclk  = r_status_sync_ff2[13:7];
-    assign status_stage_done_pclk      = r_status_sync_ff2[18:14];
-    assign status_stage_seen_pclk      = r_status_sync_ff2[22:19];
-    assign status_meta_busy_pclk       = r_status_sync_ff2[23];
-    assign status_tile_busy_pclk       = r_status_sync_ff2[24];
-    assign status_vivo_busy_pclk       = r_status_sync_ff2[25];
-    assign status_otf_busy_pclk        = r_status_sync_ff2[26];
-    assign status_frame_active_pclk    = r_status_sync_ff2[27];
-    assign status_any_stage_busy_pclk  = r_status_sync_ff2[28];
-    assign status_irq_pending_pclk     = r_status_sync_ff2[29];
+    assign status_vivo_error_pclk      = r_status_sync_ff2[0];
+    assign status_vivo_idle_pclk       = r_status_sync_ff2[1];
+    assign status_stage_done_pclk      = r_status_sync_ff2[6:2];
+    assign status_stage_seen_pclk      = r_status_sync_ff2[10:7];
+    assign status_meta_busy_pclk       = r_status_sync_ff2[11];
+    assign status_tile_busy_pclk       = r_status_sync_ff2[12];
+    assign status_vivo_busy_pclk       = r_status_sync_ff2[13];
+    assign status_otf_busy_pclk        = r_status_sync_ff2[14];
+    assign status_frame_active_pclk    = r_status_sync_ff2[15];
+    assign status_any_stage_busy_pclk  = r_status_sync_ff2[16];
+    assign status_irq_pending_pclk     = r_status_sync_ff2[17];
     assign status_irq_error_pending_pclk = r_irq_type_sync_ff2[0];
     assign status_irq_correct_pending_pclk = r_irq_type_sync_ff2[1];
 
@@ -792,10 +792,10 @@ module ubwc_dec_apb_reg_blk #(
                 r_prdata = {{(DW-9){1'b0}}, status_stage_seen_pclk, status_stage_done_pclk};
             end
             APB_ADDR_STATUS2: begin
-                r_prdata = {{(DW-7){1'b0}}, status_vivo_idle_bits_pclk};
+                r_prdata = {{(DW-1){1'b0}}, status_vivo_idle_pclk};
             end
             APB_ADDR_STATUS3: begin
-                r_prdata = {{(DW-7){1'b0}}, status_vivo_error_bits_pclk};
+                r_prdata = {{(DW-1){1'b0}}, status_vivo_error_pclk};
             end
             APB_ADDR_IRQ_CTRL: begin
                 r_prdata = {{(DW-6){1'b0}},

@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UBWC 配置辅助库使用说明</title>
+  <style>
+    :root {
+      --bg: #f4f6fa;
+      --paper: #ffffff;
+      --text: #1f2937;
+      --muted: #5d6675;
+      --line: #d9e0ea;
+      --blue: #2563eb;
+      --blue-soft: #eef5ff;
+      --green-soft: #eefbf3;
+      --amber-soft: #fff7e6;
+      --red-soft: #fff1f2;
+      --code: #f7f8fb;
+      --shadow: 0 12px 32px rgba(31, 41, 55, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.68;
+    }
+
+    .shell {
+      max-width: 1480px;
+      min-height: 100vh;
+      margin: 0 auto;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    header {
+      padding: 36px 48px 30px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      max-width: 1080px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .meta-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #fff;
+    }
+
+    .meta-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .meta-card strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 17px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100vh;
+      overflow: auto;
+      padding: 24px 22px;
+      border-right: 1px solid var(--line);
+      background: #fbfcff;
+    }
+
+    nav h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    nav a {
+      display: block;
+      padding: 5px 0;
+      color: #334155;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    nav a:hover {
+      color: var(--blue);
+    }
+
+    main {
+      min-width: 0;
+      padding: 30px 46px 72px;
+    }
+
+    section {
+      margin-bottom: 42px;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+    }
+
+    p {
+      margin: 8px 0 12px;
+    }
+
+    table {
+      width: 100%;
+      margin: 12px 0 18px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8fafc;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    td code,
+    p code,
+    li code {
+      padding: 1px 4px;
+      border: 1px solid #e5e7eb;
+      border-radius: 5px;
+      background: #f8fafc;
+      color: #111827;
+    }
+
+    pre {
+      margin: 12px 0 18px;
+      padding: 13px 15px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--code);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    ul {
+      margin: 8px 0 16px;
+      padding-left: 22px;
+    }
+
+    .note {
+      margin: 14px 0 18px;
+      padding: 12px 14px;
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: var(--blue-soft);
+    }
+
+    .warn {
+      border-left-color: #d97706;
+      background: var(--amber-soft);
+    }
+
+    .ok {
+      border-left-color: #16a34a;
+      background: var(--green-soft);
+    }
+
+    .bad {
+      border-left-color: #e11d48;
+      background: var(--red-soft);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .card h3 {
+      margin-top: 0;
+    }
+
+    .pill {
+      display: inline-block;
+      margin: 0 6px 6px 0;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: #1e3a8a;
+      font-size: 13px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        display: block;
+      }
+
+      nav {
+        position: relative;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      main,
+      header {
+        padding-left: 22px;
+        padding-right: 22px;
+      }
+
+      .meta,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>UBWC 配置辅助库使用说明</h1>
+      <p class="subtitle">
+        本文说明 <code>ubwc_cfg</code> 目录中的 C 和 SystemVerilog 配置辅助代码如何使用。
+        目标是让软件或仿真环境输入图像格式、像素尺寸、首地址和 OTF timing 后，得到 ENC/DEC APB 寄存器写入序列。
+      </p>
+      <div class="meta">
+        <div class="meta-card">
+          <span>适用目录</span>
+          <strong><code>ubwc_cfg/</code></strong>
+        </div>
+        <div class="meta-card">
+          <span>覆盖模块</span>
+          <strong>ENC / DEC</strong>
+        </div>
+        <div class="meta-card">
+          <span>主要入口</span>
+          <strong>C API + SV task</strong>
+        </div>
+        <div class="meta-card">
+          <span>生成内容</span>
+          <strong>APB 写寄存器表</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav>
+        <h2>目录</h2>
+        <a href="#scope">1. 使用范围</a>
+        <a href="#tree">2. 目录结构</a>
+        <a href="#formats">3. 支持格式</a>
+        <a href="#quick">4. 快速生成寄存器</a>
+        <a href="#c-api">5. C API 使用</a>
+        <a href="#sv-api">6. SV APB task 使用</a>
+        <a href="#mode">7. 配置模式</a>
+        <a href="#layout">8. 地址与 pitch 计算</a>
+        <a href="#enc-order">9. ENC 写寄存器顺序</a>
+        <a href="#dec-order">10. DEC 写寄存器顺序</a>
+        <a href="#otf">11. DEC OTF timing</a>
+        <a href="#irq">12. START 和中断</a>
+        <a href="#checklist">13. 检查清单</a>
+      </nav>
+
+      <main>
+        <section id="scope">
+          <h2>1. 使用范围</h2>
+          <p>
+            <code>ubwc_cfg</code> 是一套轻量配置辅助代码，不直接驱动硬件，也不包含 APB bus functional model。
+            它负责根据格式和分辨率计算 UBWC layout、pitch、tile 数、地址基址，并输出 APB 写寄存器序列。
+          </p>
+          <div class="grid-2">
+            <div class="card">
+              <h3>软件侧</h3>
+              <p>使用 <code>ubwc_cfg/tools/*.h</code> 在 firmware、bring-up 程序或寄存器 dump 工具中生成写寄存器表。</p>
+            </div>
+            <div class="card">
+              <h3>仿真侧</h3>
+              <p>使用 <code>ubwc_cfg/include/*.sv</code> 和 <code>*.svh</code> 在 testbench 中调用 APB 写 task。</p>
+            </div>
+          </div>
+          <div class="note">
+            <strong>输入基址约定：</strong>
+            API 的 <code>meta_y_base_addr</code> 是一帧 UBWC buffer 的起始地址。辅助库会按
+            <code>META Y -> TILE Y -> META UV -> TILE UV</code> 的顺序自动推导其他三个基址。
+          </div>
+        </section>
+
+        <section id="tree">
+          <h2>2. 目录结构</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>路径</th>
+                <th>用途</th>
+                <th>使用场景</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>ubwc_cfg/tools/ubwc_enc_cfg.h</code></td>
+                <td>ENC C inline 配置函数和寄存器地址定义</td>
+                <td>软件生成 ENC APB 写表</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_cfg/tools/ubwc_dec_cfg.h</code></td>
+                <td>DEC C inline 配置函数和寄存器地址定义</td>
+                <td>软件生成 DEC APB 写表</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_cfg/tools/ubwc_enc_cfg_dump.c</code></td>
+                <td>ENC 命令行 dump 工具</td>
+                <td>快速核对配置值和地址 layout</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_cfg/tools/ubwc_dec_cfg_dump.c</code></td>
+                <td>DEC 命令行 dump 工具</td>
+                <td>快速核对配置值和地址 layout</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_cfg/include/ubwc_enc_cfg_pkg.sv</code></td>
+                <td>ENC SystemVerilog 配置函数包</td>
+                <td>仿真环境计算寄存器值</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_cfg/include/ubwc_dec_cfg_pkg.sv</code></td>
+                <td>DEC SystemVerilog 配置函数包</td>
+                <td>仿真环境计算寄存器值</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_cfg/include/ubwc_enc_apb_program.svh</code></td>
+                <td>ENC APB 配置 task</td>
+                <td>testbench 一键写 ENC 寄存器</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_cfg/include/ubwc_dec_apb_program.svh</code></td>
+                <td>DEC APB 配置 task</td>
+                <td>testbench 一键写 DEC 寄存器</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="formats">
+          <h2>3. 支持格式</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>format code</th>
+                <th>C/SV 常量</th>
+                <th>别名</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>0</code></td>
+                <td><code>RGBA8888</code></td>
+                <td><code>rgba8888</code></td>
+                <td>RGBA 8-bit，每像素 4 bytes</td>
+              </tr>
+              <tr>
+                <td><code>1</code></td>
+                <td><code>RGBA1010102</code></td>
+                <td><code>rgba1010102</code></td>
+                <td>RGBA 10:10:10:2，每像素 4 bytes</td>
+              </tr>
+              <tr>
+                <td><code>2</code></td>
+                <td><code>YUV420_8_NV12</code></td>
+                <td><code>nv12</code>, <code>yuv420_8</code></td>
+                <td>YUV420 8-bit，Y/UV 双 plane</td>
+              </tr>
+              <tr>
+                <td><code>3</code></td>
+                <td><code>YUV420_10_P010</code></td>
+                <td><code>p010</code>, <code>yuv420_10</code></td>
+                <td>YUV420 10-bit 存储为 16-bit 容器，Y/UV 双 plane</td>
+              </tr>
+              <tr>
+                <td><code>4</code></td>
+                <td><code>RGBA8888_L_2_1</code></td>
+                <td><code>rgba8888_l_2_1</code></td>
+                <td>RGBA8888 lossy 2:1 模式</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="warn">
+            <strong>不支持：</strong>
+            当前配置辅助库没有支持 YUV422_8 和 YUV422_10。不要用 format code 4/5 表示 YUV422。
+          </div>
+        </section>
+
+        <section id="quick">
+          <h2>4. 快速生成寄存器</h2>
+          <p>
+            最快的检查方式是编译 dump 工具。dump 工具会打印 tile 参数、layout size、layout base，以及完整 APB 写序列。
+          </p>
+          <h3>4.1 ENC 示例</h3>
+          <pre><code>cc -std=c99 -Wall -Wextra -I ubwc_cfg/tools \
+  ubwc_cfg/tools/ubwc_enc_cfg_dump.c \
+  -o /tmp/ubwc_enc_cfg_dump
+
+/tmp/ubwc_enc_cfg_dump nv12 544 1200 0x10000000</code></pre>
+          <p>输出中应重点检查这些信息：</p>
+          <ul>
+            <li><code>surface_pitch_bytes</code> 和 <code>tile_pitch</code> 是否符合期望。</li>
+            <li><code>layout bases</code> 是否按 <code>meta_y/tile_y/meta_uv/tile_uv</code> 排列。</li>
+            <li>最后一笔是否写 <code>REG_IRQ_CTRL</code>，默认值通常为 <code>0x00000021</code>。</li>
+          </ul>
+          <h3>4.2 DEC 示例</h3>
+          <pre><code>cc -std=c99 -Wall -Wextra -I ubwc_cfg/tools \
+  ubwc_cfg/tools/ubwc_dec_cfg_dump.c \
+  -o /tmp/ubwc_dec_cfg_dump
+
+/tmp/ubwc_dec_cfg_dump rgba8888 4096 600 0x20000000</code></pre>
+          <div class="note">
+            dump 工具使用默认 DEC OTF timing：<code>h_total=h_act=width</code>，
+            <code>v_total=v_act=stored_height</code>，sync/back porch 为 0。
+            真实系统通常需要在 C API 或 SV full task 中显式填写 OTF timing。
+          </div>
+        </section>
+
+        <section id="c-api">
+          <h2>5. C API 使用</h2>
+          <h3>5.1 ENC 一键生成写寄存器表</h3>
+          <pre><code>#include "ubwc_enc_cfg.h"
+
+void program_enc(uint32_t width, uint32_t height, uint64_t frame_base)
+{
+    ubwc_enc_reg_write_t regs[32];
+    size_t n;
+    size_t i;
+
+    n = ubwc_enc_make_reg_writes_from_base(
+        UBWC_ENC_FMT_YUV420_8_NV12,
+        width,
+        height,
+        frame_base,
+        regs,
+        32);
+
+    for (i = 0; i &lt; n; ++i) {
+        apb_write(regs[i].addr, regs[i].data);
+    }
+}</code></pre>
+          <h3>5.2 DEC 带 OTF timing 的推荐写法</h3>
+          <pre><code>#include "ubwc_dec_cfg.h"
+
+void program_dec(uint32_t width, uint32_t height, uint64_t frame_base)
+{
+    ubwc_dec_base_cfg_t base;
+    ubwc_dec_config_t cfg;
+    ubwc_dec_reg_write_t regs[32];
+    size_t n;
+    size_t i;
+
+    base = ubwc_dec_layout_bases(UBWC_DEC_FMT_YUV420_8_NV12,
+                                 width,
+                                 height,
+                                 frame_base);
+    cfg = ubwc_dec_default_config(UBWC_DEC_FMT_YUV420_8_NV12,
+                                  width,
+                                  height,
+                                  &amp;base);
+
+    cfg.h_sync  = 8;
+    cfg.h_bp    = 40;
+    cfg.h_act   = width;
+    cfg.h_total = cfg.h_sync + cfg.h_bp + cfg.h_act + 40;
+
+    cfg.v_sync  = 4;
+    cfg.v_bp    = 12;
+    cfg.v_act   = ubwc_dec_stored_height_px(cfg.format, height);
+    cfg.v_total = cfg.v_sync + cfg.v_bp + cfg.v_act + 8;
+
+    cfg.irq_enable = 1;
+    cfg.do_start   = 1;
+
+    n = ubwc_dec_make_reg_writes_ex(&amp;cfg, regs, 32);
+    for (i = 0; i &lt; n; ++i) {
+        apb_write(regs[i].addr, regs[i].data);
+    }
+}</code></pre>
+          <h3>5.3 常用函数</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>函数</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>ubwc_*_layout_sizes()</code></td>
+                <td>计算 metadata/tile 各 plane size 和 total size。</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_*_layout_bases()</code></td>
+                <td>根据 <code>meta_y_base_addr</code> 推导四个 plane 的起始地址。</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_*_default_config()</code></td>
+                <td>生成默认配置结构体，适合再手动覆盖 lossy、timing、start 等字段。</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_*_make_reg_writes_ex()</code></td>
+                <td>从完整 config 结构体生成 APB 写序列，推荐真实软件使用。</td>
+              </tr>
+              <tr>
+                <td><code>ubwc_*_make_reg_writes_from_base()</code></td>
+                <td>最简入口，只输入格式、尺寸和 frame base，适合 smoke test。</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="sv-api">
+          <h2>6. SV APB task 使用</h2>
+          <p>
+            SV 版本用于 testbench。使用前需要由 testbench 提供一个名为 <code>apb_write</code> 的 task，
+            <code>ubwc_*_apb_program.svh</code> 会直接调用它。
+          </p>
+          <h3>6.1 ENC testbench 示例</h3>
+          <pre><code>import ubwc_enc_cfg_pkg::*;
+`include "ubwc_cfg/include/ubwc_enc_apb_program.svh"
+
+task automatic apb_write(input logic [15:0] addr,
+                         input logic [31:0] data);
+    // testbench APB write implementation
+endtask
+
+initial begin
+    ubwc_enc_apb_program_simple(
+        UBWC_ENC_FMT_YUV420_8_NV12,
+        544,
+        1200,
+        64'h0000_0000_1000_0000);
+end</code></pre>
+          <h3>6.2 DEC testbench 示例</h3>
+          <pre><code>import ubwc_dec_cfg_pkg::*;
+`include "ubwc_cfg/include/ubwc_dec_apb_program.svh"
+
+task automatic apb_write(input logic [15:0] addr,
+                         input logic [31:0] data);
+    // testbench APB write implementation
+endtask
+
+initial begin
+    ubwc_dec_apb_program_simple_full(
+        UBWC_DEC_FMT_YUV420_8_NV12,
+        544,
+        1200,
+        64'h0000_0000_2000_0000,
+        640, 8, 40, 544,
+        1232, 4, 12, 1216,
+        1'b0,
+        1'b1,
+        1'b1);
+end</code></pre>
+          <div class="note">
+            <strong>选择 simple 还是 full：</strong>
+            <code>simple</code> 适合默认 timing 的 fake 仿真；
+            <code>simple_full</code> 和 <code>*_program_full</code> 适合明确配置 active size、OTF size、timing、lossy、irq 和 start。
+          </div>
+        </section>
+
+        <section id="mode">
+          <h2>7. 配置模式</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>配置内容</th>
+                <th>配置频率</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>格式、tile、CI、bank swizzle、lossy</td>
+                <td>图像格式或策略变化时配置</td>
+                <td>格式不变时通常不用每帧重复配置。</td>
+              </tr>
+              <tr>
+                <td>ENC OTF 输入尺寸、active size、metadata pitch</td>
+                <td>图像格式、尺寸或 layout 变化时配置</td>
+                <td>包括 <code>OTF_CFG*</code>、<code>META_ACTIVE_SIZE</code>、<code>META_PITCH</code>。</td>
+              </tr>
+              <tr>
+                <td>DEC OTF timing</td>
+                <td>输出 timing 变化时配置</td>
+                <td>包括 H_TOTAL/H_SYNC/H_BP/H_ACT 和 V_TOTAL/V_SYNC/V_BP/V_ACT。</td>
+              </tr>
+              <tr>
+                <td>ENC 每帧输出地址</td>
+                <td>每个输出 UBWC buffer 配置一次</td>
+                <td>写 <code>0x030..0x04c</code> 四个 64-bit 地址，然后写 start。</td>
+              </tr>
+              <tr>
+                <td>DEC 每帧输入地址</td>
+                <td>每个输入 UBWC buffer 配置一次</td>
+                <td>写 <code>0x030..0x04c</code> 四个 64-bit 地址，然后写 start。</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="ok">
+            辅助库默认输出完整寄存器序列，适合首帧配置、格式切换或仿真。稳定运行时，软件可以只更新每帧地址和 start。
+          </div>
+        </section>
+
+        <section id="layout">
+          <h2>8. 地址与 pitch 计算</h2>
+          <h3>8.1 地址排列</h3>
+          <pre><code>meta_y_base = frame_base
+tile_y_base = meta_y_base + meta_y_size
+
+RGBA:
+    meta_uv_base = 0
+    tile_uv_base = 0
+
+YUV420:
+    meta_uv_base = tile_y_base + tile_y_size
+    tile_uv_base = meta_uv_base + meta_uv_size</code></pre>
+          <p>
+            ENC 和 DEC 使用同一套 layout 思路：Plane Y 表示 RGBA/Y plane，Plane UV 表示 YUV420 的 UV plane。
+            对 RGBA 格式，UV 相关寄存器可以写 0，辅助函数也会自动生成 0。
+          </p>
+          <h3>8.2 关键计算</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>参数</th>
+                <th>计算规则</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>tile_w</code></td>
+                <td>RGBA 为 16，YUV420 为 32</td>
+                <td>以像素为单位。</td>
+              </tr>
+              <tr>
+                <td><code>tile_h</code></td>
+                <td>RGBA/P010 为 4，NV12 为 8</td>
+                <td>以像素行为单位。</td>
+              </tr>
+              <tr>
+                <td><code>bpp</code></td>
+                <td>RGBA 为 4，NV12 为 1，P010 为 2</td>
+                <td>用于计算 surface pitch。</td>
+              </tr>
+              <tr>
+                <td><code>surface_pitch_bytes</code></td>
+                <td><code>align(width * bpp, tile_w * 4 * bpp)</code></td>
+                <td>压缩 tile 数据所在 plane 的行 pitch。</td>
+              </tr>
+              <tr>
+                <td><code>tile_pitch</code></td>
+                <td><code>surface_pitch_bytes / 16</code></td>
+                <td>写入 TILE_CFG 的 pitch 单位。</td>
+              </tr>
+              <tr>
+                <td><code>stored_height</code></td>
+                <td><code>align(height, tile_h * 4)</code></td>
+                <td>存储高度，不一定等于有效图像高度。</td>
+              </tr>
+              <tr>
+                <td><code>meta_pitch</code></td>
+                <td><code>align(tile_cols, 64)</code></td>
+                <td>metadata plane pitch。</td>
+              </tr>
+              <tr>
+                <td><code>meta_size</code></td>
+                <td><code>align(meta_pitch * align(tile_rows, 16), 4096)</code></td>
+                <td>metadata plane 4KB 对齐。</td>
+              </tr>
+              <tr>
+                <td><code>tile_size</code></td>
+                <td><code>align(surface_pitch_bytes * stored_height, 4096)</code></td>
+                <td>compressed tile plane 4KB 对齐。</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="enc-order">
+          <h2>9. ENC 写寄存器顺序</h2>
+          <p>ENC helper 生成的寄存器顺序如下。软件可以直接按该顺序写入。</p>
+          <table>
+            <thead>
+              <tr>
+                <th>顺序</th>
+                <th>地址</th>
+                <th>寄存器</th>
+                <th>配置模式</th>
+                <th>功能</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td><code>0x00c</code></td><td><code>REG_TILE_CFG1</code></td><td>格式/尺寸变化</td><td>four line、lossy、tile pitch。</td></tr>
+              <tr><td>2</td><td><code>0x008</code></td><td><code>REG_TILE_CFG0</code></td><td>格式/策略变化</td><td>UBWC enable、bank swizzle、highest bank bit、bank spread。</td></tr>
+              <tr><td>3</td><td><code>0x030</code></td><td><code>REG_META_BASE_Y_LO</code></td><td>每帧</td><td>压缩后 RGBA/Y plane metadata 存储基地址低 32 bit。</td></tr>
+              <tr><td>4</td><td><code>0x034</code></td><td><code>REG_META_BASE_Y_HI</code></td><td>每帧</td><td>压缩后 RGBA/Y plane metadata 存储基地址高 32 bit。</td></tr>
+              <tr><td>5</td><td><code>0x038</code></td><td><code>REG_TILE_BASE_Y_LO</code></td><td>每帧</td><td>压缩后 RGBA/Y plane compressed tile 存储基地址低 32 bit。</td></tr>
+              <tr><td>6</td><td><code>0x03c</code></td><td><code>REG_TILE_BASE_Y_HI</code></td><td>每帧</td><td>压缩后 RGBA/Y plane compressed tile 存储基地址高 32 bit。</td></tr>
+              <tr><td>7</td><td><code>0x040</code></td><td><code>REG_META_BASE_UV_LO</code></td><td>每帧</td><td>压缩后 UV plane metadata 存储基地址低 32 bit，RGBA 图像不关心。</td></tr>
+              <tr><td>8</td><td><code>0x044</code></td><td><code>REG_META_BASE_UV_HI</code></td><td>每帧</td><td>压缩后 UV plane metadata 存储基地址高 32 bit，RGBA 图像不关心。</td></tr>
+              <tr><td>9</td><td><code>0x048</code></td><td><code>REG_TILE_BASE_UV_LO</code></td><td>每帧</td><td>压缩后 UV plane compressed tile 存储基地址低 32 bit，RGBA 图像不关心。</td></tr>
+              <tr><td>10</td><td><code>0x04c</code></td><td><code>REG_TILE_BASE_UV_HI</code></td><td>每帧</td><td>压缩后 UV plane compressed tile 存储基地址高 32 bit，RGBA 图像不关心。</td></tr>
+              <tr><td>11</td><td><code>0x014</code></td><td><code>REG_ENC_CI_CFG1</code></td><td>格式/策略变化</td><td>CI lossy 等配置。</td></tr>
+              <tr><td>12</td><td><code>0x018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>格式/策略变化</td><td>CI 配置扩展字段。</td></tr>
+              <tr><td>13</td><td><code>0x01c</code></td><td><code>REG_ENC_CI_CFG3</code></td><td>格式/策略变化</td><td>CI 配置扩展字段。</td></tr>
+              <tr><td>14</td><td><code>0x010</code></td><td><code>REG_ENC_CI_CFG0</code></td><td>格式/策略变化</td><td>CI input type 和 alen。</td></tr>
+              <tr><td>15</td><td><code>0x024</code></td><td><code>REG_OTF_CFG1</code></td><td>格式/尺寸变化</td><td>OTF 输入 width/height。</td></tr>
+              <tr><td>16</td><td><code>0x028</code></td><td><code>REG_OTF_CFG2</code></td><td>格式变化</td><td>tile_w/tile_h。</td></tr>
+              <tr><td>17</td><td><code>0x02c</code></td><td><code>REG_OTF_CFG3</code></td><td>格式/尺寸变化</td><td>Y tile columns 和 UV tile columns。</td></tr>
+              <tr><td>18</td><td><code>0x050</code></td><td><code>REG_META_ACTIVE_SIZE</code></td><td>格式/尺寸变化</td><td>metadata active width/height。</td></tr>
+              <tr><td>19</td><td><code>0x054</code></td><td><code>REG_META_PITCH</code></td><td>格式/尺寸变化</td><td>metadata plane pitch。</td></tr>
+              <tr><td>20</td><td><code>0x020</code></td><td><code>REG_OTF_CFG0</code></td><td>格式变化</td><td>OTF format。</td></tr>
+              <tr><td>21</td><td><code>0x060</code></td><td><code>REG_IRQ_CTRL</code></td><td>每帧 start</td><td>默认写 <code>bit0=irq_enable</code>、<code>bit5=start</code>。</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="dec-order">
+          <h2>10. DEC 写寄存器顺序</h2>
+          <p>DEC helper 生成的寄存器顺序如下。DEC 需要额外关注 OTF timing。</p>
+          <table>
+            <thead>
+              <tr>
+                <th>顺序</th>
+                <th>地址</th>
+                <th>寄存器</th>
+                <th>配置模式</th>
+                <th>功能</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td><code>0x008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>格式/策略变化</td><td>bank swizzle、four line、lossy。</td></tr>
+              <tr><td>2</td><td><code>0x00c</code></td><td><code>APB_ADDR_TILE_CFG1</code></td><td>格式/尺寸变化</td><td>tile pitch。</td></tr>
+              <tr><td>3</td><td><code>0x010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>格式/策略变化</td><td>CI input type、lossy、alpha mode。</td></tr>
+              <tr><td>4</td><td><code>0x014</code></td><td><code>APB_ADDR_VIVO_CFG</code></td><td>上电或 reset 策略变化</td><td>VIVO enable 和 soft reset。</td></tr>
+              <tr><td>5</td><td><code>0x018</code></td><td><code>APB_ADDR_OTF_CFG0</code></td><td>格式/尺寸变化</td><td>输出图像 width 和 format。</td></tr>
+              <tr><td>6</td><td><code>0x01c</code></td><td><code>APB_ADDR_OTF_CFG1</code></td><td>timing 变化</td><td>H_TOTAL 和 H_SYNC。</td></tr>
+              <tr><td>7</td><td><code>0x020</code></td><td><code>APB_ADDR_OTF_CFG2</code></td><td>timing 变化</td><td>H_BP 和 H_ACT。</td></tr>
+              <tr><td>8</td><td><code>0x024</code></td><td><code>APB_ADDR_OTF_CFG3</code></td><td>timing 变化</td><td>V_TOTAL 和 V_SYNC。</td></tr>
+              <tr><td>9</td><td><code>0x028</code></td><td><code>APB_ADDR_OTF_CFG4</code></td><td>timing 变化</td><td>V_BP 和 V_ACT。</td></tr>
+              <tr><td>10</td><td><code>0x02c</code></td><td><code>APB_ADDR_META_CFG0</code></td><td>格式/尺寸变化</td><td>metadata tile_x_numbers 和 tile_y_numbers。</td></tr>
+              <tr><td>11</td><td><code>0x030</code></td><td><code>REG_META_BASE_Y_LO</code></td><td>每帧</td><td>RGBA/Y plane metadata 读取基地址低 32 bit。</td></tr>
+              <tr><td>12</td><td><code>0x034</code></td><td><code>REG_META_BASE_Y_HI</code></td><td>每帧</td><td>RGBA/Y plane metadata 读取基地址高 32 bit。</td></tr>
+              <tr><td>13</td><td><code>0x038</code></td><td><code>REG_TILE_BASE_Y_LO</code></td><td>每帧</td><td>RGBA/Y plane compressed tile 读取基地址低 32 bit。</td></tr>
+              <tr><td>14</td><td><code>0x03c</code></td><td><code>REG_TILE_BASE_Y_HI</code></td><td>每帧</td><td>RGBA/Y plane compressed tile 读取基地址高 32 bit。</td></tr>
+              <tr><td>15</td><td><code>0x040</code></td><td><code>REG_META_BASE_UV_LO</code></td><td>每帧</td><td>UV plane metadata 读取基地址低 32 bit，RGBA 图像不关心。</td></tr>
+              <tr><td>16</td><td><code>0x044</code></td><td><code>REG_META_BASE_UV_HI</code></td><td>每帧</td><td>UV plane metadata 读取基地址高 32 bit，RGBA 图像不关心。</td></tr>
+              <tr><td>17</td><td><code>0x048</code></td><td><code>REG_TILE_BASE_UV_LO</code></td><td>每帧</td><td>UV plane compressed tile 读取基地址低 32 bit，RGBA 图像不关心。</td></tr>
+              <tr><td>18</td><td><code>0x04c</code></td><td><code>REG_TILE_BASE_UV_HI</code></td><td>每帧</td><td>UV plane compressed tile 读取基地址高 32 bit，RGBA 图像不关心。</td></tr>
+              <tr><td>19</td><td><code>0x060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>每帧 start</td><td>默认写 <code>bit0=irq_enable</code>、<code>bit5=start</code>。</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="otf">
+          <h2>11. DEC OTF timing</h2>
+          <p>
+            DEC 输出 OTF timing 采用常见 video mode 标记。配置寄存器只关心数量，不自动推导 blanking。
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>字段</th>
+                <th>含义</th>
+                <th>典型计算</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>H_SYNC</code></td>
+                <td>水平同步宽度 HSA</td>
+                <td>由显示 timing 给出</td>
+              </tr>
+              <tr>
+                <td><code>H_BP</code></td>
+                <td>水平后肩 HBP</td>
+                <td>由显示 timing 给出</td>
+              </tr>
+              <tr>
+                <td><code>H_ACT</code></td>
+                <td>水平有效像素 HACT</td>
+                <td>通常等于输出有效宽度</td>
+              </tr>
+              <tr>
+                <td><code>H_TOTAL</code></td>
+                <td>一行总周期</td>
+                <td><code>H_SYNC + H_BP + H_ACT + HFP</code></td>
+              </tr>
+              <tr>
+                <td><code>V_SYNC</code></td>
+                <td>垂直同步行数 VSA</td>
+                <td>由显示 timing 给出</td>
+              </tr>
+              <tr>
+                <td><code>V_BP</code></td>
+                <td>垂直后肩 VBP</td>
+                <td>由显示 timing 给出</td>
+              </tr>
+              <tr>
+                <td><code>V_ACT</code></td>
+                <td>垂直有效行数 VACT</td>
+                <td>通常使用 <code>stored_height</code> 或系统要求的有效输出高度</td>
+              </tr>
+              <tr>
+                <td><code>V_TOTAL</code></td>
+                <td>一帧总行数</td>
+                <td><code>V_SYNC + V_BP + V_ACT + VFP</code></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="warn">
+            <strong>注意：</strong>
+            <code>ubwc_dec_apb_program_simple()</code> 只适合 fake/smoke 仿真。真实 OTF 输出建议使用
+            <code>ubwc_dec_apb_program_simple_full()</code> 或 C 的 <code>ubwc_dec_config_t</code> 显式配置 timing。
+          </div>
+        </section>
+
+        <section id="irq">
+          <h2>12. START 和中断</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>寄存器</th>
+                <th>bit</th>
+                <th>方向</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>IRQ_CTRL</code></td>
+                <td><code>[0]</code></td>
+                <td>RW</td>
+                <td><code>irq_enable</code>，中断使能。</td>
+              </tr>
+              <tr>
+                <td><code>IRQ_CTRL</code></td>
+                <td><code>[1]</code></td>
+                <td>W1P</td>
+                <td><code>irq_clear</code>，清中断脉冲。该位不由 helper 默认写入。</td>
+              </tr>
+              <tr>
+                <td><code>IRQ_CTRL</code></td>
+                <td><code>[5]</code></td>
+                <td>W1P</td>
+                <td><code>start</code>，启动一帧处理。helper 在 <code>do_start=1</code> 时写 1。</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="note">
+            默认 helper 末尾写 <code>IRQ_CTRL = 0x00000021</code>，表示中断使能并发出 start。
+            如果软件希望先写静态寄存器、后续再单独 start，可以将 <code>do_start</code> 设为 0，之后单独写 bit5。
+          </div>
+        </section>
+
+        <section id="checklist">
+          <h2>13. 检查清单</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>检查项</th>
+                <th>期望</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>format code</td>
+                <td>只使用 0 到 4；YUV422 当前不支持。</td>
+              </tr>
+              <tr>
+                <td>首地址</td>
+                <td><code>meta_y_base_addr</code> 是整帧 UBWC buffer 起始地址，建议至少 4KB 对齐。</td>
+              </tr>
+              <tr>
+                <td>RGBA 的 UV 地址</td>
+                <td>RGBA 不关心 UV，helper 会写 0。为了保持寄存器序列一致，建议软件也按 helper 写完整地址组。</td>
+              </tr>
+              <tr>
+                <td>YUV420 的 UV height</td>
+                <td>UV plane 使用 <code>ceil(height / 2)</code> 参与 size 计算。</td>
+              </tr>
+              <tr>
+                <td>DEC OTF timing</td>
+                <td>真实系统必须根据 panel/后级模块 timing 显式配置，不建议依赖 simple 默认值。</td>
+              </tr>
+              <tr>
+                <td>每帧启动</td>
+                <td>每个新 buffer 写地址组后，再写 <code>IRQ_CTRL[5]=1</code> 发 start。</td>
+              </tr>
+              <tr>
+                <td>输出表容量</td>
+                <td>C API 建议分配 <code>ubwc_*_reg_write_t regs[32]</code>，当前足够容纳完整写序列。</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="small">
+            本文对应当前 <code>ubwc_cfg</code> 目录实现；寄存器 bit field 的最终定义以
+            <code>docs/ubwc_enc_reg_table.xlsx</code>、<code>docs/ubwc_dec_reg_table.xlsx</code> 和 RTL APB block 为准。
+          </p>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

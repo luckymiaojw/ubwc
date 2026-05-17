@@ -51,10 +51,12 @@ module ubwc_wrapper_top #(
     // ---------------------------------------------------------------------
     // Encoder clock/reset
     // ---------------------------------------------------------------------
-    input  wire                             enc_i_clk,
+    input  wire                             enc_i_axi_clk,
     input  wire                             enc_i_otf_clk,
     input  wire                             enc_i_vivo_clk,
-    input  wire                             enc_i_rstn,
+    input  wire                             enc_i_axi_rstn,
+    input  wire                             enc_i_otf_rstn,
+    input  wire                             enc_i_vivo_rstn,
 
     // ---------------------------------------------------------------------
     // Encoder OTF input
@@ -133,6 +135,7 @@ module ubwc_wrapper_top #(
     input  wire                             dec_i_otf_clk,
     input  wire                             dec_i_vivo_clk,
     input  wire                             dec_i_otf_rstn,
+    input  wire                             dec_i_vivo_rstn,
     output wire                             dec_o_otf_vsync,
     output wire                             dec_o_otf_hsync,
     output wire                             dec_o_otf_de,
@@ -205,10 +208,12 @@ module ubwc_wrapper_top #(
         .PREADY         (enc_PREADY),
         .PSLVERR        (enc_PSLVERR),
         .PRDATA         (enc_PRDATA),
-        .i_clk          (enc_i_clk),
+        .i_axi_clk      (enc_i_axi_clk),
         .i_otf_clk      (enc_i_otf_clk),
         .i_vivo_clk     (enc_i_vivo_clk),
-        .i_rstn         (enc_i_rstn),
+        .i_axi_rstn     (enc_i_axi_rstn),
+        .i_otf_rstn     (enc_i_otf_rstn),
+        .i_vivo_rstn    (enc_i_vivo_rstn),
         .i_otf_vsync    (enc_i_otf_vsync),
         .i_otf_hsync    (enc_i_otf_hsync),
         .i_otf_de       (enc_i_otf_de),
@@ -277,6 +282,7 @@ module ubwc_wrapper_top #(
         .i_otf_clk          (dec_i_otf_clk),
         .i_vivo_clk         (dec_i_vivo_clk),
         .i_otf_rstn         (dec_i_otf_rstn),
+        .i_vivo_rstn        (dec_i_vivo_rstn),
         .o_otf_vsync        (dec_o_otf_vsync),
         .o_otf_hsync        (dec_o_otf_hsync),
         .o_otf_de           (dec_o_otf_de),

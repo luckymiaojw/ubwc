@@ -34,8 +34,8 @@ module ubwc_dec_vivo_top #(
     output  wire                                        o_rvo_last                      ,
     input   wire                                        i_rvo_ready                     ,
 
-    output  wire    [6                      :0]         o_idle                          ,
-    output  wire    [6                      :0]         o_error
+    output  wire                                        o_idle                          ,
+    output  wire                                        o_error
 );
 
     localparam  [4                      :0]         CI_READY_PERIOD_M1              = 5'd23;
@@ -70,14 +70,13 @@ module ubwc_dec_vivo_top #(
                          (need_input_beat ? i_cvi_valid : pad_active);
     assign o_rvo_data  = need_input_beat ? i_cvi_data : 256'd0;
     assign o_rvo_last  = r_tile_active && (r_out_beats_left == 4'd1);
-    assign o_idle[0] = !r_tile_active && !i_ci_valid && !i_cvi_valid;
-    assign o_idle[1] = !r_tile_active;
-    assign o_idle[2] = !i_ci_valid || o_ci_ready;
-    assign o_idle[3] = !i_cvi_valid || o_cvi_ready;
-    assign o_idle[4] = !o_co_valid || i_co_ready;
-    assign o_idle[5] = !o_rvo_valid || i_rvo_ready;
-    assign o_idle[6] = !r_reset_sync;
-    assign o_error = 7'd0;
+    assign o_idle = !r_reset_sync &&
+                    !r_tile_active &&
+                    !i_ci_valid &&
+                    !i_cvi_valid &&
+                    (!o_co_valid || i_co_ready) &&
+                    (!o_rvo_valid || i_rvo_ready);
+    assign o_error = 1'b0;
 
     always @(posedge i_clk or posedge i_reset) begin
         if (i_reset) begin

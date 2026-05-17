@@ -598,7 +598,6 @@ module ubwc_enc_otf_data_packer
     (
         .clk                        ( i_clk                         ),
         .rst_n                      ( rst_n_sys                     ),
-        .sclr                       ( 1'b0                          ),
         .wr_en                      ( out_fifo_a_wr                 ),
         .din                        ( out_fifo_a_din                ),
         .prog_full                  ( out_fifo_a_afull              ),
@@ -621,7 +620,6 @@ module ubwc_enc_otf_data_packer
     (
         .clk                        ( i_clk                         ),
         .rst_n                      ( rst_n_sys                     ),
-        .sclr                       ( 1'b0                          ),
         .wr_en                      ( out_fifo_b_wr                 ),
         .din                        ( out_fifo_b_din                ),
         .prog_full                  ( out_fifo_b_afull              ),

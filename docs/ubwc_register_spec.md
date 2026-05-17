@@ -90,8 +90,8 @@ Recommended configuration order:
 | `0x004c` | `REG_TILE_BASE_UV_HI` | `RW` | `0x0000_0000` | Tile UV base address high |
 | `0x0050` | `STATUS0` | `RO` | dynamic | Live decoder status |
 | `0x0054` | `STATUS1` | `RO` | dynamic | Stage-done and frame-done status |
-| `0x0058` | `STATUS2` | `RO` | dynamic | Raw VIVO idle bitmap |
-| `0x005c` | `STATUS3` | `RO` | dynamic | Raw VIVO error bitmap |
+| `0x0058` | `STATUS2` | `RO` | dynamic | VIVO idle status |
+| `0x005c` | `STATUS3` | `RO` | dynamic | VIVO error status |
 | `0x0060` | `IRQ_CTRL` | `RW/W1P` | `0x0000_0001` | IRQ enable, clear, start pulse, and pending status |
 | `0x0064` | `STATUS4` | `RO` | dynamic | IRQ status mirror |
 | `0x0068` | `STAT_META` | `RO` | dynamic | Metadata valid tile count |
@@ -151,8 +151,8 @@ Recommended configuration order:
 | `0x0054` | `STATUS1` | `[3]` | `otf_done` | `RO` | OTF stage completed |
 | `0x0054` | `STATUS1` | `[4]` | `frame_done` | `RO` | Full-frame completion flag. This is the primary software polling bit. |
 | `0x0054` | `STATUS1` | `[8:5]` | `stage_seen_busy` | `RO` | `{otf_seen, vivo_seen, tile_seen, meta_seen}` |
-| `0x0058` | `STATUS2` | `[6:0]` | `vivo_idle_bits` | `RO` | Raw VIVO idle bitmap |
-| `0x005c` | `STATUS3` | `[6:0]` | `vivo_error_bits` | `RO` | Raw VIVO error bitmap |
+| `0x0058` | `STATUS2` | `[0]` | `vivo_idle` | `RO` | VIVO idle status |
+| `0x005c` | `STATUS3` | `[0]` | `vivo_error` | `RO` | VIVO error status |
 | `0x0060` | `IRQ_CTRL` | `[0]` | `irq_enable` | `RW` | IRQ enable. Reset value is `1`. |
 | `0x0060` | `IRQ_CTRL` | `[1]` | `irq_clear` | `W1P` | Write `1` to generate an IRQ clear pulse in AXI clock domain |
 | `0x0060` | `IRQ_CTRL` | `[2]` | `irq_pending` | `RO` | Current IRQ pending status |

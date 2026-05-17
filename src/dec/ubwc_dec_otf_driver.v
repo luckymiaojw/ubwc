@@ -65,9 +65,6 @@ module otf_driver (
     wire        [15                     :0]         active_line_raw                 ;
     wire                                            otf_line_fire                   ;
     wire                                            otf_de_fire                     ;
-    wire                                            otf_last_active_col             ;
-    wire                                            otf_last_active_row             ;
-    wire                                            otf_last_de_fire                ;
     wire        [11                     :0]         active_line                     ;
     wire                                            line_has_uv                     ;
     wire                                            is_rgba                         ;
@@ -81,6 +78,10 @@ module otf_driver (
     wire                                            stream_wait_start               ;
     wire                                            otf_step_fire                   ;
     wire                                            otf_frame_end_fire              ;
+    wire                                            otf_output_de_fire              ;
+    wire                                            otf_output_last_col             ;
+    wire                                            otf_output_last_row             ;
+    wire                                            otf_output_last_de_fire         ;
     wire                                            otf_output_update               ;
     wire                                            phase_busy                      ;
     wire                                            fifo_busy                       ;
@@ -110,6 +111,8 @@ module otf_driver (
     reg         [3                      :0]         pending_frame_fcnt              ;
     reg                                             frame_done_pulse_core           ;
     reg                                             correct_irq_pulse_core          ;
+    reg         [15                     :0]         otf_out_x_cnt                   ;
+    reg         [15                     :0]         otf_out_y_cnt                   ;
     reg                                             otf_vsync_core                  ;
     reg                                             otf_hsync_core                  ;
     reg                                             otf_de_core                     ;
@@ -148,13 +151,6 @@ module otf_driver (
     assign active_line_raw            = v_cnt - v_act_start;
     assign otf_line_fire              = stream_started && i_otf_ready && is_active_line && (h_cnt == 16'd0);
     assign otf_de_fire                = stream_started && i_otf_ready && is_act;
-    assign otf_last_active_col        = (h_act_beats != 16'd0) &&
-                                        (h_cnt == (h_act_end - 16'd1));
-    assign otf_last_active_row        = (cfg_otf_v_act != 16'd0) &&
-                                        (active_line_raw == (cfg_otf_v_act - 16'd1));
-    assign otf_last_de_fire           = otf_step_fire && is_act &&
-                                        otf_last_active_col &&
-                                        otf_last_active_row;
     assign active_line                = (v_cnt >= v_act_start) ?
                                         ((|active_line_raw[15:12]) ? 12'hfff : active_line_raw[11:0]) :
                                                                  12'd0;
@@ -171,6 +167,14 @@ module otf_driver (
     assign stream_wait_start          = !stream_started && !frame_start;
     assign otf_step_fire              = stream_started && !active_data_stall && i_otf_ready;
     assign otf_frame_end_fire         = otf_step_fire && h_last && v_last;
+    assign otf_output_de_fire         = o_otf_de && i_otf_ready;
+    assign otf_output_last_col        = (h_act_beats != 16'd0) &&
+                                        (otf_out_x_cnt == (h_act_beats - 16'd1));
+    assign otf_output_last_row        = (cfg_otf_v_act != 16'd0) &&
+                                        (otf_out_y_cnt == (cfg_otf_v_act - 16'd1));
+    assign otf_output_last_de_fire    = otf_output_de_fire &&
+                                        otf_output_last_col &&
+                                        otf_output_last_row;
     assign otf_output_update          = i_otf_ready;
     assign phase_busy                 = (phase != 2'd0);
     assign fifo_busy                  = !i_fifo_empty0;
@@ -235,14 +239,32 @@ module otf_driver (
         if (!rst_n)
             frame_done_pulse_core <= 1'b0;
         else
-            frame_done_pulse_core <= otf_last_de_fire;
+            frame_done_pulse_core <= otf_output_last_de_fire;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             correct_irq_pulse_core <= 1'b0;
         else
-            correct_irq_pulse_core <= otf_last_de_fire;
+            correct_irq_pulse_core <= otf_output_last_de_fire;
+    end
+
+    always @(posedge clk_otf or negedge rst_n) begin
+        if (!rst_n)
+            otf_out_x_cnt <= 16'd0;
+        else if (frame_start_idle)
+            otf_out_x_cnt <= 16'd0;
+        else if (otf_output_de_fire)
+            otf_out_x_cnt <= otf_output_last_col ? 16'd0 : (otf_out_x_cnt + 1'b1);
+    end
+
+    always @(posedge clk_otf or negedge rst_n) begin
+        if (!rst_n)
+            otf_out_y_cnt <= 16'd0;
+        else if (frame_start_idle)
+            otf_out_y_cnt <= 16'd0;
+        else if (otf_output_de_fire && otf_output_last_col)
+            otf_out_y_cnt <= otf_output_last_row ? 16'd0 : (otf_out_y_cnt + 1'b1);
     end
 
     always @(posedge clk_otf or negedge rst_n) begin

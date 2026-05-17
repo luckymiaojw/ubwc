@@ -94,6 +94,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
     reg                       dec_presetn;
     reg                       dec_axi_rstn;
     reg                       dec_otf_rstn;
+    reg                       dec_vivo_rstn;
 
     reg                       enc_PSEL;
     reg                       enc_PENABLE;
@@ -782,10 +783,12 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         .PREADY          (enc_PREADY),
         .PSLVERR         (enc_PSLVERR),
         .PRDATA          (enc_PRDATA),
-        .i_clk           (clk),
+        .i_axi_clk       (clk),
         .i_otf_clk       (i_otf_clk),
         .i_vivo_clk      (vivo_clk),
-        .i_rstn          (enc_rst_n),
+        .i_axi_rstn      (enc_rst_n),
+        .i_otf_rstn      (enc_rst_n),
+        .i_vivo_rstn     (enc_rst_n),
         .i_otf_vsync     (enc_i_otf_vsync),
         .i_otf_hsync     (enc_i_otf_hsync),
         .i_otf_de        (enc_i_otf_de),
@@ -853,6 +856,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         .i_otf_clk         (i_otf_clk),
         .i_vivo_clk        (vivo_clk),
         .i_otf_rstn        (dec_otf_rstn),
+        .i_vivo_rstn       (dec_vivo_rstn),
         .o_otf_vsync       (dec_o_otf_vsync),
         .o_otf_hsync       (dec_o_otf_hsync),
         .o_otf_de          (dec_o_otf_de),
@@ -915,6 +919,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         dec_presetn            = 1'b0;
         dec_axi_rstn           = 1'b0;
         dec_otf_rstn           = 1'b0;
+        dec_vivo_rstn          = 1'b0;
         enc_PSEL               = 1'b0;
         enc_PENABLE            = 1'b0;
         enc_PADDR              = {APB_AW{1'b0}};
@@ -966,6 +971,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
         dec_presetn  = 1'b1;
         dec_axi_rstn = 1'b1;
         dec_otf_rstn = 1'b1;
+        dec_vivo_rstn = 1'b1;
         repeat (8) @(posedge clk);
 
         $display("");

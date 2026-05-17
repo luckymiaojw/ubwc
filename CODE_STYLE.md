@@ -407,17 +407,14 @@ assign word_addr_next               = word_addr_r + {{(ADDR_W-1){1'b0}}, 1'b1};
 推荐：
 
 ```verilog
-wire                                                fifo_sclr               ;
 wire                                                fifo_rst_n              ;
 
-assign fifo_sclr                    = frame_flush;
 assign fifo_rst_n                   = rst_n_sync;
 
 mg_sync_fifo u_fifo
 (
     .clk                            ( clk                           ),
-    .rst_n                          ( fifo_rst_n                    ),
-    .sclr                           ( fifo_sclr                     )
+    .rst_n                          ( fifo_rst_n                    )
 );
 ```
 

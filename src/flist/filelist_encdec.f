@@ -12,7 +12,6 @@
 ../dec/ubwc_dec_meta_data_from_sram.v
 ../ip/ubwc_std_single_port_sram.v
 ../dec/ubwc_dec_meta_pingpong_sram.v
-../dec/ubwc_dec_rstn_gen.v
 ../dec/ubwc_dec_apb_reg_blk.v
 ../dec/ubwc_dec_meta_data_gen.v
 ../dec/ubwc_dec_meta_data_decode.v
@@ -30,7 +29,6 @@
 
 ../ip/ubwc_axi_wr_64to256.v
 ../ip/ubwc_sram_1rw.v
-../enc/ubwc_enc_rst_mdl.v
 ../enc/ubwc_enc_apb_reg_blk.v
 ../enc/ubwc_enc_otf_data_packer.v
 ../enc/ubwc_enc_line_to_tile.v

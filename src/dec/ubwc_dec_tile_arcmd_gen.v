@@ -221,7 +221,6 @@ module ubwc_dec_tile_arcmd_gen
     ) u_ci_fifo (
         .clk                           ( clk                                   ),
         .rst_n                         ( rst_n                                 ),
-        .sclr                          ( 1'b0                                  ),
         .wr_en                         ( ci_fifo_wr_en                         ),
         .din                           ( ci_fifo_din                           ),
         .prog_full                     ( ci_fifo_prog_full                     ),
@@ -241,7 +240,6 @@ module ubwc_dec_tile_arcmd_gen
     ) u_ci_pending_fifo (
         .clk                           ( clk                                   ),
         .rst_n                         ( rst_n                                 ),
-        .sclr                          ( 1'b0                                  ),
         .wr_en                         ( ci_pending_fifo_wr_en                 ),
         .din                           ( ci_fifo_dout                          ),
         .prog_full                     ( ci_pending_fifo_prog_full             ),
@@ -261,7 +259,6 @@ module ubwc_dec_tile_arcmd_gen
     ) u_rdata_fifo (
         .clk                           ( clk                                   ),
         .rst_n                         ( rst_n                                 ),
-        .sclr                          ( 1'b0                                  ),
         .wr_en                         ( rdata_fifo_wr_en                      ),
         .din                           ( rdata_fifo_din                        ),
         .prog_full                     ( rdata_fifo_prog_full                  ),

@@ -44,6 +44,7 @@ module ubwc_dec_wrapper_top #(
     input   wire                                i_otf_clk                     ,
     input   wire                                i_vivo_clk                    ,
     input   wire                                i_otf_rstn                    ,
+    input   wire                                i_vivo_rstn                   ,
     output  wire                                o_otf_vsync                   ,
     output  wire                                o_otf_hsync                   ,
     output  wire                                o_otf_de                      ,
@@ -163,8 +164,8 @@ module ubwc_dec_wrapper_top #(
     wire                                dec_irq_error_pending_int              ;
     wire                                dec_irq_enable_axi                     ;
     wire                                dec_irq_clear_pulse_axi                ;
-    wire    [7                   -1 :0] vivo_idle_bits_int                     ;
-    wire    [7                   -1 :0] vivo_error_bits_int                    ;
+    wire                                vivo_idle_int                          ;
+    wire                                vivo_error_int                         ;
     wire    [32                  -1 :0] meta_error_cnt_int                     ;
     wire    [32                  -1 :0] meta_cmd_ok_cnt_int                    ;
     wire    [32                  -1 :0] meta_cmd_fail_cnt_int                  ;
@@ -283,8 +284,8 @@ module ubwc_dec_wrapper_top #(
     wire                                vivo_co_valid                          ;
     wire    [2                      :0] vivo_co_alen                           ;
     wire    [SB_WIDTH            -1 :0] vivo_co_sb                             ;
-    wire    [7                   -1 :0] vivo_idle_bits_vivo                    ;
-    wire    [7                   -1 :0] vivo_error_bits_vivo                   ;
+    wire                                vivo_idle_vivo                         ;
+    wire                                vivo_error_vivo                        ;
     wire                                vivo_ci_fifo_full                      ;
     wire                                vivo_ci_fifo_prog_full                 ;
     wire                                vivo_ci_fifo_empty                     ;
@@ -342,13 +343,13 @@ module ubwc_dec_wrapper_top #(
 
     reg     [32                  -1 :0] meta_error_cnt_d              ;
     reg     [32                  -1 :0] meta_cmd_fail_cnt_d           ;
-    reg     [7                   -1 :0] vivo_error_bits_d             ;
+    reg                                 vivo_error_d                  ;
     reg     [4                   -1 :0] dec_frame_fcnt_active_r       ;
     reg     [4                   -1 :0] dec_frame_fcnt_next           ;
-    reg     [7                   -1 :0] vivo_idle_bits_meta           ;
-    reg     [7                   -1 :0] vivo_idle_bits_sync           ;
-    reg     [7                   -1 :0] vivo_error_bits_meta          ;
-    reg     [7                   -1 :0] vivo_error_bits_sync          ;
+    reg                                 vivo_idle_meta                ;
+    reg                                 vivo_idle_sync                ;
+    reg                                 vivo_error_meta               ;
+    reg                                 vivo_error_sync               ;
     reg                                vivo_ubwc_en_meta              ;
     reg                                vivo_ubwc_en_sync              ;
     reg                                vivo_sreset_meta               ;
@@ -365,6 +366,10 @@ module ubwc_dec_wrapper_top #(
     assign core_axi_strb_zero            = {(CORE_AXI_DW/8){1'b0}};
     assign o_m_axi_arsize_int            = {1'b0, rd_x2x_arsize_s};
     assign o_m_axi_arlock_int            = rd_x2x_arlock_s[0];
+    assign ctrl_rst_n                    = i_axi_rstn;
+    assign sram_rst_n                    = i_axi_rstn;
+    assign otf_rst_n                     = i_otf_rstn;
+    assign vivo_rst_n                    = i_vivo_rstn;
     assign dec_vivo_reset                = ~vivo_rst_n;
     assign core_m_axi_rid_r              = rd_x2x_rid_m;
     assign o_m_axi_arid                  = rd_x2x_arid_s;
@@ -384,12 +389,12 @@ module ubwc_dec_wrapper_top #(
     assign stat_tile_addr_fire_int       = tile_coord_vld_int;
     assign dec_error_irq_event_int       = ((meta_error_cnt_int != meta_error_cnt_d) && (|meta_error_cnt_int)) ||
                                            ((meta_cmd_fail_cnt_int != meta_cmd_fail_cnt_d) && (|meta_cmd_fail_cnt_int)) ||
-                                           (|(vivo_error_bits_int & ~vivo_error_bits_d));
+                                           (vivo_error_int & ~vivo_error_d);
     assign o_stage_done                  = dec_stage_done_int;
     assign o_frame_done                  = dec_frame_done_int;
     assign o_irq                         = dec_irq_int;
-    assign vivo_idle_bits_int            = vivo_idle_bits_sync;
-    assign vivo_error_bits_int           = vivo_error_bits_sync;
+    assign vivo_idle_int                 = vivo_idle_sync;
+    assign vivo_error_int                = vivo_error_sync;
     assign stat_otf_tile_fire_int        = tile_ci_fire_int;
     assign tile_ci_fire_int              = tile_ci_valid_int & tile_ci_ready_int;
     assign tile_cvi_fire_int             = tile_cvi_valid_int & tile_cvi_ready_int;
@@ -433,7 +438,7 @@ module ubwc_dec_wrapper_top #(
     assign otf_axis_tdata                = vivo_rvo_fifo_dout[0 +: 256];
     assign otf_axis_tlast                = vivo_rvo_fifo_dout[256];
     assign otf_axis_tvalid               = !vivo_rvo_fifo_empty;
-    assign vivo_stage_busy_int           = !(&vivo_idle_bits_int);
+    assign vivo_stage_busy_int           = !vivo_idle_int;
     assign o_bank0_en                    = otf_sram_a_wen_int | otf_sram_a_ren_int;
     assign o_bank0_wen                   = otf_sram_a_wen_int;
     assign o_bank0_addr                  = otf_sram_a_wen_int ? otf_sram_a_waddr_int : otf_sram_a_raddr_int;
@@ -496,44 +501,31 @@ module ubwc_dec_wrapper_top #(
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
-            vivo_idle_bits_meta <= 7'd0;
+            vivo_idle_meta <= 1'b0;
         else
-            vivo_idle_bits_meta <= vivo_idle_bits_vivo;
+            vivo_idle_meta <= vivo_idle_vivo;
     end
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
-            vivo_idle_bits_sync <= 7'd0;
+            vivo_idle_sync <= 1'b0;
         else
-            vivo_idle_bits_sync <= vivo_idle_bits_meta;
+            vivo_idle_sync <= vivo_idle_meta;
     end
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
-            vivo_error_bits_meta <= 7'd0;
+            vivo_error_meta <= 1'b0;
         else
-            vivo_error_bits_meta <= vivo_error_bits_vivo;
+            vivo_error_meta <= vivo_error_vivo;
     end
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
-            vivo_error_bits_sync <= 7'd0;
+            vivo_error_sync <= 1'b0;
         else
-            vivo_error_bits_sync <= vivo_error_bits_meta;
+            vivo_error_sync <= vivo_error_meta;
     end
-
-    ubwc_dec_rstn_gen u_dec_rstn_gen (
-        .i_presetn                  ( PRESETn                       ),
-        .i_axi_clk                  ( i_axi_clk                     ),
-        .i_axi_rstn                 ( i_axi_rstn                    ),
-        .i_otf_clk                  ( i_otf_clk                     ),
-        .i_otf_rstn                 ( i_otf_rstn                    ),
-        .i_vivo_clk                 ( i_vivo_clk                    ),
-        .o_ctrl_rst_n               ( ctrl_rst_n                    ),
-        .o_sram_rst_n               ( sram_rst_n                    ),
-        .o_otf_rst_n                ( otf_rst_n                     ),
-        .o_vivo_rst_n               ( vivo_rst_n                    )
-    );
 
     ubwc_dec_apb_reg_blk #(
         .AW                         ( APB_AW                        ),
@@ -558,8 +550,8 @@ module ubwc_dec_wrapper_top #(
         .i_any_stage_busy_axi                   ( dec_any_stage_busy_int              ),
         .i_stage_seen_axi                       ( dec_stage_seen_int                  ),
         .i_stage_done_axi                       ( dec_stage_done_int                  ),
-        .i_vivo_idle_bits_axi                   ( vivo_idle_bits_int                  ),
-        .i_vivo_error_bits_axi                  ( vivo_error_bits_int                 ),
+        .i_vivo_idle_axi                        ( vivo_idle_int                       ),
+        .i_vivo_error_axi                       ( vivo_error_int                      ),
         .i_irq_pending_axi                      ( dec_irq_pending_int                 ),
         .i_irq_correct_pending_axi              ( dec_irq_correct_pending_int         ),
         .i_irq_error_pending_axi                ( dec_irq_error_pending_int           ),
@@ -978,9 +970,9 @@ module ubwc_dec_wrapper_top #(
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
-            vivo_error_bits_d <= 7'd0;
+            vivo_error_d <= 1'b0;
         else
-            vivo_error_bits_d <= vivo_error_bits_int;
+            vivo_error_d <= vivo_error_int;
     end
 
     ubwc_dec_status u_dec_status
@@ -1133,8 +1125,8 @@ module ubwc_dec_wrapper_top #(
         .o_rvo_data                 ( vivo_rvo_data                 ),
         .o_rvo_last                 ( vivo_rvo_last                 ),
         .i_rvo_ready                ( vivo_rvo_ready                ),
-        .o_idle                     ( vivo_idle_bits_vivo           ),
-        .o_error                    ( vivo_error_bits_vivo          )
+        .o_idle                     ( vivo_idle_vivo                ),
+        .o_error                    ( vivo_error_vivo               )
     );
 
     ubwc_dec_tile_to_otf #(

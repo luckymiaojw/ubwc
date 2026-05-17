@@ -245,6 +245,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_rgba8888;
         .i_otf_clk         (i_otf_clk),
         .i_vivo_clk        (i_axi_clk),
         .i_otf_rstn        (i_otf_rstn),
+        .i_vivo_rstn       (i_axi_rstn),
         .o_otf_vsync       (o_otf_vsync),
         .o_otf_hsync       (o_otf_hsync),
         .o_otf_de          (o_otf_de),

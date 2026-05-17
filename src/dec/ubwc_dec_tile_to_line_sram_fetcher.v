@@ -49,13 +49,14 @@ module sram_read_fetcher #(
     localparam  [1                      :0]         ST_ISSUE_FIRST                  = 2'd1;
     localparam  [1                      :0]         ST_ISSUE_SECOND                 = 2'd2;
     localparam  [1                      :0]         ST_PUSH                         = 2'd3;
-    localparam  integer                             SRAM_RGBA_ROW_SHIFT             = (SRAM_ADDR_W <= 12) ? 9 : 10;
-    localparam  integer                             SRAM_YUV8_ROW_SHIFT             = (SRAM_ADDR_W <= 12) ? 7 : 8;
-    localparam  integer                             SRAM_P010_ROW_SHIFT             = (SRAM_ADDR_W <= 12) ? 8 : 9;
-    localparam  integer                             SRAM_Y_LOWER_BASE_WORDS         = (SRAM_ADDR_W <= 12) ? 1024 : 2048;
-    localparam  integer                             SRAM_UV_BASE_WORDS              = (SRAM_ADDR_W <= 12) ? 2048 : 4096;
+    localparam  integer                             SRAM_Y_LOWER_BASE_WORDS_LE2048 = 1024;
+    localparam  integer                             SRAM_Y_LOWER_BASE_WORDS_GT2048 = 2048;
+    localparam  integer                             SRAM_UV_BASE_WORDS_LE2048      = 2048;
+    localparam  integer                             SRAM_UV_BASE_WORDS_GT2048      = 4096;
 
     wire                                            is_rgba                         ;
+    wire                                            wide_profile                    ;
+    wire                                            wide_yuv420_profile             ;
     wire        [16                     :0]         w_limit_rgba_full               ;
     wire        [16                     :0]         w_limit_yuv_full                ;
     wire        [16                     :0]         w_limit_p010_full               ;
@@ -64,12 +65,26 @@ module sram_read_fetcher #(
     wire        [12                     :0]         w_limit_p010                    ;
     wire        [12                     :0]         w_limit                         ;
     wire        [2                      :0]         y_line_in_group                 ;
+    wire                                            y_second_half                   ;
+    wire                                            next_y_second_half              ;
+    wire        [16                     :0]         y_lower_base_full               ;
+    wire        [16                     :0]         uv_base_full                    ;
     wire        [16                     :0]         y_group_off_full                ;
+    wire        [16                     :0]         y_off_rgba_full                 ;
+    wire        [16                     :0]         y_off_yuv8_full                 ;
+    wire        [16                     :0]         y_off_p010_full                 ;
     wire        [16                     :0]         y_off_full                      ;
     wire        [16                     :0]         addr_y_full                     ;
     wire        [SRAM_ADDR_W         -1 :0]         addr_y                          ;
     wire        [SRAM_ADDR_W         -1 :0]         addr_y_p1                       ;
     wire        [2                      :0]         uv_l                            ;
+    wire        [2                      :0]         uv_l_addr                       ;
+    wire                                            uv_second_half                  ;
+    wire                                            y_bank_sel                      ;
+    wire                                            uv_bank_sel                     ;
+    wire                                            next_y_bank_sel                 ;
+    wire        [16                     :0]         uv_row_off_yuv8_full            ;
+    wire        [16                     :0]         uv_row_off_p010_full            ;
     wire        [16                     :0]         uv_row_off_full                 ;
     wire        [16                     :0]         addr_uv_full                    ;
     wire        [SRAM_ADDR_W         -1 :0]         addr_uv                         ;
@@ -83,6 +98,9 @@ module sram_read_fetcher #(
     wire        [4                      :0]         next_line_idx                   ;
     wire        [12                     :0]         next_word_idx                   ;
     wire        [2                      :0]         next_y_line_in_group            ;
+    wire        [16                     :0]         next_y_off_rgba_full            ;
+    wire        [16                     :0]         next_y_off_yuv8_full            ;
+    wire        [16                     :0]         next_y_off_p010_full            ;
     wire        [16                     :0]         next_y_group_off_full           ;
     wire        [16                     :0]         next_y_off_full                 ;
     wire        [16                     :0]         next_addr_y_full                ;
@@ -101,8 +119,11 @@ module sram_read_fetcher #(
     wire                                            issue_first                     ;
     wire                                            issue_second                    ;
     wire                                            s_ren                           ;
+    wire                                            read_bank                       ;
+    wire                                            pair_second_bank                ;
     wire        [SRAM_ADDR_W         -1 :0]         s_addr                          ;
-    wire        [127                    :0]         s_rdata                         ;
+    wire        [127                    :0]         pair_first_rdata                ;
+    wire        [127                    :0]         pair_second_rdata               ;
     wire        [127                    :0]         pair_second_data                ;
 
     reg         [4                      :0]         tot_lines                       ;
@@ -122,6 +143,8 @@ module sram_read_fetcher #(
     reg                                             second_hold_valid               ;
 
     assign is_rgba                    = !has_uv;
+    assign wide_profile               = (cfg_img_width > 16'd2048);
+    assign wide_yuv420_profile        = has_uv && is_yuv420;
     assign w_limit_rgba_full          = ({1'b0, cfg_img_width} + 17'd3) >> 2;
     assign w_limit_yuv_full           = ({1'b0, cfg_img_width} + 17'd15) >> 4;
     assign w_limit_p010_full          = ({1'b0, cfg_img_width} + 17'd7) >> 3;
@@ -130,18 +153,45 @@ module sram_read_fetcher #(
     assign w_limit_p010               = (|w_limit_p010_full[16:13]) ? 13'h1fff : w_limit_p010_full[12:0];
     assign w_limit                    = is_rgba ? w_limit_rgba : (is_p010 ? w_limit_p010 : w_limit_yuv);
     assign y_line_in_group            = is_p010 ? {1'b0, line_idx[1:0]} : line_idx[2:0];
-    assign y_group_off_full           = is_p010 ? (line_idx[2] ? 17'(SRAM_Y_LOWER_BASE_WORDS) : 17'd0)
-                                        : (line_idx[3] ? 17'(SRAM_Y_LOWER_BASE_WORDS) : 17'd0);
-    assign y_off_full                 = {14'd0, y_line_in_group} <<
-                                         (is_y_stride_1k ? SRAM_RGBA_ROW_SHIFT :
-                                         (is_p010 ? SRAM_P010_ROW_SHIFT : SRAM_YUV8_ROW_SHIFT));
+    assign y_second_half              = wide_yuv420_profile &&
+                                        (is_p010 ? line_idx[2] : line_idx[3]);
+    assign next_y_second_half         = wide_yuv420_profile &&
+                                        (is_p010 ? next_line_idx[2] : next_line_idx[3]);
+    assign y_lower_base_full          = wide_profile ? 17'(SRAM_Y_LOWER_BASE_WORDS_GT2048) :
+                                                       17'(SRAM_Y_LOWER_BASE_WORDS_LE2048);
+    assign uv_base_full               = wide_yuv420_profile ? y_lower_base_full :
+                                        (wide_profile ? 17'(SRAM_UV_BASE_WORDS_GT2048) :
+                                                        17'(SRAM_UV_BASE_WORDS_LE2048));
+    assign y_group_off_full           = wide_yuv420_profile ? 17'd0 :
+                                        (is_p010 ? (line_idx[2] ? y_lower_base_full : 17'd0) :
+                                                   (line_idx[3] ? y_lower_base_full : 17'd0));
+    assign y_off_rgba_full            = wide_profile ? {4'd0, y_line_in_group, 10'd0} :
+                                                       {5'd0, y_line_in_group, 9'd0};
+    assign y_off_yuv8_full            = wide_profile ? {6'd0, y_line_in_group, 8'd0} :
+                                                       {7'd0, y_line_in_group, 7'd0};
+    assign y_off_p010_full            = wide_profile ? {5'd0, y_line_in_group, 9'd0} :
+                                                       {6'd0, y_line_in_group, 8'd0};
+    assign y_off_full                 = is_y_stride_1k ? y_off_rgba_full :
+                                        (is_p010 ? y_off_p010_full : y_off_yuv8_full);
     assign addr_y_full                = y_group_off_full + y_off_full + {4'd0, word_idx};
     assign addr_y                     = addr_y_full[SRAM_ADDR_W-1:0];
     assign addr_y_p1                  = addr_y + SRAM_ADDR_W'(1);
     assign uv_l                       = is_yuv420 ? (is_p010 ? {1'b0, line_idx[2:1]} : line_idx[3:1]) : line_idx[2:0];
-    assign uv_row_off_full            = {14'd0, uv_l} <<
-                                         (is_p010 ? SRAM_P010_ROW_SHIFT : SRAM_YUV8_ROW_SHIFT);
-    assign addr_uv_full               = 17'(SRAM_UV_BASE_WORDS) + uv_row_off_full + {4'd0, word_idx};
+    assign uv_second_half             = wide_yuv420_profile &&
+                                        (is_p010 ? uv_l[1] : uv_l[2]);
+    assign uv_l_addr                  = (wide_yuv420_profile && uv_second_half) ?
+                                        (is_p010 ? {2'd0, uv_l[0]} :
+                                                   {1'b0, uv_l[1:0]}) :
+                                        uv_l;
+    assign y_bank_sel                 = y_second_half ? ~target_bank : target_bank;
+    assign uv_bank_sel                = uv_second_half ? ~target_bank : target_bank;
+    assign next_y_bank_sel            = next_y_second_half ? ~target_bank : target_bank;
+    assign uv_row_off_yuv8_full       = wide_profile ? {6'd0, uv_l_addr, 8'd0} :
+                                                       {7'd0, uv_l_addr, 7'd0};
+    assign uv_row_off_p010_full       = wide_profile ? {5'd0, uv_l_addr, 9'd0} :
+                                                       {6'd0, uv_l_addr, 8'd0};
+    assign uv_row_off_full            = is_p010 ? uv_row_off_p010_full : uv_row_off_yuv8_full;
+    assign addr_uv_full               = uv_base_full + uv_row_off_full + {4'd0, word_idx};
     assign addr_uv                    = addr_uv_full[SRAM_ADDR_W-1:0];
     assign current_line_has_uv        = has_uv && (!is_yuv420 || line_idx[0]);
     assign current_pair_has_second    = current_line_has_uv | (is_rgba && (word_idx != (w_limit - 13'd1)));
@@ -153,11 +203,17 @@ module sram_read_fetcher #(
     assign next_line_idx              = pair_line_done ? (line_idx + 5'd1) : line_idx;
     assign next_word_idx              = pair_line_done ? 13'd0 : pair_next_word_sum[12:0];
     assign next_y_line_in_group       = is_p010 ? {1'b0, next_line_idx[1:0]} : next_line_idx[2:0];
-    assign next_y_group_off_full      = is_p010 ? (next_line_idx[2] ? 17'(SRAM_Y_LOWER_BASE_WORDS) : 17'd0)
-                                        : (next_line_idx[3] ? 17'(SRAM_Y_LOWER_BASE_WORDS) : 17'd0);
-    assign next_y_off_full            = {14'd0, next_y_line_in_group} <<
-                                         (is_y_stride_1k ? SRAM_RGBA_ROW_SHIFT :
-                                         (is_p010 ? SRAM_P010_ROW_SHIFT : SRAM_YUV8_ROW_SHIFT));
+    assign next_y_group_off_full      = wide_yuv420_profile ? 17'd0 :
+                                        (is_p010 ? (next_line_idx[2] ? y_lower_base_full : 17'd0) :
+                                                   (next_line_idx[3] ? y_lower_base_full : 17'd0));
+    assign next_y_off_rgba_full       = wide_profile ? {4'd0, next_y_line_in_group, 10'd0} :
+                                                       {5'd0, next_y_line_in_group, 9'd0};
+    assign next_y_off_yuv8_full       = wide_profile ? {6'd0, next_y_line_in_group, 8'd0} :
+                                                       {7'd0, next_y_line_in_group, 7'd0};
+    assign next_y_off_p010_full       = wide_profile ? {5'd0, next_y_line_in_group, 9'd0} :
+                                                       {6'd0, next_y_line_in_group, 8'd0};
+    assign next_y_off_full            = is_y_stride_1k ? next_y_off_rgba_full :
+                                        (is_p010 ? next_y_off_p010_full : next_y_off_yuv8_full);
     assign next_addr_y_full           = next_y_group_off_full + next_y_off_full + {4'd0, next_word_idx};
     assign next_addr_y                = next_addr_y_full[SRAM_ADDR_W-1:0];
     assign next_line_has_uv           = has_uv && (!is_yuv420 || next_line_idx[0]);
@@ -176,16 +232,21 @@ module sram_read_fetcher #(
     assign issue_first                = (state == ST_ISSUE_FIRST) && !i_fifo_full;
     assign issue_second               = (state == ST_ISSUE_SECOND) && pair_has_second_reg;
     assign s_ren                      = issue_first | issue_second | issue_next_first;
+    assign read_bank                  = issue_second     ? (has_uv ? uv_bank_sel : y_bank_sel) :
+                                        issue_next_first ? next_y_bank_sel :
+                                                           y_bank_sel;
+    assign pair_second_bank           = has_uv ? uv_bank_sel : y_bank_sel;
     assign s_addr                     = issue_second     ? (has_uv ? addr_uv : addr_y_p1) :
                                         issue_next_first ? next_addr_y :
                                                            addr_y;
-    assign o_sram_a_ren               = s_ren && (target_bank == 0);
-    assign o_sram_b_ren               = s_ren && (target_bank == 1);
+    assign o_sram_a_ren               = s_ren && (read_bank == 0);
+    assign o_sram_b_ren               = s_ren && (read_bank == 1);
     assign o_sram_a_raddr             = s_addr;
     assign o_sram_b_raddr             = s_addr;
-    assign s_rdata                    = (target_bank == 0) ? i_sram_a_rdata : i_sram_b_rdata;
+    assign pair_first_rdata           = (y_bank_sel == 0) ? i_sram_a_rdata : i_sram_b_rdata;
+    assign pair_second_rdata          = (pair_second_bank == 0) ? i_sram_a_rdata : i_sram_b_rdata;
     assign pair_second_data           = pair_has_second_reg ?
-                                        (second_hold_valid ? second_data_reg : s_rdata) :
+                                        (second_hold_valid ? second_data_reg : pair_second_rdata) :
                                                               128'd0;
 
     always @(*) begin
@@ -282,7 +343,7 @@ module sram_read_fetcher #(
         else if (frame_start)
             first_data_reg <= 128'd0;
         else if (issue_second_fire)
-            first_data_reg <= s_rdata;
+            first_data_reg <= pair_first_rdata;
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
@@ -291,7 +352,7 @@ module sram_read_fetcher #(
         else if (frame_start)
             second_data_reg <= 128'd0;
         else if (push_hold_second_fire)
-            second_data_reg <= s_rdata;
+            second_data_reg <= pair_second_rdata;
     end
 
     always @(posedge clk_sram or negedge rst_n) begin

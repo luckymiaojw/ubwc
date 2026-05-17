@@ -209,7 +209,6 @@ module ubwc_dec_meta_data_from_sram
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( bfifo_we                      ),
         .din                        ( bfifo_wdata                   ),
         .prog_full                  ( bfifo_prog_full               ),
@@ -233,7 +232,6 @@ module ubwc_dec_meta_data_from_sram
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( legacy_int_fifo_we            ),
         .din                        ( legacy_int_fifo_wdata         ),
         .prog_full                  ( legacy_int_fifo_prog_full     ),
@@ -257,7 +255,6 @@ module ubwc_dec_meta_data_from_sram
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( yuv420_y0_fifo_we             ),
         .din                        ( yuv420_y0_fifo_din            ),
         .prog_full                  ( yuv420_y0_fifo_prog_full      ),
@@ -281,7 +278,6 @@ module ubwc_dec_meta_data_from_sram
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( yuv420_y1_fifo_we             ),
         .din                        ( yuv420_y1_fifo_din            ),
         .prog_full                  ( yuv420_y1_fifo_prog_full      ),
@@ -305,7 +301,6 @@ module ubwc_dec_meta_data_from_sram
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( yuv420_uv_fifo_we             ),
         .din                        ( yuv420_uv_fifo_din            ),
         .prog_full                  ( yuv420_uv_fifo_prog_full      ),
@@ -329,7 +324,6 @@ module ubwc_dec_meta_data_from_sram
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( yuv420_y0_int_fifo_we         ),
         .din                        ( yuv420_y0_int_fifo_din        ),
         .prog_full                  ( yuv420_y0_int_fifo_prog_full  ),
@@ -353,7 +347,6 @@ module ubwc_dec_meta_data_from_sram
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( yuv420_y1_int_fifo_we         ),
         .din                        ( yuv420_y1_int_fifo_din        ),
         .prog_full                  ( yuv420_y1_int_fifo_prog_full  ),
@@ -377,7 +370,6 @@ module ubwc_dec_meta_data_from_sram
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( yuv420_uv_int_fifo_we         ),
         .din                        ( yuv420_uv_int_fifo_din        ),
         .prog_full                  ( yuv420_uv_int_fifo_prog_full  ),

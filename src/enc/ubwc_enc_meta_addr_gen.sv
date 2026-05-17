@@ -75,7 +75,6 @@ module ubwc_enc_meta_addr_gen
     wire        [TW_DW               -1 :0]         int_xcoord                      ;
     wire        [IN_DATA_W           -1 :0]         in_fifo_push_data               ;
     wire                                            in_fifo_push_ready              ;
-    wire                                            fifo_sclr                       ;
     wire                                            in_fifo_pop_valid               ;
     wire        [IN_DATA_W           -1 :0]         in_fifo_pop_data                ;
     wire        [7                      :0]         tile_meta_fill_byte_w           ;
@@ -118,9 +117,6 @@ module ubwc_enc_meta_addr_gen
     reg                                             tile_meta_y_base_slot_r         ;
     reg                                             tile_meta_order_err_r           ;
 
-    //i_co_singals ...........
-    assign fifo_sclr                  = !i_srstn;
-
     mg_sync_fifo
     #(
         .PROG_DEPTH                 ( 4                             ),
@@ -132,7 +128,6 @@ module ubwc_enc_meta_addr_gen
     (
         .clk                        ( i_clk                         ),
         .rst_n                      ( i_rstn                        ),
-        .sclr                       ( fifo_sclr                     ),
         .wr_en                      ( i_co_valid                    ),
         .din                        ( in_fifo_push_data             ),
         .prog_full                  (                               ),
@@ -269,7 +264,6 @@ module ubwc_enc_meta_addr_gen
     (
         .clk                        ( i_clk                         ),
         .rst_n                      ( i_rstn                        ),
-        .sclr                       ( fifo_sclr                     ),
         .wr_en                      ( tile_meta_vld                 ),
         .din                        ( tile_meta_word_w              ),
         .prog_full                  ( meta_data_buf_pfull           ),
@@ -357,7 +351,6 @@ module ubwc_enc_meta_addr_gen
     (
         .clk                        ( i_clk                         ),
         .rst_n                      ( i_rstn                        ),
-        .sclr                       ( fifo_sclr                     ),
         .wr_en                      ( tile_meta_vld                 ),
         .din                        ( meta_addr_fifo_din            ),
         .prog_full                  ( meta_addr_buf_pfull           ),

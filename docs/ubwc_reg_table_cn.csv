@@ -123,8 +123,8 @@ ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,只读,dynamic,5,all_stage_idle,对
 ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,只读,dynamic,6,frame_idle_done,对应模块或整体流水线 idle 状态。,运行中读取。
 ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS1,只读,dynamic,4:0,stage_done,stage done 位图。,运行中读取。
 ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS1,只读,dynamic,8:5,stage_seen,stage 曾经 busy 的记录位图。,只读状态或统计信息。
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS2,只读,dynamic,6:0,vivo_idle_bits,对应模块或整体流水线 idle 状态。,运行中读取。
-ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS3,只读,dynamic,6:0,vivo_error_bits,错误状态位。,运行中读取。
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS2,只读,dynamic,0,vivo_idle,VIVO idle 状态。,运行中读取。
+ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS3,只读,dynamic,0,vivo_error,VIVO error 状态。,运行中读取。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,读写,0x00000001,0,irq_enable,中断使能。,上电后或中断策略变化时配置。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,写 1 脉冲,0x00000000,1,irq_clear,中断清除写 1 脉冲。,软件处理中断后写 1；读回为 0。
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,只读,dynamic,2,irq_pending,任意中断 pending 状态。,运行中或中断后读取，用于调试和状态确认。

@@ -153,7 +153,6 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( cmd_fifo_wr_en                ),
         .din                        ( cmd_fifo_din                  ),
         .prog_full                  ( cmd_fifo_prog_full            ),
@@ -176,7 +175,6 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( rsp_fifo_wr_en                ),
         .din                        ( rsp_fifo_din                  ),
         .prog_full                  ( rsp_fifo_prog_full            ),
@@ -199,7 +197,6 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     (
         .clk                        ( clk                           ),
         .rst_n                      ( rst_n                         ),
-        .sclr                       ( start                         ),
         .wr_en                      ( out_fifo_wr_en                ),
         .din                        ( out_fifo_din                  ),
         .prog_full                  ( out_fifo_prog_full            ),

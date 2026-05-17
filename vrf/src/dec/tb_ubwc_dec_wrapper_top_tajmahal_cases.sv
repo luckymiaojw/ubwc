@@ -202,6 +202,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     reg                       i_vivo_clk;
     reg                       i_otf_clk;
     reg                       i_otf_rstn;
+    reg                       i_vivo_rstn;
 
     wire                      o_otf_vsync;
     wire                      o_otf_hsync;
@@ -261,6 +262,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     wire [127:0]              fake_o_otf_data;
     wire [3:0]                fake_o_otf_fcnt;
     wire [11:0]               fake_o_otf_lcnt;
+    wire                      fake_correct_irq_pulse;
+    wire [31:0]               fake_otf_line_count;
+    wire [31:0]               fake_otf_de_count;
     wire                      inject_axis_tile_ready;
     wire                      inject_axis_tready;
 
@@ -1584,6 +1588,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .i_otf_clk         (i_otf_clk),
         .i_vivo_clk        (i_vivo_clk),
         .i_otf_rstn        (i_otf_rstn),
+        .i_vivo_rstn       (i_vivo_rstn),
         .o_otf_vsync       (o_otf_vsync),
         .o_otf_hsync       (o_otf_hsync),
         .o_otf_de          (o_otf_de),
@@ -1676,7 +1681,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .o_otf_fcnt       (fake_o_otf_fcnt),
         .o_otf_lcnt       (fake_o_otf_lcnt),
         .i_otf_ready      (i_otf_ready),
-        .o_busy           ()
+        .o_busy                 (),
+        .o_correct_irq_pulse    (fake_correct_irq_pulse),
+        .o_otf_line_count       (fake_otf_line_count),
+        .o_otf_de_count         (fake_otf_de_count)
     );
 
     initial begin
@@ -2520,6 +2528,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         PRESETn         = 1'b0;
         i_axi_rstn      = 1'b0;
         i_otf_rstn      = 1'b0;
+        i_vivo_rstn     = 1'b0;
         PSEL            = 1'b0;
         PENABLE         = 1'b0;
         PADDR           = {APB_AW{1'b0}};
@@ -2611,6 +2620,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         PRESETn    = 1'b1;
         i_axi_rstn = 1'b1;
         i_otf_rstn = 1'b1;
+        i_vivo_rstn = 1'b1;
         repeat (4) @(posedge i_axi_clk);
 
         stream_fd = $fopen(stream_file, "w");
@@ -2709,9 +2719,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     initial begin : finish_block
         integer dump_idx;
         integer fail_check_cnt;
+        integer status_wait_cycles;
         timeout_cycles = 0;
         fail_check_cnt = 0;
-        wait (PRESETn && i_axi_rstn && i_otf_rstn);
+        status_wait_cycles = 0;
+        wait (PRESETn && i_axi_rstn && i_otf_rstn && i_vivo_rstn);
         repeat (100) @(posedge i_axi_clk);
         while ((ci_accept_cnt < expected_ci_cmds_total ||
                 axi_rsp_active ||
@@ -2723,6 +2735,13 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                (timeout_cycles < tb_timeout_limit_cycles)) begin
             @(posedge i_axi_clk);
             timeout_cycles = timeout_cycles + 1;
+        end
+
+        while (otf_frame_done &&
+               ((o_stage_done !== 5'h1b) || (o_frame_done !== 1'b1) || (o_irq !== 1'b1)) &&
+               (status_wait_cycles < 1024)) begin
+            @(posedge i_axi_clk);
+            status_wait_cycles = status_wait_cycles + 1;
         end
 
         $display("Wrapper vivo run summary:");
@@ -2814,6 +2833,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         $display("  dec.stage_done       : 0x%02x", o_stage_done);
         $display("  dec.frame_done       : %0d", o_frame_done);
         $display("  dec.irq              : %0d", o_irq);
+        $display("  dec.status wait cyc  : %0d", status_wait_cycles);
         if ((rvo_data_mismatch_cnt != 0) || (rvo_last_mismatch_cnt != 0)) begin
             $display("  First RVO mismatch   : fmt=%0d x=%0d y=%0d beat=%0d alen=%0d last=%0d",
                      first_rvo_mismatch_fmt, first_rvo_mismatch_x, first_rvo_mismatch_y,

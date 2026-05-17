@@ -194,7 +194,6 @@ module ubwc_dec_tile_to_otf_line_ring (
     ) u_hdr_fifo (
         .clk                           ( clk_sram                              ),
         .rst_n                         ( rst_n                                 ),
-        .sclr                          ( frame_start                           ),
         .wr_en                         ( tile_hdr_fire                         ),
         .din                           ( hdr_fifo_din                          ),
         .prog_full                     ( hdr_fifo_prog_full                    ),
@@ -215,7 +214,6 @@ module ubwc_dec_tile_to_otf_line_ring (
     ) u_data_fifo (
         .clk                           ( clk_sram                              ),
         .rst_n                         ( rst_n                                 ),
-        .sclr                          ( frame_start                           ),
         .wr_en                         ( data_fifo_wr_en                      ),
         .din                           ( data_fifo_din                         ),
         .prog_full                     ( data_fifo_prog_full                   ),

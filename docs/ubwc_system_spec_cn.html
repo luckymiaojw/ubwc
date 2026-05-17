@@ -15,6 +15,7 @@
       --red: #fff1f2;
       --code: #f6f8fa;
     }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       background: #f3f5f8;
@@ -23,25 +24,18 @@
       line-height: 1.65;
     }
     .page {
-      max-width: 1440px;
+      max-width: 1500px;
       min-height: 100vh;
       margin: 0 auto;
       background: #fff;
     }
     header {
-      padding: 36px 46px 28px;
+      padding: 34px 44px 26px;
       border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      background: linear-gradient(180deg, #fff, #f8fbff);
     }
-    h1 {
-      margin: 0;
-      font-size: 32px;
-    }
-    .subtitle {
-      max-width: 1080px;
-      margin: 10px 0 0;
-      color: var(--muted);
-    }
+    h1 { margin: 0; font-size: 32px; }
+    .subtitle { max-width: 1120px; margin: 10px 0 0; color: var(--muted); }
     .meta {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -54,158 +48,105 @@
       border-radius: 8px;
       background: #fff;
     }
-    .meta span {
-      display: block;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .meta strong {
-      display: block;
-      margin-top: 4px;
-      font-size: 18px;
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: 255px 1fr;
-      gap: 0;
-    }
+    .meta span { display: block; color: var(--muted); font-size: 13px; }
+    .meta strong { display: block; margin-top: 4px; font-size: 17px; }
+    .layout { display: grid; grid-template-columns: 270px 1fr; }
     nav {
       position: sticky;
       top: 0;
       align-self: start;
       height: 100vh;
-      padding: 24px 22px;
       overflow: auto;
+      padding: 22px;
       border-right: 1px solid var(--line);
       background: #fbfcfe;
     }
-    nav h2 {
-      margin: 0 0 12px;
-      padding: 0;
-      border: 0;
-      font-size: 16px;
-    }
+    nav h2 { margin: 0 0 12px; font-size: 16px; }
     nav a {
       display: block;
-      padding: 5px 0;
+      padding: 4px 0;
       color: #334155;
       text-decoration: none;
       font-size: 14px;
     }
-    main {
-      padding: 30px 44px 70px;
-    }
-    section {
-      margin-bottom: 42px;
-    }
+    nav .sub { padding-left: 14px; font-size: 13px; color: #64748b; }
+    main { min-width: 0; padding: 30px 42px 70px; }
+    section { margin-bottom: 44px; }
     h2 {
       margin: 0 0 16px;
       padding-bottom: 8px;
       border-bottom: 1px solid var(--line);
-      font-size: 24px;
+      font-size: 25px;
     }
-    h3 {
-      margin: 24px 0 10px;
-      font-size: 18px;
-    }
+    h3 { margin: 24px 0 10px; font-size: 20px; }
+    h4 { margin: 18px 0 8px; font-size: 16px; }
+    h5 { margin: 18px 0 6px; font-size: 14px; }
     table {
       width: 100%;
       margin: 12px 0 18px;
       border-collapse: collapse;
-      font-size: 14px;
+      font-size: 13px;
     }
-    th,
-    td {
-      padding: 9px 10px;
+    th, td {
+      padding: 8px 9px;
       border: 1px solid var(--line);
       vertical-align: top;
     }
-    th {
-      background: #f8fafc;
-      text-align: left;
-      font-weight: 700;
-    }
-    code,
-    pre {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-      background: var(--code);
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-    }
+    th { background: #f8fafc; text-align: left; white-space: nowrap; }
     code {
       padding: 1px 4px;
+      border: 1px solid #e5e7eb;
+      border-radius: 5px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
     }
     pre {
-      padding: 12px 14px;
       overflow: auto;
-      white-space: pre;
-    }
-    figure {
-      margin: 14px 0 22px;
-    }
-    figure img {
-      display: block;
-      width: 100%;
-      max-width: 100%;
-      height: auto;
+      padding: 12px 14px;
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 8px;
+      background: var(--code);
+      font-size: 13px;
+    }
+    pre code { padding: 0; border: 0; background: transparent; }
+    .note {
+      margin: 14px 0 18px;
+      padding: 12px 14px;
+      border-left: 4px solid #2563eb;
+      border-radius: 8px;
+      background: var(--blue);
+    }
+    .warn { border-left-color: #d97706; background: var(--orange); }
+    .ok { border-left-color: #16a34a; background: var(--green); }
+    figure { margin: 16px 0 24px; }
+    figure img {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
       background: #fff;
     }
-    figcaption {
-      margin-top: 9px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .callout {
-      margin: 14px 0;
-      padding: 12px 14px;
-      border-left: 4px solid #357abd;
+    figcaption { margin-top: 7px; color: var(--muted); font-size: 13px; }
+    details {
+      margin: 9px 0;
+      border: 1px solid var(--line);
       border-radius: 8px;
-      background: #eff6ff;
+      background: #fff;
     }
-    .warn {
-      border-left-color: #b45309;
-      background: var(--orange);
-    }
-    .danger {
-      border-left-color: #b91c1c;
-      background: var(--red);
-    }
-    .grid2 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 14px;
-    }
-    .pill {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      color: #1e40af;
-      background: #dbeafe;
-      font-size: 12px;
+    summary {
+      padding: 9px 12px;
+      cursor: pointer;
       font-weight: 700;
+      background: #f8fafc;
     }
-    footer {
-      margin-top: 24px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    @media (max-width: 980px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-      nav {
-        position: static;
-        height: auto;
-      }
-      .meta {
-        grid-template-columns: 1fr;
-      }
-      main,
-      header {
-        padding: 24px;
-      }
+    details table { margin: 0; border: 0; }
+    details td, details th { border-left: 0; border-right: 0; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    @media (max-width: 1000px) {
+      .layout { display: block; }
+      nav { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      main, header { padding-left: 22px; padding-right: 22px; }
+      .meta, .grid-2 { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -213,505 +154,1026 @@
   <div class="page">
     <header>
       <h1>UBWC ENC/DEC 系统级 Spec</h1>
-      <p class="subtitle">面向软件配置、系统集成和 RTL 对接的 UBWC 编码/解码模块说明，覆盖 APB 寄存器访问、连续帧地址模型、OTF timing、SRAM bank、状态中断和 wrapper 顶层接口。</p>
+      <p class="subtitle">本文按 ENC 和 DEC 分开描述，每个模块都按 Feature、Interface、Register、Diagram、Work Mode、Debug、PPA 七个章节组织，面向软件配置、系统集成、RTL 对接和调试定位。</p>
       <div class="meta">
-        <div><span>版本日期</span><strong>2026-05-12</strong></div>
-        <div><span>支持格式</span><strong>RGBA / YUV420</strong></div>
-        <div><span>时钟基线</span><strong>OTF 320 MHz</strong></div>
-        <div><span>连续帧模型</span><strong>slot0 / slot1</strong></div>
+        <div><span>ENC 顶层</span><strong><code>ubwc_enc_wrapper_top.sv</code></strong></div>
+        <div><span>DEC 顶层</span><strong><code>ubwc_dec_wrapper_top.v</code></strong></div>
+        <div><span>推荐时钟</span><strong>APB 100 / AXI 500 / Core 200 / OTF 320 MHz</strong></div>
+        <div><span>SRAM</span><strong>2 banks, 128-bit, AW=12</strong></div>
       </div>
     </header>
-
     <div class="layout">
       <nav>
         <h2>目录</h2>
-        <a href="#baseline">1. 当前基线</a>
-        <a href="#clock">2. 时钟域</a>
-        <a href="#regs">3. 寄存器访问</a>
-        <a href="#dataflow">4. 模块数据流图</a>
-        <a href="#enc">5. ENC 规格</a>
-        <a href="#dec">6. DEC 规格</a>
-        <a href="#otf">7. OTF Timing</a>
-        <a href="#sram">8. SRAM Bank</a>
-        <a href="#irq">9. 状态与中断</a>
-        <a href="#wrapper-if">10. Wrapper 接口</a>
+        <a href="#enc">ENC</a>
+        <a class="sub" href="#enc-feature">1. Feature</a>
+        <a class="sub" href="#enc-interface">2. Interface</a>
+        <a class="sub" href="#enc-register">3. Register</a>
+        <a class="sub" href="#enc-diagram">4. Diagram</a>
+        <a class="sub" href="#enc-work">5. Work Mode</a>
+        <a class="sub" href="#enc-debug">6. Debug</a>
+        <a class="sub" href="#enc-ppa">7. PPA</a>
+        <a href="#dec">DEC</a>
+        <a class="sub" href="#dec-feature">1. Feature</a>
+        <a class="sub" href="#dec-interface">2. Interface</a>
+        <a class="sub" href="#dec-register">3. Register</a>
+        <a class="sub" href="#dec-diagram">4. Diagram</a>
+        <a class="sub" href="#dec-work">5. Work Mode</a>
+        <a class="sub" href="#dec-debug">6. Debug</a>
+        <a class="sub" href="#dec-ppa">7. PPA</a>
       </nav>
-
       <main>
+        <section id="enc">
+          <h2>ENC</h2>
+          <h3 id="enc-feature">ENC 1. Feature</h3>
+          <table>
+            <tr><th>特性</th><th>说明</th></tr>
+            <tr><td>功能</td><td>将 OTF 输入像素流编码为 UBWC compressed tile 数据和 metadata，并通过 AXI write master 写入外部 memory。</td></tr>
+            <tr><td>输入接口</td><td>OTF input，包含 <code>vsync/hsync/de/data/fcnt/lcnt/ready</code>。</td></tr>
+            <tr><td>输出接口</td><td>AXI write master，分别写 compressed tile 数据和 metadata。</td></tr>
+            <tr><td>推荐时钟</td><td>APB/PCLK 100 MHz；AXI/i_axi_clk 500 MHz；Core/i_vivo_clk 200 MHz；OTF/i_otf_clk 320 MHz。</td></tr>
+            <tr><td>支持格式</td><td>RGBA8888、RGBA1010102、YUV420_8/NV12、YUV420_10/P010、RGBA8888 lossy 2:1。</td></tr>
+            <tr><td>支持像素尺寸</td><td>当前 SRAM/line-buffer 规格按最大有效宽度 4096 px 设计；1440x3200 属于该宽度范围内。实际配置以 OTF width/height 和 layout 计算结果为准。</td></tr>
+            <tr><td>SRAM</td><td>当前外部工作 SRAM 为 bank0/bank1 两个同规格 bank，单 bank 64 KiB，两 bank 合计 128 KiB。SRAM 容量主要由最大支持图像宽度决定；图像高度只影响行组处理次数，不增加单 bank 容量；小于或等于 4096 px 宽的 RGBA/YUV420 场景复用同一规格 SRAM。</td></tr>
+            <tr><td>连续帧</td><td>软件每帧写一组 base address 后写 <code>IRQ_CTRL[5]=1</code> 产生 start token；OTF 数据携带 <code>i_otf_fcnt</code>。</td></tr>
+            <tr><td>地址 slot</td><td>两组地址 slot，硬件按 <code>fcnt[0]</code> 选择 slot0/slot1。</td></tr>
+            <tr><td>中断</td><td>正确中断在最后有效输出完成后产生；错误中断用于地址未配置、OTF 行/帧错误、FIFO overflow、VIVO/metadata error。</td></tr>
+          </table>
+          <h3 id="enc-interface">ENC 2. Interface</h3>
+          <h4>参数</h4>
+          <table>
+            <tr><th>参数</th><th>默认值</th><th>说明</th></tr>
+            <tr><td><code>SB_WIDTH</code></td><td>1</td><td>Sideband width</td></tr>
+            <tr><td><code>APB_AW/APB_DW</code></td><td>16 / 32</td><td>APB byte address/data width</td></tr>
+            <tr><td><code>APB_BLK_NREG</code></td><td>64</td><td>APB register count</td></tr>
+            <tr><td><code>AXI_AW/AXI_DW/AXI_LENW/AXI_IDW</code></td><td>64 / 64 / 8 / 4</td><td>内部 AXI ID/FCNT 语义宽度为 4 bit；wrapper 对外 AXI ID 端口宽度为 <code>AXI_IDW+1=5 bit</code>。</td></tr>
+            <tr><td><code>COM_BUF_AW/COM_BUF_DW</code></td><td>12 / 128</td><td>外部 SRAM bank address/data width</td></tr>
+          </table>
+          <h4>Port</h4>
+          <table>
+            <tr><th>接口组</th><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr>
+            <tr><td>APB</td><td><code>PCLK</code></td><td>input</td><td>1 bit</td><td>APB clock</td></tr>
+            <tr><td>APB</td><td><code>PRESETn</code></td><td>input</td><td>1 bit</td><td>APB async reset, active low</td></tr>
+            <tr><td>APB</td><td><code>PSEL</code></td><td>input</td><td>1 bit</td><td>APB select</td></tr>
+            <tr><td>APB</td><td><code>PENABLE</code></td><td>input</td><td>1 bit</td><td>APB enable phase</td></tr>
+            <tr><td>APB</td><td><code>PADDR</code></td><td>input</td><td><code>APB_AW</code></td><td>APB byte address</td></tr>
+            <tr><td>APB</td><td><code>PWRITE</code></td><td>input</td><td>1 bit</td><td>APB write/read select</td></tr>
+            <tr><td>APB</td><td><code>PWDATA</code></td><td>input</td><td><code>APB_DW</code></td><td>APB write data</td></tr>
+            <tr><td>APB</td><td><code>PREADY</code></td><td>output</td><td>1 bit</td><td>APB ready</td></tr>
+            <tr><td>APB</td><td><code>PSLVERR</code></td><td>output</td><td>1 bit</td><td>APB slave error</td></tr>
+            <tr><td>APB</td><td><code>PRDATA</code></td><td>output</td><td><code>APB_DW</code></td><td>APB read data</td></tr>
+            <tr><td>AXI clock/reset</td><td><code>i_axi_clk</code></td><td>input</td><td>1 bit</td><td>AXI/control clock</td></tr>
+            <tr><td>AXI clock/reset</td><td><code>i_axi_rstn</code></td><td>input</td><td>1 bit</td><td><code>i_axi_clk</code> domain synchronous reset, active low</td></tr>
+            <tr><td>OTF clock/reset</td><td><code>i_otf_clk</code></td><td>input</td><td>1 bit</td><td>OTF input clock</td></tr>
+            <tr><td>OTF clock/reset</td><td><code>i_otf_rstn</code></td><td>input</td><td>1 bit</td><td><code>i_otf_clk</code> domain synchronous reset, active low</td></tr>
+            <tr><td>VIVO clock/reset</td><td><code>i_vivo_clk</code></td><td>input</td><td>1 bit</td><td>VIVO clock</td></tr>
+            <tr><td>VIVO clock/reset</td><td><code>i_vivo_rstn</code></td><td>input</td><td>1 bit</td><td><code>i_vivo_clk</code> domain synchronous reset, active low</td></tr>
+            <tr><td>OTF input</td><td><code>i_otf_vsync</code></td><td>input</td><td>1 bit</td><td>Input frame sync</td></tr>
+            <tr><td>OTF input</td><td><code>i_otf_hsync</code></td><td>input</td><td>1 bit</td><td>Input line sync</td></tr>
+            <tr><td>OTF input</td><td><code>i_otf_de</code></td><td>input</td><td>1 bit</td><td>Input data enable</td></tr>
+            <tr><td>OTF input</td><td><code>i_otf_data</code></td><td>input</td><td>128 bit</td><td>Input pixel data</td></tr>
+            <tr><td>OTF input</td><td><code>i_otf_fcnt</code></td><td>input</td><td>4 bit</td><td>Input frame count</td></tr>
+            <tr><td>OTF input</td><td><code>i_otf_lcnt</code></td><td>input</td><td>12 bit</td><td>Input line count</td></tr>
+            <tr><td>OTF input</td><td><code>o_otf_ready</code></td><td>output</td><td>1 bit</td><td>ENC 对 OTF 输入的反压</td></tr>
+            <tr><td>SRAM bank0</td><td><code>o_bank0_en</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM enable</td></tr>
+            <tr><td>SRAM bank0</td><td><code>o_bank0_wen</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM write enable</td></tr>
+            <tr><td>SRAM bank0</td><td><code>o_bank0_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank0 SRAM address</td></tr>
+            <tr><td>SRAM bank0</td><td><code>o_bank0_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank0 SRAM write data</td></tr>
+            <tr><td>SRAM bank0</td><td><code>i_bank0_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank0 SRAM read data</td></tr>
+            <tr><td>SRAM bank0</td><td><code>i_bank0_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank0 SRAM read data valid</td></tr>
+            <tr><td>SRAM bank1</td><td><code>o_bank1_en</code></td><td>output</td><td>1 bit</td><td>Bank1 SRAM enable</td></tr>
+            <tr><td>SRAM bank1</td><td><code>o_bank1_wen</code></td><td>output</td><td>1 bit</td><td>Bank1 SRAM write enable</td></tr>
+            <tr><td>SRAM bank1</td><td><code>o_bank1_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank1 SRAM address</td></tr>
+            <tr><td>SRAM bank1</td><td><code>o_bank1_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM write data</td></tr>
+            <tr><td>SRAM bank1</td><td><code>i_bank1_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM read data</td></tr>
+            <tr><td>SRAM bank1</td><td><code>i_bank1_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank1 SRAM read data valid</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awid</code></td><td>output</td><td><code>AXI_IDW+1</code>，默认 5 bit</td><td>对外 AXI AW ID；内部有效 FCNT/ID 语义为低 4 bit</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awaddr</code></td><td>output</td><td><code>AXI_AW</code></td><td>AXI AW address</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awlen</code></td><td>output</td><td><code>AXI_LENW</code></td><td>AXI AW burst length</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awsize</code></td><td>output</td><td>3 bit</td><td>AXI AW beat size</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awburst</code></td><td>output</td><td>2 bit</td><td>AXI AW burst type</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awlock</code></td><td>output</td><td>2 bit</td><td>AXI AW lock</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awcache</code></td><td>output</td><td>4 bit</td><td>AXI AW cache attribute</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awprot</code></td><td>output</td><td>3 bit</td><td>AXI AW protection attribute</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awvalid</code></td><td>output</td><td>1 bit</td><td>AXI AW valid</td></tr>
+            <tr><td>AXI AW</td><td><code>i_m_axi_awready</code></td><td>input</td><td>1 bit</td><td>AXI AW ready</td></tr>
+            <tr><td>AXI W</td><td><code>o_m_axi_wdata</code></td><td>output</td><td><code>AXI_DW</code></td><td>AXI W data</td></tr>
+            <tr><td>AXI W</td><td><code>o_m_axi_wstrb</code></td><td>output</td><td><code>AXI_DW/8</code></td><td>AXI W byte strobe</td></tr>
+            <tr><td>AXI W</td><td><code>o_m_axi_wvalid</code></td><td>output</td><td>1 bit</td><td>AXI W valid</td></tr>
+            <tr><td>AXI W</td><td><code>o_m_axi_wlast</code></td><td>output</td><td>1 bit</td><td>AXI W last beat</td></tr>
+            <tr><td>AXI W</td><td><code>i_m_axi_wready</code></td><td>input</td><td>1 bit</td><td>AXI W ready</td></tr>
+            <tr><td>AXI B</td><td><code>i_m_axi_bid</code></td><td>input</td><td><code>AXI_IDW+1</code>，默认 5 bit</td><td>对外 AXI B ID；低 4 bit 对应内部 FCNT/ID 语义</td></tr>
+            <tr><td>AXI B</td><td><code>i_m_axi_bresp</code></td><td>input</td><td>2 bit</td><td>AXI B response</td></tr>
+            <tr><td>AXI B</td><td><code>i_m_axi_bvalid</code></td><td>input</td><td>1 bit</td><td>AXI B valid</td></tr>
+            <tr><td>AXI B</td><td><code>o_m_axi_bready</code></td><td>output</td><td>1 bit</td><td>AXI B ready</td></tr>
+            <tr><td>Done/IRQ</td><td><code>o_stage_done</code></td><td>output</td><td>8 bit</td><td>Stage done bitmap</td></tr>
+            <tr><td>Done/IRQ</td><td><code>o_frame_done</code></td><td>output</td><td>1 bit</td><td>Frame done flag</td></tr>
+            <tr><td>Done/IRQ</td><td><code>o_irq</code></td><td>output</td><td>1 bit</td><td>Interrupt output</td></tr>
+          </table>
 
-  <section id="baseline">
-    <h2>1. 当前基线</h2>
-    <table>
-      <thead>
-        <tr><th>项目</th><th>当前规格</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>RTL 顶层</td><td><code>src/enc/ubwc_enc_wrapper_top.sv</code><br><code>src/dec/ubwc_dec_wrapper_top.v</code></td></tr>
-        <tr><td>支持格式</td><td><code>0=RGBA8888</code>，<code>1=RGBA1010102</code>，<code>2=YUV420_8/NV12</code>，<code>3=YUV420_10/P010</code></td></tr>
-        <tr><td>不支持格式</td><td>YUV422_8，YUV422_10</td></tr>
-        <tr><td>AXI ID / FCNT</td><td>内部按 4 bit 使用，<code>fcnt[0]</code> 选择地址 slot0/slot1。</td></tr>
-        <tr><td>连续帧模型</td><td>图像格式、尺寸、layout 和 timing 不变时，软件每帧只补充一组 base address；硬件按 fcnt/slot 连续处理。</td></tr>
-      </tbody>
-    </table>
-  </section>
+          <h3 id="enc-register">ENC 3. Register</h3>
+          <h4>ENC Register 总表</h4>
+          <table>
+            <tr><th>Offset</th><th>Register</th><th>Access</th><th>Reset</th><th>Bit</th><th>Field</th><th>概要</th></tr>
+            <tr><td><code>0x0000</code></td><td><code>REG_VERSION</code></td><td>RO</td><td><code>0x00010000</code></td><td><code>[31:0]</code></td><td><code>version</code></td><td>IP version，上电后读一次确认软件/RTL 兼容性。</td></tr>
+            <tr><td><code>0x0004</code></td><td><code>REG_DATE</code></td><td>RO</td><td><code>0x20260406</code></td><td><code>[31:0]</code></td><td><code>date</code></td><td>RTL date，上电后读一次。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>enc_ubwc_en</code></td><td>ENC UBWC enable；格式/尺寸/layout 变化时配置。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>Level-1 bank swizzle enable。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[2]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>Level-2 bank swizzle enable。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[3]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>Level-3 bank swizzle enable。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[12:8]</code></td><td><code>highest_bank_bit</code></td><td>Highest bank bit。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[16]</code></td><td><code>bank_spread_en</code></td><td>Bank spread enable。</td></tr>
+            <tr><td><code>0x000c</code></td><td><code>REG_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>four_line_format</code></td><td>4-line format select；RGBA 通常写 1，YUV420 写 0。</td></tr>
+            <tr><td><code>0x000c</code></td><td><code>REG_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>is_lossy_rgba_2_1_format</code></td><td>RGBA 2:1 lossy format select。</td></tr>
+            <tr><td><code>0x000c</code></td><td><code>REG_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[26:16]</code></td><td><code>tile_pitch</code></td><td>Compressed tile pitch，单位为 16 bytes。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>REG_ENC_CI_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>enc_ci_input_type</code></td><td>CI input type；当前软件通常写 1。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>REG_ENC_CI_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[10:8]</code></td><td><code>enc_ci_alen</code></td><td>CI ALEN；当前软件通常写 7。</td></tr>
+            <tr><td><code>0x0014</code></td><td><code>REG_ENC_CI_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[16]</code></td><td><code>enc_ci_lossy</code></td><td>CI lossy enable。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[2:0]</code></td><td><code>cfg0</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[5:3]</code></td><td><code>cfg1</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[9:6]</code></td><td><code>cfg2</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[13:10]</code></td><td><code>cfg3</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[17:14]</code></td><td><code>cfg4</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[21:18]</code></td><td><code>cfg5</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[23:22]</code></td><td><code>cfg6</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[25:24]</code></td><td><code>cfg7</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[27:26]</code></td><td><code>cfg8</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[30:28]</code></td><td><code>cfg9</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x001c</code></td><td><code>REG_ENC_CI_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[5:0]</code></td><td><code>cfg10</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x001c</code></td><td><code>REG_ENC_CI_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[13:8]</code></td><td><code>cfg11</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0020</code></td><td><code>REG_OTF_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[2:0]</code></td><td><code>otf_cfg_format</code></td><td>输入格式：0 RGBA8888，1 RGBA1010102，2 NV12，3 P010。</td></tr>
+            <tr><td><code>0x0024</code></td><td><code>REG_OTF_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_width</code></td><td>输入 active width。</td></tr>
+            <tr><td><code>0x0024</code></td><td><code>REG_OTF_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>otf_cfg_height</code></td><td>输入 active height。</td></tr>
+            <tr><td><code>0x0028</code></td><td><code>REG_OTF_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_tile_w</code></td><td>Tile width。</td></tr>
+            <tr><td><code>0x0028</code></td><td><code>REG_OTF_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[19:16]</code></td><td><code>otf_cfg_tile_h</code></td><td>Tile height。</td></tr>
+            <tr><td><code>0x002c</code></td><td><code>REG_OTF_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_y_tile_cols</code></td><td>Y/RGBA plane tile column count。</td></tr>
+            <tr><td><code>0x002c</code></td><td><code>REG_OTF_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>otf_cfg_uv_tile_cols</code></td><td>UV plane tile column count；RGBA 写 0。</td></tr>
+            <tr><td><code>0x0030</code></td><td><code>REG_META_BASE_Y_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[31:0]</code></td><td>Y/RGBA metadata 存储基地址低 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x0034</code></td><td><code>REG_META_BASE_Y_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[63:32]</code></td><td>Y/RGBA metadata 存储基地址高 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x0038</code></td><td><code>REG_TILE_BASE_Y_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>y_base_offset_addr[31:0]</code></td><td>Y/RGBA compressed tile 存储基地址低 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x003c</code></td><td><code>REG_TILE_BASE_Y_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>y_base_offset_addr[63:32]</code></td><td>Y/RGBA compressed tile 存储基地址高 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x0040</code></td><td><code>REG_META_BASE_UV_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_uv_base_offset_addr[31:0]</code></td><td>UV metadata 存储基地址低 32 bit；RGBA 写 0。</td></tr>
+            <tr><td><code>0x0044</code></td><td><code>REG_META_BASE_UV_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_uv_base_offset_addr[63:32]</code></td><td>UV metadata 存储基地址高 32 bit；RGBA 写 0。</td></tr>
+            <tr><td><code>0x0048</code></td><td><code>REG_TILE_BASE_UV_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>uv_base_offset_addr[31:0]</code></td><td>UV compressed tile 存储基地址低 32 bit；RGBA 写 0。</td></tr>
+            <tr><td><code>0x004c</code></td><td><code>REG_TILE_BASE_UV_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>uv_base_offset_addr[63:32]</code></td><td>UV compressed tile 存储基地址高 32 bit；地址组写完后仍需写 start。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>REG_META_ACTIVE_SIZE</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>meta_active_width_px</code></td><td>Metadata 有效图像宽度。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>REG_META_ACTIVE_SIZE</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>meta_active_height_px</code></td><td>Metadata 有效图像高度。</td></tr>
+            <tr><td><code>0x0054</code></td><td><code>REG_META_PITCH</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_data_plane_pitch</code></td><td>Metadata plane pitch。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>enc_idle</code></td><td>ENC idle。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[1]</code></td><td><code>enc_error</code></td><td>ENC error。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>otf_to_tile_busy</code></td><td>OTF-to-tile busy。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[3]</code></td><td><code>otf_to_tile_overflow</code></td><td>OTF-to-tile overflow。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[4]</code></td><td><code>otf_err_bline</code></td><td>OTF bad line。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[5]</code></td><td><code>otf_err_bframe</code></td><td>OTF bad frame。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>Slot0 metadata error。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>Slot1 metadata error。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[8]</code></td><td><code>frame_done</code></td><td>Frame done。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>当前帧地址 slot 无效。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[10]</code></td><td><code>addr_cfg_valid0</code></td><td>Address slot0 valid。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[11]</code></td><td><code>addr_cfg_valid1</code></td><td>Address slot1 valid。</td></tr>
+            <tr><td><code>0x005c</code></td><td><code>REG_STATUS1</code></td><td>RO</td><td>dynamic</td><td><code>[7:0]</code></td><td><code>stage_done</code></td><td>ENC stage done bitmap。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RW</td><td><code>1</code></td><td><code>[0]</code></td><td><code>irq_enable</code></td><td>IRQ enable。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[1]</code></td><td><code>irq_clear</code></td><td>写 1 清 pending/status sticky。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_pending</code></td><td>Any IRQ pending。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[3]</code></td><td><code>irq_correct_pending</code></td><td>Correct IRQ pending。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[4]</code></td><td><code>irq_error_pending</code></td><td>Error IRQ pending。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[5]</code></td><td><code>start</code></td><td>写 1 产生 frame start token。</td></tr>
+            <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>irq_status_any</code></td><td>Any IRQ mirror。</td></tr>
+            <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[1]</code></td><td><code>irq_status_correct</code></td><td>Correct IRQ mirror。</td></tr>
+            <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_status_error</code></td><td>Error IRQ mirror。</td></tr>
+            <tr><td><code>0x0068</code></td><td><code>REG_META_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_count0</code></td><td>slot0 metadata 统计计数。</td></tr>
+            <tr><td><code>0x006c</code></td><td><code>REG_META_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_count1</code></td><td>slot1 metadata 统计计数。</td></tr>
+            <tr><td><code>0x0070</code></td><td><code>REG_TILEADDR_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tileaddr_count0</code></td><td>slot0 tile address 统计计数。</td></tr>
+            <tr><td><code>0x0074</code></td><td><code>REG_TILEADDR_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tileaddr_count1</code></td><td>slot1 tile address 统计计数。</td></tr>
+            <tr><td><code>0x0078</code></td><td><code>REG_OTF_TILE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_tile_count0</code></td><td>slot0 OTF-to-tile tile 统计计数。</td></tr>
+            <tr><td><code>0x007c</code></td><td><code>REG_OTF_TILE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_tile_count1</code></td><td>slot1 OTF-to-tile tile 统计计数。</td></tr>
+            <tr><td><code>0x0080</code></td><td><code>REG_OTF_DE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_de_count0</code></td><td>slot0 de &amp;&amp; ready 统计计数。</td></tr>
+            <tr><td><code>0x0084</code></td><td><code>REG_OTF_DE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_de_count1</code></td><td>slot1 de &amp;&amp; ready 统计计数。</td></tr>
+            <tr><td><code>0x0088</code></td><td><code>REG_OTF_LINE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_line_count0</code></td><td>slot0 OTF line 统计计数。</td></tr>
+            <tr><td><code>0x008c</code></td><td><code>REG_OTF_LINE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_line_count1</code></td><td>slot1 OTF line 统计计数。</td></tr>
+            <tr><td><code>0x0090</code></td><td><code>REG_TILE_AXI_W_CNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt0</code></td><td>slot0 tile AXI W 统计计数。</td></tr>
+            <tr><td><code>0x0094</code></td><td><code>REG_TILE_AXI_W_CNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt1</code></td><td>slot1 tile AXI W 统计计数。</td></tr>
+            <tr><td><code>0x0098</code></td><td><code>REG_META_AXI_W_CNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt0</code></td><td>slot0 metadata AXI W 统计计数。</td></tr>
+            <tr><td><code>0x009c</code></td><td><code>REG_META_AXI_W_CNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt1</code></td><td>slot1 metadata AXI W 统计计数。</td></tr>
+          </table>
+          <div class="note">APB 寄存器 32 bit，byte offset 4 byte 对齐；64 bit base address 先写 low，再写 high；<code>W1P</code> 字段写 1 产生 pulse。</div>
+          <h4>ENC Register 逐项说明</h4>
+          <h5>3.1 Version</h5>
+          <p><strong>寄存器：</strong><code>REG_VERSION</code>；<strong>地址：</strong><code>0x0000</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>version</code></td><td>RO</td><td><code>0x00010000</code></td><td>IP version。</td></tr>
+          </table>
+          <div class="note">计算说明：只读识别寄存器，无软件计算；上电后读取一次用于版本匹配。</div>
 
-  <section id="clock">
-    <h2>2. 时钟域规格</h2>
-    <table>
-      <thead>
-        <tr><th>时钟域</th><th>频率</th><th>周期</th><th>ENC 端口</th><th>DEC 端口</th><th>主要逻辑</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>APB clock</td><td>100 MHz</td><td>10.000 ns</td><td><code>PCLK</code></td><td><code>PCLK</code></td><td>APB 寄存器访问</td></tr>
-        <tr><td>AXI/control clock</td><td>500 MHz</td><td>2.000 ns</td><td><code>i_clk</code></td><td><code>i_axi_clk</code></td><td>AXI 读写、APB 配置同步后的控制逻辑、地址和统计状态</td></tr>
-        <tr><td>core/VIVO clock</td><td>200 MHz</td><td>5.000 ns</td><td><code>i_vivo_clk</code></td><td><code>i_vivo_clk</code></td><td><code>ubwc_enc_vivo_top</code> / <code>ubwc_dec_vivo_top</code></td></tr>
-        <tr><td>OTF clock</td><td>320 MHz</td><td>3.125 ns</td><td><code>i_otf_clk</code></td><td><code>i_otf_clk</code></td><td>OTF 输入或输出视频接口</td></tr>
-      </tbody>
-    </table>
-    <div class="callout">
-      APB 只负责寄存器配置，不作为视频数据通路时钟。AXI/control、core/VIVO 和 OTF 之间必须通过异步 FIFO 或明确 CDC 逻辑隔离。
-    </div>
-    <div class="callout danger">
-      多 bit payload/counter 不允许直接用两级触发器跨时钟域；异步复位释放必须在目标时钟域同步。
-    </div>
-  </section>
+          <h5>3.2 Date</h5>
+          <p><strong>寄存器：</strong><code>REG_DATE</code>；<strong>地址：</strong><code>0x0004</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>date</code></td><td>RO</td><td><code>0x20260406</code></td><td>RTL date。</td></tr>
+          </table>
+          <div class="note">计算说明：只读识别寄存器，无软件计算；用于定位当前 RTL 交付版本。</div>
 
-  <section id="regs">
-    <h2>3. 寄存器访问规格</h2>
-    <h3>3.1 APB 访问规则</h3>
-    <table>
-      <thead>
-        <tr><th>项目</th><th>规格</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>寄存器宽度</td><td>32 bit</td></tr>
-        <tr><td>地址对齐</td><td>4 byte 对齐，本文 offset 均为 wrapper APB base 下的 byte offset</td></tr>
-        <tr><td>64 bit base address 写法</td><td>先写 low 32 bit，再写 high 32 bit</td></tr>
-        <tr><td>APB ready/error</td><td><code>PREADY=1</code>，<code>PSLVERR=0</code></td></tr>
-        <tr><td>访问类型</td><td><code>RO</code> 只读；<code>RW</code> 可读写；<code>W1P</code> 写 1 产生脉冲</td></tr>
-      </tbody>
-    </table>
+          <h5>3.3 Tile CFG0</h5>
+          <p><strong>寄存器：</strong><code>REG_TILE_CFG0</code>；<strong>地址：</strong><code>0x0008</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>enc_ubwc_en</code></td><td>RW</td><td>0</td><td>ENC UBWC enable。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-1 bank swizzle enable。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-2 bank swizzle enable。</td></tr>
+            <tr><td><code>[3]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-3 bank swizzle enable。</td></tr>
+            <tr><td><code>[12:8]</code></td><td><code>highest_bank_bit</code></td><td>RW</td><td>0</td><td>Highest bank bit。</td></tr>
+            <tr><td><code>[16]</code></td><td><code>bank_spread_en</code></td><td>RW</td><td>0</td><td>Bank spread enable。</td></tr>
+          </table>
+          <div class="note">计算说明：这些字段来自系统 memory layout/bank swizzle 策略，不随每帧地址变化；图像格式、尺寸或 layout 策略变化时重新配置。</div>
 
-    <h3>3.2 ENC Register Summary</h3>
-    <table>
-      <thead>
-        <tr><th>Offset</th><th>Register</th><th>Access</th><th>功能</th><th>配置频率</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>0x000</code></td><td><code>REG_VERSION</code></td><td>RO</td><td>IP version</td><td>上电后读取一次</td></tr>
-        <tr><td><code>0x004</code></td><td><code>REG_DATE</code></td><td>RO</td><td>RTL date</td><td>上电后读取一次</td></tr>
-        <tr><td><code>0x008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td>UBWC enable、bank swizzle、highest bank bit、bank spread</td><td>格式/尺寸/layout 变化时配置</td></tr>
-        <tr><td><code>0x00C</code></td><td><code>REG_TILE_CFG1</code></td><td>RW</td><td>4-line format、RGBA lossy 2:1、tile pitch</td><td>格式/尺寸/layout 变化时配置</td></tr>
-        <tr><td><code>0x010</code></td><td><code>REG_ENC_CI_CFG0</code></td><td>RW</td><td>CI input type、ALEN</td><td>格式变化时配置</td></tr>
-        <tr><td><code>0x014</code></td><td><code>REG_ENC_CI_CFG1</code></td><td>RW</td><td>CI lossy 和保留字段</td><td>格式变化时配置</td></tr>
-        <tr><td><code>0x018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td>保留 UBWC CI cfg，软件写 0</td><td>格式变化时配置</td></tr>
-        <tr><td><code>0x01C</code></td><td><code>REG_ENC_CI_CFG3</code></td><td>RW</td><td>保留 UBWC CI cfg，软件写 0</td><td>格式变化时配置</td></tr>
-        <tr><td><code>0x020</code></td><td><code>REG_OTF_CFG0</code></td><td>RW</td><td>输入 OTF format</td><td>格式变化时配置</td></tr>
-        <tr><td><code>0x024</code></td><td><code>REG_OTF_CFG1</code></td><td>RW</td><td>输入 width/height</td><td>格式/尺寸变化时配置</td></tr>
-        <tr><td><code>0x028</code></td><td><code>REG_OTF_CFG2</code></td><td>RW</td><td>tile_w/tile_h</td><td>格式/尺寸变化时配置</td></tr>
-        <tr><td><code>0x02C</code></td><td><code>REG_OTF_CFG3</code></td><td>RW</td><td>Y tile columns、UV tile columns</td><td>格式/尺寸变化时配置</td></tr>
-        <tr><td><code>0x030/0x034</code></td><td><code>REG_META_BASE_Y_LO/HI</code></td><td>RW</td><td>Y/RGBA metadata 写入基地址</td><td>每帧配置</td></tr>
-        <tr><td><code>0x038/0x03C</code></td><td><code>REG_TILE_BASE_Y_LO/HI</code></td><td>RW</td><td>Y/RGBA compressed tile 写入基地址</td><td>每帧配置</td></tr>
-        <tr><td><code>0x040/0x044</code></td><td><code>REG_META_BASE_UV_LO/HI</code></td><td>RW</td><td>UV metadata 写入基地址；RGBA 不关心</td><td>每帧配置</td></tr>
-        <tr><td><code>0x048/0x04C</code></td><td><code>REG_TILE_BASE_UV_LO/HI</code></td><td>RW</td><td>UV compressed tile 写入基地址；写完地址后由 <code>IRQ_CTRL[5]</code> 启动本帧</td><td>每帧配置</td></tr>
-        <tr><td><code>0x050</code></td><td><code>REG_META_ACTIVE_SIZE</code></td><td>RW</td><td>metadata active width/height</td><td>格式/尺寸变化时配置</td></tr>
-        <tr><td><code>0x054</code></td><td><code>REG_META_PITCH</code></td><td>RW</td><td>metadata plane pitch</td><td>格式/尺寸变化时配置</td></tr>
-        <tr><td><code>0x058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>idle/error/busy/frame_done/address slot status</td><td>运行中读取</td></tr>
-        <tr><td><code>0x05C</code></td><td><code>REG_STATUS1</code></td><td>RO</td><td>stage_done bitmap</td><td>运行中读取</td></tr>
-        <tr><td><code>0x060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RW/W1P/RO</td><td>irq_enable、irq_clear、start、irq_pending、correct/error pending</td><td>初始化/中断处理</td></tr>
-        <tr><td><code>0x064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>IRQ status mirror</td><td>运行中读取</td></tr>
-        <tr><td><code>0x068..0x09C</code></td><td><code>REG_*_COUNT0/1</code></td><td>RO</td><td>metadata、tileaddr、OTF、AXI W 计数，后缀 0/1 对应 <code>fcnt[0]</code></td><td>调试读取</td></tr>
-      </tbody>
-    </table>
+          <h5>3.4 Tile CFG1</h5>
+          <p><strong>寄存器：</strong><code>REG_TILE_CFG1</code>；<strong>地址：</strong><code>0x000c</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>four_line_format</code></td><td>RW</td><td>0</td><td>4-line format select。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>is_lossy_rgba_2_1_format</code></td><td>RW</td><td>0</td><td>RGBA 2:1 lossy format select。</td></tr>
+            <tr><td><code>[26:16]</code></td><td><code>tile_pitch</code></td><td>RW</td><td>0</td><td>Compressed tile pitch，单位为 16 bytes。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>tile_pitch = tile_pitch_bytes / 16</code>。<code>tile_pitch_bytes</code> 由格式和有效宽度对齐得到：RGBA 按 4 bytes/pixel 计算，NV12/P010 按 plane pitch 计算，并按 UBWC layout 要求对齐。</div>
 
-    <h3>3.3 DEC Register Summary</h3>
-    <table>
-      <thead>
-        <tr><th>Offset</th><th>Register</th><th>Access</th><th>功能</th><th>配置频率</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>0x000</code></td><td><code>REG_VERSION</code></td><td>RO</td><td>IP version</td><td>上电后读取一次</td></tr>
-        <tr><td><code>0x004</code></td><td><code>REG_DATE</code></td><td>RO</td><td>RTL date</td><td>上电后读取一次</td></tr>
-        <tr><td><code>0x008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td>bank swizzle、highest bank bit、bank spread、4-line、RGBA lossy 2:1</td><td>格式/尺寸/layout 变化时配置</td></tr>
-        <tr><td><code>0x00C</code></td><td><code>APB_ADDR_TILE_CFG1</code></td><td>RW</td><td>tile pitch</td><td>格式/尺寸/layout 变化时配置</td></tr>
-        <tr><td><code>0x010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td>CI input type、lossy、alpha mode</td><td>格式变化时配置</td></tr>
-        <tr><td><code>0x014</code></td><td><code>APB_ADDR_VIVO_CFG</code></td><td>RW</td><td>VIVO enable、soft reset</td><td>初始化或策略变化时配置</td></tr>
-        <tr><td><code>0x018</code></td><td><code>APB_ADDR_OTF_CFG0</code></td><td>RW</td><td>输出 image width、format</td><td>格式/尺寸/timing 变化时配置</td></tr>
-        <tr><td><code>0x01C</code></td><td><code>APB_ADDR_OTF_CFG1</code></td><td>RW</td><td>h_total、h_sync/HSA</td><td>timing 变化时配置</td></tr>
-        <tr><td><code>0x020</code></td><td><code>APB_ADDR_OTF_CFG2</code></td><td>RW</td><td>h_bp/HBP、h_act/HACT</td><td>timing 变化时配置</td></tr>
-        <tr><td><code>0x024</code></td><td><code>APB_ADDR_OTF_CFG3</code></td><td>RW</td><td>v_total、v_sync/VSA</td><td>timing 变化时配置</td></tr>
-        <tr><td><code>0x028</code></td><td><code>APB_ADDR_OTF_CFG4</code></td><td>RW</td><td>v_bp/VBP、v_act/VACT</td><td>timing 变化时配置</td></tr>
-        <tr><td><code>0x02C</code></td><td><code>APB_ADDR_META_CFG0</code></td><td>RW</td><td>Y/RGBA metadata tile_x/tile_y，YUV420 UV tile 数内部推导</td><td>格式/尺寸变化时配置</td></tr>
-        <tr><td><code>0x030/0x034</code></td><td><code>REG_META_BASE_Y_LO/HI</code></td><td>RW</td><td>RGBA/Y metadata 读取基地址</td><td>每帧配置</td></tr>
-        <tr><td><code>0x038/0x03C</code></td><td><code>REG_TILE_BASE_Y_LO/HI</code></td><td>RW</td><td>RGBA/Y compressed tile 读取基地址</td><td>每帧配置</td></tr>
-        <tr><td><code>0x040/0x044</code></td><td><code>REG_META_BASE_UV_LO/HI</code></td><td>RW</td><td>UV metadata 读取基地址</td><td>每帧配置</td></tr>
-        <tr><td><code>0x048/0x04C</code></td><td><code>REG_TILE_BASE_UV_LO/HI</code></td><td>RW</td><td>UV compressed tile 读取基地址；RGBA 不关心</td><td>每帧配置</td></tr>
-        <tr><td><code>0x050</code></td><td><code>APB_ADDR_STATUS0</code></td><td>RO</td><td>frame_active、meta/tile/vivo/otf busy、idle status</td><td>运行中读取</td></tr>
-        <tr><td><code>0x054</code></td><td><code>APB_ADDR_STATUS1</code></td><td>RO</td><td>stage_done、frame_done、stage_seen</td><td>运行中读取</td></tr>
-        <tr><td><code>0x058</code></td><td><code>APB_ADDR_STATUS2</code></td><td>RO</td><td>VIVO idle bitmap</td><td>运行中读取</td></tr>
-        <tr><td><code>0x05C</code></td><td><code>APB_ADDR_STATUS3</code></td><td>RO</td><td>VIVO error bitmap</td><td>运行中读取</td></tr>
-        <tr><td><code>0x060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RW/W1P/RO</td><td>irq_enable、irq_clear、start、irq_pending、correct/error pending</td><td>初始化/中断处理</td></tr>
-        <tr><td><code>0x064</code></td><td><code>APB_ADDR_STATUS4</code></td><td>RO</td><td>IRQ status mirror</td><td>运行中读取</td></tr>
-        <tr><td><code>0x068</code></td><td><code>APB_ADDR_STAT_META</code></td><td>RO</td><td>metadata valid tile count</td><td>调试读取</td></tr>
-        <tr><td><code>0x06C</code></td><td><code>APB_ADDR_STAT_TILE</code></td><td>RO</td><td>tile address valid tile count</td><td>调试读取</td></tr>
-        <tr><td><code>0x070</code></td><td><code>APB_ADDR_STAT_OTF_TILE</code></td><td>RO</td><td>tile-to-OTF accepted tile count</td><td>调试读取</td></tr>
-        <tr><td><code>0x074</code></td><td><code>APB_ADDR_STAT_OTF_LINE</code></td><td>RO</td><td>OTF output line count</td><td>调试读取</td></tr>
-        <tr><td><code>0x078</code></td><td><code>APB_ADDR_STAT_OTF_DE</code></td><td>RO</td><td>OTF output <code>de &amp;&amp; ready</code> beat count</td><td>调试读取</td></tr>
-      </tbody>
-    </table>
+          <h5>3.5 ENC CI CFG0</h5>
+          <p><strong>寄存器：</strong><code>REG_ENC_CI_CFG0</code>；<strong>地址：</strong><code>0x0010</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>enc_ci_input_type</code></td><td>RW</td><td>0</td><td>CI input type。</td></tr>
+            <tr><td><code>[10:8]</code></td><td><code>enc_ci_alen</code></td><td>RW</td><td>0</td><td>CI ALEN。</td></tr>
+          </table>
+          <div class="note">计算说明：由 CI 协议配置决定，当前 helper 默认使用 <code>input_type=1</code>、<code>alen=7</code>。</div>
 
-    <h3>3.4 软件访问顺序摘要</h3>
-    <div class="grid2">
-      <div>
-        <h3>ENC</h3>
-        <pre>read VERSION/DATE
-write static TILE/CI/OTF/META config
-for each frame:
-  write META_BASE_Y low/high
-  write TILE_BASE_Y low/high
-  write META_BASE_UV low/high
-  write TILE_BASE_UV low/high
-    write IRQ_CTRL[5]=1
-  start OTF input stream
-poll/handle IRQ and STATUS</pre>
-      </div>
-      <div>
-        <h3>DEC</h3>
-        <pre>read VERSION/DATE
-write static TILE/VIVO/META/OTF config
-for each frame:
-  write META_BASE_Y low/high
-  write TILE_BASE_Y low/high
-  write META_BASE_UV low/high
-  write TILE_BASE_UV low/high
-software writes IRQ_CTRL[5]=1 when address set is valid
-poll/handle IRQ and STATUS</pre>
-      </div>
-    </div>
-  </section>
+          <h5>3.6 ENC CI CFG1</h5>
+          <p><strong>寄存器：</strong><code>REG_ENC_CI_CFG1</code>；<strong>地址：</strong><code>0x0014</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[16]</code></td><td><code>enc_ci_lossy</code></td><td>RW</td><td>0</td><td>CI lossy enable。</td></tr>
+          </table>
+          <div class="note">计算说明：与压缩策略一致；lossless 场景写 0，启用对应 lossy 策略时写 1。</div>
 
-  <section id="dataflow">
-    <h2>4. 模块数据流图</h2>
-    <p>本章按功能专题展示 ENC/DEC 数据路径、配置路径和关键缓存调度关系。图中按时钟域分区，并在关键箭头旁标注主要信号和位宽。</p>
-    <table>
-      <thead>
-        <tr><th>分类</th><th>图</th><th>说明</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>ENC</td><td>系统块图</td><td>顶层主数据路径，APB/status 用旁路收口</td></tr>
-        <tr><td>ENC</td><td>OTF-to-tile 详图</td><td>OTF pack、async FIFO A/B、line-to-tile、bank0/1、tile read scanner</td></tr>
-        <tr><td>ENC</td><td>AXI write 详图</td><td>tile/meta address、tile/meta write command、AXI merge/x2x</td></tr>
-        <tr><td>ENC</td><td>ping-pong SRAM 时序图</td><td>bank0/bank1 写行组与读 tile 的错相调度</td></tr>
-        <tr><td>DEC</td><td>总体微架构图</td><td>按当前 RTL 展开 APB/status、metadata read/decode、tile read、VIVO decode、tile-to-OTF 输出</td></tr>
-        <tr><td>DEC</td><td>metadata + tile read 详图</td><td>metadata fetch/decode 与 tile read command 两条路径</td></tr>
-        <tr><td>DEC</td><td>tile-to-OTF 详图</td><td>VIVO rvo、line writer、SRAM fetch、OTF driver</td></tr>
-      </tbody>
-    </table>
+          <h5>3.7 ENC CI CFG2</h5>
+          <p><strong>寄存器：</strong><code>REG_ENC_CI_CFG2</code>；<strong>地址：</strong><code>0x0018</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[2:0]</code></td><td><code>cfg0</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[5:3]</code></td><td><code>cfg1</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[9:6]</code></td><td><code>cfg2</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[13:10]</code></td><td><code>cfg3</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[17:14]</code></td><td><code>cfg4</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[21:18]</code></td><td><code>cfg5</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[23:22]</code></td><td><code>cfg6</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[25:24]</code></td><td><code>cfg7</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[27:26]</code></td><td><code>cfg8</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[30:28]</code></td><td><code>cfg9</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+          </table>
+          <div class="note">计算说明：当前软件模板写 0；若后续 CI 算法参数开放，应由压缩策略表生成。</div>
 
-    <h3>4.1 ENC 系统块图</h3>
-    <figure>
-      <img src="ubwc_enc_system_block_cn.svg" alt="ENC 系统块图">
-      <figcaption>顶层模块按 APB、OTF、AXI/core、VIVO 四条泳道展开，只表达主数据流和必要配置/状态旁路。</figcaption>
-    </figure>
+          <h5>3.8 ENC CI CFG3</h5>
+          <p><strong>寄存器：</strong><code>REG_ENC_CI_CFG3</code>；<strong>地址：</strong><code>0x001c</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[5:0]</code></td><td><code>cfg10</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+            <tr><td><code>[13:8]</code></td><td><code>cfg11</code></td><td>RW</td><td>0</td><td>UBWC CI configuration。</td></tr>
+          </table>
+          <div class="note">计算说明：当前软件模板写 0；若后续 CI 算法参数开放，应由压缩策略表生成。</div>
 
-    <h3>4.2 ENC OTF-to-tile 详图</h3>
-    <figure>
-      <img src="ubwc_enc_otf_to_tile_detail_cn.svg" alt="ENC OTF-to-tile 详图">
-      <figcaption>说明 OTF 输入如何按 format 拆成 Y/RGBA 与 UV 两路，跨域后写入 ping-pong SRAM，再按 tile 顺序读出给 VIVO。</figcaption>
-    </figure>
+          <h5>3.9 OTF CFG0</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_CFG0</code>；<strong>地址：</strong><code>0x0020</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[2:0]</code></td><td><code>otf_cfg_format</code></td><td>RW</td><td>0</td><td>0 RGBA8888，1 RGBA1010102，2 NV12/YUV420_8，3 P010/YUV420_10。</td></tr>
+          </table>
+          <div class="note">计算说明：由输入像素格式直接映射；格式变化时，tile size、pitch、metadata 尺寸和地址 layout 必须同步重算。</div>
 
-    <h3>4.3 ENC AXI write 详图</h3>
-    <figure>
-      <img src="ubwc_enc_axi_write_detail_cn.svg" alt="ENC AXI write 详图">
-      <figcaption>说明 VIVO cvo 数据和坐标/fcnt 如何生成 tile/meta AXI 写命令，并通过合并与宽度转换后写到外部 AXI。</figcaption>
-    </figure>
+          <h5>3.10 OTF CFG1</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_CFG1</code>；<strong>地址：</strong><code>0x0024</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>otf_cfg_width</code></td><td>RW</td><td>0</td><td>输入 active width。</td></tr>
+            <tr><td><code>[31:16]</code></td><td><code>otf_cfg_height</code></td><td>RW</td><td>0</td><td>输入 active height。</td></tr>
+          </table>
+          <div class="note">计算说明：写入原始有效像素尺寸；内部 layout 需要的 padded/stored size 由后续 tile、pitch、metadata 配置描述。</div>
 
-    <h3>4.4 ENC Ping-pong SRAM 时序图</h3>
-    <figure>
-      <img src="ubwc_enc_pingpong_timing_cn.svg" alt="ENC Ping-pong SRAM 时序图">
-      <figcaption>说明 bank0/bank1 在连续 group 中的写入、读出、释放和下一次复用关系。</figcaption>
-    </figure>
+          <h5>3.11 OTF CFG2</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_CFG2</code>；<strong>地址：</strong><code>0x0028</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>otf_cfg_tile_w</code></td><td>RW</td><td>0</td><td>Tile width。</td></tr>
+            <tr><td><code>[19:16]</code></td><td><code>otf_cfg_tile_h</code></td><td>RW</td><td>0</td><td>Tile height。</td></tr>
+          </table>
+          <div class="note">计算说明：RGBA8888/RGBA1010102 使用 <code>16x4</code>，NV12 使用 <code>32x8</code>，P010 使用 <code>32x4</code>。这些值随格式变化配置。</div>
 
-    <h3>4.5 DEC 总体微架构图</h3>
-    <figure>
-      <img src="ubwc_dec_microarchitecture_cn.svg" alt="DEC 总体微架构图">
-      <figcaption>DEC 当前实现图，按当前 RTL 展开 APB/status、metadata read/decode、tile read、VIVO 解压、tile-to-OTF、外部 SRAM 和 OTF 输出。</figcaption>
-    </figure>
+          <h5>3.12 OTF CFG3</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_CFG3</code>；<strong>地址：</strong><code>0x002c</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>otf_cfg_y_tile_cols</code></td><td>RW</td><td>0</td><td>Y/RGBA plane tile column count。</td></tr>
+            <tr><td><code>[31:16]</code></td><td><code>otf_cfg_uv_tile_cols</code></td><td>RW</td><td>0</td><td>UV plane tile column count；RGBA 写 0。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>y_tile_cols = ceil(y_plane_width / tile_w)</code>，<code>uv_tile_cols = ceil(uv_plane_width / tile_w)</code>；RGBA 没有 UV plane，<code>uv_tile_cols=0</code>。</div>
 
-    <h3>4.6 DEC metadata + tile read 详图</h3>
-    <figure>
-      <img src="ubwc_dec_meta_tile_read_detail_cn.svg" alt="DEC metadata + tile read 详图">
-      <figcaption>说明 metadata AR/R 通路、metadata SRAM、decode 输出，以及 tile_arcmd_gen 使用 metadata 结果发起 tile read 的关系。</figcaption>
-    </figure>
+          <h5>3.13 Meta/Tile Base 地址组</h5>
+          <p><strong>寄存器范围：</strong><code>0x0030</code> 到 <code>0x004c</code>；每帧或每个输出 buffer 配置一次。</p>
+          <table>
+            <tr><th>Register</th><th>Address</th><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>REG_META_BASE_Y_LO</code></td><td><code>0x0030</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[31:0]</code></td><td>RW</td><td>0</td><td>Y/RGBA metadata 存储基地址低 32 bit。</td></tr>
+            <tr><td><code>REG_META_BASE_Y_HI</code></td><td><code>0x0034</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[63:32]</code></td><td>RW</td><td>0</td><td>Y/RGBA metadata 存储基地址高 32 bit。</td></tr>
+            <tr><td><code>REG_TILE_BASE_Y_LO</code></td><td><code>0x0038</code></td><td><code>[31:0]</code></td><td><code>y_base_offset_addr[31:0]</code></td><td>RW</td><td>0</td><td>Y/RGBA compressed tile 存储基地址低 32 bit。</td></tr>
+            <tr><td><code>REG_TILE_BASE_Y_HI</code></td><td><code>0x003c</code></td><td><code>[31:0]</code></td><td><code>y_base_offset_addr[63:32]</code></td><td>RW</td><td>0</td><td>Y/RGBA compressed tile 存储基地址高 32 bit。</td></tr>
+            <tr><td><code>REG_META_BASE_UV_LO</code></td><td><code>0x0040</code></td><td><code>[31:0]</code></td><td><code>meta_uv_base_offset_addr[31:0]</code></td><td>RW</td><td>0</td><td>UV metadata 存储基地址低 32 bit；RGBA 写 0。</td></tr>
+            <tr><td><code>REG_META_BASE_UV_HI</code></td><td><code>0x0044</code></td><td><code>[31:0]</code></td><td><code>meta_uv_base_offset_addr[63:32]</code></td><td>RW</td><td>0</td><td>UV metadata 存储基地址高 32 bit；RGBA 写 0。</td></tr>
+            <tr><td><code>REG_TILE_BASE_UV_LO</code></td><td><code>0x0048</code></td><td><code>[31:0]</code></td><td><code>uv_base_offset_addr[31:0]</code></td><td>RW</td><td>0</td><td>UV compressed tile 存储基地址低 32 bit；RGBA 写 0。</td></tr>
+            <tr><td><code>REG_TILE_BASE_UV_HI</code></td><td><code>0x004c</code></td><td><code>[31:0]</code></td><td><code>uv_base_offset_addr[63:32]</code></td><td>RW</td><td>0</td><td>UV compressed tile 存储基地址高 32 bit；RGBA 写 0。</td></tr>
+          </table>
+          <div class="note">地址 layout 计算公式：</div>
+          <pre><code>align(x, a) = round_up(x, a)
+y_tile_cols = ceil(y_plane_width / tile_w)
+y_tile_rows = ceil(y_plane_height / tile_h)
+uv_tile_cols = has_uv ? ceil(uv_plane_width / tile_w) : 0
+uv_tile_rows = has_uv ? ceil(uv_plane_height / tile_h) : 0
 
-    <h3>4.7 DEC tile-to-OTF 详图</h3>
-    <figure>
-      <img src="ubwc_dec_tile_to_otf_detail_cn.svg" alt="DEC tile-to-OTF 详图">
-      <figcaption>说明 VIVO rvo 数据如何写入 line buffer，如何被 fetcher 按 OTF timing 读取并在 OTF 域输出。</figcaption>
-    </figure>
-  </section>
+meta_y_pitch = align(y_tile_cols, 64)
+meta_y_size  = align(meta_y_pitch * align(y_tile_rows, 16), 4096)
+tile_y_size  = align(tile_y_pitch_bytes * stored_y_height, 4096)
 
-  <section id="enc">
-    <h2>5. ENC 规格</h2>
-    <h3>5.1 数据流</h3>
-    <pre>OTF input(i_otf_clk)
-  -> ubwc_enc_otf_to_tile
-  -> external bank0/bank1 SRAM
-  -> ubwc_enc_vivo_top(i_vivo_clk)
-  -> tile/meta AXI write(i_clk)</pre>
-    <p>ENC 通过 <code>IRQ_CTRL[5]</code> 写 1 产生 START token。软件写好静态配置和本帧输出 buffer 地址后，先写 <code>IRQ_CTRL[5]=1</code>，再送上游 OTF <code>vsync/hsync/de/data</code>。</p>
+meta_uv_pitch = has_uv ? align(uv_tile_cols, 64) : 0
+meta_uv_size  = has_uv ? align(meta_uv_pitch * align(uv_tile_rows, 16), 4096) : 0
+tile_uv_size  = has_uv ? align(tile_uv_pitch_bytes * stored_uv_height, 4096) : 0
 
-    <h3>5.2 每帧地址 Slot</h3>
-    <table>
-      <thead>
-        <tr><th>地址</th><th>名称</th><th>含义</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>0x030/0x034</code></td><td><code>REG_META_BASE_Y_LO/HI</code></td><td>Y/RGBA metadata 存储基地址</td></tr>
-        <tr><td><code>0x038/0x03C</code></td><td><code>REG_TILE_BASE_Y_LO/HI</code></td><td>Y/RGBA compressed tile 存储基地址</td></tr>
-        <tr><td><code>0x040/0x044</code></td><td><code>REG_META_BASE_UV_LO/HI</code></td><td>UV metadata 存储基地址；RGBA 不关心，可写 0</td></tr>
-        <tr><td><code>0x048/0x04C</code></td><td><code>REG_TILE_BASE_UV_LO/HI</code></td><td>UV compressed tile 存储基地址；写完四个地址后写 <code>IRQ_CTRL[5]</code> 启动</td></tr>
-      </tbody>
-    </table>
-    <p>硬件内部保留两组地址 slot。<code>fcnt[0]=0</code> 使用 slot0，<code>fcnt[0]=1</code> 使用 slot1。如果当前帧需要的 slot 未配置，硬件应阻塞并上报地址配置错误状态/中断。</p>
+meta_y_base = frame_base
+tile_y_base = meta_y_base + meta_y_size
+meta_uv_base = has_uv ? tile_y_base + tile_y_size : 0
+tile_uv_base = has_uv ? meta_uv_base + meta_uv_size : 0
 
-    <h3>5.3 配置频率</h3>
-    <table>
-      <thead>
-        <tr><th>配置项</th><th>配置频率</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>TILE_CFG / CI_CFG / OTF_CFG / META_ACTIVE_SIZE / META_PITCH</code></td><td>图像格式、尺寸或 layout 变化时配置</td></tr>
-        <tr><td>输出 buffer base address</td><td>每帧配置，或每新增一个输出 buffer 配置</td></tr>
-        <tr><td>IRQ enable</td><td>上电后一次，或中断策略变化时配置</td></tr>
-      </tbody>
-    </table>
-  </section>
+REG_META_BASE_Y_LO  = meta_y_base[31:0]
+REG_META_BASE_Y_HI  = meta_y_base[63:32]
+REG_TILE_BASE_Y_LO  = tile_y_base[31:0]
+REG_TILE_BASE_Y_HI  = tile_y_base[63:32]
+REG_META_BASE_UV_LO = meta_uv_base[31:0]
+REG_META_BASE_UV_HI = meta_uv_base[63:32]
+REG_TILE_BASE_UV_LO = tile_uv_base[31:0]
+REG_TILE_BASE_UV_HI = tile_uv_base[63:32]</code></pre>
+          <div class="note">说明：<code>tile_y_pitch_bytes</code>、<code>tile_uv_pitch_bytes</code>、<code>stored_y_height</code>、<code>stored_uv_height</code> 由格式、pitch 和 UBWC layout 对齐规则计算，必须和 <code>REG_TILE_CFG1</code>、<code>REG_META_ACTIVE_SIZE</code>、<code>REG_META_PITCH</code> 保持一致。地址组写完后，软件仍需写 <code>REG_IRQ_CTRL[5]=1</code> 产生 frame start token。</div>
 
-  <section id="dec">
-    <h2>6. DEC 规格</h2>
-    <h3>6.1 数据流</h3>
-    <pre>UBWC metadata/tile AXI read(i_axi_clk)
-  -> ubwc_dec_vivo_top(i_vivo_clk)
-  -> ubwc_dec_tile_to_otf
-  -> external bank0/bank1 SRAM
-  -> OTF output(i_otf_clk)</pre>
-    <p>DEC 通过 <code>IRQ_CTRL[5]</code> 写 1 启动。软件写好静态配置和一组输入 UBWC buffer 地址后，写 <code>IRQ_CTRL[5]=1</code>，硬件锁存该地址组并启动本帧 decode。</p>
+          <h5>3.14 Meta Active Size</h5>
+          <p><strong>寄存器：</strong><code>REG_META_ACTIVE_SIZE</code>；<strong>地址：</strong><code>0x0050</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>meta_active_width_px</code></td><td>RW</td><td>0</td><td>UBWC metadata 覆盖的有效图像宽度。</td></tr>
+            <tr><td><code>[31:16]</code></td><td><code>meta_active_height_px</code></td><td>RW</td><td>0</td><td>UBWC metadata 覆盖的有效图像高度。</td></tr>
+          </table>
+          <div class="note">
+            <p>计算说明：</p>
+            <p><code>REG_OTF_CFG1</code> 描述 OTF 输入流的 active width/height，也就是硬件在 OTF 接口上接收的图像/画布尺寸。</p>
+            <p><code>REG_META_ACTIVE_SIZE</code> 描述 UBWC metadata 和边界 tile 需要覆盖的有效图像区域。当前 RTL 中该寄存器非 0 时作为 <code>active_width_px/active_height_px</code> 使用；若配置为 0，则回退使用 <code>REG_OTF_CFG1</code> 的 width/height。</p>
+            <p>通常没有 padding/crop 时，两者配置一致。例如 544x1200 RGBA8888：</p>
+            <pre><code>REG_OTF_CFG1.width         = 544
+REG_OTF_CFG1.height        = 1200
+REG_META_ACTIVE_SIZE.width = 544
+REG_META_ACTIVE_SIZE.height= 1200</code></pre>
+            <p>只有当 OTF 输入画布尺寸和真实有效压缩区域不一致时才分开配置。例如 OTF 实际输入 544x1216，但只有 544x1200 是有效图像：</p>
+            <pre><code>REG_OTF_CFG1.height        = 1216
+REG_META_ACTIVE_SIZE.height= 1200</code></pre>
+            <p>这种配置表示 OTF 接口按 1216 行接收数据，但 UBWC metadata、有效 tile 覆盖和右/下边界处理按 1200 行有效图像生成。</p>
+          </div>
 
-    <h3>6.2 每帧地址 Slot</h3>
-    <table>
-      <thead>
-        <tr><th>地址</th><th>名称</th><th>含义</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>0x030/0x034</code></td><td><code>REG_META_BASE_Y_LO/HI</code></td><td>RGBA/Y metadata 读取基地址</td></tr>
-        <tr><td><code>0x038/0x03C</code></td><td><code>REG_TILE_BASE_Y_LO/HI</code></td><td>RGBA/Y compressed tile 读取基地址</td></tr>
-        <tr><td><code>0x040/0x044</code></td><td><code>REG_META_BASE_UV_LO/HI</code></td><td>UV metadata 读取基地址</td></tr>
-        <tr><td><code>0x048/0x04C</code></td><td><code>REG_TILE_BASE_UV_LO/HI</code></td><td>UV compressed tile 读取基地址；RGBA 不关心</td></tr>
-      </tbody>
-    </table>
-    <p>DEC 同样按 <code>fcnt[0]</code> 在 slot0/slot1 间切换。相邻两帧可以使用不同 base address，其他静态信息只保留一份，并在格式、尺寸或 timing 变化时重新配置。</p>
+          <h5>3.15 Meta Pitch</h5>
+          <p><strong>寄存器：</strong><code>REG_META_PITCH</code>；<strong>地址：</strong><code>0x0054</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_data_plane_pitch</code></td><td>RW</td><td>0</td><td>Metadata plane pitch，单位 byte。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>meta_data_plane_pitch = align(y_tile_cols, 64)</code>，即按 tile columns 生成 metadata 行 pitch 并 64-byte 对齐。</div>
 
-    <h3>6.3 配置频率</h3>
-    <table>
-      <thead>
-        <tr><th>配置项</th><th>配置频率</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>TILE_CFG / CI_CFG / VIVO_CFG / META_CFG / OTF timing</code></td><td>图像格式、尺寸、layout 或 timing 变化时配置</td></tr>
-        <tr><td>输入 UBWC buffer base address</td><td>每帧配置，或每新增一个输入 UBWC buffer 配置</td></tr>
-        <tr><td>IRQ enable</td><td>上电后一次，或中断策略变化时配置</td></tr>
-      </tbody>
-    </table>
-  </section>
+          <h5>3.16 Status0</h5>
+          <p><strong>寄存器：</strong><code>REG_STATUS0</code>；<strong>地址：</strong><code>0x0058</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>enc_idle</code></td><td>RO</td><td>dynamic</td><td>ENC idle。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>enc_error</code></td><td>RO</td><td>dynamic</td><td>ENC error。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>otf_to_tile_busy</code></td><td>RO</td><td>dynamic</td><td>OTF-to-tile busy。</td></tr>
+            <tr><td><code>[3]</code></td><td><code>otf_to_tile_overflow</code></td><td>RO</td><td>dynamic</td><td>OTF-to-tile overflow。</td></tr>
+            <tr><td><code>[4]</code></td><td><code>otf_err_bline</code></td><td>RO</td><td>dynamic</td><td>OTF bad line。</td></tr>
+            <tr><td><code>[5]</code></td><td><code>otf_err_bframe</code></td><td>RO</td><td>dynamic</td><td>OTF bad frame。</td></tr>
+            <tr><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>RO</td><td>dynamic</td><td>Slot0 metadata error。</td></tr>
+            <tr><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>RO</td><td>dynamic</td><td>Slot1 metadata error。</td></tr>
+            <tr><td><code>[8]</code></td><td><code>frame_done</code></td><td>RO</td><td>dynamic</td><td>Frame done。</td></tr>
+            <tr><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>RO</td><td>dynamic</td><td>当前帧地址 slot 无效。</td></tr>
+            <tr><td><code>[10]</code></td><td><code>addr_cfg_valid0</code></td><td>RO</td><td>dynamic</td><td>Address slot0 valid。</td></tr>
+            <tr><td><code>[11]</code></td><td><code>addr_cfg_valid1</code></td><td>RO</td><td>dynamic</td><td>Address slot1 valid。</td></tr>
+          </table>
+          <div class="note">计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源和 OTF 输入异常。</div>
 
-  <section id="otf">
-    <h2>7. OTF Timing 约定</h2>
-    <table>
-      <thead>
-        <tr><th>标记</th><th>RTL 配置项</th><th>说明</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>HSA</td><td><code>h_sync</code></td><td>水平 sync 宽度</td></tr>
-        <tr><td>HBP</td><td><code>h_bp</code></td><td>水平 back porch</td></tr>
-        <tr><td>HACT</td><td><code>h_act</code></td><td>水平 active 宽度，通常等于输出图像宽度</td></tr>
-        <tr><td>HFP</td><td><code>h_total - h_sync - h_bp - h_act</code></td><td>水平 front porch</td></tr>
-        <tr><td>VSA</td><td><code>v_sync</code></td><td>垂直 sync 行数</td></tr>
-        <tr><td>VBP</td><td><code>v_bp</code></td><td>垂直 back porch</td></tr>
-        <tr><td>VACT</td><td><code>v_act</code></td><td>垂直 active 高度，通常等于输出图像高度</td></tr>
-        <tr><td>VFP</td><td><code>v_total - v_sync - v_bp - v_act</code></td><td>垂直 front porch</td></tr>
-      </tbody>
-    </table>
-    <pre>OTF_CFG1 = {h_sync, h_total}
-OTF_CFG2 = {h_act,  h_bp}
-OTF_CFG3 = {v_sync, v_total}
-OTF_CFG4 = {v_act,  v_bp}</pre>
-  </section>
+          <h5>3.17 Status1</h5>
+          <p><strong>寄存器：</strong><code>REG_STATUS1</code>；<strong>地址：</strong><code>0x005c</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[7:0]</code></td><td><code>stage_done</code></td><td>RO</td><td>dynamic</td><td>ENC stage done bitmap。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件根据真实 stage done 事件锁存；软件只读，不参与 done 推导。</div>
 
-  <section id="sram">
-    <h2>8. 外部 SRAM Bank</h2>
-    <p>ENC 和 DEC wrapper 都使用外部 bank0/bank1 作为 ping-pong 工作 SRAM，数据宽度为 128 bit。bank0/bank1 是工作 buffer，不固定等价于 Y/UV plane。</p>
-    <table>
-      <thead>
-        <tr><th>模块</th><th>当前默认 COM_BUF_AW</th><th>每个 bank 容量</th><th>说明</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>ENC</td><td>12</td><td>4096 x 128 bit = 64 KiB</td><td>当前默认参数；4096 宽 RGBA/YUV420 均固定 12 bit，YUV420 通过 Y/UV 同 bank 时分调度覆盖</td></tr>
-        <tr><td>DEC</td><td>12</td><td>4096 x 128 bit = 64 KiB</td><td>当前默认参数；4096 宽 RGBA/YUV420 均按 12 bit 工作 bank 集成</td></tr>
-      </tbody>
-    </table>
-    <pre>bank_words = 2 ^ COM_BUF_AW
-bank_bytes = bank_words * 16</pre>
-  </section>
+          <h5>3.18 IRQ Control</h5>
+          <p><strong>寄存器：</strong><code>REG_IRQ_CTRL</code>；<strong>地址：</strong><code>0x0060</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>irq_enable</code></td><td>RW</td><td>1</td><td>IRQ enable。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>irq_clear</code></td><td>W1P</td><td>0</td><td>写 1 清 pending/status sticky。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>irq_pending</code></td><td>RO</td><td>dynamic</td><td>Any IRQ pending。</td></tr>
+            <tr><td><code>[3]</code></td><td><code>irq_correct_pending</code></td><td>RO</td><td>dynamic</td><td>Correct IRQ pending。</td></tr>
+            <tr><td><code>[4]</code></td><td><code>irq_error_pending</code></td><td>RO</td><td>dynamic</td><td>Error IRQ pending。</td></tr>
+            <tr><td><code>[5]</code></td><td><code>start</code></td><td>W1P</td><td>0</td><td>写 1 产生 frame start token。</td></tr>
+          </table>
+          <div class="note">计算说明：每帧地址配置完成后写 <code>REG_IRQ_CTRL[5]=1</code> 启动；中断处理完成后写 <code>REG_IRQ_CTRL[1]=1</code> 清除。</div>
 
-  <section id="irq">
-    <h2>9. 状态和中断</h2>
-    <ul>
-      <li>正确中断和 frame_done 在最后一个有效输出数据完成后产生。</li>
-      <li>错误中断表示地址未配置、OTF 输入错误、FIFO overflow、VIVO error 等异常事件。</li>
-      <li>中断 pending 应保持到软件写 <code>IRQ_CTRL[1]=1</code> 清除。</li>
-      <li>统计寄存器只做调试和观测，不应作为核心 done 判断依据。</li>
-    </ul>
-  </section>
+          <h5>3.19 Status2</h5>
+          <p><strong>寄存器：</strong><code>REG_STATUS2</code>；<strong>地址：</strong><code>0x0064</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>irq_status_any</code></td><td>RO</td><td>dynamic</td><td>Any IRQ。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>irq_status_correct</code></td><td>RO</td><td>dynamic</td><td>Correct IRQ。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>irq_status_error</code></td><td>RO</td><td>dynamic</td><td>Error IRQ。</td></tr>
+          </table>
+          <div class="note">计算说明：IRQ mirror 由硬件锁存；软件用于区分正常完成和错误中断。</div>
 
-  <section id="wrapper-if">
-    <h2>10. Wrapper 顶层接口</h2>
-    <p>本章列出当前 RTL wrapper 的集成级端口清单，每一行对应一个端口信号。</p>
+          <h5>3.20 Meta Count0</h5>
+          <p><strong>寄存器：</strong><code>REG_META_COUNT0</code>；<strong>地址：</strong><code>0x0068</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 metadata count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计计数，只用于 debug 和吞吐量核对。</div>
 
-    <h3>10.1 ENC Wrapper: <code>ubwc_enc_wrapper_top.sv</code></h3>
-    <table>
-      <thead>
-        <tr><th>接口组</th><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>APB slave</td><td><code>PCLK</code></td><td>input</td><td>1 bit</td><td>APB clock</td></tr>
-        <tr><td>APB slave</td><td><code>PRESETn</code></td><td>input</td><td>1 bit</td><td>APB async reset, active low</td></tr>
-        <tr><td>APB slave</td><td><code>PSEL</code></td><td>input</td><td>1 bit</td><td>APB select</td></tr>
-        <tr><td>APB slave</td><td><code>PENABLE</code></td><td>input</td><td>1 bit</td><td>APB enable phase</td></tr>
-        <tr><td>APB slave</td><td><code>PADDR</code></td><td>input</td><td><code>APB_AW</code></td><td>APB byte address</td></tr>
-        <tr><td>APB slave</td><td><code>PWRITE</code></td><td>input</td><td>1 bit</td><td>APB write/read select</td></tr>
-        <tr><td>APB slave</td><td><code>PWDATA</code></td><td>input</td><td><code>APB_DW</code></td><td>APB write data</td></tr>
-        <tr><td>APB slave</td><td><code>PREADY</code></td><td>output</td><td>1 bit</td><td>APB ready</td></tr>
-        <tr><td>APB slave</td><td><code>PSLVERR</code></td><td>output</td><td>1 bit</td><td>APB slave error</td></tr>
-        <tr><td>APB slave</td><td><code>PRDATA</code></td><td>output</td><td><code>APB_DW</code></td><td>APB read data</td></tr>
-        <tr><td>Clock/reset</td><td><code>i_clk</code></td><td>input</td><td>1 bit</td><td>ENC core/control clock</td></tr>
-        <tr><td>Clock/reset</td><td><code>i_otf_clk</code></td><td>input</td><td>1 bit</td><td>OTF input clock</td></tr>
-        <tr><td>Clock/reset</td><td><code>i_vivo_clk</code></td><td>input</td><td>1 bit</td><td>VIVO clock</td></tr>
-        <tr><td>Clock/reset</td><td><code>i_rstn</code></td><td>input</td><td>1 bit</td><td>Global reset, active low</td></tr>
-        <tr><td>OTF input</td><td><code>i_otf_vsync</code></td><td>input</td><td>1 bit</td><td>Input frame sync</td></tr>
-        <tr><td>OTF input</td><td><code>i_otf_hsync</code></td><td>input</td><td>1 bit</td><td>Input line sync</td></tr>
-        <tr><td>OTF input</td><td><code>i_otf_de</code></td><td>input</td><td>1 bit</td><td>Input data enable</td></tr>
-        <tr><td>OTF input</td><td><code>i_otf_data</code></td><td>input</td><td>128 bit</td><td>Input pixel data</td></tr>
-        <tr><td>OTF input</td><td><code>i_otf_fcnt</code></td><td>input</td><td>4 bit</td><td>Input frame count</td></tr>
-        <tr><td>OTF input</td><td><code>i_otf_lcnt</code></td><td>input</td><td>12 bit</td><td>Input line count</td></tr>
-        <tr><td>OTF input</td><td><code>o_otf_ready</code></td><td>output</td><td>1 bit</td><td>ENC 对 OTF 输入的反压</td></tr>
-        <tr><td>SRAM bank0</td><td><code>o_bank0_en</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM enable</td></tr>
-        <tr><td>SRAM bank0</td><td><code>o_bank0_wen</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM write enable</td></tr>
-        <tr><td>SRAM bank0</td><td><code>o_bank0_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank0 SRAM address</td></tr>
-        <tr><td>SRAM bank0</td><td><code>o_bank0_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank0 SRAM write data</td></tr>
-        <tr><td>SRAM bank0</td><td><code>i_bank0_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank0 SRAM read data</td></tr>
-        <tr><td>SRAM bank0</td><td><code>i_bank0_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank0 SRAM read data valid</td></tr>
-        <tr><td>SRAM bank1</td><td><code>o_bank1_en</code></td><td>output</td><td>1 bit</td><td>Bank1 SRAM enable</td></tr>
-        <tr><td>SRAM bank1</td><td><code>o_bank1_wen</code></td><td>output</td><td>1 bit</td><td>Bank1 SRAM write enable</td></tr>
-        <tr><td>SRAM bank1</td><td><code>o_bank1_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank1 SRAM address</td></tr>
-        <tr><td>SRAM bank1</td><td><code>o_bank1_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM write data</td></tr>
-        <tr><td>SRAM bank1</td><td><code>i_bank1_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM read data</td></tr>
-        <tr><td>SRAM bank1</td><td><code>i_bank1_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank1 SRAM read data valid</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awid</code></td><td>output</td><td><code>AXI_IDW+1</code></td><td>AXI AW ID</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awaddr</code></td><td>output</td><td><code>AXI_AW</code></td><td>AXI AW address</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awlen</code></td><td>output</td><td><code>AXI_LENW</code></td><td>AXI AW burst length</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awsize</code></td><td>output</td><td>3 bit</td><td>AXI AW beat size</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awburst</code></td><td>output</td><td>2 bit</td><td>AXI AW burst type</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awlock</code></td><td>output</td><td>2 bit</td><td>AXI AW lock</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awcache</code></td><td>output</td><td>4 bit</td><td>AXI AW cache attribute</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awprot</code></td><td>output</td><td>3 bit</td><td>AXI AW protection attribute</td></tr>
-        <tr><td>AXI write address</td><td><code>o_m_axi_awvalid</code></td><td>output</td><td>1 bit</td><td>AXI AW valid</td></tr>
-        <tr><td>AXI write address</td><td><code>i_m_axi_awready</code></td><td>input</td><td>1 bit</td><td>AXI AW ready</td></tr>
-        <tr><td>AXI write data</td><td><code>o_m_axi_wdata</code></td><td>output</td><td><code>AXI_DW</code></td><td>AXI W data</td></tr>
-        <tr><td>AXI write data</td><td><code>o_m_axi_wstrb</code></td><td>output</td><td><code>AXI_DW/8</code></td><td>AXI W byte strobe</td></tr>
-        <tr><td>AXI write data</td><td><code>o_m_axi_wvalid</code></td><td>output</td><td>1 bit</td><td>AXI W valid</td></tr>
-        <tr><td>AXI write data</td><td><code>o_m_axi_wlast</code></td><td>output</td><td>1 bit</td><td>AXI W last beat</td></tr>
-        <tr><td>AXI write data</td><td><code>i_m_axi_wready</code></td><td>input</td><td>1 bit</td><td>AXI W ready</td></tr>
-        <tr><td>AXI write response</td><td><code>i_m_axi_bid</code></td><td>input</td><td><code>AXI_IDW+1</code></td><td>AXI B ID</td></tr>
-        <tr><td>AXI write response</td><td><code>i_m_axi_bresp</code></td><td>input</td><td>2 bit</td><td>AXI B response</td></tr>
-        <tr><td>AXI write response</td><td><code>i_m_axi_bvalid</code></td><td>input</td><td>1 bit</td><td>AXI B valid</td></tr>
-        <tr><td>AXI write response</td><td><code>o_m_axi_bready</code></td><td>output</td><td>1 bit</td><td>AXI B ready</td></tr>
-        <tr><td>Done/IRQ</td><td><code>o_stage_done</code></td><td>output</td><td>8 bit</td><td>Stage done bitmap</td></tr>
-        <tr><td>Done/IRQ</td><td><code>o_frame_done</code></td><td>output</td><td>1 bit</td><td>Frame done flag</td></tr>
-        <tr><td>Done/IRQ</td><td><code>o_irq</code></td><td>output</td><td>1 bit</td><td>Interrupt output</td></tr>
-      </tbody>
-    </table>
+          <h5>3.21 Meta Count1</h5>
+          <p><strong>寄存器：</strong><code>REG_META_COUNT1</code>；<strong>地址：</strong><code>0x006c</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 metadata count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计计数，只用于 debug 和吞吐量核对。</div>
 
-    <h3>10.2 DEC Wrapper: <code>ubwc_dec_wrapper_top.v</code></h3>
-    <table>
-      <thead>
-        <tr><th>接口组</th><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>APB slave</td><td><code>PCLK</code></td><td>input</td><td>1 bit</td><td>APB clock</td></tr>
-        <tr><td>APB slave</td><td><code>PRESETn</code></td><td>input</td><td>1 bit</td><td>APB async reset, active low</td></tr>
-        <tr><td>APB slave</td><td><code>PSEL</code></td><td>input</td><td>1 bit</td><td>APB select</td></tr>
-        <tr><td>APB slave</td><td><code>PENABLE</code></td><td>input</td><td>1 bit</td><td>APB enable phase</td></tr>
-        <tr><td>APB slave</td><td><code>PADDR</code></td><td>input</td><td><code>APB_AW</code></td><td>APB byte address</td></tr>
-        <tr><td>APB slave</td><td><code>PWRITE</code></td><td>input</td><td>1 bit</td><td>APB write/read select</td></tr>
-        <tr><td>APB slave</td><td><code>PWDATA</code></td><td>input</td><td><code>APB_DW</code></td><td>APB write data</td></tr>
-        <tr><td>APB slave</td><td><code>PREADY</code></td><td>output</td><td>1 bit</td><td>APB ready</td></tr>
-        <tr><td>APB slave</td><td><code>PSLVERR</code></td><td>output</td><td>1 bit</td><td>APB slave error</td></tr>
-        <tr><td>APB slave</td><td><code>PRDATA</code></td><td>output</td><td><code>APB_DW</code></td><td>APB read data</td></tr>
-        <tr><td>OTF/VIVO clock</td><td><code>i_otf_clk</code></td><td>input</td><td>1 bit</td><td>OTF output clock</td></tr>
-        <tr><td>OTF/VIVO clock</td><td><code>i_vivo_clk</code></td><td>input</td><td>1 bit</td><td>VIVO clock</td></tr>
-        <tr><td>OTF/VIVO clock</td><td><code>i_otf_rstn</code></td><td>input</td><td>1 bit</td><td>OTF reset, active low</td></tr>
-        <tr><td>OTF output</td><td><code>o_otf_vsync</code></td><td>output</td><td>1 bit</td><td>Output frame sync</td></tr>
-        <tr><td>OTF output</td><td><code>o_otf_hsync</code></td><td>output</td><td>1 bit</td><td>Output line sync</td></tr>
-        <tr><td>OTF output</td><td><code>o_otf_de</code></td><td>output</td><td>1 bit</td><td>Output data enable</td></tr>
-        <tr><td>OTF output</td><td><code>o_otf_data</code></td><td>output</td><td>128 bit</td><td>Output pixel data</td></tr>
-        <tr><td>OTF output</td><td><code>o_otf_fcnt</code></td><td>output</td><td>4 bit</td><td>Output frame count</td></tr>
-        <tr><td>OTF output</td><td><code>o_otf_lcnt</code></td><td>output</td><td>12 bit</td><td>Output line count</td></tr>
-        <tr><td>OTF output</td><td><code>i_otf_ready</code></td><td>input</td><td>1 bit</td><td>Downstream OTF ready</td></tr>
-        <tr><td>SRAM bank0</td><td><code>o_bank0_en</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM enable</td></tr>
-        <tr><td>SRAM bank0</td><td><code>o_bank0_wen</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM write enable</td></tr>
-        <tr><td>SRAM bank0</td><td><code>o_bank0_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank0 SRAM address</td></tr>
-        <tr><td>SRAM bank0</td><td><code>o_bank0_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank0 SRAM write data</td></tr>
-        <tr><td>SRAM bank0</td><td><code>i_bank0_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank0 SRAM read data</td></tr>
-        <tr><td>SRAM bank0</td><td><code>i_bank0_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank0 SRAM read data valid</td></tr>
-        <tr><td>SRAM bank1</td><td><code>o_bank1_en</code></td><td>output</td><td>1 bit</td><td>Bank1 SRAM enable</td></tr>
-        <tr><td>SRAM bank1</td><td><code>o_bank1_wen</code></td><td>output</td><td>1 bit</td><td>Bank1 SRAM write enable</td></tr>
-        <tr><td>SRAM bank1</td><td><code>o_bank1_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank1 SRAM address</td></tr>
-        <tr><td>SRAM bank1</td><td><code>o_bank1_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM write data</td></tr>
-        <tr><td>SRAM bank1</td><td><code>i_bank1_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM read data</td></tr>
-        <tr><td>SRAM bank1</td><td><code>i_bank1_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank1 SRAM read data valid</td></tr>
-        <tr><td>AXI read clock</td><td><code>i_axi_clk</code></td><td>input</td><td>1 bit</td><td>AXI read master clock</td></tr>
-        <tr><td>AXI read clock</td><td><code>i_axi_rstn</code></td><td>input</td><td>1 bit</td><td>AXI read master reset, active low</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_arid</code></td><td>output</td><td><code>AXI_IDW+1</code></td><td>AXI AR ID</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_araddr</code></td><td>output</td><td><code>AXI_AW</code></td><td>AXI AR address</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_arlen</code></td><td>output</td><td><code>AXI_LENW</code></td><td>AXI AR burst length</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_arsize</code></td><td>output</td><td>4 bit</td><td>AXI AR beat size</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_arburst</code></td><td>output</td><td>2 bit</td><td>AXI AR burst type</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_arlock</code></td><td>output</td><td>1 bit</td><td>AXI AR lock</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_arcache</code></td><td>output</td><td>4 bit</td><td>AXI AR cache attribute</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_arprot</code></td><td>output</td><td>3 bit</td><td>AXI AR protection attribute</td></tr>
-        <tr><td>AXI read address</td><td><code>o_m_axi_arvalid</code></td><td>output</td><td>1 bit</td><td>AXI AR valid</td></tr>
-        <tr><td>AXI read address</td><td><code>i_m_axi_arready</code></td><td>input</td><td>1 bit</td><td>AXI AR ready</td></tr>
-        <tr><td>AXI read data</td><td><code>i_m_axi_rid</code></td><td>input</td><td><code>AXI_IDW+1</code></td><td>AXI R ID</td></tr>
-        <tr><td>AXI read data</td><td><code>i_m_axi_rdata</code></td><td>input</td><td><code>AXI_DW</code></td><td>AXI R data</td></tr>
-        <tr><td>AXI read data</td><td><code>i_m_axi_rvalid</code></td><td>input</td><td>1 bit</td><td>AXI R valid</td></tr>
-        <tr><td>AXI read data</td><td><code>i_m_axi_rresp</code></td><td>input</td><td>2 bit</td><td>AXI R response</td></tr>
-        <tr><td>AXI read data</td><td><code>i_m_axi_rlast</code></td><td>input</td><td>1 bit</td><td>AXI R last beat</td></tr>
-        <tr><td>AXI read data</td><td><code>o_m_axi_rready</code></td><td>output</td><td>1 bit</td><td>AXI R ready</td></tr>
-        <tr><td>Done/IRQ</td><td><code>o_stage_done</code></td><td>output</td><td>5 bit</td><td>Stage done bitmap</td></tr>
-        <tr><td>Done/IRQ</td><td><code>o_frame_done</code></td><td>output</td><td>1 bit</td><td>Frame done flag</td></tr>
-        <tr><td>Done/IRQ</td><td><code>o_irq</code></td><td>output</td><td>1 bit</td><td>Interrupt output</td></tr>
-      </tbody>
-    </table>
+          <h5>3.22 Tile Address Count0</h5>
+          <p><strong>寄存器：</strong><code>REG_TILEADDR_COUNT0</code>；<strong>地址：</strong><code>0x0070</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>tileaddr_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 tile address count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计计数，只用于 debug，不作为 frame done 判断依据。</div>
 
-    <div class="callout">
-      ENC wrapper 对外是 AXI write master；DEC wrapper 对外是 AXI read master。当前外部 AXI ID 端口宽度为 <code>AXI_IDW+1</code>，内部 frame count/AXI ID 仍按 4 bit 语义传递。
-    </div>
-  </section>
+          <h5>3.23 Tile Address Count1</h5>
+          <p><strong>寄存器：</strong><code>REG_TILEADDR_COUNT1</code>；<strong>地址：</strong><code>0x0074</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>tileaddr_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 tile address count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计计数，只用于 debug，不作为 frame done 判断依据。</div>
 
-        <footer>
-          UBWC ENC/DEC system specification.
-        </footer>
+          <h5>3.24 OTF Tile Count0</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_TILE_COUNT0</code>；<strong>地址：</strong><code>0x0078</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_tile_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 OTF-to-tile tile count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计计数，只用于 debug。</div>
+
+          <h5>3.25 OTF Tile Count1</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_TILE_COUNT1</code>；<strong>地址：</strong><code>0x007c</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_tile_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 OTF-to-tile tile count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计计数，只用于 debug。</div>
+
+          <h5>3.26 OTF DE Count0</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_DE_COUNT0</code>；<strong>地址：</strong><code>0x0080</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_de_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 <code>i_otf_de && o_otf_ready</code> count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 OTF 有效输入 beat，只用于 debug。</div>
+
+          <h5>3.27 OTF DE Count1</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_DE_COUNT1</code>；<strong>地址：</strong><code>0x0084</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_de_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 <code>i_otf_de && o_otf_ready</code> count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 OTF 有效输入 beat，只用于 debug。</div>
+
+          <h5>3.28 OTF Line Count0</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_LINE_COUNT0</code>；<strong>地址：</strong><code>0x0088</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_line_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 OTF line count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 OTF line，只用于 debug。</div>
+
+          <h5>3.29 OTF Line Count1</h5>
+          <p><strong>寄存器：</strong><code>REG_OTF_LINE_COUNT1</code>；<strong>地址：</strong><code>0x008c</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_line_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 OTF line count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 OTF line，只用于 debug。</div>
+
+          <h5>3.30 Tile AXI W Count0</h5>
+          <p><strong>寄存器：</strong><code>REG_TILE_AXI_W_CNT0</code>；<strong>地址：</strong><code>0x0090</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt0</code></td><td>RO</td><td>dynamic</td><td>Slot0 tile AXI W beat count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 tile AXI W beat，只用于 debug。</div>
+
+          <h5>3.31 Tile AXI W Count1</h5>
+          <p><strong>寄存器：</strong><code>REG_TILE_AXI_W_CNT1</code>；<strong>地址：</strong><code>0x0094</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt1</code></td><td>RO</td><td>dynamic</td><td>Slot1 tile AXI W beat count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 tile AXI W beat，只用于 debug。</div>
+
+          <h5>3.32 Meta AXI W Count0</h5>
+          <p><strong>寄存器：</strong><code>REG_META_AXI_W_CNT0</code>；<strong>地址：</strong><code>0x0098</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt0</code></td><td>RO</td><td>dynamic</td><td>Slot0 metadata AXI W beat count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 metadata AXI W beat，只用于 debug。</div>
+
+          <h5>3.33 Meta AXI W Count1</h5>
+          <p><strong>寄存器：</strong><code>REG_META_AXI_W_CNT1</code>；<strong>地址：</strong><code>0x009c</code></p>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt1</code></td><td>RO</td><td>dynamic</td><td>Slot1 metadata AXI W beat count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 metadata AXI W beat，只用于 debug。</div>
+
+          <h3 id="enc-diagram">ENC 4. Diagram</h3>
+          <figure><img src="ubwc_enc_system_block_cn.svg" alt="ENC 系统块图"><figcaption>ENC 系统块图。</figcaption></figure>
+          <figure><img src="ubwc_enc_otf_to_tile_detail_cn.svg" alt="ENC OTF-to-tile 详图"><figcaption>OTF pack、async FIFO、line-to-tile、bank0/1 与 tile read scanner。</figcaption></figure>
+          <figure><img src="ubwc_enc_axi_write_detail_cn.svg" alt="ENC AXI write 详图"><figcaption>tile/meta write command、AXI merge/x2x 写出。</figcaption></figure>
+          <figure><img src="ubwc_enc_pingpong_timing_cn.svg" alt="ENC Ping-pong SRAM 时序图"><figcaption>bank0/bank1 写行组与读 tile 的错相调度。</figcaption></figure>
+          <figure><img src="ubwc_bank_layout_4096_cn.svg" alt="UBWC SRAM bank 存储示意图"><figcaption>4096 px 最大宽度下 bank0/bank1 容量边界和 YUV420 两 bank 逻辑工作组关系；YUV420 中 bank0 保存 Y0..7 + UV0..3，bank1 保存 Y8..15 + UV4..7。</figcaption></figure>
+          <table>
+            <tr><th>SRAM 项目</th><th>规格</th></tr>
+            <tr><td>bank 数量</td><td>2 个外部 SRAM bank，bank0/bank1</td></tr>
+            <tr><td>单 bank 容量</td><td>4096 words x 16 bytes = 64 KiB</td></tr>
+            <tr><td>使用方式</td><td>ping-pong 工作 buffer；bank 不是固定 Y/UV plane</td></tr>
+            <tr><td>SRAM 与图像大小关系</td><td>容量主要随最大支持宽度变化；高度通过多次行组处理复用同一 bank，不要求随图像高度线性增加。</td></tr>
+          </table>
+
+          <h3 id="enc-work">ENC 5. Work Mode</h3>
+          <pre><code>1. 读取 REG_VERSION / REG_DATE。
+2. 图像格式、尺寸或 layout 变化时，配置 TILE_CFG、CI_CFG、OTF_CFG、META_ACTIVE_SIZE、META_PITCH。
+3. 每个输出 buffer 到来时，写 META_Y、TILE_Y、META_UV、TILE_UV 四个 64-bit base address。
+4. 写 REG_IRQ_CTRL[5]=1 产生 start token。
+5. 上游按 i_otf_fcnt 输入 OTF frame。
+6. 硬件按 fcnt[0] 选择地址 slot，并写出 compressed tile 和 metadata。
+7. 软件读 STATUS/COUNT 处理状态，写 REG_IRQ_CTRL[1]=1 清中断。</code></pre>
+
+          <h3 id="enc-debug">ENC 6. Debug</h3>
+          <table>
+            <tr><th>现象</th><th>建议读取</th><th>判断方向</th></tr>
+            <tr><td>没有中断</td><td><code>REG_IRQ_CTRL[2]</code>，<code>REG_STATUS0[8]</code></td><td>判断 IRQ pending 和 frame_done 是否产生</td></tr>
+            <tr><td>立即报错</td><td><code>REG_STATUS0[9]</code>，<code>REG_STATUS0[10:11]</code></td><td>检查当前 <code>fcnt[0]</code> 对应地址 slot 是否有效</td></tr>
+            <tr><td>OTF 输入异常</td><td><code>REG_STATUS0[4:5]</code>，<code>REG_OTF_DE_COUNT0/1</code>，<code>REG_OTF_LINE_COUNT0/1</code></td><td>检查输入行像素数和帧行数</td></tr>
+            <tr><td>AXI 写异常</td><td><code>REG_TILE_AXI_W_CNT0/1</code>，<code>REG_META_AXI_W_CNT0/1</code></td><td>区分 tile 数据与 metadata 写路径</td></tr>
+          </table>
+
+          <h3 id="enc-ppa">ENC 7. PPA</h3>
+          <div class="note">PPA 章节先保留分类框架，详细评估内容后续按 Power、Performance、Area 三个方向补充。</div>
+          <table>
+            <tr><th>PPA 方向</th><th>内容</th></tr>
+            <tr><td>Power</td><td></td></tr>
+            <tr><td>Performance</td><td></td></tr>
+            <tr><td>Area</td><td></td></tr>
+          </table>
+        </section>
+
+        <section id="dec">
+          <h2>DEC</h2>
+          <h3 id="dec-feature">DEC 1. Feature</h3>
+          <table>
+            <tr><th>特性</th><th>说明</th></tr>
+            <tr><td>功能</td><td>从外部 memory 读取 UBWC metadata 和 compressed tile 数据，经过 VIVO 解压后输出 OTF 视频流。</td></tr>
+            <tr><td>输入接口</td><td>AXI read master 读取 UBWC buffer。</td></tr>
+            <tr><td>输出接口</td><td>OTF output，包含 <code>vsync/hsync/de/data/fcnt/lcnt/ready</code>。</td></tr>
+            <tr><td>推荐时钟</td><td>APB/PCLK 100 MHz；AXI/i_axi_clk 500 MHz；Core/i_vivo_clk 200 MHz；OTF/i_otf_clk 320 MHz。</td></tr>
+            <tr><td>支持格式</td><td>RGBA8888、RGBA1010102、YUV420_8/NV12、YUV420_10/P010、RGBA8888 lossy 2:1。</td></tr>
+            <tr><td>支持像素尺寸</td><td>当前 SRAM/line-buffer 规格按最大有效宽度 4096 px 设计；1440x3200 属于该宽度范围内。实际输出以 OTF timing、metadata tile 数和 layout 配置为准。</td></tr>
+            <tr><td>SRAM</td><td>当前外部工作 SRAM 为 bank0/bank1 两个同规格 bank，单 bank 64 KiB，两 bank 合计 128 KiB。SRAM 容量主要由最大支持图像宽度决定；图像高度只影响行组处理次数，不增加单 bank 容量；小于或等于 4096 px 宽的 RGBA/YUV420 场景复用同一规格 SRAM。</td></tr>
+            <tr><td>连续帧</td><td>软件每帧写一组 input UBWC base address 后写 <code>IRQ_CTRL[5]=1</code>。</td></tr>
+            <tr><td>地址 slot</td><td>两组地址 slot，start 后递增/锁存 frame count，按 <code>fcnt[0]</code> 选择 slot。</td></tr>
+            <tr><td>VIVO 状态</td><td><code>STATUS2[0]</code> 为模块级 <code>vivo_idle</code>，<code>STATUS3[0]</code> 为模块级 <code>vivo_error</code>；当前只暴露 1 bit 聚合状态，不再暴露多路子状态。</td></tr>
+            <tr><td>中断</td><td>正确中断在最后有效输出数据完成后产生；错误中断用于 AXI/VIVO/OTF/地址异常。</td></tr>
+          </table>
+          <h3 id="dec-interface">DEC 2. Interface</h3>
+          <h4>参数</h4>
+          <table>
+            <tr><th>参数</th><th>默认值</th><th>说明</th></tr>
+            <tr><td><code>APB_AW/APB_DW</code></td><td>16 / 32</td><td>APB byte address/data width</td></tr>
+            <tr><td><code>AXI_AW/AXI_DW/AXI_IDW/AXI_LENW</code></td><td>64 / 64 / 4 / 8</td><td>内部 AXI ID/FCNT 语义宽度为 4 bit；wrapper 对外 AXI ID 端口宽度为 <code>AXI_IDW+1=5 bit</code>。</td></tr>
+            <tr><td><code>SB_WIDTH</code></td><td>1</td><td>Sideband width</td></tr>
+            <tr><td><code>COM_BUF_AW/COM_BUF_DW</code></td><td>12 / 128</td><td>外部 SRAM bank address/data width</td></tr>
+            <tr><td><code>FORCE_FULL_PAYLOAD</code></td><td>0</td><td>验证/兼容配置</td></tr>
+          </table>
+          <h4>Port</h4>
+          <table>
+            <tr><th>接口组</th><th>信号</th><th>方向</th><th>位宽</th><th>说明</th></tr>
+            <tr><td>APB</td><td><code>PCLK</code></td><td>input</td><td>1 bit</td><td>APB clock</td></tr>
+            <tr><td>APB</td><td><code>PRESETn</code></td><td>input</td><td>1 bit</td><td>APB async reset, active low</td></tr>
+            <tr><td>APB</td><td><code>PSEL</code></td><td>input</td><td>1 bit</td><td>APB select</td></tr>
+            <tr><td>APB</td><td><code>PENABLE</code></td><td>input</td><td>1 bit</td><td>APB enable phase</td></tr>
+            <tr><td>APB</td><td><code>PADDR</code></td><td>input</td><td><code>APB_AW</code></td><td>APB byte address</td></tr>
+            <tr><td>APB</td><td><code>PWRITE</code></td><td>input</td><td>1 bit</td><td>APB write/read select</td></tr>
+            <tr><td>APB</td><td><code>PWDATA</code></td><td>input</td><td><code>APB_DW</code></td><td>APB write data</td></tr>
+            <tr><td>APB</td><td><code>PREADY</code></td><td>output</td><td>1 bit</td><td>APB ready</td></tr>
+            <tr><td>APB</td><td><code>PSLVERR</code></td><td>output</td><td>1 bit</td><td>APB slave error</td></tr>
+            <tr><td>APB</td><td><code>PRDATA</code></td><td>output</td><td><code>APB_DW</code></td><td>APB read data</td></tr>
+            <tr><td>OTF clock/reset</td><td><code>i_otf_clk</code></td><td>input</td><td>1 bit</td><td>OTF output clock</td></tr>
+            <tr><td>OTF clock/reset</td><td><code>i_otf_rstn</code></td><td>input</td><td>1 bit</td><td><code>i_otf_clk</code> domain synchronous reset, active low</td></tr>
+            <tr><td>VIVO clock/reset</td><td><code>i_vivo_clk</code></td><td>input</td><td>1 bit</td><td>VIVO clock</td></tr>
+            <tr><td>VIVO clock/reset</td><td><code>i_vivo_rstn</code></td><td>input</td><td>1 bit</td><td><code>i_vivo_clk</code> domain synchronous reset, active low</td></tr>
+            <tr><td>OTF output</td><td><code>o_otf_vsync</code></td><td>output</td><td>1 bit</td><td>Output frame sync</td></tr>
+            <tr><td>OTF output</td><td><code>o_otf_hsync</code></td><td>output</td><td>1 bit</td><td>Output line sync</td></tr>
+            <tr><td>OTF output</td><td><code>o_otf_de</code></td><td>output</td><td>1 bit</td><td>Output data enable</td></tr>
+            <tr><td>OTF output</td><td><code>o_otf_data</code></td><td>output</td><td>128 bit</td><td>Output pixel data</td></tr>
+            <tr><td>OTF output</td><td><code>o_otf_fcnt</code></td><td>output</td><td>4 bit</td><td>Output frame count</td></tr>
+            <tr><td>OTF output</td><td><code>o_otf_lcnt</code></td><td>output</td><td>12 bit</td><td>Output line count</td></tr>
+            <tr><td>OTF output</td><td><code>i_otf_ready</code></td><td>input</td><td>1 bit</td><td>Downstream OTF ready</td></tr>
+            <tr><td>SRAM bank0</td><td><code>o_bank0_en</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM enable</td></tr>
+            <tr><td>SRAM bank0</td><td><code>o_bank0_wen</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM write enable</td></tr>
+            <tr><td>SRAM bank0</td><td><code>o_bank0_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank0 SRAM address</td></tr>
+            <tr><td>SRAM bank0</td><td><code>o_bank0_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank0 SRAM write data</td></tr>
+            <tr><td>SRAM bank0</td><td><code>i_bank0_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank0 SRAM read data</td></tr>
+            <tr><td>SRAM bank0</td><td><code>i_bank0_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank0 SRAM read data valid</td></tr>
+            <tr><td>SRAM bank1</td><td><code>o_bank1_en</code></td><td>output</td><td>1 bit</td><td>Bank1 SRAM enable</td></tr>
+            <tr><td>SRAM bank1</td><td><code>o_bank1_wen</code></td><td>output</td><td>1 bit</td><td>Bank1 SRAM write enable</td></tr>
+            <tr><td>SRAM bank1</td><td><code>o_bank1_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank1 SRAM address</td></tr>
+            <tr><td>SRAM bank1</td><td><code>o_bank1_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM write data</td></tr>
+            <tr><td>SRAM bank1</td><td><code>i_bank1_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM read data</td></tr>
+            <tr><td>SRAM bank1</td><td><code>i_bank1_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank1 SRAM read data valid</td></tr>
+            <tr><td>AXI clock/reset</td><td><code>i_axi_clk</code></td><td>input</td><td>1 bit</td><td>AXI read master clock</td></tr>
+            <tr><td>AXI clock/reset</td><td><code>i_axi_rstn</code></td><td>input</td><td>1 bit</td><td><code>i_axi_clk</code> domain synchronous reset, active low</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arid</code></td><td>output</td><td><code>AXI_IDW+1</code>，默认 5 bit</td><td>对外 AXI AR ID；内部有效 FCNT/ID 语义为低 4 bit</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_araddr</code></td><td>output</td><td><code>AXI_AW</code></td><td>AXI AR address</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arlen</code></td><td>output</td><td><code>AXI_LENW</code></td><td>AXI AR burst length</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arsize</code></td><td>output</td><td>4 bit</td><td>AXI AR beat size</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arburst</code></td><td>output</td><td>2 bit</td><td>AXI AR burst type</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arlock</code></td><td>output</td><td>1 bit</td><td>AXI AR lock</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arcache</code></td><td>output</td><td>4 bit</td><td>AXI AR cache attribute</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arprot</code></td><td>output</td><td>3 bit</td><td>AXI AR protection attribute</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arvalid</code></td><td>output</td><td>1 bit</td><td>AXI AR valid</td></tr>
+            <tr><td>AXI AR</td><td><code>i_m_axi_arready</code></td><td>input</td><td>1 bit</td><td>AXI AR ready</td></tr>
+            <tr><td>AXI R</td><td><code>i_m_axi_rid</code></td><td>input</td><td><code>AXI_IDW+1</code>，默认 5 bit</td><td>对外 AXI R ID；低 4 bit 对应内部 FCNT/ID 语义</td></tr>
+            <tr><td>AXI R</td><td><code>i_m_axi_rdata</code></td><td>input</td><td><code>AXI_DW</code></td><td>AXI R data</td></tr>
+            <tr><td>AXI R</td><td><code>i_m_axi_rvalid</code></td><td>input</td><td>1 bit</td><td>AXI R valid</td></tr>
+            <tr><td>AXI R</td><td><code>i_m_axi_rresp</code></td><td>input</td><td>2 bit</td><td>AXI R response</td></tr>
+            <tr><td>AXI R</td><td><code>i_m_axi_rlast</code></td><td>input</td><td>1 bit</td><td>AXI R last beat</td></tr>
+            <tr><td>AXI R</td><td><code>o_m_axi_rready</code></td><td>output</td><td>1 bit</td><td>AXI R ready</td></tr>
+            <tr><td>Done/IRQ</td><td><code>o_stage_done</code></td><td>output</td><td>5 bit</td><td>Stage done bitmap</td></tr>
+            <tr><td>Done/IRQ</td><td><code>o_frame_done</code></td><td>output</td><td>1 bit</td><td>Frame done flag</td></tr>
+            <tr><td>Done/IRQ</td><td><code>o_irq</code></td><td>output</td><td>1 bit</td><td>Interrupt output</td></tr>
+          </table>
+
+          <h3 id="dec-register">DEC 3. Register</h3>
+          <h4>DEC Register 总表</h4>
+          <table>
+            <tr><th>Offset</th><th>Register</th><th>Access</th><th>Reset</th><th>Bit</th><th>Field</th><th>概要</th></tr>
+            <tr><td><code>0x0000</code></td><td><code>REG_VERSION</code></td><td>RO</td><td><code>0x00010000</code></td><td><code>[31:0]</code></td><td><code>version</code></td><td>IP version，上电后读一次。</td></tr>
+            <tr><td><code>0x0004</code></td><td><code>REG_DATE</code></td><td>RO</td><td><code>0x20260403</code></td><td><code>[31:0]</code></td><td><code>date</code></td><td>RTL date，上电后读一次。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>Level-1 bank swizzle enable。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>Level-2 bank swizzle enable。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[2]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>Level-3 bank swizzle enable。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[8:4]</code></td><td><code>highest_bank_bit</code></td><td>Highest bank bit。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[9]</code></td><td><code>bank_spread_en</code></td><td>Bank spread enable。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[10]</code></td><td><code>four_line_format</code></td><td>4-line format select。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[11]</code></td><td><code>is_lossy_rgba_2_1_format</code></td><td>RGBA 2:1 lossy format select。</td></tr>
+            <tr><td><code>0x000c</code></td><td><code>APB_ADDR_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[11:0]</code></td><td><code>tile_cfg_pitch</code></td><td>tile pitch，单位为 16 bytes。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>ci_input_type</code></td><td>CI input type；当前软件通常写 1。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[8]</code></td><td><code>ci_lossy</code></td><td>CI lossy enable。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[10:9]</code></td><td><code>ci_alpha_mode</code></td><td>CI alpha mode。</td></tr>
+            <tr><td><code>0x0014</code></td><td><code>APB_ADDR_VIVO_CFG</code></td><td>RW</td><td><code>1</code></td><td><code>[0]</code></td><td><code>vivo_ubwc_en</code></td><td>VIVO UBWC enable。</td></tr>
+            <tr><td><code>0x0014</code></td><td><code>APB_ADDR_VIVO_CFG</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>vivo_sreset</code></td><td>VIVO soft reset。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>APB_ADDR_OTF_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_img_width</code></td><td>输出 active width。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>APB_ADDR_OTF_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[20:16]</code></td><td><code>otf_cfg_format</code></td><td>输出 OTF format。</td></tr>
+            <tr><td><code>0x001c</code></td><td><code>APB_ADDR_OTF_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_h_total</code></td><td>OTF horizontal total。</td></tr>
+            <tr><td><code>0x001c</code></td><td><code>APB_ADDR_OTF_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>otf_cfg_h_sync</code></td><td>OTF horizontal sync width。</td></tr>
+            <tr><td><code>0x0020</code></td><td><code>APB_ADDR_OTF_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_h_bp</code></td><td>OTF horizontal back porch。</td></tr>
+            <tr><td><code>0x0020</code></td><td><code>APB_ADDR_OTF_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>otf_cfg_h_act</code></td><td>OTF horizontal active width。</td></tr>
+            <tr><td><code>0x0024</code></td><td><code>APB_ADDR_OTF_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_v_total</code></td><td>OTF vertical total。</td></tr>
+            <tr><td><code>0x0024</code></td><td><code>APB_ADDR_OTF_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>otf_cfg_v_sync</code></td><td>OTF vertical sync width。</td></tr>
+            <tr><td><code>0x0028</code></td><td><code>APB_ADDR_OTF_CFG4</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_v_bp</code></td><td>OTF vertical back porch。</td></tr>
+            <tr><td><code>0x0028</code></td><td><code>APB_ADDR_OTF_CFG4</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>otf_cfg_v_act</code></td><td>OTF vertical active height。</td></tr>
+            <tr><td><code>0x002c</code></td><td><code>APB_ADDR_META_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>meta_tile_x_numbers</code></td><td>Y/RGBA metadata tile columns。</td></tr>
+            <tr><td><code>0x002c</code></td><td><code>APB_ADDR_META_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>meta_tile_y_numbers</code></td><td>Y/RGBA metadata tile rows。</td></tr>
+            <tr><td><code>0x0030</code></td><td><code>REG_META_BASE_Y_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_base_addr_rgba_y[31:0]</code></td><td>RGBA/Y metadata 读取基地址低 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x0034</code></td><td><code>REG_META_BASE_Y_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_base_addr_rgba_y[63:32]</code></td><td>RGBA/Y metadata 读取基地址高 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x0038</code></td><td><code>REG_TILE_BASE_Y_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>tile_base_addr_rgba_y[31:0]</code></td><td>RGBA/Y compressed tile 读取基地址低 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x003c</code></td><td><code>REG_TILE_BASE_Y_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>tile_base_addr_rgba_y[63:32]</code></td><td>RGBA/Y compressed tile 读取基地址高 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x0040</code></td><td><code>REG_META_BASE_UV_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_base_addr_uv[31:0]</code></td><td>UV metadata 读取基地址低 32 bit；RGBA 不使用。</td></tr>
+            <tr><td><code>0x0044</code></td><td><code>REG_META_BASE_UV_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_base_addr_uv[63:32]</code></td><td>UV metadata 读取基地址高 32 bit；RGBA 不使用。</td></tr>
+            <tr><td><code>0x0048</code></td><td><code>REG_TILE_BASE_UV_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>tile_base_addr_uv[31:0]</code></td><td>UV compressed tile 读取基地址低 32 bit；RGBA 不使用。</td></tr>
+            <tr><td><code>0x004c</code></td><td><code>REG_TILE_BASE_UV_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>tile_base_addr_uv[63:32]</code></td><td>UV compressed tile 读取基地址高 32 bit；RGBA 不使用。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>APB_ADDR_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>frame_active</code></td><td>当前帧 active。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>APB_ADDR_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[1]</code></td><td><code>meta_busy</code></td><td>Metadata read stage busy。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>APB_ADDR_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>tile_busy</code></td><td>Tile read stage busy。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>APB_ADDR_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[3]</code></td><td><code>vivo_busy</code></td><td>VIVO busy。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>APB_ADDR_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[4]</code></td><td><code>otf_busy</code></td><td>OTF output busy。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>APB_ADDR_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[5]</code></td><td><code>all_stage_idle</code></td><td>All stage idle。</td></tr>
+            <tr><td><code>0x0050</code></td><td><code>APB_ADDR_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[6]</code></td><td><code>frame_idle_done</code></td><td>Frame idle done。</td></tr>
+            <tr><td><code>0x0054</code></td><td><code>APB_ADDR_STATUS1</code></td><td>RO</td><td>dynamic</td><td><code>[4:0]</code></td><td><code>stage_done</code></td><td>DEC stage done bitmap。</td></tr>
+            <tr><td><code>0x0054</code></td><td><code>APB_ADDR_STATUS1</code></td><td>RO</td><td>dynamic</td><td><code>[8:5]</code></td><td><code>stage_seen</code></td><td>Stage entered busy bitmap。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>APB_ADDR_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>vivo_idle</code></td><td>VIVO idle 状态。</td></tr>
+            <tr><td><code>0x005c</code></td><td><code>APB_ADDR_STATUS3</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>vivo_error</code></td><td>VIVO error 状态。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RW</td><td><code>1</code></td><td><code>[0]</code></td><td><code>irq_enable</code></td><td>IRQ enable。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[1]</code></td><td><code>irq_clear</code></td><td>写 1 清 pending/status sticky。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_pending</code></td><td>Any IRQ pending。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[3]</code></td><td><code>irq_error_pending</code></td><td>Error IRQ pending。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[4]</code></td><td><code>irq_correct_pending</code></td><td>Correct IRQ pending。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[5]</code></td><td><code>start</code></td><td>写 1 产生 frame start token。</td></tr>
+            <tr><td><code>0x0064</code></td><td><code>APB_ADDR_STATUS4</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>irq_status_any</code></td><td>Any IRQ mirror。</td></tr>
+            <tr><td><code>0x0064</code></td><td><code>APB_ADDR_STATUS4</code></td><td>RO</td><td>dynamic</td><td><code>[1]</code></td><td><code>irq_status_error</code></td><td>Error IRQ mirror。</td></tr>
+            <tr><td><code>0x0064</code></td><td><code>APB_ADDR_STATUS4</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_status_correct</code></td><td>Correct IRQ mirror。</td></tr>
+            <tr><td><code>0x0068</code></td><td><code>APB_ADDR_STAT_META</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>stat_meta_tile_cnt</code></td><td>metadata valid tile count。</td></tr>
+            <tr><td><code>0x006c</code></td><td><code>APB_ADDR_STAT_TILE</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>stat_tile_addr_cnt</code></td><td>tile address generator valid tile count。</td></tr>
+            <tr><td><code>0x0070</code></td><td><code>APB_ADDR_STAT_OTF_TILE</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>stat_otf_tile_cnt</code></td><td>tile-to-OTF accepted tile count。</td></tr>
+            <tr><td><code>0x0074</code></td><td><code>APB_ADDR_STAT_OTF_LINE</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>stat_otf_line_cnt</code></td><td>OTF output line count。</td></tr>
+            <tr><td><code>0x0078</code></td><td><code>APB_ADDR_STAT_OTF_DE</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>stat_otf_de_cnt</code></td><td>OTF output de &amp;&amp; ready beat count。</td></tr>
+          </table>
+          <div class="note">APB 访问规则与 ENC 一致：32 bit 寄存器、4 byte 对齐、64 bit 地址先 low 后 high；<code>W1P</code> 写 1 产生 pulse。</div>
+          <h4>DEC 分立寄存器字段说明与计算过程</h4>
+          <h5><code>0x0000 REG_VERSION</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>version</code></td><td>RO</td><td><code>0x00010000</code></td><td>IP version。</td></tr>
+          </table>
+          <div class="note">计算说明：只读识别寄存器，无软件计算；上电后读取一次用于版本匹配。</div>
+
+          <h5><code>0x0004 REG_DATE</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>date</code></td><td>RO</td><td><code>0x20260403</code></td><td>RTL date。</td></tr>
+          </table>
+          <div class="note">计算说明：只读识别寄存器，无软件计算；用于定位当前 RTL 交付版本。</div>
+
+          <h5><code>0x0008 APB_ADDR_TILE_CFG0</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-1 bank swizzle enable。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-2 bank swizzle enable。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-3 bank swizzle enable。</td></tr>
+            <tr><td><code>[8:4]</code></td><td><code>highest_bank_bit</code></td><td>RW</td><td>0</td><td>Highest bank bit。</td></tr>
+            <tr><td><code>[9]</code></td><td><code>bank_spread_en</code></td><td>RW</td><td>0</td><td>Bank spread enable。</td></tr>
+            <tr><td><code>[10]</code></td><td><code>four_line_format</code></td><td>RW</td><td>0</td><td>4-line format select。</td></tr>
+            <tr><td><code>[11]</code></td><td><code>is_lossy_rgba_2_1_format</code></td><td>RW</td><td>0</td><td>RGBA 2:1 lossy format select。</td></tr>
+          </table>
+          <div class="note">计算说明：bank/swizzle 字段来自系统 memory layout 策略；<code>four_line_format</code> 和 lossy 字段来自图像格式/压缩策略。格式、尺寸或 layout 变化时重新配置。</div>
+
+          <h5><code>0x000c APB_ADDR_TILE_CFG1</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[11:0]</code></td><td><code>tile_cfg_pitch</code></td><td>RW</td><td>0</td><td>Compressed tile pitch，单位为 16 bytes。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>tile_cfg_pitch = tile_pitch_bytes / 16</code>。<code>tile_pitch_bytes</code> 由读取的 compressed tile plane pitch 按 UBWC layout 对齐得到。</div>
+
+          <h5><code>0x0010 APB_ADDR_TILE_CFG2</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>ci_input_type</code></td><td>RW</td><td>0</td><td>CI input type。</td></tr>
+            <tr><td><code>[8]</code></td><td><code>ci_lossy</code></td><td>RW</td><td>0</td><td>CI lossy enable。</td></tr>
+            <tr><td><code>[10:9]</code></td><td><code>ci_alpha_mode</code></td><td>RW</td><td>0</td><td>CI alpha mode。</td></tr>
+          </table>
+          <div class="note">计算说明：由 CI 解码策略决定；当前软件通常配置 <code>ci_input_type=1</code>，其他字段按格式/压缩策略配置。</div>
+
+          <h5><code>0x0014 APB_ADDR_VIVO_CFG</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>vivo_ubwc_en</code></td><td>RW</td><td>1</td><td>VIVO UBWC enable。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>vivo_sreset</code></td><td>RW</td><td>0</td><td>VIVO soft reset。</td></tr>
+          </table>
+          <div class="note">计算说明：上电后或 VIVO reset 策略变化时配置；正常连续帧模式下不需要每帧改写。</div>
+
+          <h5><code>0x0018 APB_ADDR_OTF_CFG0</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>otf_cfg_img_width</code></td><td>RW</td><td>0</td><td>Output active width。</td></tr>
+            <tr><td><code>[20:16]</code></td><td><code>otf_cfg_format</code></td><td>RW</td><td>0</td><td>Output OTF format。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>otf_cfg_img_width</code> 通常等于 <code>h_act</code>；format 与输出像素格式一致。</div>
+
+          <h5><code>0x001c APB_ADDR_OTF_CFG1</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>otf_cfg_h_total</code></td><td>RW</td><td>0</td><td>Horizontal total。</td></tr>
+            <tr><td><code>[31:16]</code></td><td><code>otf_cfg_h_sync</code></td><td>RW</td><td>0</td><td>Horizontal sync width。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>h_total = h_sync + h_bp + h_act + h_fp</code>；<code>h_sync</code> 对应 OTF 图中的 HSA。</div>
+
+          <h5><code>0x0020 APB_ADDR_OTF_CFG2</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>otf_cfg_h_bp</code></td><td>RW</td><td>0</td><td>Horizontal back porch。</td></tr>
+            <tr><td><code>[31:16]</code></td><td><code>otf_cfg_h_act</code></td><td>RW</td><td>0</td><td>Horizontal active width。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>h_bp</code> 对应 HBP，<code>h_act</code> 对应 HACT；<code>h_fp = h_total - h_sync - h_bp - h_act</code>。</div>
+
+          <h5><code>0x0024 APB_ADDR_OTF_CFG3</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>otf_cfg_v_total</code></td><td>RW</td><td>0</td><td>Vertical total。</td></tr>
+            <tr><td><code>[31:16]</code></td><td><code>otf_cfg_v_sync</code></td><td>RW</td><td>0</td><td>Vertical sync width。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>v_total = v_sync + v_bp + v_act + v_fp</code>；<code>v_sync</code> 对应 OTF 图中的 VSA。</div>
+
+          <h5><code>0x0028 APB_ADDR_OTF_CFG4</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>otf_cfg_v_bp</code></td><td>RW</td><td>0</td><td>Vertical back porch。</td></tr>
+            <tr><td><code>[31:16]</code></td><td><code>otf_cfg_v_act</code></td><td>RW</td><td>0</td><td>Vertical active height。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>v_bp</code> 对应 VBP，<code>v_act</code> 对应 VACT；<code>v_fp = v_total - v_sync - v_bp - v_act</code>。</div>
+
+          <h5><code>0x002c APB_ADDR_META_CFG0</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[15:0]</code></td><td><code>meta_tile_x_numbers</code></td><td>RW</td><td>0</td><td>Y/RGBA metadata tile columns。</td></tr>
+            <tr><td><code>[31:16]</code></td><td><code>meta_tile_y_numbers</code></td><td>RW</td><td>0</td><td>Y/RGBA metadata tile rows。</td></tr>
+          </table>
+          <div class="note">计算说明：<code>meta_tile_x_numbers = ceil(y_plane_width / tile_w)</code>，<code>meta_tile_y_numbers = ceil(y_plane_height / tile_h)</code>；YUV420 的 UV tile 数由格式内部根据 Y 参数推导。</div>
+
+          <h5><code>0x0030..0x004c Meta/Tile Base 地址组</code></h5>
+          <table>
+            <tr><th>Register</th><th>Address</th><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>REG_META_BASE_Y_LO</code></td><td><code>0x0030</code></td><td><code>[31:0]</code></td><td><code>meta_base_addr_rgba_y[31:0]</code></td><td>RW</td><td>0</td><td>RGBA/Y metadata 读取基地址低 32 bit。</td></tr>
+            <tr><td><code>REG_META_BASE_Y_HI</code></td><td><code>0x0034</code></td><td><code>[31:0]</code></td><td><code>meta_base_addr_rgba_y[63:32]</code></td><td>RW</td><td>0</td><td>RGBA/Y metadata 读取基地址高 32 bit。</td></tr>
+            <tr><td><code>REG_TILE_BASE_Y_LO</code></td><td><code>0x0038</code></td><td><code>[31:0]</code></td><td><code>tile_base_addr_rgba_y[31:0]</code></td><td>RW</td><td>0</td><td>RGBA/Y compressed tile 读取基地址低 32 bit。</td></tr>
+            <tr><td><code>REG_TILE_BASE_Y_HI</code></td><td><code>0x003c</code></td><td><code>[31:0]</code></td><td><code>tile_base_addr_rgba_y[63:32]</code></td><td>RW</td><td>0</td><td>RGBA/Y compressed tile 读取基地址高 32 bit。</td></tr>
+            <tr><td><code>REG_META_BASE_UV_LO</code></td><td><code>0x0040</code></td><td><code>[31:0]</code></td><td><code>meta_base_addr_uv[31:0]</code></td><td>RW</td><td>0</td><td>UV metadata 读取基地址低 32 bit；RGBA 不使用。</td></tr>
+            <tr><td><code>REG_META_BASE_UV_HI</code></td><td><code>0x0044</code></td><td><code>[31:0]</code></td><td><code>meta_base_addr_uv[63:32]</code></td><td>RW</td><td>0</td><td>UV metadata 读取基地址高 32 bit；RGBA 不使用。</td></tr>
+            <tr><td><code>REG_TILE_BASE_UV_LO</code></td><td><code>0x0048</code></td><td><code>[31:0]</code></td><td><code>tile_base_addr_uv[31:0]</code></td><td>RW</td><td>0</td><td>UV compressed tile 读取基地址低 32 bit；RGBA 不使用。</td></tr>
+            <tr><td><code>REG_TILE_BASE_UV_HI</code></td><td><code>0x004c</code></td><td><code>[31:0]</code></td><td><code>tile_base_addr_uv[63:32]</code></td><td>RW</td><td>0</td><td>UV compressed tile 读取基地址高 32 bit；RGBA 不使用。</td></tr>
+          </table>
+          <div class="note">地址 layout 计算公式与 ENC 一致，DEC 使用这些地址作为 UBWC input buffer 读取基地址：</div>
+          <pre><code>meta_y_base = frame_base
+tile_y_base = meta_y_base + meta_y_size
+meta_uv_base = has_uv ? tile_y_base + tile_y_size : 0
+tile_uv_base = has_uv ? meta_uv_base + meta_uv_size : 0
+
+REG_META_BASE_Y_LO  = meta_y_base[31:0]
+REG_META_BASE_Y_HI  = meta_y_base[63:32]
+REG_TILE_BASE_Y_LO  = tile_y_base[31:0]
+REG_TILE_BASE_Y_HI  = tile_y_base[63:32]
+REG_META_BASE_UV_LO = meta_uv_base[31:0]
+REG_META_BASE_UV_HI = meta_uv_base[63:32]
+REG_TILE_BASE_UV_LO = tile_uv_base[31:0]
+REG_TILE_BASE_UV_HI = tile_uv_base[63:32]</code></pre>
+          <div class="note">说明：RGBA 没有 UV plane，UV 相关寄存器不使用，可写 0；YUV420/NV12/P010 需要按 metadata Y、compressed tile Y、metadata UV、compressed tile UV 的顺序分配地址。地址组写完后，软件仍需写 <code>APB_ADDR_IRQ_CTRL[5]=1</code> 产生 frame start token。</div>
+
+          <h5><code>0x0050 APB_ADDR_STATUS0</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>frame_active</code></td><td>RO</td><td>dynamic</td><td>当前帧 active。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>meta_busy</code></td><td>RO</td><td>dynamic</td><td>Metadata read stage busy。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>tile_busy</code></td><td>RO</td><td>dynamic</td><td>Tile read stage busy。</td></tr>
+            <tr><td><code>[3]</code></td><td><code>vivo_busy</code></td><td>RO</td><td>dynamic</td><td>VIVO busy。</td></tr>
+            <tr><td><code>[4]</code></td><td><code>otf_busy</code></td><td>RO</td><td>dynamic</td><td>OTF output busy。</td></tr>
+            <tr><td><code>[5]</code></td><td><code>all_stage_idle</code></td><td>RO</td><td>dynamic</td><td>All stage idle。</td></tr>
+            <tr><td><code>[6]</code></td><td><code>frame_idle_done</code></td><td>RO</td><td>dynamic</td><td>Frame idle done。</td></tr>
+          </table>
+          <div class="note">计算说明：只读实时状态由硬件产生；软件无需计算，可用于定位 frame 是否仍在 pipeline 中。</div>
+
+          <h5><code>0x0054 APB_ADDR_STATUS1</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[4:0]</code></td><td><code>stage_done</code></td><td>RO</td><td>dynamic</td><td>DEC stage done bitmap。</td></tr>
+            <tr><td><code>[8:5]</code></td><td><code>stage_seen</code></td><td>RO</td><td>dynamic</td><td>Stage entered busy bitmap。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件根据真实 stage 事件锁存；软件只读，不需要重新计算。</div>
+
+          <h5><code>0x0058 APB_ADDR_STATUS2</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>vivo_idle</code></td><td>RO</td><td>dynamic</td><td>VIVO idle 状态。</td></tr>
+          </table>
+          <div class="note">计算说明：VIVO 子模块实时输出映射，无软件计算。</div>
+
+          <h5><code>0x005c APB_ADDR_STATUS3</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>vivo_error</code></td><td>RO</td><td>dynamic</td><td>VIVO error 状态。</td></tr>
+          </table>
+          <div class="note">计算说明：VIVO 子模块错误输出映射，无软件计算。</div>
+
+          <h5><code>0x0060 APB_ADDR_IRQ_CTRL</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>irq_enable</code></td><td>RW</td><td>1</td><td>IRQ enable。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>irq_clear</code></td><td>W1P</td><td>0</td><td>写 1 清 pending/status sticky。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>irq_pending</code></td><td>RO</td><td>dynamic</td><td>Any IRQ pending。</td></tr>
+            <tr><td><code>[3]</code></td><td><code>irq_error_pending</code></td><td>RO</td><td>dynamic</td><td>Error IRQ pending。</td></tr>
+            <tr><td><code>[4]</code></td><td><code>irq_correct_pending</code></td><td>RO</td><td>dynamic</td><td>Correct IRQ pending。</td></tr>
+            <tr><td><code>[5]</code></td><td><code>start</code></td><td>W1P</td><td>0</td><td>写 1 产生 frame start token。</td></tr>
+          </table>
+          <div class="note">计算说明：每帧地址配置完成后写 <code>APB_ADDR_IRQ_CTRL[5]=1</code> 启动；中断处理完成后写 <code>APB_ADDR_IRQ_CTRL[1]=1</code> 清除。</div>
+
+          <h5><code>0x0064 APB_ADDR_STATUS4</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[0]</code></td><td><code>irq_status_any</code></td><td>RO</td><td>dynamic</td><td>Any IRQ。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>irq_status_error</code></td><td>RO</td><td>dynamic</td><td>Error IRQ。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>irq_status_correct</code></td><td>RO</td><td>dynamic</td><td>Correct IRQ。</td></tr>
+          </table>
+          <div class="note">计算说明：IRQ mirror 由硬件锁存；软件用于区分正常完成和错误中断。</div>
+
+          <h5><code>0x0068 APB_ADDR_STAT_META</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>stat_meta_tile_cnt</code></td><td>RO</td><td>dynamic</td><td>Metadata valid tile count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 metadata valid tile，只用于 debug 和吞吐量核对。</div>
+
+          <h5><code>0x006c APB_ADDR_STAT_TILE</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>stat_tile_addr_cnt</code></td><td>RO</td><td>dynamic</td><td>Tile address generator valid tile count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 tile address generator valid tile，只用于 debug，不作为 frame done 判断依据。</div>
+
+          <h5><code>0x0070 APB_ADDR_STAT_OTF_TILE</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>stat_otf_tile_cnt</code></td><td>RO</td><td>dynamic</td><td>Tile-to-OTF accepted tile count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 tile-to-OTF accepted tile，只用于 debug。</div>
+
+          <h5><code>0x0074 APB_ADDR_STAT_OTF_LINE</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>stat_otf_line_cnt</code></td><td>RO</td><td>dynamic</td><td>OTF output line count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 OTF output line，只用于 debug。</div>
+
+          <h5><code>0x0078 APB_ADDR_STAT_OTF_DE</code></h5>
+          <table>
+            <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
+            <tr><td><code>[31:0]</code></td><td><code>stat_otf_de_cnt</code></td><td>RO</td><td>dynamic</td><td>OTF output <code>o_otf_de && i_otf_ready</code> beat count。</td></tr>
+          </table>
+          <div class="note">计算说明：硬件统计 OTF output 有效 beat，只用于 debug 和吞吐量核对。</div>
+
+          <h3 id="dec-diagram">DEC 4. Diagram</h3>
+          <figure><img src="ubwc_dec_microarchitecture_cn.svg" alt="DEC 总体微架构图"><figcaption>DEC 当前 RTL 微架构。</figcaption></figure>
+          <figure><img src="ubwc_dec_meta_tile_read_detail_cn.svg" alt="DEC metadata + tile read 详图"><figcaption>metadata fetch/decode 与 tile read command。</figcaption></figure>
+          <figure><img src="ubwc_dec_tile_to_otf_detail_cn.svg" alt="DEC tile-to-OTF 详图"><figcaption>VIVO rvo、line writer、SRAM fetch、OTF driver。</figcaption></figure>
+          <figure><img src="ubwc_bank_layout_4096_cn.svg" alt="UBWC SRAM bank 存储示意图"><figcaption>4096 px 最大宽度下 bank0/bank1 容量边界和 YUV420 两 bank 逻辑工作组关系；YUV420 中 bank0 保存 Y0..7 + UV0..3，bank1 保存 Y8..15 + UV4..7。</figcaption></figure>
+          <table>
+            <tr><th>SRAM 项目</th><th>规格</th></tr>
+            <tr><td>bank 数量</td><td>2 个外部 SRAM bank，bank0/bank1</td></tr>
+            <tr><td>单 bank 容量</td><td>4096 words x 16 bytes = 64 KiB</td></tr>
+            <tr><td>SRAM 与图像大小关系</td><td>容量主要随最大支持宽度变化；高度通过多次行组处理复用同一 bank，不要求随图像高度线性增加。</td></tr>
+          </table>
+
+          <h3 id="dec-work">DEC 5. Work Mode</h3>
+          <pre><code>1. 读取 REG_VERSION / REG_DATE。
+2. 图像格式、尺寸、layout 或 OTF timing 变化时，配置 TILE_CFG、VIVO_CFG、META_CFG0、OTF_CFG0..4。
+3. 每个输入 UBWC buffer 到来时，写 META_Y、TILE_Y、META_UV、TILE_UV 四个 64-bit base address。
+4. 写 APB_ADDR_IRQ_CTRL[5]=1 产生 start token。
+5. 硬件读取 metadata 和 tile 数据，驱动 VIVO 解压。
+6. tile-to-OTF 按 OTF timing 输出视频。
+7. 软件读 STATUS/STAT 处理状态，写 IRQ_CTRL[1]=1 清中断。</code></pre>
+          <table>
+            <tr><th>OTF 标记</th><th>字段</th><th>说明</th></tr>
+            <tr><td>HSA</td><td><code>h_sync</code></td><td>水平 sync 宽度</td></tr>
+            <tr><td>HBP</td><td><code>h_bp</code></td><td>水平 back porch</td></tr>
+            <tr><td>HACT</td><td><code>h_act</code></td><td>水平 active width</td></tr>
+            <tr><td>HFP</td><td><code>h_total - h_sync - h_bp - h_act</code></td><td>水平 front porch</td></tr>
+            <tr><td>VSA</td><td><code>v_sync</code></td><td>垂直 sync 行数</td></tr>
+            <tr><td>VBP</td><td><code>v_bp</code></td><td>垂直 back porch</td></tr>
+            <tr><td>VACT</td><td><code>v_act</code></td><td>垂直 active height</td></tr>
+            <tr><td>VFP</td><td><code>v_total - v_sync - v_bp - v_act</code></td><td>垂直 front porch</td></tr>
+          </table>
+
+          <h3 id="dec-debug">DEC 6. Debug</h3>
+          <table>
+            <tr><th>现象</th><th>建议读取</th><th>判断方向</th></tr>
+            <tr><td>start 后无输出</td><td><code>APB_ADDR_STATUS0</code>，<code>APB_ADDR_IRQ_CTRL[2]</code></td><td>看 frame_active、meta/tile/vivo/otf busy 是否推进</td></tr>
+            <tr><td>metadata 阶段异常</td><td><code>APB_ADDR_STAT_META</code>，AXI R response</td><td>检查 metadata 地址、RID/fcnt、metadata decode</td></tr>
+            <tr><td>tile read 异常</td><td><code>APB_ADDR_STAT_TILE</code>，AXI AR/R handshake</td><td>检查 tile base、tile_arcmd_gen、AXI read</td></tr>
+            <tr><td>VIVO 异常</td><td><code>APB_ADDR_STATUS2[0]</code>，<code>APB_ADDR_STATUS3[0]</code></td><td>检查模块级 VIVO idle/error 状态</td></tr>
+            <tr><td>OTF 输出异常</td><td><code>APB_ADDR_STAT_OTF_TILE</code>，<code>APB_ADDR_STAT_OTF_LINE</code>，<code>APB_ADDR_STAT_OTF_DE</code></td><td>检查 tile-to-OTF 和 downstream ready</td></tr>
+          </table>
+
+          <h3 id="dec-ppa">DEC 7. PPA</h3>
+          <div class="note">PPA 章节先保留分类框架，详细评估内容后续按 Power、Performance、Area 三个方向补充。</div>
+          <table>
+            <tr><th>PPA 方向</th><th>内容</th></tr>
+            <tr><td>Power</td><td></td></tr>
+            <tr><td>Performance</td><td></td></tr>
+            <tr><td>Area</td><td></td></tr>
+          </table>
+        </section>
       </main>
     </div>
   </div>
