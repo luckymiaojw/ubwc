@@ -42,7 +42,7 @@ APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base addre
 
 连续帧模式下，图像格式、分辨率、tile layout、OTF timing 不变时，不需要每帧重复写所有寄存器。每帧只需要更新本帧使用的 UBWC buffer base address，并保证下一帧地址组已经写完整。
 
-R0 回归覆盖了 4096x600 NV12/P010 的 ENC/DEC 连续两帧 wrapper fake case。NV12 路径 OTF 连续输出无断流；P010 路径功能比对通过，AXI read 吞吐仍是后续性能优化关注点。
+R0 回归覆盖了 4096x600 RGBA8888/NV12/P010 的 ENC/DEC 连续两帧 wrapper fake case。NV12 路径 OTF 连续输出无断流；RGBA8888 路径 DEC OTF 比对通过、ENC layout/address/count 检查通过；P010 路径功能比对通过，AXI read 吞吐仍是后续性能优化关注点。
 
 ## 2. 哪些寄存器需要反复配置
 

@@ -1086,12 +1086,14 @@ PPA 章节先保留分类框架，详细评估内容后续按 Power、Performanc
 
 ## R0 回归记录
 
-R0 release commit：`3e640ec8a6e8662a30b051bde2cd59a2fcf42ce7`，tag：`R0`。
+R0 release tag：`R0`。
 
 服务器路径：`/home/eda/work/ubwc/trunk/vrf/sim/build/r0_release_logs/`
 
 | Case | 结果 | 关键检查 |
 | --- | --- | --- |
+| `dec_rgba8888_4096x600_2f` | PASS | 连续 2 帧，OTF mismatch = 0；OTF underflow 计数 = 2 |
+| `enc_rgba8888_4096x600_2f` | PASS | 连续 2 帧完成，layout/address/count check passed；meta dump compare 有 warning，`meta_dump_cmp_mis = 4800` |
 | `dec_nv12_4096x600_2f` | PASS | 连续 2 帧，OTF mismatch = 0，underflow = 0 |
 | `dec_g016_4096x600_2f` | PASS | 连续 2 帧，OTF mismatch = 0；P010/G016 AXI read 吞吐仍作为后续性能风险跟踪 |
 | `enc_nv12_4096x600_2f` | PASS | 连续 2 帧完成，layout/address/count check passed |
