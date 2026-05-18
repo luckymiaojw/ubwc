@@ -27,7 +27,7 @@ APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base addre
 | 时钟域 | 频率 | ENC 端口 | DEC 端口 | 说明 |
 | --- | ---: | --- | --- | --- |
 | APB | 100 MHz | `PCLK` | `PCLK` | 寄存器访问 |
-| AXI/control | 500 MHz | `i_clk` | `i_axi_clk` | AXI 读写和控制状态 |
+| AXI/control | 500 MHz | `i_axi_clk` | `i_axi_clk` | AXI 读写和控制状态 |
 | core/VIVO | 200 MHz | `i_vivo_clk` | `i_vivo_clk` | UBWC encode/decode core |
 | OTF | 320 MHz | `i_otf_clk` | `i_otf_clk` | OTF 输入或输出 |
 
@@ -40,9 +40,9 @@ APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base addre
 | YUV420_8 / NV12 | 2 | 32 | 8 | Y + UV 双平面 |
 | YUV420_10 / P010 | 3 | 32 | 4 | Y + UV 双平面，16 bit component 存储 |
 
-当前 RTL 不支持 YUV422_8 和 YUV422_10。
-
 连续帧模式下，图像格式、分辨率、tile layout、OTF timing 不变时，不需要每帧重复写所有寄存器。每帧只需要更新本帧使用的 UBWC buffer base address，并保证下一帧地址组已经写完整。
+
+R0 回归覆盖了 4096x600 NV12/P010 的 ENC/DEC 连续两帧 wrapper fake case。NV12 路径 OTF 连续输出无断流；P010 路径功能比对通过，AXI read 吞吐仍是后续性能优化关注点。
 
 ## 2. 哪些寄存器需要反复配置
 

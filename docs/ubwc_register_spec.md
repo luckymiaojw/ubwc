@@ -14,7 +14,7 @@ The current wrapper-level integration assumes four independent clock domains:
 | Clock domain | Regression frequency | ENC port | DEC port | Main usage |
 | --- | --- | --- | --- | --- |
 | APB | 100 MHz | `PCLK` | `PCLK` | Register access |
-| AXI/control | 500 MHz | `i_clk` | `i_axi_clk` | AXI traffic, APB-synchronized control, status/statistics |
+| AXI/control | 500 MHz | `i_axi_clk` | `i_axi_clk` | AXI traffic, APB-synchronized control, status/statistics |
 | Core/VIVO | 200 MHz | `i_vivo_clk` | `i_vivo_clk` | `ubwc_enc_vivo_top` / `ubwc_dec_vivo_top` |
 | OTF | 320 MHz | `i_otf_clk` | `i_otf_clk` | OTF input/output video stream |
 
@@ -25,7 +25,7 @@ Clock-domain rules:
 - Multi-bit counters or payload buses must not cross clock domains by simple two-flop synchronization.
 - Async reset release must be synchronized inside the destination clock domain.
 
-Supported frame formats are `0=RGBA8888`, `1=RGBA1010102`, `2=YUV420_8/NV12`, and `3=YUV420_10/P010`. YUV422 formats are not supported by the current RTL.
+Supported frame formats are `0=RGBA8888`, `1=RGBA1010102`, `2=YUV420_8/NV12`, and `3=YUV420_10/P010`.
 
 The 2026-05-11 regression baseline used `OTF=320 MHz`, `core/VIVO=200 MHz`, and `AXI=500 MHz` on server `10.168.1.199:/home/eda/work/ubwc/trunk`:
 

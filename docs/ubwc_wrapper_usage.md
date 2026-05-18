@@ -21,7 +21,7 @@ The current wrapper-level regression baseline uses the following independent clo
 | Domain | Frequency | Encoder port | Decoder port |
 | --- | --- | --- | --- |
 | APB | 100 MHz | `PCLK` | `PCLK` |
-| AXI/control | 500 MHz | `i_clk` | `i_axi_clk` |
+| AXI/control | 500 MHz | `i_axi_clk` | `i_axi_clk` |
 | Core/VIVO | 200 MHz | `i_vivo_clk` | `i_vivo_clk` |
 | OTF | 320 MHz | `i_otf_clk` | `i_otf_clk` |
 
@@ -39,7 +39,7 @@ The AXI/control, Core/VIVO, and OTF interfaces are independent clock domains. In
 - `ubwc_enc_vivo_top` handles UBWC encoding.
 - Main image data and metadata are output through the AXI write port.
 
-The APB side of this wrapper only handles configuration and does not provide an explicit `start` bit.
+The APB side holds static configuration, per-frame address queues, interrupt control, and an explicit frame `start` token at `REG_IRQ_CTRL[5]`.
 
 ### 1.2 Required Register Groups
 
@@ -56,7 +56,8 @@ The current RTL has several designs that emit a valid pulse when a specific regi
 1. Write static format/layout configuration: `REG_TILE_CFG1 (0x000c)`, then `REG_TILE_CFG0 (0x0008)`.
 2. Write `REG_ENC_CI_CFG1/2/3`, then write `REG_ENC_CI_CFG0 (0x0010)`.
 3. Write `REG_OTF_CFG1/2/3`, `REG_META_ACTIVE_SIZE (0x0050)`, `REG_META_PITCH (0x0054)`, then `REG_OTF_CFG0 (0x0020)`.
-4. For each frame/output buffer, write the four 64-bit base addresses from `0x0030` to `0x004c`. The write to `REG_TILE_BASE_UV_HI (0x004c)` commits one frame address set.
+4. For each frame/output buffer, write the four 64-bit base addresses from `0x0030` to `0x004c`.
+5. Write `REG_IRQ_CTRL[5]=1` to issue one frame start token.
 
 The corresponding testbench uses the same actual order because:
 
@@ -68,22 +69,25 @@ Among them, `tile_addr_gen_cfg_vld` is indeed used inside the wrapper;`o_enc_ci_
 
 ### 1.4 Startup Method
 
-`ubwc_enc_wrapper_top.sv` has no separate"start-encoding"register.
+`ubwc_enc_wrapper_top.sv` uses a separate frame start token. Address writes only fill the pending address queues; they do not start a frame by themselves.
 
 The real startup conditions are:
 
-- APB configuration has already been written
-- The upstream source starts sending one frame of OTF input
-- `o_otf_ready` successfully handshakes with the upstream source
+- Static APB configuration has already been written.
+- The current output address group has been written.
+- Software writes `REG_IRQ_CTRL[5]=1`.
+- The upstream source sends the matching OTF frame and handshakes with `o_otf_ready`.
 
-In other words, encoding starts from the input video stream itself, not from writing another APB `start` bit.
+The start token lets the reset/status/address logic prepare the next frame. OTF data still enters only through the normal `i_otf_*` handshake.
 
 The minimal flow can be understood as:
 
 ```text
 1. Write registers
-2. The upstream source sends i_otf_vsync / i_otf_hsync / i_otf_de / i_otf_data
-3. The wrapper starts tiling, UBWC encoding, and AXI writeback
+2. Write one output address group
+3. Write REG_IRQ_CTRL[5]=1
+4. The upstream source sends i_otf_vsync / i_otf_hsync / i_otf_de / i_otf_data
+5. The wrapper starts tiling, UBWC encoding, and AXI writeback
 ```
 
 Example minimal APB configuration order:
@@ -179,11 +183,11 @@ Recommended write order:
 4. Write `APB_ADDR_META_CFG0` tile count
 5. Write all four per-frame base address pairs; software writes IRQ_CTRL[5] after they are all valid
 
-The key point is that software no longer writes a `meta_start` pulse. DEC starts automatically after the complete per-frame address set is valid.
+The key point is that software no longer writes a legacy `meta_start` pulse and does not use address high-word writes as start. DEC starts after both conditions are true: a complete per-frame address set is available and software writes `IRQ_CTRL[5]=1`.
 
 ### 2.4 Startup Method
 
-`ubwc_dec_wrapper_top.v` starts automatically after software writes a complete set of per-frame base addresses:
+`ubwc_dec_wrapper_top.v` starts after software writes a complete set of per-frame base addresses and then writes `IRQ_CTRL[5]=1`:
 
 ```text
 write REG_META_BASE_Y_LO/HI
@@ -195,11 +199,11 @@ write REG_TILE_BASE_UV_LO/HI
 RTL behavior:
 
 - APB high-word writes complete each 64-bit base address entry
-- When the complete address set is valid and the metadata stage can accept a new frame, hardware locks one address set
-- That auto-launch generates `frame_start_pulse_axi` in the AXI clock domain
+- When the complete address set and start token are both valid, and the metadata stage can accept a new frame, hardware locks one address set
+- This generates `frame_start_pulse_axi` in the AXI clock domain
 - Metadata read, tile read, VIVO decode, and tile_to_otf output all start together
 
-To run multiple frames continuously, software writes the next frame address set. No APB start pulse is required.
+To run multiple frames continuously, software writes the next frame address set and writes one `IRQ_CTRL[5]` start token for that frame.
 
 ### 2.5 Completion Detection
 
@@ -326,12 +330,7 @@ Suggested example addresses:
 - Decoder input main-image base address:`0x0000_0000_8100_0000`
 - Decoder input metadata base address:`0x0000_0000_8200_0000`
 
-Note one **current RTL naming difference**:
-
-- `enc` side runs `RGBA8888` the main image and metadata both use `Y base / META_Y base`
-- `dec` side runs `RGBA8888` the main image and metadata both use `RGBA_UV base / META_RGBA_UV base`
-
-that is, although this is the same single-plane `RGBA8888`, `enc` and `dec` the base-register names used are not fully symmetric.
+For `RGBA8888`, both wrappers use the `Y/RGBA base` and `META_Y base` registers for the single plane. UV base registers can be written as 0.
 
 #### 3.1.1 ubwc_enc_wrapper_top OTF Configuration and Flow
 
@@ -354,14 +353,15 @@ OTF-related information used in this example:
 2. Write the main-image and metadata output addresses
 3. Write the CI configuration
 4. Write the OTF configuration
-5. Finally start sending one frame of i_otf_* input
+5. Write `REG_IRQ_CTRL[5]=1`
+6. Start sending one frame of i_otf_* input
 ```
 
 The most important points are:
 
-- `enc` has no separate APB `start`
-- startup relies on the input OTF video stream handshake
-- When the upstream source starts sending `i_otf_vsync / i_otf_hsync / i_otf_de / i_otf_data`, and `o_otf_ready` successfully handshakes, encoding starts
+- `enc` has a separate APB frame start token at `REG_IRQ_CTRL[5]`
+- startup requires both the start token and the input OTF video stream handshake
+- When the upstream source sends `i_otf_vsync / i_otf_hsync / i_otf_de / i_otf_data`, and `o_otf_ready` successfully handshakes, data processing starts
 
 #### 3.1.2 ubwc_dec_wrapper_top OTF Configuration and Flow
 
@@ -401,9 +401,9 @@ The most important points are:
 - `RGBA8888` is `16x4 tile`, not `32x8 tile`
 - `tile_pitch` is measured in **bytes**, `128x128 RGBA8888` needs `512`
 - For `RGBA8888` on `enc`, the current address-selection logic uses `Y base / META_Y base`
-- For `RGBA8888` on `dec`, the current address-selection logic uses `RGBA_UV base / META_RGBA_UV base`
+- For `RGBA8888` on `dec`, the current address-selection logic uses `Y/RGBA base / META_Y base`; UV base registers are not used and can be written as 0
 - `dec` starts after the complete address set and IRQ_CTRL[5] start token are valid
-- `enc` has no APB start, it starts from the OTF input stream
+- `enc` starts after the output address group and `IRQ_CTRL[5]` start token are ready, then consumes the OTF input stream
 
 ### 3.2 Part 2: Register Read/Write Information
 
@@ -598,9 +598,8 @@ The following is a concise table based on the **current RTL**; see the detailed 
 
 ## 5. Summary of Differences Between the Two Wrappers
 
-- `enc`: the APB side mainly provides configuration registers plus a basic live `REG_STATUS0`
+- `enc`: the APB side provides configuration registers, per-frame output address queues, start token, status and debug counters
 - `dec`: the APB side has both configuration registers and complete `STATUS0/STATUS1` registers
-- `enc` starts from"the input frame beginning to arrive"
-- `dec` starts automatically after the complete address set is written
-- `enc` can add sticky frame-done/status registers later for long-term software-driver use
-- `dec` can already poll registers directly for completion
+- `enc` starts after a complete output address set and `IRQ_CTRL[5]` start token, then consumes the matching OTF input frame
+- `dec` starts after a complete input UBWC address set and `IRQ_CTRL[5]` start token
+- both wrappers expose correct/error IRQ pending state and frame completion status

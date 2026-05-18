@@ -100,7 +100,6 @@
 <tr><td>RGBA1010102</td><td>1</td><td>16</td><td>4</td><td>单平面 RGBA，4 byte/pixel</td></tr>
 <tr><td>YUV420_8 / NV12</td><td>2</td><td>32</td><td>8</td><td>Y + UV 双平面</td></tr>
 <tr><td>YUV420_10 / P010</td><td>3</td><td>32</td><td>4</td><td>Y + UV 双平面，16 bit component 存储</td></tr></tbody></table>
-    <div class="callout warn">当前 RTL 不支持 YUV422_8 和 YUV422_10；软件配置中不要使用这两个 format code。</div>
     <div class="callout">连续帧模式下，如果格式、分辨率、tile layout 和 OTF timing 不变，软件通常只需要每帧更新 UBWC buffer base address。</div>
   </section>
 
@@ -109,7 +108,7 @@
     <p>当前 wrapper 级回归使用 OTF 320 MHz、core/VIVO 200 MHz、AXI 500 MHz。APB 只负责寄存器访问，视频数据通路不依赖 APB 时钟。</p>
     <table><thead><tr><th>时钟域</th><th>频率</th><th>周期</th><th>ENC 端口</th><th>DEC 端口</th><th>主要逻辑</th></tr></thead><tbody>
 <tr><td>APB clock</td><td>100 MHz</td><td>10.000 ns</td><td>PCLK</td><td>PCLK</td><td>APB 寄存器访问</td></tr>
-<tr><td>AXI/control clock</td><td>500 MHz</td><td>2.000 ns</td><td>i_clk</td><td>i_axi_clk</td><td>AXI 读写、APB 同步后的控制、状态统计</td></tr>
+<tr><td>AXI/control clock</td><td>500 MHz</td><td>2.000 ns</td><td>i_axi_clk</td><td>i_axi_clk</td><td>AXI 读写、APB 同步后的控制、状态统计</td></tr>
 <tr><td>core/VIVO clock</td><td>200 MHz</td><td>5.000 ns</td><td>i_vivo_clk</td><td>i_vivo_clk</td><td>VIVO encode/decode core</td></tr>
 <tr><td>OTF clock</td><td>320 MHz</td><td>3.125 ns</td><td>i_otf_clk</td><td>i_otf_clk</td><td>OTF 输入或输出接口</td></tr>
     </tbody></table>

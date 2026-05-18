@@ -303,6 +303,10 @@
           <span>生成内容</span>
           <strong>APB 写寄存器表</strong>
         </div>
+        <div class="meta-card">
+          <span>版本状态</span>
+          <strong>R0 回归通过</strong>
+        </div>
       </div>
     </header>
 
@@ -447,10 +451,6 @@
               </tr>
             </tbody>
           </table>
-          <div class="warn">
-            <strong>不支持：</strong>
-            当前配置辅助库没有支持 YUV422_8 和 YUV422_10。不要用 format code 4/5 表示 YUV422。
-          </div>
         </section>
 
         <section id="quick">
@@ -935,7 +935,7 @@ YUV420:
             <tbody>
               <tr>
                 <td>format code</td>
-                <td>只使用 0 到 4；YUV422 当前不支持。</td>
+                <td>只使用表格中列出的 format code，避免和业务侧私有枚举混用。</td>
               </tr>
               <tr>
                 <td>首地址</td>

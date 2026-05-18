@@ -26,9 +26,9 @@ Suggested example addresses:
 Note one **current RTL naming difference**:
 
 - On the `enc` side, `RGBA8888` uses `Y base / META_Y base` for both the main image and metadata
-- On the `dec` side, `RGBA8888` uses `RGBA_UV base / META_RGBA_UV base` for both the main image and metadata
+- On the `dec` side, `RGBA8888` uses `Y/RGBA base / META_Y base` for both the main image and metadata
 
-In other words, although `RGBA8888` is a single-plane format, the base-register names used by `enc` and `dec` are not fully symmetric.
+In other words, `RGBA8888` is a single-plane format and both wrappers use the Y/RGBA base registers; UV base registers can be written as 0.
 
 #### 3.1.1 OTF Configuration and Flow for ubwc_enc_wrapper_top
 
@@ -51,14 +51,15 @@ The `enc` startup flow is:
 2. Write the main-image and metadata output addresses
 3. Write the CI configuration
 4. Write the OTF configuration
-5. Finally start sending one frame of i_otf_* input
+5. Write `REG_IRQ_CTRL[5]=1`
+6. Start sending one frame of i_otf_* input
 ```
 
 The most important points are:
 
-- `enc` has no separate APB `start`
-- Startup relies on the input OTF video stream handshake
-- Encoding starts when the upstream source begins sending `i_otf_vsync / i_otf_hsync / i_otf_de / i_otf_data` and successfully handshakes with `o_otf_ready`
+- `enc` has a separate APB frame start token at `REG_IRQ_CTRL[5]`
+- Startup requires both the start token and the input OTF video stream handshake
+- Encoding data processing starts when the upstream source sends `i_otf_vsync / i_otf_hsync / i_otf_de / i_otf_data` and successfully handshakes with `o_otf_ready`
 
 #### 3.1.2 OTF Configuration and Flow for ubwc_dec_wrapper_top
 
@@ -98,9 +99,9 @@ The most important points are:
 - `RGBA8888` is `16x4 tile` in the current implementation, not `32x8 tile`
 - `pitch` is measured in **bytes**, so `128x128 RGBA8888` needs `512`
 - For `RGBA8888` on `enc`, the current address-selection logic uses `Y base / META_Y base`
-- For `RGBA8888` on `dec`, the current address-selection logic uses `RGBA_UV base / META_RGBA_UV base`
+- For `RGBA8888` on `dec`, the current address-selection logic uses `Y/RGBA base / META_Y base`
 - `dec` starts after the complete address set and IRQ_CTRL[5] start token are valid
-- `enc` has no APB start; it starts from the OTF input stream
+- `enc` starts after the complete address set and `REG_IRQ_CTRL[5]` start token are valid, then consumes the OTF input stream
 
 ### 3.2 Part 2: Register Read/Write Information
 
