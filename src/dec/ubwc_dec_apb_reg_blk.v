@@ -275,16 +275,27 @@ module ubwc_dec_apb_reg_blk #(
     assign fifo_meta_y_empty = (fifo_meta_y_count  == {BASE_FIFO_CNT_W{1'b0}});
     wire                                            fifo_meta_uv_empty              ;
     assign fifo_meta_uv_empty = (fifo_meta_uv_count == {BASE_FIFO_CNT_W{1'b0}});
+    wire                                            base_fifo_low_write             ;
+    assign base_fifo_low_write = (apb_addr == REG_TILE_BASE_Y_LO)  ||
+               (apb_addr == REG_TILE_BASE_UV_LO) ||
+               (apb_addr == REG_META_BASE_Y_LO)  ||
+               (apb_addr == REG_META_BASE_UV_LO);
     wire                                            base_fifo_high_write            ;
     assign base_fifo_high_write = (apb_addr == REG_TILE_BASE_Y_HI)  ||
                (apb_addr == REG_TILE_BASE_UV_HI) ||
                (apb_addr == REG_META_BASE_Y_HI)  ||
                (apb_addr == REG_META_BASE_UV_HI);
+    wire                                            base_fifo_addr_write            ;
+    assign base_fifo_addr_write = base_fifo_low_write || base_fifo_high_write;
     wire                                            base_fifo_write_full            ;
-    assign base_fifo_write_full = ((apb_addr == REG_TILE_BASE_Y_HI)  && fifo_tile_rgba_y_full) ||
-               ((apb_addr == REG_TILE_BASE_UV_HI) && fifo_tile_uv_full)  ||
-               ((apb_addr == REG_META_BASE_Y_HI)  && fifo_meta_y_full)  ||
-               ((apb_addr == REG_META_BASE_UV_HI) && fifo_meta_uv_full);
+    assign base_fifo_write_full = (((apb_addr == REG_TILE_BASE_Y_LO)  ||
+                                    (apb_addr == REG_TILE_BASE_Y_HI))  && fifo_tile_rgba_y_full) ||
+                                  (((apb_addr == REG_TILE_BASE_UV_LO) ||
+                                    (apb_addr == REG_TILE_BASE_UV_HI)) && fifo_tile_uv_full)      ||
+                                  (((apb_addr == REG_META_BASE_Y_LO)  ||
+                                    (apb_addr == REG_META_BASE_Y_HI))  && fifo_meta_y_full)       ||
+                                  (((apb_addr == REG_META_BASE_UV_LO) ||
+                                    (apb_addr == REG_META_BASE_UV_HI)) && fifo_meta_uv_full);
     wire                                            frame_start_toggle_seen_axi     ;
     assign frame_start_toggle_seen_axi = r_meta_start_sync_ff1 ^ r_meta_start_sync_ff2;
     wire        [STATUS_BUS_W        -1 :0]         status_bus_axi                  ;
@@ -309,10 +320,10 @@ module ubwc_dec_apb_reg_blk #(
                                             status_stage_done_pclk[0];
     wire                                            base_fifo_stall                 ;
     assign base_fifo_stall = apb_access &&
-                                 PWRITE &&
-                                 apb_decode_valid &&
-                                 base_fifo_high_write &&
-                                 base_fifo_write_full;
+                              PWRITE &&
+                              apb_decode_valid &&
+                              base_fifo_addr_write &&
+                              base_fifo_write_full;
     wire                                            apb_write                       ;
     assign apb_write = apb_access && PWRITE && apb_decode_valid && !base_fifo_stall;
     wire                                            start_request_pclk              ;

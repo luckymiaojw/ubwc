@@ -40,6 +40,8 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
     localparam integer NV12_BEATS_PER_TILE = NV12_WORDS64_PER_TILE / 4;
     localparam integer NV12_SURFACE_PITCH_BYTES = 4096;
     localparam integer NV12_HIGHEST_BANK_BIT = 16;
+    localparam integer SRAM_ADDR_W = 12;
+    localparam integer SRAM_DEPTH = 4096;
 
     localparam integer CASE_IS_NV12        = (CASE_ID == CASE_NV12_TILED);
     localparam integer CASE_IS_LINEAR_IN   = (CASE_ID == CASE_RGBA8888_LINEAR);
@@ -87,19 +89,21 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
     wire          s_axis_tile_ready;
     reg           s_axis_tvalid;
     wire          s_axis_tready;
+    reg           frame_start;
+    reg  [3:0]    frame_fcnt;
 
     wire          sram_a_wen;
-    wire [12:0]   sram_a_waddr;
+    wire [SRAM_ADDR_W-1:0] sram_a_waddr;
     wire [127:0]  sram_a_wdata;
     wire          sram_a_ren;
-    wire [12:0]   sram_a_raddr;
+    wire [SRAM_ADDR_W-1:0] sram_a_raddr;
     wire [127:0]  sram_a_rdata;
     reg           sram_a_dout_vld;
     wire          sram_b_wen;
-    wire [12:0]   sram_b_waddr;
+    wire [SRAM_ADDR_W-1:0] sram_b_waddr;
     wire [127:0]  sram_b_wdata;
     wire          sram_b_ren;
-    wire [12:0]   sram_b_raddr;
+    wire [SRAM_ADDR_W-1:0] sram_b_raddr;
     wire [127:0]  sram_b_rdata;
     reg           sram_b_dout_vld;
 
@@ -509,7 +513,10 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
         end
     endtask
 
-    sram_pdp_8192x128 u_sram_bank_a (
+    sram_pdp_8192x128 #(
+        .ADDR_WIDTH (SRAM_ADDR_W),
+        .DEPTH      (SRAM_DEPTH)
+    ) u_sram_bank_a (
         .clk        (clk_sram),
         .wen        (sram_a_wen),
         .waddr      (sram_a_waddr),
@@ -519,7 +526,10 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
         .rdata      (sram_a_rdata)
     );
 
-    sram_pdp_8192x128 u_sram_bank_b (
+    sram_pdp_8192x128 #(
+        .ADDR_WIDTH (SRAM_ADDR_W),
+        .DEPTH      (SRAM_DEPTH)
+    ) u_sram_bank_b (
         .clk        (clk_sram),
         .wen        (sram_b_wen),
         .waddr      (sram_b_waddr),
@@ -529,13 +539,15 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
         .rdata      (sram_b_rdata)
     );
 
-    ubwc_dec_tile_to_otf dut (
+    ubwc_dec_tile_to_otf #(
+        .SRAM_ADDR_W (SRAM_ADDR_W)
+    ) dut (
         .clk_sram         (clk_sram),
         .clk_otf          (clk_otf),
         .rst_sram_n            (rst_n),
         .rst_otf_n            (rst_n),
-        .i_frame_start    (1'b0),
-        .i_frame_fcnt     (4'd0),
+        .i_frame_start    (frame_start),
+        .i_frame_fcnt     (frame_fcnt),
         .cfg_img_width    (cfg_img_width),
         .cfg_format       (cfg_format),
         .cfg_otf_h_total  (cfg_otf_h_total),
@@ -576,7 +588,12 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
         .o_otf_data       (o_otf_data),
         .o_otf_fcnt       (o_otf_fcnt),
         .o_otf_lcnt       (o_otf_lcnt),
-        .i_otf_ready      (i_otf_ready)
+        .i_otf_ready      (i_otf_ready),
+        .o_busy           (),
+        .o_correct_irq_pulse(),
+        .o_underflow      (),
+        .o_otf_line_count (),
+        .o_otf_de_count   ()
     );
 
     initial begin
@@ -598,7 +615,6 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
             sram_b_dout_vld <= sram_b_ren;
         end
     end
-
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n) begin
@@ -701,6 +717,8 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
         s_axis_tile_y     = 16'd0;
         s_axis_tile_valid = 1'b0;
         s_axis_tvalid     = 1'b0;
+        frame_start       = 1'b0;
+        frame_fcnt        = 4'd0;
         i_otf_ready       = 1'b1;
         otf_fd            = 0;
         sent_tile_count   = 0;
@@ -717,6 +735,10 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
         if (otf_fd == 0) begin
             $fatal(1, "Failed to open actual_otf_stream.txt");
         end
+
+        frame_start = 1'b1;
+        @(posedge clk_sram);
+        frame_start = 1'b0;
 
         fork
             send_full_case_frame();

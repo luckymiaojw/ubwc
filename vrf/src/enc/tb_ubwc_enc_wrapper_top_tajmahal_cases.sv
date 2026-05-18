@@ -1761,6 +1761,17 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          dut.enc_co_valid,
                          mon_b_co_valid,
                          meta_path_stall_count);
+                $display("[TB][ERROR] addr cfg state: active=%0b invalid=%0b slot=%0b co_ready=%0b cfg0_valid=%0b cfg1_valid=%0b cfg0_cnt=%0d cfg1_cnt=%0d pop_sel=%0b push_sel=%0b",
+                         dut.active_addr_cfg_valid,
+                         dut.addr_cfg_invalid,
+                         dut.b_tile_slot,
+                         dut.enc_co_ready,
+                         dut.ubwc_enc_apb_reg_blk.addr_cfg0_valid,
+                         dut.ubwc_enc_apb_reg_blk.addr_cfg1_valid,
+                         dut.ubwc_enc_apb_reg_blk.addr_cfg0_count,
+                         dut.ubwc_enc_apb_reg_blk.addr_cfg1_count,
+                         dut.ubwc_enc_apb_reg_blk.addr_cfg_pop_sel,
+                         dut.ubwc_enc_apb_reg_blk.addr_cfg_push_sel);
                 if (first_meta_path_stall_seen) begin
                     $display("[TB][ERROR] first meta path stall: fmt=%0d x=%0d y=%0d",
                              first_meta_path_stall_fmt,
@@ -1774,14 +1785,13 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          dut.meta_data_valid & dut.meta_addr_valid,
                          {dut.b_tile_xcoord[7:3], 3'b000},
                          dut.meta_addr);
-                $display("[TB][ERROR] line_to_tile state: rd_state=%0d wr_bank=%0b rd_bank=%0b grp_y_cnt=%0d grp_y=%0d plane=%0b subrow=%0b",
+                $display("[TB][ERROR] line_to_tile state: rd_state=%0d wr_bank=%0b rd_bank=%0b grp_y_cnt=%0d grp_y=%0d plane=%0b",
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_state,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.wr_bank_sel,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_bank_sel_act,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_tile_grp_y_cnt,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_group_y,
-                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_plane,
-                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_y_subrow);
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_plane);
                 $display("[TB][ERROR] line_to_tile banks: b0(a_line=%0d b_line=%0d a_x=%0d b_x=%0d a_done=%0b b_done=%0b ready=%0b safe=%0b) b1(a_line=%0d b_line=%0d a_x=%0d b_x=%0d a_done=%0b b_done=%0b ready=%0b safe=%0b)",
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_a_line_idx,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_b_line_idx,
@@ -1840,6 +1850,26 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_group_id,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_group_vld,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_group_id);
+                $display("[TB][ERROR] line_to_tile read: issue=%0b grant=%0b uv_allowed=%0b resp_af=%0b resp_empty=%0b resp_valid=%0b meta_af=%0b meta_empty=%0b meta_valid=%0b rd_addr=%0d rd_word=%0d tile_x=%0d last_col=%0b last_word=%0b data_vld=%0b dout_vld=%0b pending0=%0d pending1=%0d tile_rdy=%0b",
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.issue_read,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.read_grant,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_uv_read_allowed,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.resp_fifo_almost_full,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.resp_fifo_empty,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.resp_fifo_valid,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.read_meta_fifo_almost_full,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.read_meta_fifo_empty,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.read_meta_fifo_valid,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_read_addr,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_word_in_tile,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_tile_x,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_last_col,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.last_word_in_tile,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.read_data_vld,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.read_meta_bank_dout_vld,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_read_pending_count,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank1_read_pending_count,
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.i_tile_rdy);
                 $fatal(1, "Encoder wrapper did not become idle before next frame start.");
             end
 
@@ -1932,9 +1962,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             apb_write(16'h0050, reg20_data);
             apb_write(16'h0054, reg21_data);
             apb_write(16'h0020, reg8_data);
-            for (addr_cfg_idx = 0; addr_cfg_idx < tb_frame_repeat; addr_cfg_idx = addr_cfg_idx + 1) begin
-                apb_write(16'h0060, 32'h0000_0021);
-            end
+        end
+    endtask
+
+    task automatic program_frame_start;
+        begin
+            apb_write(16'h0060, 32'h0000_0021);
         end
     endtask
 
@@ -2487,8 +2520,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         rst_n = 1'b1;
         repeat (4) @(posedge clk);
         program_wrapper_regs();
-        repeat (4) @(posedge clk);
+        repeat (64) @(posedge clk);
         frames_started = 1;
+        program_frame_start();
         pulse_start_otf();
         for (frame_idx = 1; frame_idx < tb_frame_repeat; frame_idx = frame_idx + 1) begin
             wait_frame_idle(frame_idx);
@@ -2496,6 +2530,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             $display("[TB] frame %0d / %0d complete, scheduling next frame.", frame_idx, tb_frame_repeat);
             repeat (8) @(posedge clk);
             frames_started = frame_idx + 1;
+            program_frame_start();
             pulse_start_otf();
         end
     end
@@ -3350,14 +3385,13 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          dut.ubwc_enc_otf_to_tile_inst.pack_fifo_b_vld,
                          dut.ubwc_enc_otf_to_tile_inst.u_otf_data_packer.pipe_stall);
 
-                $display("  line_to_tile state  : rd_state=%0d wr_bank=%0b rd_bank=%0b grp_y_cnt=%0d grp_y=%0d plane=%0b subrow=%0b",
+                $display("  line_to_tile state  : rd_state=%0d wr_bank=%0b rd_bank=%0b grp_y_cnt=%0d grp_y=%0d plane=%0b",
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_state,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.wr_bank_sel,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_bank_sel_act,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_tile_grp_y_cnt,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_group_y,
-                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_plane,
-                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_y_subrow);
+                         dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_plane);
                 $display("  line_to_tile banks  : b0(a_line=%0d b_line=%0d a_done=%0b b_done=%0b vsync=%0b) b1(a_line=%0d b_line=%0d a_done=%0b b_done=%0b vsync=%0b)",
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_a_line_idx,
                          dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.bank0_b_line_idx,

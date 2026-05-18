@@ -25,6 +25,8 @@ module tile_to_line_writer #(
     input   wire    [15                     :0]         cfg_img_width                   ,
     input   wire                                        i_sram_a_free                   ,
     input   wire                                        i_sram_b_free                   ,
+    input   wire                                        i_sram_a_read_req               ,
+    input   wire                                        i_sram_b_read_req               ,
 
     input   wire    [4                      :0]         s_axis_format                   ,
     input   wire    [15                     :0]         s_axis_tile_x                   ,
@@ -46,6 +48,9 @@ module tile_to_line_writer #(
 
     output  reg                                         o_writer_bank                   ,
     output  reg     [3                      :0]         o_writer_fcnt                   ,
+    output  reg                                         o_writer_uv_slot                ,
+    output  reg                                         o_writer_y_lower_done           ,
+    output  reg                                         o_writer_uv_done                ,
     output  reg                                         o_buffer_vld
 );
 
@@ -70,12 +75,6 @@ module tile_to_line_writer #(
     wire        [257                 -1 :0]         data_fifo_dout                  ;
     wire                                            tile_ctx_available              ;
     wire                                            frame_start                     ;
-    wire                                            hdr_fifo_prog_full              ;
-    wire                                            hdr_fifo_valid                  ;
-    wire        [5                   -1 :0]         hdr_fifo_data_count             ;
-    wire                                            data_fifo_prog_full             ;
-    wire                                            data_fifo_valid                 ;
-    wire        [5                   -1 :0]         data_fifo_data_count            ;
     wire                                            tile_hdr_fire                   ;
     wire                                            data_credit_has_room            ;
     wire        [255                    :0]         cur_tdata                       ;
@@ -84,14 +83,20 @@ module tile_to_line_writer #(
     wire        [4                      :0]         cur_fmt                         ;
     wire        [3                      :0]         cur_fcnt                        ;
     wire                                            target_bank_free                ;
+    wire                                            target_bank_storage_free        ;
+    wire                                            target_bank_read_req            ;
     wire                                            wide_profile                    ;
     wire                                            wide_yuv420_profile             ;
     wire                                            write_bank                      ;
+    wire                                            sram_wen_req                    ;
     wire                                            sram_wen_internal               ;
+    wire                                            read_write_conflict             ;
+    wire                                            write_conflict_block            ;
     wire        [16                     :0]         p_base_full                     ;
     wire        [16                     :0]         y_lower_base_full               ;
     wire        [16                     :0]         uv_base_full                    ;
     wire        [16                     :0]         uv_split_base_full              ;
+    wire        [16                     :0]         uv_slot_size_full               ;
     wire                                            group_row_sel                   ;
     wire                                            wide_yuv420_y_lower_stage       ;
     wire                                            wide_yuv420_uv_second_half      ;
@@ -115,6 +120,9 @@ module tile_to_line_writer #(
     wire                                            tile_last_write                 ;
     wire                                            rowgroup_done                   ;
     wire                                            slice_done                      ;
+    wire                                            wide_yuv420_y_upper_ready       ;
+    wire                                            wide_yuv420_y_ready             ;
+    wire                                            writer_buffer_ready             ;
 
     reg         [DATA_CREDIT_W       -1 :0]         data_credit_used                ;
     reg                                             is_y_stride_1k                  ;
@@ -124,6 +132,8 @@ module tile_to_line_writer #(
     reg                                             is_rgba                         ;
     reg                                             is_p010                         ;
     reg                                             wr_bank                         ;
+    reg                                             uv_slot_sel                     ;
+    reg                                             uv_slot_done_sel                ;
     reg         [1                      :0]         y420_stage                      ;
     reg                                             gearbox_sel                     ;
     reg         [3                      :0]         cnt_write                       ;
@@ -147,13 +157,13 @@ module tile_to_line_writer #(
         .rst_n                         ( rst_n                                 ),
         .wr_en                         ( tile_hdr_fire                         ),
         .din                           ( hdr_fifo_din                          ),
-        .prog_full                     ( hdr_fifo_prog_full                    ),
+        .prog_full                     (                                       ),
         .full                          ( hdr_fifo_full                         ),
         .rd_en                         ( hdr_fifo_rd_en                        ),
         .empty                         ( hdr_fifo_empty                        ),
         .dout                          ( hdr_fifo_dout                         ),
-        .valid                         ( hdr_fifo_valid                        ),
-        .data_count                    ( hdr_fifo_data_count                   )
+        .valid                         (                                       ),
+        .data_count                    (                                       )
     );
 
     mg_sync_fifo #(
@@ -167,13 +177,13 @@ module tile_to_line_writer #(
         .rst_n                         ( rst_n                                 ),
         .wr_en                         ( data_fifo_wr_en                      ),
         .din                           ( data_fifo_din                         ),
-        .prog_full                     ( data_fifo_prog_full                   ),
+        .prog_full                     (                                       ),
         .full                          ( data_fifo_full                        ),
         .rd_en                         ( data_fifo_rd_en                       ),
         .empty                         ( data_fifo_empty                       ),
         .dout                          ( data_fifo_dout                        ),
-        .valid                         ( data_fifo_valid                       ),
-        .data_count                    ( data_fifo_data_count                  )
+        .valid                         (                                       ),
+        .data_count                    (                                       )
     );
 
     assign frame_start                = (i_frame_start == 1'b1);
@@ -190,23 +200,31 @@ module tile_to_line_writer #(
     assign wide_profile               = (cfg_img_width > 16'd2048);
     assign wide_yuv420_profile        = is_yuv420;
     assign wide_yuv420_y_lower_stage  = wide_yuv420_profile && !is_uv_plane &&
-                                        (y420_stage == 2'd1);
+                                        (y420_stage == 2'd2);
     assign wide_yuv420_uv_second_half = wide_yuv420_profile && is_uv_plane &&
                                         (is_p010 ? y_in_t[1] : y_in_t[2]);
     assign wide_yuv420_bank_offset    = wide_yuv420_y_lower_stage ||
                                         wide_yuv420_uv_second_half;
     assign write_bank                 = wide_yuv420_profile ? (wr_bank ^ wide_yuv420_bank_offset) :
                                                               wr_bank;
-    assign target_bank_free           = wide_yuv420_profile ?
-                                        (is_uv_plane ?
-                                         (write_bank ? i_sram_b_free : i_sram_a_free) :
-                                         (i_sram_a_free && i_sram_b_free)) :
+    assign target_bank_storage_free   = (wide_yuv420_profile && is_uv_plane) ? 1'b1 :
                                         (write_bank ? i_sram_b_free : i_sram_a_free);
-    assign sram_wen_internal          = (!hdr_fifo_empty) && (!data_fifo_empty) && target_bank_free;
+    assign target_bank_read_req       = write_bank ? i_sram_b_read_req :
+                                                     i_sram_a_read_req;
+    assign target_bank_free           = target_bank_storage_free;
+    assign sram_wen_req               = (!hdr_fifo_empty) && (!data_fifo_empty) &&
+                                        target_bank_free && !o_buffer_vld;
+    assign read_write_conflict        = sram_wen_req && target_bank_read_req;
+    assign write_conflict_block       = read_write_conflict;
+    assign sram_wen_internal          = sram_wen_req && !write_conflict_block;
     assign data_fifo_rd_en            = sram_wen_internal && gearbox_sel;
     assign y_lower_base_full          = wide_profile ? 17'(SRAM_Y_LOWER_BASE_WORDS_GT2048) :
                                                        17'(SRAM_Y_LOWER_BASE_WORDS_LE2048);
-    assign uv_split_base_full         = y_lower_base_full;
+    assign uv_slot_size_full          = wide_profile ? 17'd1024 :
+                                                       17'd512;
+    assign uv_split_base_full         = (wide_yuv420_profile && uv_slot_sel) ?
+                                        (y_lower_base_full + uv_slot_size_full) :
+                                        y_lower_base_full;
     assign uv_base_full               = wide_yuv420_profile ? 17'd0 :
                                         (wide_profile ? 17'(SRAM_UV_BASE_WORDS_GT2048) :
                                                         17'(SRAM_UV_BASE_WORDS_LE2048));
@@ -247,6 +265,12 @@ module tile_to_line_writer #(
     assign tile_last_write            = sram_wen_internal && cur_tlast && gearbox_sel;
     assign rowgroup_done              = tile_last_write && last_tile_x;
     assign slice_done                 = tile_last_write && last_tile_x && (is_rgba || is_uv_plane);
+    assign wide_yuv420_y_upper_ready  = wide_yuv420_profile && !is_uv_plane && rowgroup_done &&
+                                        (y420_stage == 2'd1);
+    assign wide_yuv420_y_ready        = wide_yuv420_profile && !is_uv_plane && rowgroup_done &&
+                                        (y420_stage == 2'd2);
+    assign writer_buffer_ready        = wide_yuv420_profile ? wide_yuv420_y_upper_ready :
+                                                              slice_done;
     assign hdr_fifo_rd_en             = tile_last_write;
     assign sram_a_wen                 = sram_wen_internal & (~write_bank);
     assign sram_b_wen                 = sram_wen_internal & (write_bank);
@@ -285,8 +309,7 @@ module tile_to_line_writer #(
     end
 
     // For YUV420, one slice is written as three full-width passes:
-    // 1) Y upper 8 lines, 2) Y lower 8 lines, 3) UV 8 lines.
-    // Track that internal order instead of assuming per-tile Y/Y/UV ordering.
+    // 1) UV, 2) Y upper, 3) Y lower.
 
     always @(posedge clk_sram or negedge rst_n) begin
         if (!rst_n) gearbox_sel <= 1'b0;
@@ -323,7 +346,7 @@ module tile_to_line_writer #(
             wr_bank <= 0;
         else if (frame_start)
             wr_bank <= 0;
-        else if (sram_wen_internal && slice_done)
+        else if (sram_wen_internal && slice_done && !wide_yuv420_profile)
             wr_bank <= ~wr_bank;
     end
 
@@ -332,7 +355,7 @@ module tile_to_line_writer #(
             o_writer_bank <= 0;
         else if (frame_start)
             o_writer_bank <= 0;
-        else if (sram_wen_internal && slice_done)
+        else if (sram_wen_internal && writer_buffer_ready)
             o_writer_bank <= wr_bank;
     end
 
@@ -341,8 +364,35 @@ module tile_to_line_writer #(
             o_writer_fcnt <= 4'd0;
         else if (frame_start)
             o_writer_fcnt <= 4'd0;
-        else if (sram_wen_internal && slice_done)
+        else if (sram_wen_internal && writer_buffer_ready)
             o_writer_fcnt <= cur_fcnt;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            o_writer_uv_slot <= 1'b0;
+        else if (frame_start)
+            o_writer_uv_slot <= 1'b0;
+        else if (sram_wen_internal && writer_buffer_ready)
+            o_writer_uv_slot <= uv_slot_done_sel;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            o_writer_y_lower_done <= 1'b0;
+        else if (frame_start)
+            o_writer_y_lower_done <= 1'b0;
+        else
+            o_writer_y_lower_done <= sram_wen_internal && wide_yuv420_y_ready;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            o_writer_uv_done <= 1'b0;
+        else if (frame_start)
+            o_writer_uv_done <= 1'b0;
+        else
+            o_writer_uv_done <= sram_wen_internal && slice_done && wide_yuv420_profile;
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
@@ -351,7 +401,7 @@ module tile_to_line_writer #(
         else if (frame_start)
             o_buffer_vld <= 0;
         else
-            o_buffer_vld <= sram_wen_internal && slice_done;
+            o_buffer_vld <= sram_wen_internal && writer_buffer_ready;
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
@@ -361,11 +411,29 @@ module tile_to_line_writer #(
             y420_stage <= 2'd0;
         else if (sram_wen_internal && rowgroup_done && !is_yuv420)
             y420_stage <= 2'd0;
-        else if (sram_wen_internal && rowgroup_done && is_uv_plane)
-            y420_stage <= 2'd0;
         else if (sram_wen_internal && rowgroup_done && (y420_stage == 2'd0))
             y420_stage <= 2'd1;
-        else if (sram_wen_internal && rowgroup_done)
+        else if (sram_wen_internal && rowgroup_done && (y420_stage == 2'd1))
             y420_stage <= 2'd2;
+        else if (sram_wen_internal && rowgroup_done)
+            y420_stage <= 2'd0;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            uv_slot_sel <= 1'b0;
+        else if (frame_start)
+            uv_slot_sel <= 1'b0;
+        else if (sram_wen_internal && slice_done && wide_yuv420_profile)
+            uv_slot_sel <= ~uv_slot_sel;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            uv_slot_done_sel <= 1'b0;
+        else if (frame_start)
+            uv_slot_done_sel <= 1'b0;
+        else if (sram_wen_internal && slice_done && wide_yuv420_profile)
+            uv_slot_done_sel <= uv_slot_sel;
     end
 endmodule

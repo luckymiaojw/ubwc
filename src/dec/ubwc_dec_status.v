@@ -35,7 +35,6 @@ module ubwc_dec_status
     );
 
     wire                                            any_stage_busy                  ;
-    wire                                            irq_pending_next                ;
     wire                                            meta_done_event                 ;
     wire                                            tile_done_event                 ;
     wire                                            frame_counter_clear             ;
@@ -58,12 +57,9 @@ module ubwc_dec_status
     reg         [31                     :0]         otf_de_count_r                  ;
 
     assign any_stage_busy              = i_meta_busy | i_tile_busy | i_vivo_busy | i_otf_busy;
-    assign irq_pending_next            = irq_correct_pending_r | irq_error_pending_r |
-                                         i_correct_irq_event | i_error_irq_event;
     assign meta_done_event             = meta_busy_d & !i_meta_busy;
     assign tile_done_event             = tile_busy_d & !i_tile_busy;
-    assign frame_counter_clear         = i_irq_clear ||
-                                         (i_frame_start && !irq_pending_next);
+    assign frame_counter_clear         = i_irq_clear | i_frame_start;
     assign stage_seen0_event           = i_meta_busy | i_meta_tile_fire;
     assign stage_seen1_event           = i_tile_busy | i_tile_addr_fire;
     assign stage_seen2_event           = i_vivo_busy;
@@ -87,12 +83,12 @@ module ubwc_dec_status
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
             frame_active_r <= 1'b0;
+        else if (i_frame_start)
+            frame_active_r <= 1'b1;
         else if (i_irq_clear)
             frame_active_r <= 1'b0;
         else if (i_correct_irq_event)
             frame_active_r <= 1'b0;
-        else if (i_frame_start)
-            frame_active_r <= 1'b1;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin

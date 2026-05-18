@@ -67,6 +67,8 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     localparam integer                  CMD_FIFO_W                  = ADDR_WIDTH + 2 + META_DESC_W      ;
     localparam integer                  RSP_FIFO_W                  = 2 + META_DESC_W                   ;
     localparam integer                  OUT_FIFO_W                  = 64 + META_DESC_W                  ;
+    localparam integer                  OUT_FIFO_DEPTH              = 32                                ;
+    localparam [6                   :0] OUT_FIFO_AFULL_LEVEL        = OUT_FIFO_DEPTH - 1                ;
 
     wire                                cmd_fifo_empty                ;
     wire                                cmd_fifo_full                 ;
@@ -76,7 +78,6 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     wire                                cmd_fifo_wr_en                ;
     wire    [CMD_FIFO_W          -1 :0] cmd_fifo_din                  ;
     wire    [CMD_FIFO_W          -1 :0] cmd_fifo_dout                 ;
-    wire    [4                      :0] cmd_fifo_data_count           ;
     wire    [ADDR_WIDTH          -1 :0] cmd_fifo_addr                 ;
     wire    [1                      :0] cmd_fifo_lane_sel             ;
     wire    [4                      :0] cmd_fifo_meta_format          ;
@@ -92,7 +93,6 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     wire                                rsp_fifo_rd_en                ;
     wire    [RSP_FIFO_W          -1 :0] rsp_fifo_din                  ;
     wire    [RSP_FIFO_W          -1 :0] rsp_fifo_dout                 ;
-    wire    [4                      :0] rsp_fifo_data_count           ;
     wire    [1                      :0] rsp_lane_sel                  ;
     wire    [4                      :0] rsp_meta_format               ;
     wire    [TW_DW               -1 :0] rsp_meta_xcoord               ;
@@ -117,11 +117,15 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     wire    [ADDR_WIDTH          -1 :0] aligned_cmd_addr              ;
     wire    [1                      :0] cmd_lane_sel                  ;
     wire                                cmd_addr_unaligned            ;
-    wire                                meta_fetch_ready              ;
+    wire                                meta_out_credit_avail         ;
+    wire                                meta_out_almost_full          ;
+    wire    [6                      :0] meta_out_reserved_count       ;
     wire    [63                     :0] selected_rdata                ;
     wire                                rid_match                     ;
+    wire                                ar_fire                       ;
     wire                                r_fire                        ;
 
+    reg     [6                      :0] meta_rsp_pending_count        ;
     reg     [2                      :0] byte_idx                      ;
 
     assign cmd_fifo_din               = {aligned_cmd_addr,
@@ -161,7 +165,7 @@ module ubwc_dec_meta_axi_rcmd_gen #(
         .empty                      ( cmd_fifo_empty                ),
         .dout                       ( cmd_fifo_dout                 ),
         .valid                      ( cmd_fifo_valid                ),
-        .data_count                 ( cmd_fifo_data_count           )
+        .data_count                 (                               )
     );
 
     mg_sync_fifo
@@ -183,14 +187,14 @@ module ubwc_dec_meta_axi_rcmd_gen #(
         .empty                      ( rsp_fifo_empty                ),
         .dout                       ( rsp_fifo_dout                 ),
         .valid                      ( rsp_fifo_valid                ),
-        .data_count                 ( rsp_fifo_data_count           )
+        .data_count                 (                               )
     );
 
     mg_sync_fifo
     #(
         .PROG_DEPTH                 ( 1                             ),
         .DWIDTH                     ( OUT_FIFO_W                    ),
-        .DEPTH                      ( 32                            ),
+        .DEPTH                      ( OUT_FIFO_DEPTH                ),
         .SHOW_AHEAD                 ( 1                             )
     )
     u_meta_data_fifo
@@ -211,9 +215,11 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     assign aligned_cmd_addr           = {meta_grp_addr[ADDR_WIDTH-1:5], 5'd0};
     assign cmd_lane_sel               = meta_grp_addr[4:3];
     assign cmd_addr_unaligned         = |meta_grp_addr[2:0];
-    assign meta_fetch_ready           = meta_data_ready && cmd_fifo_empty && rsp_fifo_empty && out_fifo_empty;
-    assign meta_grp_ready             = rst_n && !start && meta_fetch_ready &&
-                                        !cmd_fifo_full && !rsp_fifo_full && !out_fifo_full;
+    assign meta_grp_ready             = rst_n && !start && !cmd_fifo_full;
+    assign meta_out_reserved_count    = {1'b0, out_fifo_data_count} +
+                                        meta_rsp_pending_count;
+    assign meta_out_almost_full       = (meta_out_reserved_count >= OUT_FIFO_AFULL_LEVEL);
+    assign meta_out_credit_avail      = !meta_out_almost_full;
     assign cmd_fifo_meta_fcnt         = cmd_fifo_dout[0 +: META_FCNT_W];
     assign cmd_fifo_meta_ycoord       = cmd_fifo_dout[META_FCNT_W +: TH_DW];
     assign cmd_fifo_meta_xcoord       = cmd_fifo_dout[META_FCNT_W+TH_DW +: TW_DW];
@@ -221,14 +227,16 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     assign cmd_fifo_lane_sel          = cmd_fifo_dout[META_DESC_W +: 2];
     assign cmd_fifo_addr              = cmd_fifo_dout[CMD_FIFO_W-1 -: ADDR_WIDTH];
     assign cmd_fifo_axi_id            = cmd_fifo_meta_fcnt;
-    assign m_axi_arvalid              = rst_n && !start && cmd_fifo_valid && !rsp_fifo_full;
+    assign m_axi_arvalid              = rst_n && !start && cmd_fifo_valid &&
+                                        !rsp_fifo_full && meta_out_credit_avail;
     assign m_axi_araddr               = cmd_fifo_addr;
     assign m_axi_arlen                = 8'd0;
     assign m_axi_arsize               = ARSIZE_VALUE[2:0];
     assign m_axi_arburst              = 2'b01;
     assign m_axi_arid                 = cmd_fifo_axi_id;
-    assign cmd_fifo_rd_en             = m_axi_arvalid && m_axi_arready;
-    assign rsp_fifo_wr_en             = cmd_fifo_rd_en;
+    assign ar_fire                    = m_axi_arvalid && m_axi_arready;
+    assign cmd_fifo_rd_en             = ar_fire;
+    assign rsp_fifo_wr_en             = ar_fire;
     assign rsp_meta_fcnt              = rsp_fifo_dout[0 +: META_FCNT_W];
     assign rsp_meta_ycoord            = rsp_fifo_dout[META_FCNT_W +: TH_DW];
     assign rsp_meta_xcoord            = rsp_fifo_dout[META_FCNT_W+TH_DW +: TW_DW];
@@ -256,6 +264,17 @@ module ubwc_dec_meta_axi_rcmd_gen #(
     assign meta_data_xcoord           = out_meta_xcoord + {{(TW_DW-3){1'b0}}, byte_idx};
     assign meta_data_ycoord           = out_meta_ycoord;
     assign meta_data_fcnt             = out_meta_fcnt;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            meta_rsp_pending_count <= 7'd0;
+        else if (start)
+            meta_rsp_pending_count <= 7'd0;
+        else if (ar_fire && !r_fire)
+            meta_rsp_pending_count <= meta_rsp_pending_count + 1'b1;
+        else if (!ar_fire && r_fire && (meta_rsp_pending_count != 7'd0))
+            meta_rsp_pending_count <= meta_rsp_pending_count - 1'b1;
+    end
 
     always @* begin
         case (byte_idx)

@@ -49,6 +49,7 @@ module ubwc_enc_otf_data_packer
         input   wire    [3                      :0]         otf_fcnt                        ,
         input   wire    [11                     :0]         otf_lcnt                        ,
         output  wire                                        otf_ready                       ,
+        output  wire                                        otf_frame_done                  ,
 
         // FIFO A output
         output  wire                                        fifo_a_vld                      ,
@@ -98,6 +99,7 @@ module ubwc_enc_otf_data_packer
     wire                                            err_fifo_ovf_event_sys          ;
     wire        [15                     :0]         effective_pixel_cnt             ;
     wire                                            otf_last_beat                   ;
+    wire                                            otf_frame_done_pulse            ;
     wire                                            din_vsync                       ;
     wire                                            din_hsync                       ;
     wire        [3                      :0]         din_fcnt                        ;
@@ -247,6 +249,9 @@ module ubwc_enc_otf_data_packer
     assign err_fifo_ovf               = err_fifo_ovf_sticky_sys;
     assign effective_pixel_cnt        = (otf_hsync || hsync_rising) ? 16'd0 : pixel_cnt_in;
     assign otf_last_beat              = (effective_pixel_cnt + 16'd4 >= cfg_width);
+    assign otf_frame_done_pulse       = otf_fire && otf_last_beat &&
+                                        (line_cnt_in == cfg_height);
+    assign otf_frame_done             = otf_frame_done_pulse;
     assign din_vsync                  = sticky_vsync | otf_vsync;
     assign din_hsync                  = sticky_hsync | otf_hsync;
     assign din_fcnt                   = otf_vsync ? otf_fcnt : locked_fcnt;

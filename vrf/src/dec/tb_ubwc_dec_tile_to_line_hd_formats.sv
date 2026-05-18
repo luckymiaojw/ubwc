@@ -28,12 +28,15 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
     wire          sram_a_wen, sram_b_wen;
     wire [12:0]   sram_a_waddr, sram_b_waddr;
     wire [127:0]  sram_a_wdata, sram_b_wdata;
+    wire          sram_a_req, sram_b_req;
     wire          sram_a_ren, sram_b_ren;
     wire [12:0]   sram_a_raddr, sram_b_raddr;
     wire [127:0]  sram_a_rdata, sram_b_rdata;
 
     wire          writer_vld;
     wire          writer_bank;
+    wire          writer_uv_slot;
+    wire          writer_uv_done;
     wire          fetcher_done;
     wire          fetcher_bank;
     reg           sram_a_free;
@@ -492,8 +495,11 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
                     if (observed_fifo[obs_idx][127:0] !== nv12_y_word_hd(base_line + line_idx, word_idx)) begin
                         $fatal(1, "NV12 HD Y mismatch line=%0d word=%0d", line_idx, word_idx);
                     end
-                    if (observed_fifo[obs_idx][255:128] !== nv12_uv_word_hd(base_uv_line + (line_idx >> 1), word_idx)) begin
+                    if (line_idx[0] && (observed_fifo[obs_idx][255:128] !== nv12_uv_word_hd(base_uv_line + (line_idx >> 1), word_idx))) begin
                         $fatal(1, "NV12 HD UV mismatch line=%0d word=%0d", line_idx, word_idx);
+                    end
+                    if (!line_idx[0] && (observed_fifo[obs_idx][255:128] !== 128'd0)) begin
+                        $fatal(1, "NV12 HD even-line high half should not consume UV line=%0d word=%0d", line_idx, word_idx);
                     end
                 end
             end
@@ -531,6 +537,8 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
         .cfg_img_width  (cfg_img_width),
         .i_sram_a_free  (sram_a_free),
         .i_sram_b_free  (sram_b_free),
+        .i_sram_a_read_req(sram_a_req),
+        .i_sram_b_read_req(sram_b_req),
         .s_axis_format  (s_axis_format),
         .s_axis_tile_x  (s_axis_tile_x),
         .s_axis_tile_y  (s_axis_tile_y),
@@ -548,6 +556,9 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
         .sram_b_waddr   (sram_b_waddr),
         .sram_b_wdata   (sram_b_wdata),
         .o_writer_bank  (writer_bank),
+        .o_writer_fcnt  (),
+        .o_writer_uv_slot(writer_uv_slot),
+        .o_writer_uv_done(writer_uv_done),
         .o_buffer_vld   (writer_vld)
     );
 
@@ -574,24 +585,36 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
     sram_read_fetcher dut_fetcher (
         .clk_sram       (clk),
         .rst_n          (rst_n),
+        .i_frame_start  (1'b0),
         .cfg_img_width  (cfg_img_width),
         .cfg_format     (cfg_format),
         .i_buffer_vld   (writer_vld),
         .i_writer_bank  (writer_bank),
         .i_buffer_fcnt (4'd0),
+        .i_buffer_uv_slot(writer_uv_slot),
+        .i_buffer_uv_ready(writer_uv_done),
+        .i_uv_done      (writer_uv_done),
+        .i_sram_a_wbusy(sram_a_wen),
+        .i_sram_b_wbusy(sram_b_wen),
+        .o_sram_a_req   (sram_a_req),
         .o_sram_a_ren   (sram_a_ren),
         .o_sram_a_raddr (sram_a_raddr),
         .i_sram_a_rdata (sram_a_rdata),
+        .i_sram_a_rvalid(1'b1),
+        .o_sram_b_req   (sram_b_req),
         .o_sram_b_ren   (sram_b_ren),
         .o_sram_b_raddr (sram_b_raddr),
         .i_sram_b_rdata (sram_b_rdata),
+        .i_sram_b_rvalid(1'b1),
         .o_fifo_wr_en   (fifo_wr_en),
         .o_fifo_wdata   (fifo_wdata),
         .o_fifo_fcnt  (),
         .i_fifo_full    (1'b0),
         .o_fetcher_done (fetcher_done),
         .o_fetcher_bank (fetcher_bank),
-        .o_fetcher_fcnt ()
+        .o_fetcher_fcnt (),
+        .o_fetcher_bank0_done(),
+        .o_fetcher_bank1_done()
     );
 
     initial begin

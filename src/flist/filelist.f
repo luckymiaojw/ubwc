@@ -7,10 +7,6 @@
 ../ip/mg_sync_fifo.v
 ../dec/ubwc_dec_meta_get_cmd_gen.v
 ../dec/ubwc_dec_meta_axi_rcmd_gen.v
-../dec/ubwc_dec_meta_axi_rdata_to_sram.v
-../dec/ubwc_dec_meta_data_from_sram.v
-../ip/ubwc_std_single_port_sram.v
-../dec/ubwc_dec_meta_pingpong_sram.v
 ../dec/ubwc_dec_apb_reg_blk.v
 ../dec/ubwc_dec_meta_data_gen.v
 ../dec/ubwc_dec_meta_data_decode.v

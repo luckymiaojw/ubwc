@@ -1,6 +1,4 @@
-module ubwc_enc_vivo_top #(
-    parameter                                       SB_WIDTH                        = 1
-) (
+module ubwc_enc_vivo_top (
     input   wire                                        i_clk                           ,
     input   wire                                        i_reset                         ,
     input   wire                                        i_sreset                        ,
@@ -63,7 +61,7 @@ module ubwc_enc_vivo_top #(
     assign o_cvo_data  = i_rvi_data;
     assign o_cvo_mask  = i_rvi_mask;
     assign o_cvo_last  = 1'b0;
-    assign o_ci_ready   = i_ubwc_en && ci_period_hit;
+    assign o_ci_ready   = i_ubwc_en && ci_period_hit && i_co_ready;
     assign o_rvi_ready  = i_ubwc_en && i_cvo_ready;
     assign o_idle      = ~i_ubwc_en;
     assign o_error     = 1'b0;

@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1840" height="1140" viewBox="0 0 1840 1140">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 30px; font-weight: 700; }
+      .subtitle { font-size: 15px; fill: #475569; }
+      .lane-label { font-size: 17px; font-weight: 700; fill: #334155; }
+      .box-title { font-size: 17px; font-weight: 700; }
+      .box-text { font-size: 13px; fill: #334155; }
+      .sig { font-size: 12px; fill: #334155; font-weight: 600; }
+      .small { font-size: 12px; fill: #64748b; }
+      .lane-apb { fill: #fff7ed; opacity: 0.82; }
+      .lane-otf { fill: #eff6ff; opacity: 0.82; }
+      .lane-vivo { fill: #f5f3ff; opacity: 0.82; }
+      .lane-axi { fill: #ecfdf5; opacity: 0.82; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 10; }
+      .box-cfg { fill: #fffbeb; stroke: #d97706; stroke-width: 2; rx: 10; }
+      .box-otf { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 10; }
+      .box-sram { fill: #f8fafc; stroke: #64748b; stroke-width: 2; rx: 10; }
+      .box-vivo { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 2; rx: 10; }
+      .box-fifo { fill: #ffffff; stroke: #64748b; stroke-width: 2; rx: 10; }
+      .box-axi { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 10; }
+      .box-stat { fill: #fef2f2; stroke: #dc2626; stroke-width: 2; rx: 10; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.4; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #d97706; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .cdc { fill: none; stroke: #7c3aed; stroke-width: 2.2; marker-end: url(#arrow); }
+      .status { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1840" height="1140" fill="#f8fafc"/>
+  <rect width="1840" height="1140" fill="url(#grid)" opacity="0.55"/>
+
+  <text x="48" y="56" class="title">ENC 模块数据流图</text>
+  <text x="48" y="84" class="subtitle">当前 RTL 口径：OTF input → OTF-to-tile → VIVO encode → tile/meta address → AXI write → external memory</text>
+
+  <rect x="40" y="120" width="1760" height="115" class="lane-apb"/>
+  <rect x="40" y="255" width="1760" height="255" class="lane-otf"/>
+  <rect x="40" y="535" width="1760" height="150" class="lane-vivo"/>
+  <rect x="40" y="710" width="1760" height="330" class="lane-axi"/>
+  <text x="58" y="152" class="lane-label">APB / pclk</text>
+  <text x="58" y="287" class="lane-label">OTF / i_otf_clk</text>
+  <text x="58" y="567" class="lane-label">VIVO / i_vivo_clk</text>
+  <text x="58" y="742" class="lane-label">AXI-core / i_axi_clk</text>
+
+  <rect x="120" y="145" width="260" height="68" class="box-cfg"/>
+  <text x="250" y="173" text-anchor="middle" class="box-title">ubwc_enc_apb_reg_blk</text>
+  <text x="250" y="197" text-anchor="middle" class="box-text">静态配置 / 地址 slot / IRQ / START</text>
+
+  <rect x="500" y="145" width="220" height="68" class="box-cfg"/>
+  <text x="610" y="173" text-anchor="middle" class="box-title">ubwc_enc_rst_gen</text>
+  <text x="610" y="197" text-anchor="middle" class="box-text">start / drain / reset</text>
+
+  <rect x="1460" y="145" width="260" height="68" class="box-stat"/>
+  <text x="1590" y="173" text-anchor="middle" class="box-title">ubwc_enc_status</text>
+  <text x="1590" y="197" text-anchor="middle" class="box-text">done / irq / counters / error</text>
+
+  <rect x="115" y="325" width="240" height="88" class="box-otf"/>
+  <text x="235" y="356" text-anchor="middle" class="box-title">OTF input</text>
+  <text x="235" y="381" text-anchor="middle" class="box-text">vsync / hsync / de</text>
+  <text x="235" y="402" text-anchor="middle" class="box-text">data[127:0] / fcnt / lcnt</text>
+
+  <rect x="465" y="290" width="345" height="170" class="box-otf"/>
+  <text x="637" y="323" text-anchor="middle" class="box-title">ubwc_enc_otf_to_tile</text>
+  <text x="637" y="351" text-anchor="middle" class="box-text">otf_data_packer：OTF 采样与格式拆包</text>
+  <text x="637" y="374" text-anchor="middle" class="box-text">line_to_tile：line → tile 重排</text>
+  <text x="637" y="397" text-anchor="middle" class="box-text">coord FIFO：tile x/y/fcnt/format 对齐 CO</text>
+  <text x="637" y="420" text-anchor="middle" class="box-text">输出 rvi/CI，统计 OTF DE/line</text>
+
+  <rect x="500" y="475" width="135" height="58" class="box-sram"/>
+  <text x="567" y="502" text-anchor="middle" class="box-title">bank0</text>
+  <text x="567" y="522" text-anchor="middle" class="small">ping-pong SRAM</text>
+
+  <rect x="675" y="475" width="135" height="58" class="box-sram"/>
+  <text x="742" y="502" text-anchor="middle" class="box-title">bank1</text>
+  <text x="742" y="522" text-anchor="middle" class="small">ping-pong SRAM</text>
+
+  <rect x="930" y="565" width="270" height="86" class="box-vivo"/>
+  <text x="1065" y="597" text-anchor="middle" class="box-title">ubwc_enc_vivo_top</text>
+  <text x="1065" y="623" text-anchor="middle" class="box-text">CI + raw tile rvi → compressed cvo</text>
+  <text x="1065" y="645" text-anchor="middle" class="box-text">输出 CO token 与 CVO payload</text>
+
+  <rect x="1295" y="560" width="215" height="68" class="box-fifo"/>
+  <text x="1402" y="588" text-anchor="middle" class="box-title">CO async FIFO</text>
+  <text x="1402" y="611" text-anchor="middle" class="box-text">alen token → AXI-core</text>
+
+  <rect x="1295" y="640" width="215" height="68" class="box-fifo"/>
+  <text x="1402" y="668" text-anchor="middle" class="box-title">CVO async FIFO</text>
+  <text x="1402" y="691" text-anchor="middle" class="box-text">data[255:0] / mask / last</text>
+
+  <rect x="220" y="765" width="285" height="86" class="box-axi"/>
+  <text x="362" y="797" text-anchor="middle" class="box-title">ubwc_enc_tile_addr</text>
+  <text x="362" y="823" text-anchor="middle" class="box-text">CO + coord/fcnt → compressed tile addr</text>
+
+  <rect x="220" y="900" width="285" height="92" class="box-axi"/>
+  <text x="362" y="932" text-anchor="middle" class="box-title">ubwc_enc_meta_addr_gen</text>
+  <text x="362" y="958" text-anchor="middle" class="box-text">CO + coord/fcnt → metadata addr/data</text>
+  <text x="362" y="980" text-anchor="middle" class="box-text">按 Y/UV meta base 与 fcnt slot 选择</text>
+
+  <rect x="650" y="765" width="300" height="86" class="box-axi"/>
+  <text x="800" y="797" text-anchor="middle" class="box-title">ubwc_tile_enc_axi_wcmd_gen</text>
+  <text x="800" y="823" text-anchor="middle" class="box-text">tile_addr + CVO payload → tile AXI write</text>
+
+  <rect x="650" y="900" width="300" height="92" class="box-axi"/>
+  <text x="800" y="932" text-anchor="middle" class="box-title">ubwc_enc_meta_axi_wcmd_gen</text>
+  <text x="800" y="958" text-anchor="middle" class="box-text">meta_addr + meta_data → metadata AXI write</text>
+  <text x="800" y="980" text-anchor="middle" class="box-text">66-bit metadata entry pack</text>
+
+  <rect x="1085" y="825" width="260" height="92" class="box-fifo"/>
+  <text x="1215" y="858" text-anchor="middle" class="box-title">axi_2t1_int_DW_axi</text>
+  <text x="1215" y="884" text-anchor="middle" class="box-text">tile write + meta write merge</text>
+
+  <rect x="1460" y="825" width="255" height="92" class="box-fifo"/>
+  <text x="1587" y="858" text-anchor="middle" class="box-title">ubwc_x2x_DW_axi_x2x</text>
+  <text x="1587" y="884" text-anchor="middle" class="box-text">AXI width / protocol adapter</text>
+
+  <rect x="1460" y="955" width="255" height="68" class="box-axi"/>
+  <text x="1587" y="983" text-anchor="middle" class="box-title">External AXI write</text>
+  <text x="1587" y="1006" text-anchor="middle" class="box-text">o_m_axi_aw/w/b</text>
+
+  <path class="flow" d="M355 369 H465"/>
+  <text x="372" y="354" class="sig">OTF stream</text>
+  <path class="flow" d="M637 460 L567 475"/>
+  <path class="flow" d="M690 460 L742 475"/>
+  <path class="flow" d="M637 460 C770 500 790 594 930 594"/>
+  <text x="785" y="555" class="sig">rvi_data/keep/valid</text>
+  <path class="flow" d="M810 382 C880 382 860 620 930 620"/>
+  <text x="835" y="430" class="sig">CI valid/format/forced_pcm</text>
+  <path class="cdc" d="M1200 594 H1295"/>
+  <text x="1220" y="581" class="sig">CO</text>
+  <path class="cdc" d="M1200 640 C1240 640 1250 674 1295 674"/>
+  <text x="1220" y="662" class="sig">CVO</text>
+
+  <path class="flow" d="M1295 594 C1020 705 635 745 505 808"/>
+  <text x="710" y="724" class="sig">CO alen + coord/fcnt</text>
+  <path class="flow" d="M1295 594 C1010 760 635 845 505 946"/>
+  <text x="690" y="860" class="sig">CO + metadata byte</text>
+  <path class="flow" d="M1510 674 C1280 760 1045 792 950 808"/>
+  <text x="1170" y="755" class="sig">CVO payload</text>
+  <path class="flow" d="M505 808 H650"/>
+  <path class="flow" d="M505 946 H650"/>
+  <path class="flow" d="M950 808 C1010 808 1020 848 1085 858"/>
+  <path class="flow" d="M950 946 C1010 946 1020 894 1085 884"/>
+  <path class="flow" d="M1345 871 H1460"/>
+  <path class="flow" d="M1587 917 V955"/>
+
+  <path class="cfg" d="M380 179 H500"/>
+  <text x="400" y="166" class="sig">enable/start</text>
+  <path class="cfg" d="M380 179 C440 250 500 260 560 290"/>
+  <text x="430" y="247" class="sig">format / size / tile geometry</text>
+  <path class="cfg" d="M380 179 C580 235 855 500 930 575"/>
+  <text x="690" y="220" class="sig">CI cfg / lossy cfg</text>
+  <path class="cfg" d="M380 179 C410 520 330 700 362 765"/>
+  <text x="125" y="690" class="sig">tile base0/1</text>
+  <path class="cfg" d="M380 179 C390 560 320 820 362 900"/>
+  <text x="130" y="855" class="sig">meta base0/1 + pitch</text>
+  <path class="cfg" d="M720 179 C930 165 1260 165 1460 179"/>
+  <text x="940" y="160" class="sig">reset/drain/status control</text>
+
+  <path class="status" d="M637 290 C760 230 1260 230 1460 179"/>
+  <text x="790" y="248" class="sig">OTF error / fifo overflow</text>
+  <path class="status" d="M1065 565 C1160 250 1330 230 1460 179"/>
+  <text x="1130" y="280" class="sig">VIVO idle/error</text>
+  <path class="status" d="M800 765 C980 700 1390 430 1590 213"/>
+  <text x="1020" y="705" class="sig">tile axi count</text>
+  <path class="status" d="M800 900 C1030 850 1390 510 1590 213"/>
+  <text x="1030" y="830" class="sig">meta axi count/error</text>
+
+  <rect x="95" y="1065" width="1650" height="48" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" rx="8"/>
+  <text x="120" y="1094" class="small">说明：fcnt 从 OTF 输入进入 otf_to_tile，随 tile coord/CO/meta/tile write 全链路传递；fcnt[0] 选择地址 slot0/slot1，同时作为统计与 AXI ID 的低位语义。</text>
+</svg>

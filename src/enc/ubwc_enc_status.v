@@ -4,14 +4,17 @@ module ubwc_enc_status
     (
         input   wire                                        i_clk                           ,
         input   wire                                        i_rstn                          ,
+        input   wire                                        i_hard_rstn                     ,
         input   wire                                        i_enc_ubwc_en                   ,
 
         input   wire                                        i_correct_irq_event             ,
-        input   wire                                        i_correct_irq_slot              ,
         input   wire                                        i_addr_cfg_done_event           ,
         input   wire                                        i_addr_cfg_done_slot            ,
         input   wire                                        i_error_irq_event               ,
         input   wire                                        i_addr_cfg_invalid              ,
+        input   wire                                        i_vivo_idle                     ,
+        input   wire                                        i_vivo_error                    ,
+        input   wire                                        i_axi_idle                      ,
 
         input   wire                                        i_rvi_valid                     ,
         input   wire                                        i_rvi_ready                     ,
@@ -28,11 +31,13 @@ module ubwc_enc_status
         input   wire                                        i_tile_axi_awslot               ,
         input   wire                                        i_tile_axi_wvalid               ,
         input   wire                                        i_tile_axi_wready               ,
+        input   wire                                        i_tile_axi_wlast                ,
         input   wire                                        i_meta_axi_awvalid              ,
         input   wire                                        i_meta_axi_awready              ,
         input   wire                                        i_meta_axi_awslot               ,
         input   wire                                        i_meta_axi_wvalid               ,
         input   wire                                        i_meta_axi_wready               ,
+        input   wire                                        i_meta_axi_wlast                ,
 
         input   wire    [32                  -1 :0]         i_otf_de_count0                 ,
         input   wire    [32                  -1 :0]         i_otf_de_count1                 ,
@@ -49,6 +54,8 @@ module ubwc_enc_status
         output  wire                                        o_irq_error_pending             ,
         output  wire                                        o_irq                           ,
         output  wire                                        o_addr_cfg_pop_toggle           ,
+        output  wire                                        o_enc_idle                      ,
+        output  wire                                        o_enc_error                     ,
 
         output  wire    [32                  -1 :0]         o_meta_count0                   ,
         output  wire    [32                  -1 :0]         o_meta_count1                   ,
@@ -71,14 +78,29 @@ module ubwc_enc_status
     wire                                            meta_fire                       ;
     wire                                            tile_axi_aw_fire                ;
     wire                                            tile_axi_w_fire                 ;
+    wire                                            tile_axi_w_done_fire            ;
+    wire                                            tile_axi_w_slot                 ;
     wire                                            meta_axi_aw_fire                ;
     wire                                            meta_axi_w_fire                 ;
+    wire                                            meta_axi_w_done_fire            ;
+    wire                                            meta_axi_w_slot                 ;
     wire        [32                  -1 :0]         meta_count0_next                ;
     wire        [32                  -1 :0]         meta_count1_next                ;
     wire        [32                  -1 :0]         tile_addr_count0_next           ;
     wire        [32                  -1 :0]         tile_addr_count1_next           ;
     wire        [32                  -1 :0]         otf_tile_count0_next            ;
     wire        [32                  -1 :0]         otf_tile_count1_next            ;
+    wire                                            tile_axi_done_seen0_next        ;
+    wire                                            tile_axi_done_seen1_next        ;
+    wire                                            meta_axi_done_seen0_next        ;
+    wire                                            meta_axi_done_seen1_next        ;
+    wire                                            addr_cfg_done_event             ;
+    wire                                            addr_cfg_done_seen0_set         ;
+    wire                                            addr_cfg_done_seen1_set         ;
+    wire                                            frame_done_event                ;
+    wire                                            frame_done_slot                 ;
+    wire                                            addr_cfg_done_seen0_next        ;
+    wire                                            addr_cfg_done_seen1_next        ;
     wire        [8                   -1 :0]         stage_done_next                 ;
 
     reg         [32                  -1 :0]         meta_count0_r                   ;
@@ -93,41 +115,77 @@ module ubwc_enc_status
     reg         [32                  -1 :0]         meta_axi_w_count1_r             ;
     reg                                             tile_axi_w_slot_r               ;
     reg                                             meta_axi_w_slot_r               ;
+    reg                                             tile_axi_done_seen0_r           ;
+    reg                                             tile_axi_done_seen1_r           ;
+    reg                                             meta_axi_done_seen0_r           ;
+    reg                                             meta_axi_done_seen1_r           ;
+    reg                                             addr_cfg_done_seen0_r           ;
+    reg                                             addr_cfg_done_seen1_r           ;
     reg         [8                   -1 :0]         stage_done_r                    ;
     reg                                             frame_done_r                    ;
     reg                                             irq_correct_pending_r           ;
     reg                                             irq_error_pending_r             ;
     reg                                             addr_cfg_pop_toggle_r           ;
+    reg                                             vivo_idle_meta_r                ;
+    reg                                             vivo_idle_sync_r                ;
+    reg                                             vivo_error_meta_r               ;
+    reg                                             vivo_error_sync_r               ;
 
     assign otf_tile_fire             = i_rvi_valid & i_rvi_ready & i_rvi_last;
     assign tile_addr_fire            = i_tile_addr_vld;
     assign meta_fire                 = i_meta_addr_valid & i_meta_addr_ready;
     assign tile_axi_aw_fire          = i_tile_axi_awvalid & i_tile_axi_awready;
     assign tile_axi_w_fire           = i_tile_axi_wvalid & i_tile_axi_wready;
+    assign tile_axi_w_done_fire      = tile_axi_w_fire & i_tile_axi_wlast;
+    assign tile_axi_w_slot           = tile_axi_aw_fire ? i_tile_axi_awslot :
+                                                          tile_axi_w_slot_r;
     assign meta_axi_aw_fire          = i_meta_axi_awvalid & i_meta_axi_awready;
     assign meta_axi_w_fire           = i_meta_axi_wvalid & i_meta_axi_wready;
+    assign meta_axi_w_done_fire      = meta_axi_w_fire & i_meta_axi_wlast;
+    assign meta_axi_w_slot           = meta_axi_aw_fire ? i_meta_axi_awslot :
+                                                          meta_axi_w_slot_r;
     assign meta_count0_next          = meta_count0_r + {31'd0, (meta_fire      & ~i_meta_slot)};
     assign meta_count1_next          = meta_count1_r + {31'd0, (meta_fire      &  i_meta_slot)};
     assign tile_addr_count0_next     = tile_addr_count0_r + {31'd0, (tile_addr_fire & ~i_tile_addr_slot)};
     assign tile_addr_count1_next     = tile_addr_count1_r + {31'd0, (tile_addr_fire &  i_tile_addr_slot)};
     assign otf_tile_count0_next      = otf_tile_count0_r + {31'd0, (otf_tile_fire  & ~i_rvi_slot)};
     assign otf_tile_count1_next      = otf_tile_count1_r + {31'd0, (otf_tile_fire  &  i_rvi_slot)};
+    assign tile_axi_done_seen0_next  = tile_axi_done_seen0_r |
+                                       (tile_axi_w_done_fire & ~tile_axi_w_slot);
+    assign tile_axi_done_seen1_next  = tile_axi_done_seen1_r |
+                                       (tile_axi_w_done_fire &  tile_axi_w_slot);
+    assign meta_axi_done_seen0_next  = meta_axi_done_seen0_r |
+                                       (meta_axi_w_done_fire & ~meta_axi_w_slot);
+    assign meta_axi_done_seen1_next  = meta_axi_done_seen1_r |
+                                       (meta_axi_w_done_fire &  meta_axi_w_slot);
+    assign addr_cfg_done_event       = i_addr_cfg_done_event | i_correct_irq_event;
+    assign addr_cfg_done_seen0_set   = addr_cfg_done_seen0_r |
+                                       (addr_cfg_done_event & ~i_addr_cfg_done_slot);
+    assign addr_cfg_done_seen1_set   = addr_cfg_done_seen1_r |
+                                       (addr_cfg_done_event &  i_addr_cfg_done_slot);
+    assign frame_done_slot           = addr_cfg_done_seen0_set ? 1'b0 : 1'b1;
+    assign frame_done_event          = i_axi_idle &&
+                                       (addr_cfg_done_seen0_set | addr_cfg_done_seen1_set);
+    assign addr_cfg_done_seen0_next  = addr_cfg_done_seen0_set &
+                                       ~(frame_done_event & ~frame_done_slot);
+    assign addr_cfg_done_seen1_next  = addr_cfg_done_seen1_set &
+                                       ~(frame_done_event &  frame_done_slot);
     assign stage_done_next[0]        = stage_done_r[0] |
-                                       (i_addr_cfg_done_event & ~i_addr_cfg_done_slot);
+                                       (addr_cfg_done_event & ~i_addr_cfg_done_slot);
     assign stage_done_next[1]        = stage_done_r[1] |
-                                       (i_addr_cfg_done_event &  i_addr_cfg_done_slot);
+                                       (addr_cfg_done_event &  i_addr_cfg_done_slot);
     assign stage_done_next[2]        = stage_done_r[2] |
-                                       (i_correct_irq_event & ~i_correct_irq_slot);
+                                       (tile_addr_fire & ~i_tile_addr_slot);
     assign stage_done_next[3]        = stage_done_r[3] |
-                                       (i_correct_irq_event &  i_correct_irq_slot);
+                                       (tile_addr_fire &  i_tile_addr_slot);
     assign stage_done_next[4]        = stage_done_r[4] |
-                                       (i_correct_irq_event & ~i_correct_irq_slot);
+                                       (meta_fire & ~i_meta_slot);
     assign stage_done_next[5]        = stage_done_r[5] |
-                                       (i_correct_irq_event &  i_correct_irq_slot);
+                                       (meta_fire &  i_meta_slot);
     assign stage_done_next[6]        = stage_done_r[6] |
-                                       (i_correct_irq_event & ~i_correct_irq_slot);
+                                       (tile_axi_done_seen0_next & meta_axi_done_seen0_next);
     assign stage_done_next[7]        = stage_done_r[7] |
-                                       (i_correct_irq_event &  i_correct_irq_slot);
+                                       (tile_axi_done_seen1_next & meta_axi_done_seen1_next);
     assign o_stage_done              = stage_done_r;
     assign o_frame_done              = frame_done_r;
     assign o_irq_correct_pending     = irq_correct_pending_r;
@@ -135,6 +193,8 @@ module ubwc_enc_status
     assign o_irq_pending             = irq_correct_pending_r | irq_error_pending_r;
     assign o_irq                     = (irq_correct_pending_r | irq_error_pending_r) & i_irq_enable;
     assign o_addr_cfg_pop_toggle     = addr_cfg_pop_toggle_r;
+    assign o_enc_idle                = vivo_idle_sync_r;
+    assign o_enc_error               = vivo_error_sync_r;
     assign o_meta_count0             = meta_count0_r;
     assign o_meta_count1             = meta_count1_r;
     assign o_tile_addr_count0        = tile_addr_count0_r;
@@ -157,6 +217,34 @@ module ubwc_enc_status
             meta_count0_r <= 32'd0;
         else
             meta_count0_r <= meta_count0_next;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            vivo_idle_meta_r <= 1'b0;
+        else
+            vivo_idle_meta_r <= i_vivo_idle;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            vivo_idle_sync_r <= 1'b0;
+        else
+            vivo_idle_sync_r <= vivo_idle_meta_r;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            vivo_error_meta_r <= 1'b0;
+        else
+            vivo_error_meta_r <= i_vivo_error;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            vivo_error_sync_r <= 1'b0;
+        else
+            vivo_error_sync_r <= vivo_error_meta_r;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
@@ -209,7 +297,7 @@ module ubwc_enc_status
             tile_axi_w_count0_r <= 32'd0;
         else if (!i_enc_ubwc_en || i_irq_clear)
             tile_axi_w_count0_r <= 32'd0;
-        else if (tile_axi_w_fire && !tile_axi_w_slot_r)
+        else if (tile_axi_w_fire && !tile_axi_w_slot)
             tile_axi_w_count0_r <= tile_axi_w_count0_r + 32'd1;
     end
 
@@ -218,7 +306,7 @@ module ubwc_enc_status
             tile_axi_w_count1_r <= 32'd0;
         else if (!i_enc_ubwc_en || i_irq_clear)
             tile_axi_w_count1_r <= 32'd0;
-        else if (tile_axi_w_fire && tile_axi_w_slot_r)
+        else if (tile_axi_w_fire && tile_axi_w_slot)
             tile_axi_w_count1_r <= tile_axi_w_count1_r + 32'd1;
     end
 
@@ -227,7 +315,7 @@ module ubwc_enc_status
             meta_axi_w_count0_r <= 32'd0;
         else if (!i_enc_ubwc_en || i_irq_clear)
             meta_axi_w_count0_r <= 32'd0;
-        else if (meta_axi_w_fire && !meta_axi_w_slot_r)
+        else if (meta_axi_w_fire && !meta_axi_w_slot)
             meta_axi_w_count0_r <= meta_axi_w_count0_r + 32'd1;
     end
 
@@ -236,7 +324,7 @@ module ubwc_enc_status
             meta_axi_w_count1_r <= 32'd0;
         else if (!i_enc_ubwc_en || i_irq_clear)
             meta_axi_w_count1_r <= 32'd0;
-        else if (meta_axi_w_fire && meta_axi_w_slot_r)
+        else if (meta_axi_w_fire && meta_axi_w_slot)
             meta_axi_w_count1_r <= meta_axi_w_count1_r + 32'd1;
     end
 
@@ -260,6 +348,42 @@ module ubwc_enc_status
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
+            tile_axi_done_seen0_r <= 1'b0;
+        else if (!i_enc_ubwc_en || i_irq_clear)
+            tile_axi_done_seen0_r <= 1'b0;
+        else
+            tile_axi_done_seen0_r <= tile_axi_done_seen0_next;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            tile_axi_done_seen1_r <= 1'b0;
+        else if (!i_enc_ubwc_en || i_irq_clear)
+            tile_axi_done_seen1_r <= 1'b0;
+        else
+            tile_axi_done_seen1_r <= tile_axi_done_seen1_next;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            meta_axi_done_seen0_r <= 1'b0;
+        else if (!i_enc_ubwc_en || i_irq_clear)
+            meta_axi_done_seen0_r <= 1'b0;
+        else
+            meta_axi_done_seen0_r <= meta_axi_done_seen0_next;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            meta_axi_done_seen1_r <= 1'b0;
+        else if (!i_enc_ubwc_en || i_irq_clear)
+            meta_axi_done_seen1_r <= 1'b0;
+        else
+            meta_axi_done_seen1_r <= meta_axi_done_seen1_next;
+    end
+
+    always @(posedge i_clk or negedge i_hard_rstn) begin
+        if (!i_hard_rstn)
             stage_done_r <= 8'd0;
         else if (!i_enc_ubwc_en || i_irq_clear)
             stage_done_r <= 8'd0;
@@ -267,26 +391,26 @@ module ubwc_enc_status
             stage_done_r <= stage_done_next;
     end
 
-    always @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn)
+    always @(posedge i_clk or negedge i_hard_rstn) begin
+        if (!i_hard_rstn)
             frame_done_r <= 1'b0;
         else if (!i_enc_ubwc_en || i_irq_clear)
             frame_done_r <= 1'b0;
-        else if (i_correct_irq_event)
+        else if (frame_done_event)
             frame_done_r <= 1'b1;
     end
 
-    always @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn)
+    always @(posedge i_clk or negedge i_hard_rstn) begin
+        if (!i_hard_rstn)
             irq_correct_pending_r <= 1'b0;
         else if (!i_enc_ubwc_en || i_irq_clear)
             irq_correct_pending_r <= 1'b0;
-        else if (i_correct_irq_event)
+        else if (frame_done_event)
             irq_correct_pending_r <= 1'b1;
     end
 
-    always @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn)
+    always @(posedge i_clk or negedge i_hard_rstn) begin
+        if (!i_hard_rstn)
             irq_error_pending_r <= 1'b0;
         else if (!i_enc_ubwc_en || i_irq_clear)
             irq_error_pending_r <= 1'b0;
@@ -294,11 +418,29 @@ module ubwc_enc_status
             irq_error_pending_r <= 1'b1;
     end
 
+    always @(posedge i_clk or negedge i_hard_rstn) begin
+        if (!i_hard_rstn)
+            addr_cfg_pop_toggle_r <= 1'b0;
+        else if (i_enc_ubwc_en && !i_irq_clear && frame_done_event)
+            addr_cfg_pop_toggle_r <= ~addr_cfg_pop_toggle_r;
+    end
+
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
-            addr_cfg_pop_toggle_r <= 1'b0;
-        else if (i_enc_ubwc_en && !i_irq_clear && i_addr_cfg_done_event)
-            addr_cfg_pop_toggle_r <= ~addr_cfg_pop_toggle_r;
+            addr_cfg_done_seen0_r <= 1'b0;
+        else if (!i_enc_ubwc_en || i_irq_clear)
+            addr_cfg_done_seen0_r <= 1'b0;
+        else
+            addr_cfg_done_seen0_r <= addr_cfg_done_seen0_next;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            addr_cfg_done_seen1_r <= 1'b0;
+        else if (!i_enc_ubwc_en || i_irq_clear)
+            addr_cfg_done_seen1_r <= 1'b0;
+        else
+            addr_cfg_done_seen1_r <= addr_cfg_done_seen1_next;
     end
 
 endmodule

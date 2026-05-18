@@ -94,6 +94,7 @@ module ubwc_enc_apb_reg_blk
         input   wire                                        i_otf_err_bframe                ,
         input   wire                                        i_meta_err_0                    ,
         input   wire                                        i_meta_err_1                    ,
+        input   wire                                        i_rst_drain_timeout             ,
         input   wire                                        i_frame_done                    ,
         input   wire                                        i_addr_cfg_pop_toggle           ,
         input   wire    [7                      :0]         i_stage_done                    ,
@@ -213,7 +214,12 @@ module ubwc_enc_apb_reg_blk
     reg         [31                     :0]         meta_axi_w_count0_pclk_ff2      ;
     reg         [31                     :0]         meta_axi_w_count1_pclk_ff1      ;
     reg         [31                     :0]         meta_axi_w_count1_pclk_ff2      ;
+    reg                                             enc_ubwc_en_axi_ff1             ;
+    reg                                             enc_ubwc_en_axi_ff2             ;
     reg                                             addr_cfg_invalid_r              ;
+    reg                                             addr_cfg_overflow_r             ;
+    reg                                             addr_cfg_overflow_axi_ff1       ;
+    reg                                             addr_cfg_overflow_axi_ff2       ;
     reg                                             addr_cfg_pop_pclk_ff1           ;
     reg                                             addr_cfg_pop_pclk_ff2           ;
     reg                                             addr_cfg_pop_pclk_ff3           ;
@@ -249,6 +255,9 @@ module ubwc_enc_apb_reg_blk
     wire                                            addr_cfg1_push                  ;
     wire                                            addr_cfg0_pop                   ;
     wire                                            addr_cfg1_pop                   ;
+    wire                                            addr_cfg0_overflow              ;
+    wire                                            addr_cfg1_overflow              ;
+    wire                                            addr_cfg_overflow               ;
     wire                                            addr_cfg0_full                  ;
     wire                                            addr_cfg1_full                  ;
     wire                                            addr_cfg0_valid                 ;
@@ -257,6 +266,7 @@ module ubwc_enc_apb_reg_blk
     wire                                            addr_cfg_invalid                ;
     wire                                            error_irq_event                 ;
     wire                                            enc_ubwc_en                     ;
+    wire                                            enc_ubwc_en_axi                 ;
     wire                                            enc_irq_clear_pulse             ;
     wire                                            irq_clear_pulse_axi             ;
     wire        [63                     :0]         addr_cfg_push_y_base            ;
@@ -409,6 +419,15 @@ module ubwc_enc_apb_reg_blk
             addr_cfg1_count <= addr_cfg1_count +
                                {{(ADDR_CFG_FIFO_CNT_W-1){1'b0}}, addr_cfg1_push} -
                                {{(ADDR_CFG_FIFO_CNT_W-1){1'b0}}, addr_cfg1_pop};
+    end
+
+    always @(posedge PCLK or negedge PRESETn) begin
+        if (!PRESETn)
+            addr_cfg_overflow_r <= 1'b0;
+        else if (!enc_ubwc_en || (apb_write && (reg_addr == REG_IRQ_CTRL[AW-3:0]) && PWDATA[1]))
+            addr_cfg_overflow_r <= 1'b0;
+        else if (addr_cfg_overflow)
+            addr_cfg_overflow_r <= 1'b1;
     end
 
     always @(posedge PCLK or negedge PRESETn) begin
@@ -693,8 +712,36 @@ module ubwc_enc_apb_reg_blk
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
+            enc_ubwc_en_axi_ff1 <= 1'b0;
+        else
+            enc_ubwc_en_axi_ff1 <= enc_ubwc_en;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            enc_ubwc_en_axi_ff2 <= 1'b0;
+        else
+            enc_ubwc_en_axi_ff2 <= enc_ubwc_en_axi_ff1;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            addr_cfg_overflow_axi_ff1 <= 1'b0;
+        else
+            addr_cfg_overflow_axi_ff1 <= addr_cfg_overflow_r;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            addr_cfg_overflow_axi_ff2 <= 1'b0;
+        else
+            addr_cfg_overflow_axi_ff2 <= addr_cfg_overflow_axi_ff1;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
             addr_cfg_invalid_r <= 1'b0;
-        else if (!enc_ubwc_en || enc_irq_clear_pulse)
+        else if (!enc_ubwc_en_axi || enc_irq_clear_pulse)
             addr_cfg_invalid_r <= 1'b0;
         else if (addr_cfg_invalid)
             addr_cfg_invalid_r <= 1'b1;
@@ -744,7 +791,9 @@ module ubwc_enc_apb_reg_blk
             r_prdata = {DW{1'b0}};
     end
 
-    assign status0                    = {{(DW-12){1'b0}},
+    assign status0                    = {{(DW-14){1'b0}},
+                                         i_rst_drain_timeout,
+                                         addr_cfg_overflow_r,
                                          o_addr_cfg_valid,
                                          addr_cfg_invalid_r,
                                          i_frame_done,
@@ -779,6 +828,7 @@ module ubwc_enc_apb_reg_blk
     assign o_enc_ci_ubwc_cfg_11        = regs[REG_ENC_CI_CFG3][8  +: 6];
 
     assign enc_ubwc_en                 = regs[REG_TILE_CFG0][0];
+    assign enc_ubwc_en_axi             = enc_ubwc_en_axi_ff2;
     assign o_enc_ubwc_en               = enc_ubwc_en;
     assign o_lvl1_bank_swizzle_en      = regs[REG_TILE_CFG0][1];
     assign o_lvl2_bank_swizzle_en      = regs[REG_TILE_CFG0][2];
@@ -794,6 +844,9 @@ module ubwc_enc_apb_reg_blk
     assign addr_cfg1_full              = (addr_cfg1_count == ADDR_CFG_FIFO_DEPTH[ADDR_CFG_FIFO_CNT_W-1:0]);
     assign addr_cfg0_valid             = (addr_cfg0_count != {ADDR_CFG_FIFO_CNT_W{1'b0}});
     assign addr_cfg1_valid             = (addr_cfg1_count != {ADDR_CFG_FIFO_CNT_W{1'b0}});
+    assign addr_cfg0_overflow          = addr_cfg_push && !addr_cfg_push_sel && addr_cfg0_full;
+    assign addr_cfg1_overflow          = addr_cfg_push &&  addr_cfg_push_sel && addr_cfg1_full;
+    assign addr_cfg_overflow           = addr_cfg0_overflow | addr_cfg1_overflow;
     assign addr_cfg0_push              = addr_cfg_push && !addr_cfg_push_sel && !addr_cfg0_full;
     assign addr_cfg1_push              = addr_cfg_push &&  addr_cfg_push_sel && !addr_cfg1_full;
     assign addr_cfg0_pop               = addr_cfg_pop && !addr_cfg_pop_sel && addr_cfg0_valid;
@@ -812,7 +865,9 @@ module ubwc_enc_apb_reg_blk
     assign addr_cfg_invalid            = i_addr_cfg_check_valid & ~active_addr_cfg_valid;
     assign error_irq_event             = addr_cfg_invalid | i_otf_to_tile_overflow |
                                          i_otf_err_bline | i_otf_err_bframe |
-                                         i_meta_err_0 | i_meta_err_1 | i_enc_error;
+                                         i_meta_err_0 | i_meta_err_1 |
+                                         addr_cfg_overflow_axi_ff2 |
+                                         i_rst_drain_timeout | i_enc_error;
     assign o_y_base_offset_addr0       = addr_cfg0_valid ? addr_cfg0_head[0   +: 64] : 64'd0;
     assign o_uv_base_offset_addr0      = addr_cfg0_valid ? addr_cfg0_head[64  +: 64] : 64'd0;
     assign o_meta_y_base_offset_addr0  = addr_cfg0_valid ? addr_cfg0_head[128 +: 64] : 64'd0;

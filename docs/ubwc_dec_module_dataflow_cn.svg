@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1840" height="1120" viewBox="0 0 1840 1120">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 30px; font-weight: 700; }
+      .subtitle { font-size: 15px; fill: #475569; }
+      .lane-label { font-size: 17px; font-weight: 700; fill: #334155; }
+      .box-title { font-size: 17px; font-weight: 700; }
+      .box-text { font-size: 13px; fill: #334155; }
+      .sig { font-size: 12px; fill: #334155; font-weight: 600; }
+      .small { font-size: 12px; fill: #64748b; }
+      .lane-apb { fill: #fff7ed; opacity: 0.82; }
+      .lane-axi { fill: #ecfdf5; opacity: 0.82; }
+      .lane-vivo { fill: #f5f3ff; opacity: 0.82; }
+      .lane-otf { fill: #eff6ff; opacity: 0.82; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 10; }
+      .box-cfg { fill: #fffbeb; stroke: #d97706; stroke-width: 2; rx: 10; }
+      .box-meta { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 10; }
+      .box-tile { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 10; }
+      .box-fifo { fill: #f8fafc; stroke: #64748b; stroke-width: 2; rx: 10; }
+      .box-vivo { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 2; rx: 10; }
+      .box-otf { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 10; }
+      .box-stat { fill: #fef2f2; stroke: #dc2626; stroke-width: 2; rx: 10; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.4; marker-end: url(#arrow); }
+      .cfg { fill: none; stroke: #d97706; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .status { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+      .cdc { fill: none; stroke: #7c3aed; stroke-width: 2.2; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1840" height="1120" fill="#f8fafc"/>
+  <rect width="1840" height="1120" fill="url(#grid)" opacity="0.55"/>
+
+  <text x="48" y="56" class="title">DEC 模块数据流图</text>
+  <text x="48" y="84" class="subtitle">当前 RTL 口径：metadata AXI read → metadata decode → tile AXI read → async FIFO → VIVO decode → tile_to_otf → OTF 输出</text>
+
+  <rect x="40" y="120" width="1760" height="120" class="lane-apb"/>
+  <rect x="40" y="260" width="1760" height="390" class="lane-axi"/>
+  <rect x="40" y="675" width="1760" height="150" class="lane-vivo"/>
+  <rect x="40" y="850" width="1760" height="180" class="lane-otf"/>
+  <text x="58" y="152" class="lane-label">APB / pclk</text>
+  <text x="58" y="292" class="lane-label">AXI-core / i_axi_clk</text>
+  <text x="58" y="707" class="lane-label">VIVO / i_vivo_clk</text>
+  <text x="58" y="882" class="lane-label">OTF / i_otf_clk</text>
+
+  <rect x="130" y="145" width="250" height="72" class="box-cfg"/>
+  <text x="255" y="174" text-anchor="middle" class="box-title">ubwc_dec_apb_reg_blk</text>
+  <text x="255" y="198" text-anchor="middle" class="box-text">静态配置 / 每帧地址 / START / IRQ clear</text>
+
+  <rect x="460" y="145" width="230" height="72" class="box-cfg"/>
+  <text x="575" y="174" text-anchor="middle" class="box-title">frame_start + fcnt</text>
+  <text x="575" y="198" text-anchor="middle" class="box-text">完整地址组 + IRQ_CTRL[5]</text>
+
+  <rect x="1490" y="145" width="250" height="72" class="box-stat"/>
+  <text x="1615" y="174" text-anchor="middle" class="box-title">ubwc_dec_status</text>
+  <text x="1615" y="198" text-anchor="middle" class="box-text">busy / done / counters / IRQ</text>
+
+  <rect x="120" y="325" width="260" height="102" class="box-meta"/>
+  <text x="250" y="354" text-anchor="middle" class="box-title">ubwc_dec_meta_data_gen</text>
+  <text x="250" y="380" text-anchor="middle" class="box-text">get_cmd + axi_rcmd + data_decode</text>
+  <text x="250" y="404" text-anchor="middle" class="box-text">每次取 64-bit metadata group</text>
+
+  <rect x="120" y="500" width="260" height="82" class="box"/>
+  <text x="250" y="532" text-anchor="middle" class="box-title">AXI read master</text>
+  <text x="250" y="556" text-anchor="middle" class="box-text">metadata AR/R + tile AR/R</text>
+
+  <rect x="500" y="325" width="260" height="112" class="box-tile"/>
+  <text x="630" y="354" text-anchor="middle" class="box-title">ubwc_dec_tile_arcmd_gen</text>
+  <text x="630" y="380" text-anchor="middle" class="box-text">metadata → compressed tile address</text>
+  <text x="630" y="404" text-anchor="middle" class="box-text">读 tile payload，生成 CI/CVI/coord</text>
+
+  <rect x="865" y="300" width="230" height="72" class="box-fifo"/>
+  <text x="980" y="330" text-anchor="middle" class="box-title">coord sync FIFO</text>
+  <text x="980" y="352" text-anchor="middle" class="box-text">format / x / y / fcnt</text>
+
+  <rect x="865" y="410" width="230" height="72" class="box-fifo"/>
+  <text x="980" y="440" text-anchor="middle" class="box-title">CI async FIFO</text>
+  <text x="980" y="462" text-anchor="middle" class="box-text">cmd / alen / metadata / lossy</text>
+
+  <rect x="865" y="520" width="230" height="72" class="box-fifo"/>
+  <text x="980" y="550" text-anchor="middle" class="box-title">CVI async FIFO</text>
+  <text x="980" y="572" text-anchor="middle" class="box-text">compressed data[255:0] / last</text>
+
+  <rect x="1210" y="708" width="260" height="82" class="box-vivo"/>
+  <text x="1340" y="740" text-anchor="middle" class="box-title">ubwc_dec_vivo_top</text>
+  <text x="1340" y="764" text-anchor="middle" class="box-text">consume CI/CVI，输出 CO/RVO</text>
+
+  <rect x="1210" y="300" width="230" height="72" class="box-fifo"/>
+  <text x="1325" y="330" text-anchor="middle" class="box-title">CO async FIFO</text>
+  <text x="1325" y="352" text-anchor="middle" class="box-text">tile decode done token</text>
+
+  <rect x="1210" y="520" width="230" height="72" class="box-fifo"/>
+  <text x="1325" y="550" text-anchor="middle" class="box-title">RVO async FIFO</text>
+  <text x="1325" y="572" text-anchor="middle" class="box-text">raw tile data[255:0] / last</text>
+
+  <rect x="980" y="875" width="290" height="112" class="box-otf"/>
+  <text x="1125" y="906" text-anchor="middle" class="box-title">ubwc_dec_tile_to_otf</text>
+  <text x="1125" y="932" text-anchor="middle" class="box-text">line writer / SRAM fetcher / otf_driver</text>
+  <text x="1125" y="956" text-anchor="middle" class="box-text">bank0/bank1 line buffer + timing</text>
+
+  <rect x="1405" y="875" width="250" height="112" class="box-otf"/>
+  <text x="1530" y="906" text-anchor="middle" class="box-title">OTF output</text>
+  <text x="1530" y="932" text-anchor="middle" class="box-text">vsync / hsync / de / data[127:0]</text>
+  <text x="1530" y="956" text-anchor="middle" class="box-text">fcnt / lcnt，受 i_otf_ready 反压</text>
+
+  <path class="cfg" d="M380 181 H460"/>
+  <text x="398" y="170" class="sig">start token</text>
+  <path class="cfg" d="M575 217 V300 H250 V325"/>
+  <text x="405" y="286" class="sig">meta_start_pulse + dec_frame_fcnt</text>
+  <path class="cfg" d="M690 181 H760 V312 H630 V325"/>
+  <text x="710" y="170" class="sig">tile/meta base, format, layout</text>
+  <path class="cfg" d="M690 181 H1125 V875"/>
+  <text x="1000" y="170" class="sig">OTF timing / output format</text>
+
+  <path class="flow" d="M250 427 V500"/>
+  <text x="265" y="468" class="sig">meta AR/R</text>
+  <path class="flow" d="M380 376 H500"/>
+  <text x="395" y="364" class="sig">dec_meta_valid + x/y/fcnt</text>
+  <path class="flow" d="M630 437 V500 H380"/>
+  <text x="468" y="490" class="sig">tile AR/R</text>
+  <path class="flow" d="M760 350 H865"/>
+  <text x="777" y="336" class="sig">coord</text>
+  <path class="flow" d="M760 390 C815 390 815 446 865 446"/>
+  <text x="780" y="425" class="sig">CI</text>
+  <path class="flow" d="M760 420 C820 420 815 556 865 556"/>
+  <text x="780" y="532" class="sig">CVI</text>
+
+  <path class="cdc" d="M1095 446 C1160 446 1150 708 1210 735"/>
+  <text x="1110" y="510" class="sig">CI跨到VIVO</text>
+  <path class="cdc" d="M1095 556 C1160 556 1160 766 1210 766"/>
+  <text x="1110" y="606" class="sig">CVI跨到VIVO</text>
+
+  <path class="cdc" d="M1340 708 V592"/>
+  <text x="1352" y="660" class="sig">RVO data</text>
+  <path class="cdc" d="M1325 708 V372"/>
+  <text x="1340" y="476" class="sig">CO token</text>
+  <path class="flow" d="M1095 336 H1210"/>
+  <text x="1120" y="322" class="sig">coord等待CO配对</text>
+  <path class="flow" d="M1440 336 H1500 V875 H1270"/>
+  <text x="1460" y="382" class="sig">tile header fire</text>
+  <path class="flow" d="M1440 556 H1510 V905 H1270"/>
+  <text x="1462" y="610" class="sig">raw tile payload</text>
+  <path class="flow" d="M1270 931 H1405"/>
+  <text x="1298" y="916" class="sig">line stream</text>
+
+  <path class="status" d="M250 325 C250 255 1615 255 1615 217"/>
+  <text x="520" y="248" class="sig">meta_busy / cmd_fail</text>
+  <path class="status" d="M630 325 C630 270 1615 270 1615 217"/>
+  <text x="780" y="266" class="sig">tile_busy / cmd_fail</text>
+  <path class="status" d="M1340 708 C1520 708 1615 610 1615 217"/>
+  <text x="1460" y="700" class="sig">vivo idle/error</text>
+  <path class="status" d="M1125 875 C1300 825 1615 740 1615 217"/>
+  <text x="1280" y="840" class="sig">correct_irq / underflow / counts</text>
+
+  <rect x="95" y="1048" width="1650" height="44" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" rx="8"/>
+  <text x="120" y="1076" class="small">说明：coord FIFO 与 CO token 在 AXI-core 域配对，RVO payload 进入 tile_to_otf；tile_to_otf 使用 bank0/bank1 工作 SRAM 重排成 OTF 时序输出，frame_done/IRQ 来自最终 OTF 输出路径。</text>
+</svg>

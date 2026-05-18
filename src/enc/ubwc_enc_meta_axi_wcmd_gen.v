@@ -27,6 +27,7 @@ module ubwc_enc_meta_axi_wcmd_gen
     )(
         input   wire                                        i_aclk                          ,
         input   wire                                        i_aresetn                       ,
+        input   wire                                        i_drain_req                     ,
 
         input   wire    [META_DW             -1 :0]         i_meta_data                     ,
         input   wire                                        i_meta_data_valid               ,
@@ -63,26 +64,59 @@ module ubwc_enc_meta_axi_wcmd_gen
     localparam  [2                      :0]         AXI_SIZE_W                      = 3'($clog2(AXI_DW / 8));
 
     wire        [2                   -1 :0]         meta_w_lane_sel                 ;
+    wire                                            aw_pass                         ;
+    wire                                            w_pass                          ;
+    wire                                            aw_fire                         ;
+    wire                                            w_fire                          ;
 
-    assign  meta_w_lane_sel     = i_meta_data[64+:2];
-    assign  o_m_axi_awid        = i_axi_id                  ;
-    assign  o_m_axi_awaddr      = {i_meta_addr[AXI_AW-1:5], 5'd0};
-    assign  o_m_axi_awlen       = {AXI_LENW{1'b0}}          ;
-    assign  o_m_axi_awsize      = AXI_SIZE_W                ;
-    assign  o_m_axi_awburst     = 2'b01                     ;
-    assign  o_m_axi_awlock      = 2'b00                     ;
-    assign  o_m_axi_awcache     = 4'b0011                   ;
-    assign  o_m_axi_awprot      = 3'b000                    ;
-    assign  o_m_axi_awvalid     = i_meta_addr_valid         ;
-    assign  o_meta_addr_ready   = i_m_axi_awready           ;
-    assign  o_m_axi_wdata       = {4{i_meta_data[0+:64]}}   ;
-    assign  o_m_axi_wstrb       = (meta_w_lane_sel == 2'd0) ? 32'h000000ff :
-                                  (meta_w_lane_sel == 2'd1) ? 32'h0000ff00 :
-                                  (meta_w_lane_sel == 2'd2) ? 32'h00ff0000 :
-                                                              32'hff000000 ;
-    assign  o_m_axi_wvalid      = i_meta_data_valid         ;
-    assign  o_m_axi_wlast       = i_meta_data_valid         ;
-    assign  o_meta_data_ready   = i_m_axi_wready            ;
-    assign  o_m_axi_bready      = 1'b1                      ;
+    reg         [16                  -1 :0]         aw_wait_w_count                 ;
+    reg         [16                  -1 :0]         w_wait_aw_count                 ;
+
+    assign meta_w_lane_sel          = i_meta_data[64+:2];
+    assign aw_pass                  = !i_drain_req || (w_wait_aw_count != 16'd0);
+    assign w_pass                   = !i_drain_req || (aw_wait_w_count != 16'd0);
+    assign aw_fire                  = o_m_axi_awvalid & i_m_axi_awready;
+    assign w_fire                   = o_m_axi_wvalid & i_m_axi_wready;
+    assign o_m_axi_awid             = i_axi_id;
+    assign o_m_axi_awaddr           = {i_meta_addr[AXI_AW-1:5], 5'd0};
+    assign o_m_axi_awlen            = {AXI_LENW{1'b0}};
+    assign o_m_axi_awsize           = AXI_SIZE_W;
+    assign o_m_axi_awburst          = 2'b01;
+    assign o_m_axi_awlock           = 2'b00;
+    assign o_m_axi_awcache          = 4'b0011;
+    assign o_m_axi_awprot           = 3'b000;
+    assign o_m_axi_awvalid          = i_meta_addr_valid & aw_pass;
+    assign o_meta_addr_ready        = i_m_axi_awready & aw_pass;
+    assign o_m_axi_wdata            = {4{i_meta_data[0+:64]}};
+    assign o_m_axi_wstrb            = (meta_w_lane_sel == 2'd0) ? 32'h000000ff :
+                                      (meta_w_lane_sel == 2'd1) ? 32'h0000ff00 :
+                                      (meta_w_lane_sel == 2'd2) ? 32'h00ff0000 :
+                                                                  32'hff000000;
+    assign o_m_axi_wvalid           = i_meta_data_valid & w_pass;
+    assign o_m_axi_wlast            = i_meta_data_valid & w_pass;
+    assign o_meta_data_ready        = i_m_axi_wready & w_pass;
+    assign o_m_axi_bready           = 1'b1;
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            aw_wait_w_count <= 16'd0;
+        else if (aw_fire && w_fire && (aw_wait_w_count != 16'd0) && (w_wait_aw_count != 16'd0))
+            aw_wait_w_count <= aw_wait_w_count - 16'd1;
+        else if (aw_fire && !w_fire && (w_wait_aw_count == 16'd0))
+            aw_wait_w_count <= aw_wait_w_count + 16'd1;
+        else if (!aw_fire && w_fire && (aw_wait_w_count != 16'd0))
+            aw_wait_w_count <= aw_wait_w_count - 16'd1;
+    end
+
+    always @(posedge i_aclk or negedge i_aresetn) begin
+        if (!i_aresetn)
+            w_wait_aw_count <= 16'd0;
+        else if (aw_fire && w_fire && (aw_wait_w_count != 16'd0) && (w_wait_aw_count != 16'd0))
+            w_wait_aw_count <= w_wait_aw_count - 16'd1;
+        else if (w_fire && !aw_fire && (aw_wait_w_count == 16'd0))
+            w_wait_aw_count <= w_wait_aw_count + 16'd1;
+        else if (!w_fire && aw_fire && (w_wait_aw_count != 16'd0))
+            w_wait_aw_count <= w_wait_aw_count - 16'd1;
+    end
 
 endmodule

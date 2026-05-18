@@ -18,7 +18,7 @@
       .y0 { fill: #dcfce7; stroke: #16a34a; stroke-width: 1.5; }
       .y1 { fill: #bbf7d0; stroke: #16a34a; stroke-width: 1.5; }
       .uv { fill: #fed7aa; stroke: #ea580c; stroke-width: 1.5; }
-      .unused { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 7 5; }
+      .uv-slot { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; stroke-dasharray: 7 5; }
       .note { fill: #fff7ed; stroke: #fb923c; stroke-width: 1.5; rx: 10; }
     </style>
   </defs>
@@ -64,11 +64,12 @@
   </g>
 
   <rect class="panel" x="50" y="450" width="1380" height="410" rx="14"/>
-  <text class="head" x="80" y="488">2. YUV420：4096 宽时，bank0 / bank1 分别保存前后半组 Y/UV</text>
-  <text class="subtitle" x="80" y="514">bank0 存储 Y row 0..7 和 UV row 0..3；bank1 存储 Y row 8..15 和 UV row 4..7。</text>
+  <text class="head" x="80" y="488">2. YUV420_8：4096 宽时，Y 固定区 + UV_A/UV_B 双区交替</text>
+  <text class="subtitle" x="80" y="514">每个 bank 存储 8 行 Y 和 4 行 UV；Y 固定使用 0..2048，UV_A 为 2048..3072，UV_B 为 3072..4096。</text>
+  <text class="subtitle" x="80" y="540">UV_A 读出按 tile 进行，需要 BANK0.UV_A 与 BANK1.UV_A 配对同时读；UV_B 写入在两个 bank 间交替推进。</text>
 
-  <g transform="translate(80 555)">
-    <text class="label" x="0" y="-16">bank0：前半组 Y/UV</text>
+  <g transform="translate(80 585)">
+    <text class="label" x="0" y="-16">UV_A tile 读出：BANK0.UV_A 与 BANK1.UV_A 同时读，拼成完整 UV tile</text>
     <line class="axis" x1="0" y1="105" x2="1280" y2="105"/>
     <line class="tick" x1="0" y1="95" x2="0" y2="115"/>
     <line class="tick" x1="640" y1="95" x2="640" y2="115"/>
@@ -77,16 +78,17 @@
 
     <rect class="y0" x="0" y="0" width="640" height="78"/>
     <rect class="uv" x="640" y="0" width="320" height="78"/>
-    <rect class="unused" x="960" y="0" width="320" height="78"/>
+    <rect class="uv-slot" x="960" y="0" width="320" height="78"/>
 
     <text class="label" x="284" y="28">Y</text>
     <text class="mono" x="254" y="52">row 0..7</text>
     <text class="mono" x="292" y="70">2048w</text>
-    <text class="label" x="764" y="28">UV</text>
-    <text class="mono" x="734" y="52">row 0..3</text>
+    <text class="label" x="752" y="28">UV_A</text>
+    <text class="mono" x="714" y="52">BANK0/1 pair read</text>
     <text class="mono" x="764" y="70">1024w</text>
-    <text class="label" x="1064" y="32">Unused</text>
-    <text class="mono" x="1080" y="58">1024w</text>
+    <text class="label" x="1054" y="32">UV_B</text>
+    <text class="mono" x="1018" y="58">write slot</text>
+    <text class="mono" x="1080" y="76">1024w</text>
 
     <text class="mono" x="-8" y="137">0</text>
     <text class="mono" x="602" y="137">2048</text>
@@ -94,8 +96,8 @@
     <text class="mono" x="1238" y="137">4095</text>
   </g>
 
-  <g transform="translate(80 725)">
-    <text class="label" x="0" y="-16">bank1：后半组 Y/UV</text>
+  <g transform="translate(80 755)">
+    <text class="label" x="0" y="-16">UV_B 写入：写侧在 BANK0.UV_B / BANK1.UV_B 间交替写入下一组 UV</text>
     <line class="axis" x1="0" y1="105" x2="1280" y2="105"/>
     <line class="tick" x1="0" y1="95" x2="0" y2="115"/>
     <line class="tick" x1="640" y1="95" x2="640" y2="115"/>
@@ -103,17 +105,18 @@
     <line class="tick" x1="1280" y1="95" x2="1280" y2="115"/>
 
     <rect class="y1" x="0" y="0" width="640" height="78"/>
-    <rect class="uv" x="640" y="0" width="320" height="78"/>
-    <rect class="unused" x="960" y="0" width="320" height="78"/>
+    <rect class="uv-slot" x="640" y="0" width="320" height="78"/>
+    <rect class="uv" x="960" y="0" width="320" height="78"/>
 
     <text class="label" x="284" y="28">Y</text>
-    <text class="mono" x="248" y="52">row 8..15</text>
+    <text class="mono" x="248" y="52">next 8 rows</text>
     <text class="mono" x="292" y="70">2048w</text>
-    <text class="label" x="764" y="28">UV</text>
-    <text class="mono" x="734" y="52">row 4..7</text>
-    <text class="mono" x="764" y="70">1024w</text>
-    <text class="label" x="1064" y="32">Unused</text>
-    <text class="mono" x="1080" y="58">1024w</text>
+    <text class="label" x="752" y="32">UV_A</text>
+    <text class="mono" x="710" y="58">tile read pair</text>
+    <text class="mono" x="764" y="76">1024w</text>
+    <text class="label" x="1072" y="28">UV_B</text>
+    <text class="mono" x="1036" y="52">BANK0/1 alternate write</text>
+    <text class="mono" x="1080" y="70">1024w</text>
 
     <text class="mono" x="-8" y="137">0</text>
     <text class="mono" x="602" y="137">2048</text>
@@ -123,8 +126,8 @@
 
   <rect class="panel" x="50" y="895" width="1380" height="150" rx="14"/>
   <text class="head" x="80" y="933">3. 读图说明</text>
-  <text class="subtitle" x="80" y="966">每个 bank 内部都包含本组对应的 Y 行和 UV 行；不是一个 bank 专门放 Y、另一个 bank 专门放 UV。</text>
-  <text class="subtitle" x="80" y="994">软件不需要配置 bank 角色，只需要配置每帧 UBWC base address；bank 的行组调度由硬件内部完成。</text>
+  <text class="subtitle" x="80" y="966">YUV420_8 下，UV 读出按 tile 粒度配对访问两个 bank；UV 写入按行组在两个 bank 的 UV_A/UV_B 区域交替推进。</text>
+  <text class="subtitle" x="80" y="994">软件不需要配置 UV_A/UV_B，只需要配置每帧 UBWC base address；配对读和交替写由硬件 line_to_otf / SRAM 调度完成。</text>
   <rect class="note" x="80" y="1015" width="1320" height="28" rx="10"/>
   <text class="small" x="100" y="1035">备注：ENC/DEC 内部调度细节不同，但外部 SRAM 容量边界一致：单 bank 64 KiB，两个 bank 合计 128 KiB，支持最大 4096 px 宽度。</text>
 </svg>

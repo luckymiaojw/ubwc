@@ -57,6 +57,9 @@ module ubwc_dec_meta_get_cmd_gen #(
     localparam  [4                      :0]         META_FMT_NV12_UV                = 5'b01001;
     localparam  [4                      :0]         META_FMT_P010_Y                 = 5'b01110;
     localparam  [4                      :0]         META_FMT_P010_UV                = 5'b01111;
+    localparam  [1                      :0]         SCAN_PHASE_UV                   = 2'd0;
+    localparam  [1                      :0]         SCAN_PHASE_YH                   = 2'd1;
+    localparam  [1                      :0]         SCAN_PHASE_YL                   = 2'd2;
 
     wire                                            base_is_rgba                    ;
     wire                                            base_is_yuv420                  ;
@@ -68,7 +71,13 @@ module ubwc_dec_meta_get_cmd_gen #(
     wire                                            frame_empty                     ;
     wire        [TW_DW                  :0]         xcoord_next_ext                 ;
     wire        [TH_DW                  :0]         y_row_next_ext                  ;
+    wire        [TH_DW                  :0]         y_pair_next_ext                 ;
     wire        [TH_DW               -1 :0]         uv_row_next                     ;
+    wire                                            y_pair_has_lower                ;
+    wire                                            y_pair_last                     ;
+    wire                                            scan_phase_is_uv                ;
+    wire                                            scan_phase_is_yh                ;
+    wire                                            scan_phase_is_yl                ;
     wire                                            x_row_last                      ;
     wire                                            y_row_last                      ;
     wire                                            issue_fire                      ;
@@ -83,16 +92,18 @@ module ubwc_dec_meta_get_cmd_gen #(
     wire                                            row_end_fire                    ;
     wire                                            rgba_frame_done_fire            ;
     wire                                            rgba_y_advance_fire             ;
-    wire                                            yuv_y_advance_fire              ;
-    wire                                            yuv_enter_uv_fire               ;
     wire                                            yuv_uv_row_fire                 ;
-    wire                                            yuv_uv_frame_done_fire          ;
-    wire                                            yuv_uv_y_advance_fire           ;
+    wire                                            yuv_yh_row_fire                 ;
+    wire                                            yuv_yl_row_fire                 ;
+    wire                                            yuv_yh_frame_done_fire          ;
+    wire                                            yuv_yl_frame_done_fire          ;
+    wire                                            yuv_pair_advance_fire           ;
+    wire        [TH_DW                  :0]         y_next_after_current_ext        ;
     wire                                            y_row_base_inc_fire             ;
     wire                                            uv_row_base_inc_fire            ;
 
     reg                                             scan_active                     ;
-    reg                                             scan_is_uv_plane                ;
+    reg         [1                      :0]         scan_phase                      ;
     reg         [TW_DW               -1 :0]         xcoord_cnt                      ;
     reg         [TH_DW               -1 :0]         y_row_cnt                       ;
     reg         [TH_DW               -1 :0]         uv_row_cnt                      ;
@@ -118,12 +129,20 @@ module ubwc_dec_meta_get_cmd_gen #(
                                         (tile_y_numbers == {TH_DW{1'b0}});
     assign xcoord_next_ext            = {1'b0, xcoord_cnt} + {1'b0, TILE_STEP_X};
     assign y_row_next_ext             = {1'b0, y_row_cnt} + {{TH_DW{1'b0}}, 1'b1};
+    assign y_pair_next_ext            = {1'b0, y_row_cnt} + {{(TH_DW-1){1'b0}}, 2'd2};
     assign uv_row_next                = uv_row_cnt + {{(TH_DW-1){1'b0}}, 1'b1};
+    assign y_pair_has_lower           = (y_row_next_ext < {1'b0, tile_y_numbers});
+    assign y_pair_last                = (y_pair_next_ext >= {1'b0, tile_y_numbers});
+    assign scan_phase_is_uv           = (scan_phase == SCAN_PHASE_UV);
+    assign scan_phase_is_yh           = (scan_phase == SCAN_PHASE_YH);
+    assign scan_phase_is_yl           = (scan_phase == SCAN_PHASE_YL);
     assign x_row_last                 = (xcoord_next_ext >= {1'b0, tile_x_numbers});
     assign y_row_last                 = (y_row_next_ext >= {1'b0, tile_y_numbers});
     assign issue_fire                 = meta_grp_valid && meta_grp_ready;
-    assign current_is_uv              = base_is_yuv420 && scan_is_uv_plane;
-    assign current_ycoord             = current_is_uv ? uv_row_cnt : y_row_cnt;
+    assign current_is_uv              = base_is_yuv420 && scan_phase_is_uv;
+    assign current_ycoord             = current_is_uv     ? uv_row_cnt                  :
+                                        scan_phase_is_yl  ? y_row_next_ext[TH_DW-1:0]  :
+                                                            y_row_cnt;
     assign current_format             = base_is_rgba101 ? META_FMT_RGBA1010102 :
                                         base_is_rgba    ? META_FMT_RGBA8888    :
                                         current_is_uv   ? (base_is_p010 ? META_FMT_P010_UV : META_FMT_NV12_UV) :
@@ -149,16 +168,18 @@ module ubwc_dec_meta_get_cmd_gen #(
     assign row_end_fire               = issue_fire && x_row_last;
     assign rgba_frame_done_fire       = row_end_fire && base_is_rgba && y_row_last;
     assign rgba_y_advance_fire        = row_end_fire && base_is_rgba && !y_row_last;
-    assign yuv_y_advance_fire         = row_end_fire && base_is_yuv420 && !scan_is_uv_plane &&
-                                        !y_row_cnt[0] && !y_row_last;
-    assign yuv_enter_uv_fire          = row_end_fire && base_is_yuv420 && !scan_is_uv_plane &&
-                                        (y_row_cnt[0] || y_row_last);
-    assign yuv_uv_row_fire            = row_end_fire && base_is_yuv420 && scan_is_uv_plane;
-    assign yuv_uv_frame_done_fire     = yuv_uv_row_fire && y_row_last;
-    assign yuv_uv_y_advance_fire      = yuv_uv_row_fire && !y_row_last;
-    assign y_row_base_inc_fire        = (rgba_y_advance_fire || yuv_y_advance_fire ||
-                                        yuv_uv_y_advance_fire) &&
-                                        (y_row_next_ext[3:0] == 4'd0);
+    assign yuv_uv_row_fire            = row_end_fire && base_is_yuv420 && scan_phase_is_uv;
+    assign yuv_yh_row_fire            = row_end_fire && base_is_yuv420 && scan_phase_is_yh;
+    assign yuv_yl_row_fire            = row_end_fire && base_is_yuv420 && scan_phase_is_yl;
+    assign yuv_yh_frame_done_fire     = yuv_yh_row_fire && !y_pair_has_lower;
+    assign yuv_yl_frame_done_fire     = yuv_yl_row_fire && y_pair_last;
+    assign yuv_pair_advance_fire      = yuv_yl_row_fire && !y_pair_last;
+    assign y_next_after_current_ext   = scan_phase_is_yh ? y_row_next_ext :
+                                                           y_pair_next_ext;
+    assign y_row_base_inc_fire        = (rgba_y_advance_fire && (y_row_next_ext[3:0] == 4'd0)) ||
+                                        ((yuv_yh_row_fire || yuv_yl_row_fire) &&
+                                         !yuv_yh_frame_done_fire && !yuv_yl_frame_done_fire &&
+                                         (y_next_after_current_ext[3:0] == 4'd0));
     assign uv_row_base_inc_fire       = yuv_uv_row_fire && (uv_row_next[3:0] == 4'd0);
 
     always @(posedge clk or negedge rst_n) begin
@@ -166,19 +187,23 @@ module ubwc_dec_meta_get_cmd_gen #(
             scan_active <= 1'b0;
         else if (start)
             scan_active <= !frame_empty;
-        else if (rgba_frame_done_fire || yuv_uv_frame_done_fire)
+        else if (rgba_frame_done_fire || yuv_yh_frame_done_fire || yuv_yl_frame_done_fire)
             scan_active <= 1'b0;
     end
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)
-            scan_is_uv_plane <= 1'b0;
+            scan_phase <= SCAN_PHASE_UV;
         else if (start)
-            scan_is_uv_plane <= 1'b0;
-        else if (yuv_enter_uv_fire)
-            scan_is_uv_plane <= 1'b1;
-        else if (yuv_uv_y_advance_fire)
-            scan_is_uv_plane <= 1'b0;
+            scan_phase <= base_is_yuv420 ? SCAN_PHASE_UV : SCAN_PHASE_YH;
+        else if (yuv_uv_row_fire)
+            scan_phase <= SCAN_PHASE_YH;
+        else if (yuv_yh_row_fire && y_pair_has_lower)
+            scan_phase <= SCAN_PHASE_YL;
+        else if (yuv_yh_row_fire && !y_pair_has_lower)
+            scan_phase <= SCAN_PHASE_UV;
+        else if (yuv_yl_row_fire)
+            scan_phase <= SCAN_PHASE_UV;
     end
 
     always @(posedge clk or negedge rst_n) begin
@@ -197,8 +222,10 @@ module ubwc_dec_meta_get_cmd_gen #(
             y_row_cnt <= {TH_DW{1'b0}};
         else if (start)
             y_row_cnt <= {TH_DW{1'b0}};
-        else if (rgba_y_advance_fire || yuv_y_advance_fire || yuv_uv_y_advance_fire)
+        else if (rgba_y_advance_fire)
             y_row_cnt <= y_row_next_ext[TH_DW-1:0];
+        else if (yuv_pair_advance_fire)
+            y_row_cnt <= y_pair_next_ext[TH_DW-1:0];
     end
 
     always @(posedge clk or negedge rst_n) begin

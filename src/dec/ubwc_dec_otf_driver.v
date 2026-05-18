@@ -34,11 +34,14 @@ module otf_driver (
 
     input   wire                                        i_fifo_empty0                   ,
     input   wire    [255                    :0]         i_fifo_rdata0                   ,
+    input   wire                                        i_fifo_start_ready              ,
     output  wire                                        o_fifo_rd_en0                   ,
     output  wire                                        o_busy                          ,
+    output  wire                                        o_frame_start_ready             ,
     output  wire    [3                      :0]         o_active_fcnt                   ,
     output  reg                                         o_frame_done_pulse              ,
     output  reg                                         o_correct_irq_pulse             ,
+    output  reg                                         o_underflow                     ,
     output  reg     [31                     :0]         o_otf_line_count                ,
     output  reg     [31                     :0]         o_otf_de_count                  ,
 
@@ -87,6 +90,7 @@ module otf_driver (
     wire                                            fifo_busy                       ;
     wire                                            stream_busy                     ;
     wire                                            need_data                       ;
+    wire                                            underflow_event                 ;
     wire        [1                      :0]         phase_out                       ;
     wire        [9                      :0]         Y0_10                           ;
     wire        [9                      :0]         Y1_10                           ;
@@ -108,6 +112,7 @@ module otf_driver (
     reg         [15                     :0]         h_cnt                           ;
     reg         [15                     :0]         v_cnt                           ;
     reg                                             stream_started                  ;
+    reg                                             frame_start_pending             ;
     reg         [3                      :0]         pending_frame_fcnt              ;
     reg                                             frame_done_pulse_core           ;
     reg                                             correct_irq_pulse_core          ;
@@ -164,7 +169,7 @@ module otf_driver (
     assign h_last                     = (h_cnt == (h_total_beats - 16'd1));
     assign v_last                     = (v_cnt == (cfg_otf_v_total - 16'd1));
     assign frame_start_idle           = frame_start && !stream_started;
-    assign stream_wait_start          = !stream_started && !frame_start;
+    assign stream_wait_start          = frame_start_pending && !stream_started;
     assign otf_step_fire              = stream_started && !active_data_stall && i_otf_ready;
     assign otf_frame_end_fire         = otf_step_fire && h_last && v_last;
     assign otf_output_de_fire         = o_otf_de && i_otf_ready;
@@ -180,7 +185,9 @@ module otf_driver (
     assign fifo_busy                  = !i_fifo_empty0;
     assign stream_busy                = stream_started;
     assign need_data                  = stream_started && is_act && i_otf_ready && (phase == 0);
+    assign underflow_event            = active_data_stall;
     assign o_fifo_rd_en0              = need_data && !i_fifo_empty0;
+    assign o_frame_start_ready        = !stream_started && !frame_start_pending && !frame_start;
     assign o_active_fcnt              = stream_started ? otf_fcnt_core : pending_frame_fcnt;
     assign o_busy                     = stream_busy | fifo_busy | phase_busy;
     assign phase_out                  = phase - 2'd1;
@@ -229,10 +236,19 @@ module otf_driver (
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
             stream_started <= 1'b0;
-        else if (stream_wait_start && !fifo_empty_sel)
+        else if (stream_wait_start && i_fifo_start_ready)
             stream_started <= 1'b1;
         else if (otf_frame_end_fire)
             stream_started <= 1'b0;
+    end
+
+    always @(posedge clk_otf or negedge rst_n) begin
+        if (!rst_n)
+            frame_start_pending <= 1'b0;
+        else if (frame_start_idle)
+            frame_start_pending <= 1'b1;
+        else if (stream_wait_start && i_fifo_start_ready)
+            frame_start_pending <= 1'b0;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin
@@ -317,8 +333,17 @@ module otf_driver (
             otf_fcnt_core <= 4'd0;
         else if (frame_start_idle)
             otf_fcnt_core <= i_frame_fcnt;
-        else if (stream_wait_start && !fifo_empty_sel)
+        else if (stream_wait_start && i_fifo_start_ready)
             otf_fcnt_core <= pending_frame_fcnt;
+    end
+
+    always @(posedge clk_otf or negedge rst_n) begin
+        if (!rst_n)
+            o_underflow <= 1'b0;
+        else if (frame_start_idle)
+            o_underflow <= 1'b0;
+        else if (underflow_event)
+            o_underflow <= 1'b1;
     end
 
     always @(posedge clk_otf or negedge rst_n) begin

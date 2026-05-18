@@ -100,11 +100,15 @@ module ubwc_dec_wrapper_top #(
 );
 
     localparam integer                  CORE_AXI_DW                 = 256   ;
-    localparam integer                  VIVO_CI_FIFO_W              = 1 + 3 + 5 + 4 + 1 + 2 + SB_WIDTH;
+    localparam integer                  VIVO_CI_FIFO_W              = 1 + 3 + 5 + 4 + 1 + 2;
     localparam integer                  VIVO_CVI_FIFO_W             = 256 + 1;
+    localparam integer                  VIVO_CO_FIFO_W              = 1;
+    localparam integer                  VIVO_COORD_FIFO_W           = 5 + 12 + 10 + 4;
     localparam integer                  VIVO_RVO_FIFO_W             = 256 + 1;
     localparam integer                  VIVO_CI_FIFO_DEPTH_BITS     = 4;
     localparam integer                  VIVO_CVI_FIFO_DEPTH_BITS    = 4;
+    localparam integer                  VIVO_CO_FIFO_DEPTH_BITS     = 4;
+    localparam integer                  VIVO_COORD_FIFO_DEPTH       = 16;
     localparam integer                  VIVO_RVO_FIFO_DEPTH_BITS    = 4;
 
     wire                                ctrl_rst_n                             ;
@@ -167,10 +171,11 @@ module ubwc_dec_wrapper_top #(
     wire                                vivo_idle_int                          ;
     wire                                vivo_error_int                         ;
     wire    [32                  -1 :0] meta_error_cnt_int                     ;
-    wire    [32                  -1 :0] meta_cmd_ok_cnt_int                    ;
     wire    [32                  -1 :0] meta_cmd_fail_cnt_int                  ;
+    wire    [32                  -1 :0] tile_cmd_fail_cnt_int                  ;
     wire                                dec_correct_irq_event_int              ;
     wire                                dec_error_irq_event_int                ;
+    wire                                otf_underflow_int                      ;
     wire                                stat_meta_tile_fire_int                ;
     wire                                stat_tile_addr_fire_int                ;
     wire                                stat_otf_tile_fire_int                 ;
@@ -237,7 +242,6 @@ module ubwc_dec_wrapper_top #(
     wire    [4                   -1 :0] tile_ci_metadata_int                   ;
     wire                                tile_ci_lossy_int                      ;
     wire    [2                   -1 :0] tile_ci_alpha_mode_int                 ;
-    wire    [SB_WIDTH            -1 :0] tile_ci_sb_int                         ;
     wire                                tile_coord_vld_int                     ;
     wire    [5                   -1 :0] tile_format_int                        ;
     wire    [12                  -1 :0] tile_x_coord_int                       ;
@@ -271,7 +275,6 @@ module ubwc_dec_wrapper_top #(
     wire                                vivo_ci_has_payload_int                ;
     wire                                vivo_ci_lossy_int                      ;
     wire    [2                   -1 :0] vivo_ci_alpha_mode_int                 ;
-    wire    [SB_WIDTH            -1 :0] vivo_ci_sb_int                         ;
     wire                                vivo_cvi_valid_int                     ;
     wire                                vivo_cvi_fire_vivo                     ;
     wire    [256                 -1 :0] vivo_cvi_data_int                      ;
@@ -282,40 +285,45 @@ module ubwc_dec_wrapper_top #(
     wire                                vivo_rvo_last                          ;
     wire                                vivo_rvo_ready                         ;
     wire                                vivo_co_valid                          ;
-    wire    [2                      :0] vivo_co_alen                           ;
-    wire    [SB_WIDTH            -1 :0] vivo_co_sb                             ;
+    wire                                vivo_co_ready                          ;
     wire                                vivo_idle_vivo                         ;
     wire                                vivo_error_vivo                        ;
     wire                                vivo_ci_fifo_full                      ;
-    wire                                vivo_ci_fifo_prog_full                 ;
     wire                                vivo_ci_fifo_empty                     ;
     wire        [VIVO_CI_FIFO_W      -1 :0] vivo_ci_fifo_din                   ;
     wire        [VIVO_CI_FIFO_W      -1 :0] vivo_ci_fifo_dout                  ;
     wire                                vivo_ci_fifo_wr_en                     ;
     wire                                vivo_ci_fifo_rd_en                     ;
-    wire        [VIVO_CI_FIFO_DEPTH_BITS :0] vivo_ci_fifo_wr_data_count        ;
-    wire        [VIVO_CI_FIFO_DEPTH_BITS :0] vivo_ci_fifo_rd_data_count        ;
-    wire                                vivo_ci_fifo_pre_empty                 ;
     wire                                vivo_cvi_fifo_full                     ;
-    wire                                vivo_cvi_fifo_prog_full                ;
     wire                                vivo_cvi_fifo_empty                    ;
     wire        [VIVO_CVI_FIFO_W     -1 :0] vivo_cvi_fifo_din                  ;
     wire        [VIVO_CVI_FIFO_W     -1 :0] vivo_cvi_fifo_dout                 ;
     wire                                vivo_cvi_fifo_wr_en                    ;
     wire                                vivo_cvi_fifo_rd_en                    ;
-    wire        [VIVO_CVI_FIFO_DEPTH_BITS :0] vivo_cvi_fifo_wr_data_count      ;
-    wire        [VIVO_CVI_FIFO_DEPTH_BITS :0] vivo_cvi_fifo_rd_data_count      ;
-    wire                                vivo_cvi_fifo_pre_empty                ;
+    wire                                vivo_co_fifo_full                      ;
+    wire                                vivo_co_fifo_empty                     ;
+    wire        [VIVO_CO_FIFO_W      -1 :0] vivo_co_fifo_din                   ;
+    wire        [VIVO_CO_FIFO_W      -1 :0] vivo_co_fifo_dout                  ;
+    wire                                vivo_co_fifo_wr_en                     ;
+    wire                                vivo_co_fifo_rd_en                     ;
+    wire                                vivo_co_axi_valid                      ;
+    wire                                vivo_coord_fifo_full                   ;
+    wire                                vivo_coord_fifo_valid                  ;
+    wire        [VIVO_COORD_FIFO_W   -1 :0] vivo_coord_fifo_din                ;
+    wire        [VIVO_COORD_FIFO_W   -1 :0] vivo_coord_fifo_dout               ;
+    wire                                vivo_coord_fifo_wr_en                  ;
+    wire                                vivo_coord_fifo_rd_en                  ;
+    wire    [5                   -1 :0] vivo_coord_format_axi                  ;
+    wire    [12                  -1 :0] vivo_coord_x_axi                       ;
+    wire    [10                  -1 :0] vivo_coord_y_axi                       ;
+    wire    [4                   -1 :0] vivo_coord_fcnt_axi                    ;
+    wire                                otf_axis_tile_fire                     ;
     wire                                vivo_rvo_fifo_full                     ;
-    wire                                vivo_rvo_fifo_prog_full                ;
     wire                                vivo_rvo_fifo_empty                    ;
     wire        [VIVO_RVO_FIFO_W     -1 :0] vivo_rvo_fifo_din                  ;
     wire        [VIVO_RVO_FIFO_W     -1 :0] vivo_rvo_fifo_dout                 ;
     wire                                vivo_rvo_fifo_wr_en                    ;
     wire                                vivo_rvo_fifo_rd_en                    ;
-    wire        [VIVO_RVO_FIFO_DEPTH_BITS :0] vivo_rvo_fifo_wr_data_count      ;
-    wire        [VIVO_RVO_FIFO_DEPTH_BITS :0] vivo_rvo_fifo_rd_data_count      ;
-    wire                                vivo_rvo_fifo_pre_empty                ;
     wire                                tile_ci_fire_int                       ;
     wire                                tile_cvi_fire_int                      ;
     wire                                otf_axis_tile_ready_int                ;
@@ -343,6 +351,7 @@ module ubwc_dec_wrapper_top #(
 
     reg     [32                  -1 :0] meta_error_cnt_d              ;
     reg     [32                  -1 :0] meta_cmd_fail_cnt_d           ;
+    reg     [32                  -1 :0] tile_cmd_fail_cnt_d           ;
     reg                                 vivo_error_d                  ;
     reg     [4                   -1 :0] dec_frame_fcnt_active_r       ;
     reg     [4                   -1 :0] dec_frame_fcnt_next           ;
@@ -389,35 +398,51 @@ module ubwc_dec_wrapper_top #(
     assign stat_tile_addr_fire_int       = tile_coord_vld_int;
     assign dec_error_irq_event_int       = ((meta_error_cnt_int != meta_error_cnt_d) && (|meta_error_cnt_int)) ||
                                            ((meta_cmd_fail_cnt_int != meta_cmd_fail_cnt_d) && (|meta_cmd_fail_cnt_int)) ||
-                                           (vivo_error_int & ~vivo_error_d);
+                                           ((tile_cmd_fail_cnt_int != tile_cmd_fail_cnt_d) && (|tile_cmd_fail_cnt_int)) ||
+                                           (vivo_error_int & ~vivo_error_d) ||
+                                           otf_underflow_int;
     assign o_stage_done                  = dec_stage_done_int;
     assign o_frame_done                  = dec_frame_done_int;
     assign o_irq                         = dec_irq_int;
     assign vivo_idle_int                 = vivo_idle_sync;
     assign vivo_error_int                = vivo_error_sync;
-    assign stat_otf_tile_fire_int        = tile_ci_fire_int;
+    assign stat_otf_tile_fire_int        = otf_axis_tile_fire;
     assign tile_ci_fire_int              = tile_ci_valid_int & tile_ci_ready_int;
     assign tile_cvi_fire_int             = tile_cvi_valid_int & tile_cvi_ready_int;
+    assign otf_axis_tile_fire            = otf_axis_tile_valid & otf_axis_tile_ready_int;
     assign vivo_ci_fifo_din              = {tile_ci_input_type_int,
                                             tile_ci_alen_int,
                                             tile_ci_format_int,
                                             tile_ci_metadata_int,
                                             tile_ci_lossy_int,
-                                            tile_ci_alpha_mode_int,
-                                            tile_ci_sb_int};
+                                            tile_ci_alpha_mode_int};
     assign vivo_ci_fifo_wr_en            = tile_ci_fire_int;
     assign vivo_ci_fire_vivo             = vivo_ci_valid_int & vivo_ci_ready_raw;
     assign vivo_ci_fifo_rd_en            = vivo_ci_fire_vivo;
     assign vivo_ci_valid_int             = !vivo_ci_fifo_empty;
-    assign vivo_ci_input_type_int        = vivo_ci_fifo_dout[SB_WIDTH+2+1+4+5+3];
-    assign vivo_ci_alen_int              = vivo_ci_fifo_dout[SB_WIDTH+2+1+4+5 +: 3];
-    assign vivo_ci_format_int            = vivo_ci_fifo_dout[SB_WIDTH+2+1+4 +: 5];
-    assign vivo_ci_metadata_int          = vivo_ci_fifo_dout[SB_WIDTH+2+1 +: 4];
+    assign vivo_ci_input_type_int        = vivo_ci_fifo_dout[15];
+    assign vivo_ci_alen_int              = vivo_ci_fifo_dout[12 +: 3];
+    assign vivo_ci_format_int            = vivo_ci_fifo_dout[7  +: 5];
+    assign vivo_ci_metadata_int          = vivo_ci_fifo_dout[3  +: 4];
     assign vivo_ci_has_payload_int       = !vivo_ci_metadata_int[3];
-    assign vivo_ci_lossy_int             = vivo_ci_fifo_dout[SB_WIDTH+2];
-    assign vivo_ci_alpha_mode_int        = vivo_ci_fifo_dout[SB_WIDTH +: 2];
-    assign vivo_ci_sb_int                = vivo_ci_fifo_dout[0 +: SB_WIDTH];
-    assign tile_ci_ready_int             = !vivo_ci_fifo_full & otf_axis_tile_ready_int;
+    assign vivo_ci_lossy_int             = vivo_ci_fifo_dout[2];
+    assign vivo_ci_alpha_mode_int        = vivo_ci_fifo_dout[0 +: 2];
+    assign tile_ci_ready_int             = !vivo_ci_fifo_full & !vivo_coord_fifo_full;
+    assign vivo_coord_fifo_din           = {tile_format_int,
+                                            tile_x_coord_int,
+                                            tile_y_coord_int,
+                                            tile_fcnt_int};
+    assign vivo_coord_fifo_wr_en         = tile_ci_fire_int;
+    assign vivo_coord_fifo_rd_en         = otf_axis_tile_fire;
+    assign vivo_coord_format_axi         = vivo_coord_fifo_dout[26 +: 5];
+    assign vivo_coord_x_axi              = vivo_coord_fifo_dout[14 +: 12];
+    assign vivo_coord_y_axi              = vivo_coord_fifo_dout[4  +: 10];
+    assign vivo_coord_fcnt_axi           = vivo_coord_fifo_dout[0  +: 4];
+    assign vivo_co_ready                 = !vivo_co_fifo_full;
+    assign vivo_co_fifo_din              = 1'b1;
+    assign vivo_co_fifo_wr_en            = vivo_co_valid & vivo_co_ready;
+    assign vivo_co_fifo_rd_en            = otf_axis_tile_fire;
+    assign vivo_co_axi_valid             = !vivo_co_fifo_empty;
     assign vivo_cvi_fifo_din             = {tile_cvi_last_int, tile_cvi_data_int};
     assign vivo_cvi_fifo_wr_en           = tile_cvi_fire_int;
     assign vivo_cvi_fire_vivo            = vivo_cvi_valid_int & vivo_cvi_ready_int;
@@ -430,11 +455,11 @@ module ubwc_dec_wrapper_top #(
     assign vivo_rvo_fifo_wr_en           = vivo_rvo_valid & vivo_rvo_ready;
     assign vivo_rvo_fifo_rd_en           = otf_axis_tvalid & otf_axis_tready_int;
     assign vivo_rvo_ready                = !vivo_rvo_fifo_full;
-    assign otf_axis_format               = tile_format_int;
-    assign otf_axis_tile_x               = {4'd0, tile_x_coord_int};
-    assign otf_axis_tile_y               = {6'd0, tile_y_coord_int};
-    assign otf_axis_tile_fcnt            = tile_fcnt_int;
-    assign otf_axis_tile_valid           = tile_ci_valid_int & !vivo_ci_fifo_full;
+    assign otf_axis_format               = vivo_coord_format_axi;
+    assign otf_axis_tile_x               = {4'd0, vivo_coord_x_axi};
+    assign otf_axis_tile_y               = {6'd0, vivo_coord_y_axi};
+    assign otf_axis_tile_fcnt            = vivo_coord_fcnt_axi;
+    assign otf_axis_tile_valid           = vivo_coord_fifo_valid & vivo_co_axi_valid;
     assign otf_axis_tdata                = vivo_rvo_fifo_dout[0 +: 256];
     assign otf_axis_tlast                = vivo_rvo_fifo_dout[256];
     assign otf_axis_tvalid               = !vivo_rvo_fifo_empty;
@@ -647,7 +672,7 @@ module ubwc_dec_wrapper_top #(
         .o_dec_fcnt                        ( meta_dec_fcnt                       ),
         .o_busy                            ( meta_stage_busy_core_int            ),
         .error_cnt                         ( meta_error_cnt_int                  ),
-        .cmd_ok_cnt                        ( meta_cmd_ok_cnt_int                 ),
+        .cmd_ok_cnt                        (                                     ),
         .cmd_fail_cnt                      ( meta_cmd_fail_cnt_int               )
     );
 
@@ -659,7 +684,7 @@ module ubwc_dec_wrapper_top #(
     ) u_tile_arcmd_gen (
         .clk                               ( i_axi_clk                           ),
         .rst_n                             ( ctrl_rst_n                          ),
-        .i_frame_start                     ( 1'b0                                ),
+        .i_frame_start                     ( frame_start_pulse_axi               ),
         .i_cfg_lvl2_bank_swizzle_en        ( r_tile_cfg_lvl2_bank_swizzle_en     ),
         .i_cfg_lvl3_bank_swizzle_en        ( r_tile_cfg_lvl3_bank_swizzle_en     ),
         .i_cfg_highest_bank_bit            ( r_tile_cfg_highest_bank_bit         ),
@@ -703,7 +728,7 @@ module ubwc_dec_wrapper_top #(
         .o_ci_metadata                     ( tile_ci_metadata_int                ),
         .o_ci_lossy                        ( tile_ci_lossy_int                   ),
         .o_ci_alpha_mode                   ( tile_ci_alpha_mode_int              ),
-        .o_ci_sb                           ( tile_ci_sb_int                      ),
+        .o_ci_sb                           (                                  ),
         .o_tile_coord_vld                  ( tile_coord_vld_int                  ),
         .o_tile_format                     ( tile_format_int                     ),
         .o_tile_x_coord                    ( tile_x_coord_int                    ),
@@ -713,7 +738,8 @@ module ubwc_dec_wrapper_top #(
         .o_cvi_data                        ( tile_cvi_data_int                   ),
         .o_cvi_last                        ( tile_cvi_last_int                   ),
         .i_cvi_ready                       ( tile_cvi_ready_int                  ),
-        .o_busy                            ( tile_stage_busy_core_int            )
+        .o_busy                            ( tile_stage_busy_core_int            ),
+        .cmd_fail_cnt                      ( tile_cmd_fail_cnt_int               )
     );
 
     // ---------------------------------------------------------------------
@@ -970,6 +996,13 @@ module ubwc_dec_wrapper_top #(
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
+            tile_cmd_fail_cnt_d <= 32'd0;
+        else
+            tile_cmd_fail_cnt_d <= tile_cmd_fail_cnt_int;
+    end
+
+    always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
+        if (!ctrl_rst_n)
             vivo_error_d <= 1'b0;
         else
             vivo_error_d <= vivo_error_int;
@@ -1019,6 +1052,28 @@ module ubwc_dec_wrapper_top #(
     // format/x/y aligned with the CI acceptance point and removes the need
     // for extra wrapper-side header FIFOs.
 
+    mg_sync_fifo
+    #(
+        .PROG_DEPTH                ( 1                             ),
+        .DWIDTH                    ( VIVO_COORD_FIFO_W             ),
+        .DEPTH                     ( VIVO_COORD_FIFO_DEPTH         ),
+        .SHOW_AHEAD                ( 1                             )
+    )
+    u_vivo_coord_fifo
+    (
+        .clk                       ( i_axi_clk                     ),
+        .rst_n                     ( ctrl_rst_n                    ),
+        .wr_en                     ( vivo_coord_fifo_wr_en         ),
+        .din                       ( vivo_coord_fifo_din           ),
+        .prog_full                 (                               ),
+        .full                      ( vivo_coord_fifo_full          ),
+        .rd_en                     ( vivo_coord_fifo_rd_en         ),
+        .empty                     (                               ),
+        .dout                      ( vivo_coord_fifo_dout          ),
+        .valid                     ( vivo_coord_fifo_valid         ),
+        .data_count                (                               )
+    );
+
     mg_async_fifo
     #(
         .AF                         ( 1                             ),
@@ -1032,16 +1087,16 @@ module ubwc_dec_wrapper_top #(
         .wr_rstn                    ( ctrl_rst_n                    ),
         .wr_en                      ( vivo_ci_fifo_wr_en            ),
         .din                        ( vivo_ci_fifo_din              ),
-        .wr_data_count              ( vivo_ci_fifo_wr_data_count    ),
-        .prog_full                  ( vivo_ci_fifo_prog_full        ),
+        .wr_data_count              (                               ),
+        .prog_full                  (                               ),
         .full                       ( vivo_ci_fifo_full             ),
         .rd_clk                     ( i_vivo_clk                    ),
         .rd_rstn                    ( vivo_rst_n                    ),
         .rd_en                      ( vivo_ci_fifo_rd_en            ),
         .dout                       ( vivo_ci_fifo_dout             ),
         .valid                      (                               ),
-        .rd_data_count              ( vivo_ci_fifo_rd_data_count    ),
-        .pre_empty                  ( vivo_ci_fifo_pre_empty        ),
+        .rd_data_count              (                               ),
+        .pre_empty                  (                               ),
         .empty                      ( vivo_ci_fifo_empty            )
     );
 
@@ -1058,17 +1113,43 @@ module ubwc_dec_wrapper_top #(
         .wr_rstn                    ( ctrl_rst_n                    ),
         .wr_en                      ( vivo_cvi_fifo_wr_en           ),
         .din                        ( vivo_cvi_fifo_din             ),
-        .wr_data_count              ( vivo_cvi_fifo_wr_data_count   ),
-        .prog_full                  ( vivo_cvi_fifo_prog_full       ),
+        .wr_data_count              (                               ),
+        .prog_full                  (                               ),
         .full                       ( vivo_cvi_fifo_full            ),
         .rd_clk                     ( i_vivo_clk                    ),
         .rd_rstn                    ( vivo_rst_n                    ),
         .rd_en                      ( vivo_cvi_fifo_rd_en           ),
         .dout                       ( vivo_cvi_fifo_dout            ),
         .valid                      (                               ),
-        .rd_data_count              ( vivo_cvi_fifo_rd_data_count   ),
-        .pre_empty                  ( vivo_cvi_fifo_pre_empty       ),
+        .rd_data_count              (                               ),
+        .pre_empty                  (                               ),
         .empty                      ( vivo_cvi_fifo_empty           )
+    );
+
+    mg_async_fifo
+    #(
+        .AF                         ( 1                             ),
+        .DATA_BITS                  ( VIVO_CO_FIFO_W                ),
+        .DEPTH_BITS                 ( VIVO_CO_FIFO_DEPTH_BITS       ),
+        .SHOW_AHEAD                 ( 1                             )
+    )
+    u_vivo_co_async_fifo
+    (
+        .wr_clk                     ( i_vivo_clk                    ),
+        .wr_rstn                    ( vivo_rst_n                    ),
+        .wr_en                      ( vivo_co_fifo_wr_en            ),
+        .din                        ( vivo_co_fifo_din              ),
+        .wr_data_count              (                               ),
+        .prog_full                  (                               ),
+        .full                       ( vivo_co_fifo_full             ),
+        .rd_clk                     ( i_axi_clk                     ),
+        .rd_rstn                    ( ctrl_rst_n                    ),
+        .rd_en                      ( vivo_co_fifo_rd_en            ),
+        .dout                       ( vivo_co_fifo_dout             ),
+        .valid                      (                               ),
+        .rd_data_count              (                               ),
+        .pre_empty                  (                               ),
+        .empty                      ( vivo_co_fifo_empty            )
     );
 
     mg_async_fifo
@@ -1084,22 +1165,20 @@ module ubwc_dec_wrapper_top #(
         .wr_rstn                    ( vivo_rst_n                    ),
         .wr_en                      ( vivo_rvo_fifo_wr_en           ),
         .din                        ( vivo_rvo_fifo_din             ),
-        .wr_data_count              ( vivo_rvo_fifo_wr_data_count   ),
-        .prog_full                  ( vivo_rvo_fifo_prog_full       ),
+        .wr_data_count              (                               ),
+        .prog_full                  (                               ),
         .full                       ( vivo_rvo_fifo_full            ),
         .rd_clk                     ( i_axi_clk                     ),
         .rd_rstn                    ( ctrl_rst_n                    ),
         .rd_en                      ( vivo_rvo_fifo_rd_en           ),
         .dout                       ( vivo_rvo_fifo_dout            ),
         .valid                      (                               ),
-        .rd_data_count              ( vivo_rvo_fifo_rd_data_count   ),
-        .pre_empty                  ( vivo_rvo_fifo_pre_empty       ),
+        .rd_data_count              (                               ),
+        .pre_empty                  (                               ),
         .empty                      ( vivo_rvo_fifo_empty           )
     );
 
-    ubwc_dec_vivo_top #(
-        .SB_WIDTH                   ( SB_WIDTH                      )
-    ) u_dec_vivo_top (
+    ubwc_dec_vivo_top u_dec_vivo_top (
         .i_clk                      ( i_vivo_clk                    ),
         .i_reset                    ( dec_vivo_reset                ),
         .i_sreset                   ( vivo_sreset_sync              ),
@@ -1112,15 +1191,13 @@ module ubwc_dec_wrapper_top #(
         .i_ci_metadata              ( vivo_ci_metadata_int          ),
         .i_ci_lossy                 ( vivo_ci_lossy_int             ),
         .i_ci_alpha_mode            ( vivo_ci_alpha_mode_int        ),
-        .i_ci_sb                    ( vivo_ci_sb_int                ),
         .i_cvi_valid                ( vivo_cvi_valid_int            ),
         .i_cvi_data                 ( vivo_cvi_data_int             ),
         .i_cvi_last                 ( vivo_cvi_last_int             ),
         .o_cvi_ready                ( vivo_cvi_ready_int            ),
         .o_co_valid                 ( vivo_co_valid                 ),
-        .o_co_alen                  ( vivo_co_alen                  ),
-        .o_co_sb                    ( vivo_co_sb                    ),
-        .i_co_ready                 ( 1'b1                          ),
+        .o_co_alen                  (                               ),
+        .i_co_ready                 ( vivo_co_ready                 ),
         .o_rvo_valid                ( vivo_rvo_valid                ),
         .o_rvo_data                 ( vivo_rvo_data                 ),
         .o_rvo_last                 ( vivo_rvo_last                 ),
@@ -1181,6 +1258,7 @@ module ubwc_dec_wrapper_top #(
         .i_otf_ready                ( i_otf_ready                   ),
         .o_busy                     ( otf_stage_busy_int            ),
         .o_correct_irq_pulse        ( dec_correct_irq_event_int     ),
+        .o_underflow                ( otf_underflow_int             ),
         .o_otf_line_count           ( otf_line_cnt_raw_int          ),
         .o_otf_de_count             ( otf_de_cnt_raw_int            )
     );

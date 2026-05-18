@@ -48,7 +48,6 @@ module ubwc_enc_tile_addr
         output  wire                                        o_co_ready                      ,
         input   wire    [3                   -1 :0]         i_co_alen                       ,
         input   wire    [SB_WIDTH            -1 :0]         i_co_sb                         ,
-        input   wire                                        i_co_pcm                        ,
 
         output  reg     [28                  -1 :0]         o_tile_addr                     ,
         output  reg     [3                   -1 :0]         o_tile_alen                     ,
@@ -111,8 +110,8 @@ module ubwc_enc_tile_addr
                                           (active_format == FMT_NV16_UV)    ||
                                           (active_format == FMT_NV16_10_UV) ||
                                           (active_format == FMT_P010_UV);
-    assign active_y_base_offset_addr    = i_fcnt[0] ? i_y_base_offset_addr1  : i_y_base_offset_addr0;
-    assign active_uv_base_offset_addr   = i_fcnt[0] ? i_uv_base_offset_addr1 : i_uv_base_offset_addr0;
+    assign active_y_base_offset_addr    = i_co_sb[0] ? i_y_base_offset_addr1  : i_y_base_offset_addr0;
+    assign active_uv_base_offset_addr   = i_co_sb[0] ? i_uv_base_offset_addr1 : i_uv_base_offset_addr0;
     assign active_base_offset_addr      = active_is_uv_plane ? active_uv_base_offset_addr[31:4] :
                                                                active_y_base_offset_addr[31:4];
     assign lossy_rgba_2_1_active        = i_is_lossy_rgba_2_1_format && (active_format == FMT_RGBA8888);

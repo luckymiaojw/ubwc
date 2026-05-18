@@ -73,7 +73,8 @@ module ubwc_dec_tile_arcmd_gen
         output  wire                                        o_cvi_last                      ,
         input   wire                                        i_cvi_ready                     ,
 
-        output  wire                                        o_busy
+        output  wire                                        o_busy                          ,
+        output  reg     [32                  -1 :0]         cmd_fail_cnt
     );
 
     localparam  integer                             AR_ADDR_W                       = AXI_AW - 4;
@@ -111,10 +112,8 @@ module ubwc_dec_tile_arcmd_gen
     wire        [CI_FIFO_W           -1 :0]         ci_fifo_din                     ;
     wire        [CI_FIFO_W           -1 :0]         ci_fifo_dout                    ;
     wire                                            ci_fifo_full                    ;
-    wire                                            ci_fifo_prog_full               ;
     wire                                            ci_fifo_empty                   ;
     wire                                            ci_fifo_valid                   ;
-    wire        [7                   -1 :0]         ci_fifo_data_count              ;
     wire                                            ci_fifo_wr_en                   ;
     wire                                            ci_fifo_rd_en                   ;
     wire                                            ci_fifo_has_payload             ;
@@ -124,22 +123,19 @@ module ubwc_dec_tile_arcmd_gen
     wire        [4                   -1 :0]         ci_fifo_payload_beats           ;
     wire        [CI_FIFO_W           -1 :0]         ci_pending_fifo_dout            ;
     wire                                            ci_pending_fifo_full            ;
-    wire                                            ci_pending_fifo_prog_full       ;
     wire                                            ci_pending_fifo_empty           ;
     wire                                            ci_pending_fifo_valid           ;
-    wire        [7                   -1 :0]         ci_pending_fifo_data_count      ;
     wire                                            ci_pending_fifo_wr_en           ;
     wire                                            ci_pending_fifo_rd_en           ;
     wire                                            ci_pending_has_payload          ;
+    wire        [AXI_IDW             -1 :0]         ci_pending_axi_id               ;
     wire        [3                   -1 :0]         ci_pending_alen                 ;
     wire        [4                   -1 :0]         ci_pending_payload_beats        ;
     wire        [RDATA_FIFO_W        -1 :0]         rdata_fifo_din                  ;
     wire        [RDATA_FIFO_W        -1 :0]         rdata_fifo_dout                 ;
     wire                                            rdata_fifo_full                 ;
-    wire                                            rdata_fifo_prog_full            ;
     wire                                            rdata_fifo_empty                ;
     wire                                            rdata_fifo_valid                ;
-    wire        [6                   -1 :0]         rdata_fifo_data_count           ;
     wire                                            rdata_fifo_wr_en                ;
     wire                                            rdata_fifo_rd_en                ;
     wire                                            rdata_fifo_last                 ;
@@ -168,6 +164,7 @@ module ubwc_dec_tile_arcmd_gen
     wire                                            r_collect_last                  ;
     wire                                            r_collect_ready                 ;
     wire                                            r_fire                          ;
+    wire                                            r_resp_ok                       ;
     wire                                            r_collect_done                  ;
     wire                                            cvi_stream_last                 ;
 
@@ -180,6 +177,7 @@ module ubwc_dec_tile_arcmd_gen
     reg                                             cvi_stream_active_reg           ;
     reg         [4                   -1 :0]         cvi_stream_beats_left_reg       ;
     reg                                             ci_pending_payload_done_reg     ;
+    reg                                             r_burst_fail_reg                ;
 
     ubwc_tile_addr #(
         .ADDR_W                         ( AXI_AW                                )
@@ -223,13 +221,13 @@ module ubwc_dec_tile_arcmd_gen
         .rst_n                         ( rst_n                                 ),
         .wr_en                         ( ci_fifo_wr_en                         ),
         .din                           ( ci_fifo_din                           ),
-        .prog_full                     ( ci_fifo_prog_full                     ),
+        .prog_full                     (                                       ),
         .full                          ( ci_fifo_full                          ),
         .rd_en                         ( ci_fifo_rd_en                         ),
         .empty                         ( ci_fifo_empty                         ),
         .dout                          ( ci_fifo_dout                          ),
         .valid                         ( ci_fifo_valid                         ),
-        .data_count                    ( ci_fifo_data_count                    )
+        .data_count                    (                                       )
     );
 
     mg_sync_fifo #(
@@ -242,13 +240,13 @@ module ubwc_dec_tile_arcmd_gen
         .rst_n                         ( rst_n                                 ),
         .wr_en                         ( ci_pending_fifo_wr_en                 ),
         .din                           ( ci_fifo_dout                          ),
-        .prog_full                     ( ci_pending_fifo_prog_full             ),
+        .prog_full                     (                                       ),
         .full                          ( ci_pending_fifo_full                  ),
         .rd_en                         ( ci_pending_fifo_rd_en                 ),
         .empty                         ( ci_pending_fifo_empty                 ),
         .dout                          ( ci_pending_fifo_dout                  ),
         .valid                         ( ci_pending_fifo_valid                 ),
-        .data_count                    ( ci_pending_fifo_data_count            )
+        .data_count                    (                                       )
     );
 
     mg_sync_fifo #(
@@ -261,13 +259,13 @@ module ubwc_dec_tile_arcmd_gen
         .rst_n                         ( rst_n                                 ),
         .wr_en                         ( rdata_fifo_wr_en                      ),
         .din                           ( rdata_fifo_din                        ),
-        .prog_full                     ( rdata_fifo_prog_full                  ),
+        .prog_full                     (                                       ),
         .full                          ( rdata_fifo_full                       ),
         .rd_en                         ( rdata_fifo_rd_en                      ),
         .empty                         ( rdata_fifo_empty                      ),
         .dout                          ( rdata_fifo_dout                       ),
         .valid                         ( rdata_fifo_valid                      ),
-        .data_count                    ( rdata_fifo_data_count                 )
+        .data_count                    (                                       )
     );
 
     assign tile_cmd_addr_full         = {tile_cmd_addr, 4'b0000};
@@ -280,6 +278,7 @@ module ubwc_dec_tile_arcmd_gen
     assign ci_fifo_alen               = ci_fifo_dout[CI_ALEN_MSB:CI_ALEN_LSB];
     assign ci_fifo_payload_beats      = {1'b0, ci_fifo_alen} + 4'd1;
     assign ci_pending_has_payload     = ci_pending_fifo_dout[CI_PAYLOAD_BIT];
+    assign ci_pending_axi_id          = ci_pending_fifo_dout[CI_ID_MSB:CI_ID_LSB];
     assign ci_pending_alen            = ci_pending_fifo_dout[CI_ALEN_MSB:CI_ALEN_LSB];
     assign ci_pending_payload_beats   = {1'b0, ci_pending_alen} + 4'd1;
     assign rdata_fifo_last            = rdata_fifo_dout[AXI_DW];
@@ -312,6 +311,8 @@ module ubwc_dec_tile_arcmd_gen
     assign r_collect_last             = (r_collect_beats_left <= 4'd1);
     assign r_collect_ready            = !rdata_fifo_full;
     assign r_fire                     = m_axi_rvalid && m_axi_rready && r_collect_active;
+    assign r_resp_ok                  = ((m_axi_rresp == 2'b00) || (m_axi_rresp == 2'b01)) &&
+                                        (m_axi_rid == ci_pending_axi_id);
     assign r_collect_done             = r_fire && r_collect_last;
     assign cvi_stream_last            = (cvi_stream_beats_left_reg <= 4'd1);
     assign tile_cmd_ready             = !ci_fifo_full;
@@ -425,6 +426,26 @@ module ubwc_dec_tile_arcmd_gen
             ci_pending_payload_done_reg <= 1'b1;
         else if (ci_pending_done_can_load)
             ci_pending_payload_done_reg <= 1'b0;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            r_burst_fail_reg <= 1'b0;
+        else if (i_frame_start)
+            r_burst_fail_reg <= 1'b0;
+        else if (r_fire && m_axi_rlast)
+            r_burst_fail_reg <= 1'b0;
+        else if (r_fire && !r_resp_ok)
+            r_burst_fail_reg <= 1'b1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            cmd_fail_cnt <= 32'd0;
+        else if (i_frame_start)
+            cmd_fail_cnt <= 32'd0;
+        else if (r_fire && m_axi_rlast && (r_burst_fail_reg || !r_resp_ok))
+            cmd_fail_cnt <= cmd_fail_cnt + 1'b1;
     end
 
 endmodule

@@ -252,7 +252,7 @@ flowchart TD
 
 Key usage rule: DEC frame start is driven by address availability, not by a software start pulse.
 
-#### 2.6.2 `ubwc_dec_tile_to_otf_line_ring` Data Flow
+#### 2.6.2 `ubwc_dec_tile_to_otf` Data Flow
 
 ```mermaid
 flowchart TD
@@ -260,34 +260,16 @@ flowchart TD
     C[Tile payload: s_axis_tdata/tlast] --> D[Data FIFO]
     B --> E{Header and data ready?}
     D --> E
-    E -- No --> E
-    E -- Yes --> F[Writer maps tile beat to line slot/address]
-    F --> G{UV plane?}
-    G -- No/Y or RGBA --> H[Write SRAM A]
-    G -- Yes/UV --> I[Write SRAM B]
-    H --> J[Set y_line_ready slot when last tile word of line arrives]
-    I --> K[Set uv_line_ready slot when last tile word of line arrives]
-    J --> L{Reader sees required line slots ready?}
-    K --> L
-    L -- No --> L
-    L -- Yes --> M[Issue SRAM read request]
-    M --> N{Format}
-    N -- RGBA --> O[Read two 128-bit words from SRAM A]
-    N -- YUV with UV line --> P[Read Y from SRAM A and UV from SRAM B]
-    N -- Y-only line --> Q[Read Y from SRAM A; UV data is zero]
-    O --> R[Wait sram_a_rvalid for second word]
-    P --> S[Wait sram_a_rvalid and sram_b_rvalid]
-    Q --> T[Wait sram_a_rvalid]
-    R --> U[Push 256-bit word to output FIFO]
-    S --> U
-    T --> U
-    U --> V{Line finished?}
-    V -- No --> M
-    V -- Yes --> W[Clear consumed line_ready slot and pulse o_fetcher_done]
-    W --> X[Advance rd_line_idx]
+    E -- Yes --> F[ubwc_dec_tile_to_line_writer maps tile beat to line SRAM]
+    F --> G[Write external ping-pong line SRAM]
+    G --> H[Set line-ready state]
+    H --> I[ubwc_dec_tile_to_line_sram_fetcher issues SRAM reads]
+    I --> J[Wait sram_a_rvalid / sram_b_rvalid]
+    J --> K[Push 256-bit line data to OTF driver]
+    K --> L[ubwc_dec_otf_driver outputs o_otf_* timing/data]
 ```
 
-In this flow, `sram_b_rvalid` is only required when the current output line has UV data. For RGBA, the second 128-bit half also comes from SRAM A; for Y-only lines in 4:2:0, the UV half is forced to zero.
+In this flow, SRAM return data is qualified by `sram_a_rvalid` / `sram_b_rvalid`; tile write, SRAM fetch, and OTF output are split into dedicated modules.
 
 For video-stream-side detection, you can also use `o_otf_de` valid output to count up to `H_ACT x V_ACT`, but the software-driver layer is better served by direct status-register polling.
 
