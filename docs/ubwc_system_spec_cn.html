@@ -318,12 +318,14 @@
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[3]</code></td><td><code>otf_to_tile_overflow</code></td><td>OTF-to-tile overflow。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[4]</code></td><td><code>otf_err_bline</code></td><td>OTF bad line。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[5]</code></td><td><code>otf_err_bframe</code></td><td>OTF bad frame。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>Slot0 metadata error。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>Slot1 metadata error。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>Metadata co-buffer overflow。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>Metadata tile order error。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[8]</code></td><td><code>frame_done</code></td><td>Frame done。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>当前帧地址 slot 无效。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[10]</code></td><td><code>addr_cfg_valid0</code></td><td>Address slot0 valid。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[11]</code></td><td><code>addr_cfg_valid1</code></td><td>Address slot1 valid。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[12]</code></td><td><code>addr_cfg_overflow</code></td><td>Address slot FIFO overflow sticky。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[13]</code></td><td><code>rst_drain_timeout</code></td><td>AXI drain timeout during soft reset。</td></tr>
             <tr><td><code>0x005c</code></td><td><code>REG_STATUS1</code></td><td>RO</td><td>dynamic</td><td><code>[7:0]</code></td><td><code>stage_done</code></td><td>ENC stage done bitmap。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RW</td><td><code>1</code></td><td><code>[0]</code></td><td><code>irq_enable</code></td><td>IRQ enable。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[1]</code></td><td><code>irq_clear</code></td><td>写 1 清 pending/status sticky。</td></tr>
@@ -551,12 +553,14 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td><code>[3]</code></td><td><code>otf_to_tile_overflow</code></td><td>RO</td><td>dynamic</td><td>OTF-to-tile overflow。</td></tr>
             <tr><td><code>[4]</code></td><td><code>otf_err_bline</code></td><td>RO</td><td>dynamic</td><td>OTF bad line。</td></tr>
             <tr><td><code>[5]</code></td><td><code>otf_err_bframe</code></td><td>RO</td><td>dynamic</td><td>OTF bad frame。</td></tr>
-            <tr><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>RO</td><td>dynamic</td><td>Slot0 metadata error。</td></tr>
-            <tr><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>RO</td><td>dynamic</td><td>Slot1 metadata error。</td></tr>
+            <tr><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>RO</td><td>dynamic</td><td>Metadata co-buffer overflow。</td></tr>
+            <tr><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>RO</td><td>dynamic</td><td>Metadata tile order error。</td></tr>
             <tr><td><code>[8]</code></td><td><code>frame_done</code></td><td>RO</td><td>dynamic</td><td>Frame done。</td></tr>
             <tr><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>RO</td><td>dynamic</td><td>当前帧地址 slot 无效。</td></tr>
             <tr><td><code>[10]</code></td><td><code>addr_cfg_valid0</code></td><td>RO</td><td>dynamic</td><td>Address slot0 valid。</td></tr>
             <tr><td><code>[11]</code></td><td><code>addr_cfg_valid1</code></td><td>RO</td><td>dynamic</td><td>Address slot1 valid。</td></tr>
+            <tr><td><code>[12]</code></td><td><code>addr_cfg_overflow</code></td><td>RO</td><td>dynamic</td><td>Address slot FIFO overflow sticky。</td></tr>
+            <tr><td><code>[13]</code></td><td><code>rst_drain_timeout</code></td><td>RO</td><td>dynamic</td><td>AXI drain timeout during soft reset。</td></tr>
           </table>
           <div class="note">计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源和 OTF 输入异常。</div>
 
@@ -727,7 +731,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <table>
             <tr><th>现象</th><th>建议读取</th><th>判断方向</th></tr>
             <tr><td>没有中断</td><td><code>REG_IRQ_CTRL[2]</code>，<code>REG_STATUS0[8]</code></td><td>判断 IRQ pending 和 frame_done 是否产生</td></tr>
-            <tr><td>立即报错</td><td><code>REG_STATUS0[9]</code>，<code>REG_STATUS0[10:11]</code></td><td>检查当前 <code>fcnt[0]</code> 对应地址 slot 是否有效</td></tr>
+            <tr><td>立即报错</td><td><code>REG_STATUS0[9]</code>，<code>REG_STATUS0[10:13]</code></td><td>检查当前 <code>fcnt[0]</code> 对应地址 slot 是否有效、地址 FIFO 是否溢出、软复位 drain 是否超时</td></tr>
             <tr><td>OTF 输入异常</td><td><code>REG_STATUS0[4:5]</code>，<code>REG_OTF_DE_COUNT0/1</code>，<code>REG_OTF_LINE_COUNT0/1</code></td><td>检查输入行像素数和帧行数</td></tr>
             <tr><td>AXI 写异常</td><td><code>REG_TILE_AXI_W_CNT0/1</code>，<code>REG_META_AXI_W_CNT0/1</code></td><td>区分 tile 数据与 metadata 写路径</td></tr>
           </table>

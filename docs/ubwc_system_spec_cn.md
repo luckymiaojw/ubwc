@@ -157,12 +157,14 @@ ENC register 总表：
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[3]` | `otf_to_tile_overflow` | OTF-to-tile overflow。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[4]` | `otf_err_bline` | OTF bad line。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[5]` | `otf_err_bframe` | OTF bad frame。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[6]` | `meta_err_0` | Slot0 metadata error。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[7]` | `meta_err_1` | Slot1 metadata error。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[6]` | `meta_err_0` | Metadata co-buffer overflow。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[7]` | `meta_err_1` | Metadata tile order error。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[8]` | `frame_done` | Frame done。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[9]` | `addr_cfg_invalid` | 当前帧地址 slot 无效。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[10]` | `addr_cfg_valid0` | Address slot0 valid。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[11]` | `addr_cfg_valid1` | Address slot1 valid。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[12]` | `addr_cfg_overflow` | Address slot FIFO overflow sticky。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[13]` | `rst_drain_timeout` | AXI drain timeout during soft reset。 |
 | `0x005c` | `REG_STATUS1` | RO | dynamic | `[7:0]` | `stage_done` | ENC stage done bitmap。 |
 | `0x0060` | `REG_IRQ_CTRL` | RW | `1` | `[0]` | `irq_enable` | IRQ enable。 |
 | `0x0060` | `REG_IRQ_CTRL` | W1P | `0` | `[1]` | `irq_clear` | 写 1 清 pending/status sticky。 |
@@ -445,12 +447,14 @@ REG_META_ACTIVE_SIZE.height= 1200
 | `[3]` | `otf_to_tile_overflow` | RO | dynamic | OTF-to-tile overflow。 |
 | `[4]` | `otf_err_bline` | RO | dynamic | OTF bad line。 |
 | `[5]` | `otf_err_bframe` | RO | dynamic | OTF bad frame。 |
-| `[6]` | `meta_err_0` | RO | dynamic | Slot0 metadata error。 |
-| `[7]` | `meta_err_1` | RO | dynamic | Slot1 metadata error。 |
+| `[6]` | `meta_err_0` | RO | dynamic | Metadata co-buffer overflow。 |
+| `[7]` | `meta_err_1` | RO | dynamic | Metadata tile order error。 |
 | `[8]` | `frame_done` | RO | dynamic | Frame done。 |
 | `[9]` | `addr_cfg_invalid` | RO | dynamic | 当前帧地址 slot 无效。 |
 | `[10]` | `addr_cfg_valid0` | RO | dynamic | Address slot0 valid。 |
 | `[11]` | `addr_cfg_valid1` | RO | dynamic | Address slot1 valid。 |
+| `[12]` | `addr_cfg_overflow` | RO | dynamic | Address slot FIFO overflow sticky。 |
+| `[13]` | `rst_drain_timeout` | RO | dynamic | AXI drain timeout during soft reset。 |
 
 计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源和 OTF 输入异常。
 
@@ -694,7 +698,7 @@ ENC debug 入口：
 | 现象 | 建议读取 | 判断方向 |
 | --- | --- | --- |
 | 没有中断 | `REG_IRQ_CTRL[2]`、`REG_STATUS0[8]` | 判断 IRQ pending 和 frame_done 是否产生 |
-| 立即报错 | `REG_STATUS0[9]`、`REG_STATUS0[10:11]` | 检查当前 `fcnt[0]` 对应地址 slot 是否有效 |
+| 立即报错 | `REG_STATUS0[9]`、`REG_STATUS0[10:13]` | 检查当前 `fcnt[0]` 对应地址 slot 是否有效、地址 FIFO 是否溢出、软复位 drain 是否超时 |
 | OTF 输入异常 | `REG_STATUS0[4]`、`REG_STATUS0[5]`、`REG_OTF_DE_COUNT0/1`、`REG_OTF_LINE_COUNT0/1` | 检查输入行像素数和帧行数是否匹配配置 |
 | AXI 写异常 | `REG_TILE_AXI_W_CNT0/1`、`REG_META_AXI_W_CNT0/1`、AXI B response | 区分 tile 数据与 metadata 写路径 |
 | metadata mismatch | `REG_META_COUNT0/1`、`REG_META_AXI_W_CNT0/1` | 检查 metadata 生成和写出数量 |

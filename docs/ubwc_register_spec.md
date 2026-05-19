@@ -274,9 +274,14 @@ Recommended configuration order:
 | `0x0058` | `STATUS0` | `[3]` | `otf_to_tile_overflow` | `RO` | OTF-to-tile FIFO overflow |
 | `0x0058` | `STATUS0` | `[4]` | `otf_err_bline` | `RO` | OTF bad-line error |
 | `0x0058` | `STATUS0` | `[5]` | `otf_err_bframe` | `RO` | OTF bad-frame error |
-| `0x0058` | `STATUS0` | `[6]` | `meta_err_0` | `RO` | Metadata generator error 0 |
-| `0x0058` | `STATUS0` | `[7]` | `meta_err_1` | `RO` | Metadata generator error 1 |
+| `0x0058` | `STATUS0` | `[6]` | `meta_err_0` | `RO` | Metadata co-buffer overflow error |
+| `0x0058` | `STATUS0` | `[7]` | `meta_err_1` | `RO` | Metadata tile-order error |
 | `0x0058` | `STATUS0` | `[8]` | `frame_done` | `RO` | Frame-done status from encoder wrapper |
+| `0x0058` | `STATUS0` | `[9]` | `addr_cfg_invalid` | `RO` | Current frame needs an address slot that is not configured |
+| `0x0058` | `STATUS0` | `[10]` | `addr_cfg_valid0` | `RO` | Address slot 0 has a configured entry |
+| `0x0058` | `STATUS0` | `[11]` | `addr_cfg_valid1` | `RO` | Address slot 1 has a configured entry |
+| `0x0058` | `STATUS0` | `[12]` | `addr_cfg_overflow` | `RO` | Address slot FIFO overflow sticky status |
+| `0x0058` | `STATUS0` | `[13]` | `rst_drain_timeout` | `RO` | AXI drain timeout during encoder soft reset |
 | `0x005c` | `STATUS1` | `[7:0]` | `stage_done` | `RO` | Encoder stage-done bitmap |
 | `0x0060` | `IRQ_CTRL` | `[0]` | `irq_enable` | `RW` | IRQ enable. Reset value is `1`. |
 | `0x0060` | `IRQ_CTRL` | `[1]` | `irq_clear` | `W1P` | Write `1` to generate an IRQ clear pulse in encoder clock domain |

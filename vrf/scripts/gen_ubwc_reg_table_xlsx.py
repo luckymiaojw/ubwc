@@ -86,12 +86,14 @@ ENC_FIELDS = [
     ("ENC", h(0x058), "REG_STATUS0", "3", "otf_to_tile_overflow", "RO", "dynamic", "OTF-to-tile FIFO overflow."),
     ("ENC", h(0x058), "REG_STATUS0", "4", "otf_err_bline", "RO", "dynamic", "Bad-line error."),
     ("ENC", h(0x058), "REG_STATUS0", "5", "otf_err_bframe", "RO", "dynamic", "Bad-frame error."),
-    ("ENC", h(0x058), "REG_STATUS0", "6", "meta_err_0", "RO", "dynamic", "Metadata error bit 0."),
-    ("ENC", h(0x058), "REG_STATUS0", "7", "meta_err_1", "RO", "dynamic", "Metadata error bit 1."),
+    ("ENC", h(0x058), "REG_STATUS0", "6", "meta_err_0", "RO", "dynamic", "Metadata co-buffer overflow error."),
+    ("ENC", h(0x058), "REG_STATUS0", "7", "meta_err_1", "RO", "dynamic", "Metadata tile-order error."),
     ("ENC", h(0x058), "REG_STATUS0", "8", "frame_done", "RO", "dynamic", "Frame done status from wrapper."),
     ("ENC", h(0x058), "REG_STATUS0", "9", "addr_cfg_invalid", "RO", "dynamic", "Current frame needs an address slot that is not configured."),
     ("ENC", h(0x058), "REG_STATUS0", "10", "addr_cfg_valid0", "RO", "dynamic", "Address slot 0 has a configured entry."),
     ("ENC", h(0x058), "REG_STATUS0", "11", "addr_cfg_valid1", "RO", "dynamic", "Address slot 1 has a configured entry."),
+    ("ENC", h(0x058), "REG_STATUS0", "12", "addr_cfg_overflow", "RO", "dynamic", "Address slot FIFO overflow sticky status."),
+    ("ENC", h(0x058), "REG_STATUS0", "13", "rst_drain_timeout", "RO", "dynamic", "AXI drain timeout during encoder soft reset."),
     ("ENC", h(0x05C), "REG_STATUS1", "7:0", "stage_done", "RO", "dynamic", "Encoder stage done bitmap."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "0", "irq_enable", "RW", "1", "Interrupt enable."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "1", "irq_clear", "W1P", "0", "Write 1 to generate an interrupt clear pulse; readback is 0."),
@@ -160,8 +162,8 @@ DEC_FIELDS = [
     ("DEC", h(0x050), "APB_ADDR_STATUS0", "6", "frame_idle_done", "RO", "dynamic", "No busy stage and frame_active=0."),
     ("DEC", h(0x054), "APB_ADDR_STATUS1", "4:0", "stage_done", "RO", "dynamic", "Done bitmap: bit0 meta, bit1 tile address, bit2 reserved, bit3 otf, bit4 frame."),
     ("DEC", h(0x054), "APB_ADDR_STATUS1", "8:5", "stage_seen", "RO", "dynamic", "Stage-seen-busy bitmap for meta/tile/vivo/otf."),
-    ("DEC", h(0x058), "APB_ADDR_STATUS2", "6:0", "vivo_idle_bits", "RO", "dynamic", "Raw VIVO idle bitmap."),
-    ("DEC", h(0x05C), "APB_ADDR_STATUS3", "6:0", "vivo_error_bits", "RO", "dynamic", "Raw VIVO error bitmap."),
+    ("DEC", h(0x058), "APB_ADDR_STATUS2", "0", "vivo_idle", "RO", "dynamic", "VIVO idle status."),
+    ("DEC", h(0x05C), "APB_ADDR_STATUS3", "0", "vivo_error", "RO", "dynamic", "VIVO error status."),
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "0", "irq_enable", "RW", "1", "Interrupt enable."),
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "1", "irq_clear", "W1P", "0", "Write 1 to clear latched correct/error interrupt status."),
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "2", "irq_pending", "RO", "dynamic", "Any pending interrupt."),
@@ -407,6 +409,18 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
         return "OTF 垂直 active 高度，单位行。"
     if "frame_active" in lower:
         return "DEC 当前是否有 frame active。"
+    if lower == "vivo_idle":
+        return "VIVO idle 状态。"
+    if lower == "vivo_error":
+        return "VIVO error 状态。"
+    if lower == "meta_err_0":
+        return "metadata co-buffer overflow 错误状态。"
+    if lower == "meta_err_1":
+        return "metadata tile order 错误状态。"
+    if "addr_cfg_overflow" in lower:
+        return "ENC 地址 slot FIFO overflow 粘性状态。"
+    if "rst_drain_timeout" in lower:
+        return "ENC 软复位等待 AXI drain 超时状态。"
     if "busy" in lower:
         return "对应处理 stage 的 busy 状态。"
     if "idle" in lower:

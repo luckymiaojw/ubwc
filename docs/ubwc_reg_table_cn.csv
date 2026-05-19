@@ -49,12 +49,14 @@ ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,2,otf_to_tile_busy,对应
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,3,otf_to_tile_overflow,FIFO overflow 错误状态。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,4,otf_err_bline,OTF 输入 bad-line 错误状态。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,5,otf_err_bframe,OTF 输入 bad-frame 错误状态。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,6,meta_err_0,错误状态位。,只读状态或统计信息。
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,7,meta_err_1,错误状态位。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,6,meta_err_0,metadata co-buffer overflow 错误状态。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,7,meta_err_1,metadata tile order 错误状态。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,8,frame_done,当前/上一帧处理完成状态。,运行中读取。
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,9,addr_cfg_invalid,当前 fcnt[0] 对应地址 slot 未配置，数据会被阻塞并上报错误。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,10,addr_cfg_valid0,ENC 地址 slot0 中存在已配置地址。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,11,addr_cfg_valid1,ENC 地址 slot1 中存在已配置地址。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,12,addr_cfg_overflow,ENC 地址 slot FIFO overflow 粘性状态。,只读状态或统计信息。
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,只读,dynamic,13,rst_drain_timeout,ENC 软复位等待 AXI drain 超时状态。,只读状态或统计信息。
 ubwc_enc_apb_reg_blk,0x005c,REG_STATUS1,只读,dynamic,7:0,stage_done,stage done 位图。,运行中读取。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,读写,0x00000001,0,irq_enable,中断使能。,上电后或中断策略变化时配置。
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,写 1 脉冲,0x00000000,1,irq_clear,中断清除写 1 脉冲。,软件处理中断后写 1；读回为 0。

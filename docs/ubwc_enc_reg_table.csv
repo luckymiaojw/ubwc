@@ -49,12 +49,14 @@ ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,2,otf_to_tile_busy,OTF-to-til
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,3,otf_to_tile_overflow,OTF-to-tile FIFO overflow.,Read-only status or statistic information.
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,4,otf_err_bline,Bad-line error.,Read-only status or statistic information.
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,5,otf_err_bframe,Bad-frame error.,Read-only status or statistic information.
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,6,meta_err_0,Metadata error bit 0.,Read-only status or statistic information.
-ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,7,meta_err_1,Metadata error bit 1.,Read-only status or statistic information.
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,6,meta_err_0,Metadata co-buffer overflow error.,Read-only status or statistic information.
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,7,meta_err_1,Metadata tile-order error.,Read-only status or statistic information.
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,8,frame_done,Frame done status from wrapper.,Read during runtime.
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,9,addr_cfg_invalid,Current frame needs an address slot that is not configured.,Read-only status or statistic information.
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,10,addr_cfg_valid0,Address slot 0 has a configured entry.,Read-only status or statistic information.
 ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,11,addr_cfg_valid1,Address slot 1 has a configured entry.,Read-only status or statistic information.
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,12,addr_cfg_overflow,Address slot FIFO overflow sticky status.,Read-only status or statistic information.
+ubwc_enc_apb_reg_blk,0x0058,REG_STATUS0,RO,dynamic,13,rst_drain_timeout,AXI drain timeout during encoder soft reset.,Read-only status or statistic information.
 ubwc_enc_apb_reg_blk,0x005c,REG_STATUS1,RO,dynamic,7:0,stage_done,Encoder stage done bitmap.,Read during runtime.
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,RW,0x00000001,0,irq_enable,Interrupt enable.,Configure after reset or when the interrupt policy changes.
 ubwc_enc_apb_reg_blk,0x0060,REG_IRQ_CTRL,W1P,0x00000000,1,irq_clear,Write 1 to generate an interrupt clear pulse; readback is 0.,Write 1 after software handles the interrupt; readback is 0.
