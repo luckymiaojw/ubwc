@@ -633,21 +633,9 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 ### ENC 4. Diagram
 
-ENC 系统块图：
+ENC 模块数据流图：
 
-![ENC 系统块图](ubwc_enc_system_block_cn.svg)
-
-ENC OTF-to-tile 详图：
-
-![ENC OTF-to-tile 详图](ubwc_enc_otf_to_tile_detail_cn.svg)
-
-ENC AXI write 详图：
-
-![ENC AXI write 详图](ubwc_enc_axi_write_detail_cn.svg)
-
-ENC ping-pong SRAM 时序图：
-
-![ENC Ping-pong SRAM 时序图](ubwc_enc_pingpong_timing_cn.svg)
+![ENC 模块数据流图](ubwc_enc_module_dataflow_cn.svg)
 
 ENC SRAM bank 存储示意图：
 
@@ -988,14 +976,6 @@ REG_TILE_BASE_UV_HI = tile_uv_base[63:32]
 DEC 总体微架构图：
 
 ![DEC 总体微架构图](ubwc_dec_microarchitecture_cn.svg)
-
-DEC metadata + tile read 详图：
-
-![DEC metadata + tile read 详图](ubwc_dec_meta_tile_read_detail_cn.svg)
-
-DEC tile-to-OTF 详图：
-
-![DEC tile-to-OTF 详图](ubwc_dec_tile_to_otf_detail_cn.svg)
 
 DEC SRAM bank 存储示意图：
 

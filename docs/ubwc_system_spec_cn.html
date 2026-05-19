@@ -704,10 +704,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <div class="note">计算说明：硬件统计 metadata AXI W beat，只用于 debug。</div>
 
           <h3 id="enc-diagram">ENC 4. Diagram</h3>
-          <figure><img src="ubwc_enc_system_block_cn.svg" alt="ENC 系统块图"><figcaption>ENC 系统块图。</figcaption></figure>
-          <figure><img src="ubwc_enc_otf_to_tile_detail_cn.svg" alt="ENC OTF-to-tile 详图"><figcaption>OTF pack、async FIFO、line-to-tile、bank0/1 与 tile read scanner。</figcaption></figure>
-          <figure><img src="ubwc_enc_axi_write_detail_cn.svg" alt="ENC AXI write 详图"><figcaption>tile/meta write command、AXI merge/x2x 写出。</figcaption></figure>
-          <figure><img src="ubwc_enc_pingpong_timing_cn.svg" alt="ENC Ping-pong SRAM 时序图"><figcaption>bank0/bank1 写行组与读 tile 的错相调度。</figcaption></figure>
+          <figure><img src="ubwc_enc_module_dataflow_cn.svg" alt="ENC 模块数据流图"><figcaption>ENC 模块数据流图。</figcaption></figure>
           <figure><img src="ubwc_bank_layout_4096_cn.svg" alt="UBWC SRAM bank 存储示意图"><figcaption>4096 px 最大宽度下 bank0/bank1 容量边界和 YUV420 调度关系；每个 bank 包含 Y 区、UV_A 区和 UV_B 区，UV tile 读出按 tile 粒度配对读取两个 bank，UV 写入在 UV_A/UV_B 间交替推进。</figcaption></figure>
           <table>
             <tr><th>SRAM 项目</th><th>规格</th></tr>
@@ -1118,8 +1115,6 @@ REG_TILE_BASE_UV_HI = tile_uv_base[63:32]</code></pre>
 
           <h3 id="dec-diagram">DEC 4. Diagram</h3>
           <figure><img src="ubwc_dec_microarchitecture_cn.svg" alt="DEC 总体微架构图"><figcaption>DEC 当前 RTL 微架构。</figcaption></figure>
-          <figure><img src="ubwc_dec_meta_tile_read_detail_cn.svg" alt="DEC metadata + tile read 详图"><figcaption>metadata fetch/decode 与 tile read command。</figcaption></figure>
-          <figure><img src="ubwc_dec_tile_to_otf_detail_cn.svg" alt="DEC tile-to-OTF 详图"><figcaption>VIVO rvo、line writer、SRAM fetch、OTF driver。</figcaption></figure>
           <figure><img src="ubwc_bank_layout_4096_cn.svg" alt="UBWC SRAM bank 存储示意图"><figcaption>4096 px 最大宽度下 bank0/bank1 容量边界和 YUV420 调度关系；每个 bank 包含 Y 区、UV_A 区和 UV_B 区，UV tile 读出按 tile 粒度配对读取两个 bank，UV 写入在 UV_A/UV_B 间交替推进。</figcaption></figure>
           <table>
             <tr><th>SRAM 项目</th><th>规格</th></tr>
