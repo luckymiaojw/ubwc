@@ -203,14 +203,14 @@ Recommended configuration order:
 | `0x0024` | `OTF_CFG1` | `RW` | `0x0000_0000` | Input image width/height |
 | `0x0028` | `OTF_CFG2` | `RW` | `0x0000_0000` | Tile width/height |
 | `0x002c` | `OTF_CFG3` | `RW` | `0x0000_0000` | Y/UV tile columns |
-| `0x0030` | `META_BASE_Y_LO` | `RW` | `0x0000_0000` | Y metadata base address low |
-| `0x0034` | `META_BASE_Y_HI` | `RW` | `0x0000_0000` | Y metadata base address high |
-| `0x0038` | `TILE_BASE_Y_LO` | `RW` | `0x0000_0000` | Y compressed-data base address low |
-| `0x003c` | `TILE_BASE_Y_HI` | `RW` | `0x0000_0000` | Y compressed-data base address high |
-| `0x0040` | `META_BASE_UV_LO` | `RW` | `0x0000_0000` | UV metadata base address low |
-| `0x0044` | `META_BASE_UV_HI` | `RW` | `0x0000_0000` | UV metadata base address high |
-| `0x0048` | `TILE_BASE_UV_LO` | `RW` | `0x0000_0000` | UV compressed-data base address low |
-| `0x004c` | `TILE_BASE_UV_HI` | `RW` | `0x0000_0000` | UV compressed-data base address high |
+| `0x0030` | `REG_META_BASE_Y_LO` | `RW` | `0x0000_0000` | Y/RGBA metadata base address low |
+| `0x0034` | `REG_META_BASE_Y_HI` | `RW` | `0x0000_0000` | Y/RGBA metadata base address high |
+| `0x0038` | `REG_TILE_BASE_Y_LO` | `RW` | `0x0000_0000` | Y/RGBA compressed-data base address low |
+| `0x003c` | `REG_TILE_BASE_Y_HI` | `RW` | `0x0000_0000` | Y/RGBA compressed-data base address high |
+| `0x0040` | `REG_META_BASE_UV_LO` | `RW` | `0x0000_0000` | UV metadata base address low |
+| `0x0044` | `REG_META_BASE_UV_HI` | `RW` | `0x0000_0000` | UV metadata base address high |
+| `0x0048` | `REG_TILE_BASE_UV_LO` | `RW` | `0x0000_0000` | UV compressed-data base address low |
+| `0x004c` | `REG_TILE_BASE_UV_HI` | `RW` | `0x0000_0000` | UV compressed-data base address high |
 | `0x0050` | `META_ACTIVE_SIZE` | `RW` | `0x0000_0000` | Metadata active width/height |
 | `0x0054` | `META_PITCH` | `RW` | `0x0000_0000` | Metadata plane pitch in bytes |
 | `0x0058` | `STATUS0` | `RO` | dynamic | Encoder live status |
@@ -257,14 +257,14 @@ Recommended configuration order:
 | `0x0028` | `OTF_CFG2` | `[19:16]` | `tile_h` | `RW` | Tile height in pixels |
 | `0x002c` | `OTF_CFG3` | `[15:0]` | `y_tile_cols` | `RW` | Y tile column count; RGBA formats use this field for RGBA tile columns |
 | `0x002c` | `OTF_CFG3` | `[31:16]` | `uv_tile_cols` | `RW` | UV tile column count; RGBA formats write 0 |
-| `0x0030` | `META_BASE_Y_LO` | `[31:0]` | `meta_y_base_addr[31:0]` | `RW` | Low 32 bits of Y metadata base address. RGBA formats use this slot for RGBA metadata. |
-| `0x0034` | `META_BASE_Y_HI` | `[31:0]` | `meta_y_base_addr[63:32]` | `RW` | High 32 bits of Y metadata base address |
-| `0x0038` | `TILE_BASE_Y_LO` | `[31:0]` | `y_base_addr[31:0]` | `RW` | Low 32 bits of Y compressed-data base address. RGBA formats use this slot for RGBA compressed data. |
-| `0x003c` | `TILE_BASE_Y_HI` | `[31:0]` | `y_base_addr[63:32]` | `RW` | High 32 bits of Y compressed-data base address |
-| `0x0040` | `META_BASE_UV_LO` | `[31:0]` | `meta_uv_base_addr[31:0]` | `RW` | Low 32 bits of UV metadata base address; RGBA formats write 0 |
-| `0x0044` | `META_BASE_UV_HI` | `[31:0]` | `meta_uv_base_addr[63:32]` | `RW` | High 32 bits of UV metadata base address |
-| `0x0048` | `TILE_BASE_UV_LO` | `[31:0]` | `uv_base_addr[31:0]` | `RW` | Low 32 bits of UV compressed-data base address; RGBA formats write 0 |
-| `0x004c` | `TILE_BASE_UV_HI` | `[31:0]` | `uv_base_addr[63:32]` | `RW` | High 32 bits of UV compressed-data base address. Address set becomes eligible only after software writes `IRQ_CTRL[5]=1`. |
+| `0x0030` | `REG_META_BASE_Y_LO` | `[31:0]` | `meta_y_base_addr[31:0]` | `RW` | Low 32 bits of Y/RGBA metadata base address. |
+| `0x0034` | `REG_META_BASE_Y_HI` | `[31:0]` | `meta_y_base_addr[63:32]` | `RW` | High 32 bits of Y/RGBA metadata base address |
+| `0x0038` | `REG_TILE_BASE_Y_LO` | `[31:0]` | `y_base_addr[31:0]` | `RW` | Low 32 bits of Y/RGBA compressed-data base address. |
+| `0x003c` | `REG_TILE_BASE_Y_HI` | `[31:0]` | `y_base_addr[63:32]` | `RW` | High 32 bits of Y/RGBA compressed-data base address |
+| `0x0040` | `REG_META_BASE_UV_LO` | `[31:0]` | `meta_uv_base_addr[31:0]` | `RW` | Low 32 bits of UV metadata base address; RGBA formats write 0 |
+| `0x0044` | `REG_META_BASE_UV_HI` | `[31:0]` | `meta_uv_base_addr[63:32]` | `RW` | High 32 bits of UV metadata base address |
+| `0x0048` | `REG_TILE_BASE_UV_LO` | `[31:0]` | `uv_base_addr[31:0]` | `RW` | Low 32 bits of UV compressed-data base address; RGBA formats write 0 |
+| `0x004c` | `REG_TILE_BASE_UV_HI` | `[31:0]` | `uv_base_addr[63:32]` | `RW` | High 32 bits of UV compressed-data base address. Address set becomes eligible only after software writes `IRQ_CTRL[5]=1`. |
 | `0x0050` | `META_ACTIVE_SIZE` | `[15:0]` | `active_width_px` | `RW` | Metadata active-area width in pixels |
 | `0x0050` | `META_ACTIVE_SIZE` | `[31:16]` | `active_height_px` | `RW` | Metadata active-area height in pixels |
 | `0x0054` | `META_PITCH` | `[31:0]` | `meta_data_plane_pitch` | `RW` | Metadata pitch. Program `align_up((align_up(width, tile_w * 4) + tile_w - 1) / tile_w, 64)`, matching `ubwc_demo.cpp`; current encoder metadata address path uses `meta_data_plane_pitch << 4` as byte stride. Example NV12 1996x1074 Y plane: `align_up((align_up(1996,128)+32-1)/32,64)=64`; UV plane example also uses `meta_pitch=64`. |
