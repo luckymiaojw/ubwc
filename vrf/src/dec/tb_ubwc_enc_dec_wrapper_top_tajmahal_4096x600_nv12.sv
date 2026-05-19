@@ -496,7 +496,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             exp_word[79:72]   = y_byte(x + 2, y);
             exp_word[111:104] = y_byte(x + 3, y);
 
-            if ((y & 1) == 1) begin
+            if ((y & 1) == 0) begin
                 uv_line = y >> 1;
                 exp_word[7:0]   = uv_byte(x + 1, uv_line);
                 exp_word[23:16] = uv_byte(x + 0, uv_line);

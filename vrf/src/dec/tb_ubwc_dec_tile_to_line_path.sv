@@ -162,12 +162,12 @@ module tb_ubwc_dec_tile_to_line_path;
                         $fatal(1, "YUV420 Y mismatch line=%0d word=%0d got=%h exp=%h",
                                line_idx, word_idx, observed_fifo[obs_idx][127:0], make_word(exp_y_id));
                     end
-                    if (line_idx[0] && (observed_fifo[obs_idx][255:128] !== make_word(exp_uv_id))) begin
+                    if (!line_idx[0] && (observed_fifo[obs_idx][255:128] !== make_word(exp_uv_id))) begin
                         $fatal(1, "YUV420 UV mismatch line=%0d word=%0d got=%h exp=%h",
                                line_idx, word_idx, observed_fifo[obs_idx][255:128], make_word(exp_uv_id));
                     end
-                    if (!line_idx[0] && (observed_fifo[obs_idx][255:128] !== 128'd0)) begin
-                        $fatal(1, "YUV420 even-line high half should not consume UV line=%0d word=%0d got=%h",
+                    if (line_idx[0] && (observed_fifo[obs_idx][255:128] !== 128'd0)) begin
+                        $fatal(1, "YUV420 odd-line high half should not consume UV line=%0d word=%0d got=%h",
                                line_idx, word_idx, observed_fifo[obs_idx][255:128]);
                     end
                 end

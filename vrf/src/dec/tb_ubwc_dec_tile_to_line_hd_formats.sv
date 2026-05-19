@@ -495,11 +495,11 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
                     if (observed_fifo[obs_idx][127:0] !== nv12_y_word_hd(base_line + line_idx, word_idx)) begin
                         $fatal(1, "NV12 HD Y mismatch line=%0d word=%0d", line_idx, word_idx);
                     end
-                    if (line_idx[0] && (observed_fifo[obs_idx][255:128] !== nv12_uv_word_hd(base_uv_line + (line_idx >> 1), word_idx))) begin
+                    if (!line_idx[0] && (observed_fifo[obs_idx][255:128] !== nv12_uv_word_hd(base_uv_line + (line_idx >> 1), word_idx))) begin
                         $fatal(1, "NV12 HD UV mismatch line=%0d word=%0d", line_idx, word_idx);
                     end
-                    if (!line_idx[0] && (observed_fifo[obs_idx][255:128] !== 128'd0)) begin
-                        $fatal(1, "NV12 HD even-line high half should not consume UV line=%0d word=%0d", line_idx, word_idx);
+                    if (line_idx[0] && (observed_fifo[obs_idx][255:128] !== 128'd0)) begin
+                        $fatal(1, "NV12 HD odd-line high half should not consume UV line=%0d word=%0d", line_idx, word_idx);
                     end
                 end
             end

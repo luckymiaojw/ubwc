@@ -379,7 +379,7 @@ module tb_ubwc_dec_tile_to_otf_1960x1080_nv12;
             exp_data[47:40]   = nv12_y_sample(active_x + 1, active_y);
             exp_data[79:72]   = nv12_y_sample(active_x + 2, active_y);
             exp_data[111:104] = nv12_y_sample(active_x + 3, active_y);
-            if ((active_y & 1) == 1) begin
+            if ((active_y & 1) == 0) begin
                 exp_data[7:0]   = nv12_v_sample(pair_x0, uv_line);
                 exp_data[23:16] = nv12_u_sample(pair_x0, uv_line);
                 exp_data[71:64] = nv12_v_sample(pair_x1, uv_line);

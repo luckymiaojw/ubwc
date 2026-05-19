@@ -268,7 +268,7 @@ module sram_read_fetcher #(
     assign uv_row_off_full            = is_p010 ? uv_row_off_p010_full : uv_row_off_yuv8_full;
     assign addr_uv_full               = uv_base_full + uv_row_off_full + {4'd0, word_idx};
     assign addr_uv                    = addr_uv_full[SRAM_ADDR_W-1:0];
-    assign current_line_has_uv        = has_uv && (!is_yuv420 || line_idx[0]);
+    assign current_line_has_uv        = has_uv && (!is_yuv420 || !line_idx[0]);
     assign current_pair_has_second    = current_line_has_uv | (is_rgba && (word_idx != (w_limit - 13'd1)));
     assign current_pair_step          = (is_rgba && current_pair_has_second) ? 2'd2 : 2'd1;
     assign frame_start                = (i_frame_start == 1'b1);
@@ -291,7 +291,7 @@ module sram_read_fetcher #(
                                         (is_p010 ? next_y_off_p010_full : next_y_off_yuv8_full);
     assign next_addr_y_full           = next_y_group_off_full + next_y_off_full + {4'd0, next_word_idx};
     assign next_addr_y                = next_addr_y_full[SRAM_ADDR_W-1:0];
-    assign next_line_has_uv           = has_uv && (!is_yuv420 || next_line_idx[0]);
+    assign next_line_has_uv           = has_uv && (!is_yuv420 || !next_line_idx[0]);
     assign next_pair_has_second       = next_line_has_uv | (is_rgba && (next_word_idx != (w_limit - 13'd1)));
     assign next_pair_step             = (is_rgba && next_pair_has_second) ? 2'd2 : 2'd1;
     assign entry_empty                = (entry_count == {ENTRY_CNT_W{1'b0}});

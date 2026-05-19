@@ -56,7 +56,7 @@ def expected_beats_from_planes(y_plane: bytes, uv_plane: bytes, width: int, y_he
             beat |= y2 << 72
             beat |= y3 << 104
 
-            if y & 1:
+            if (y & 1) == 0:
                 u0 = uv_plane[uv_base + x + 0]
                 v0 = uv_plane[uv_base + x + 1]
                 u1 = uv_plane[uv_base + x + 2]
@@ -86,7 +86,7 @@ def nv12_planes_from_otf(beats128: list[int], width: int, y_height: int) -> tupl
         y_plane[y_base + x + 2] = (beat >> 72) & 0xFF
         y_plane[y_base + x + 3] = (beat >> 104) & 0xFF
 
-        if y & 1:
+        if (y & 1) == 0:
             uv_base = (y >> 1) * width
             uv_plane[uv_base + x + 0] = (beat >> 16) & 0xFF
             uv_plane[uv_base + x + 1] = (beat >> 0) & 0xFF

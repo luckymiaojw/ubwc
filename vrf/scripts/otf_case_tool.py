@@ -51,7 +51,7 @@ def words_to_plane(words64: list[int], width_bytes: int, height: int) -> bytearr
     return plane
 
 
-def nv12_expected_beats(y_plane: bytes, uv_plane: bytes, width: int, y_height: int, uv_phase: str = "odd") -> list[int]:
+def nv12_expected_beats(y_plane: bytes, uv_plane: bytes, width: int, y_height: int, uv_phase: str = "even") -> list[int]:
     beats: list[int] = []
     for y in range(y_height):
         y_base = y * width
@@ -283,7 +283,7 @@ def diff_pixels(exp_pixels: bytes, act_pixels: bytes) -> bytearray:
     return diff
 
 
-def nv12_planes_from_otf(beats128: list[int], width: int, y_height: int) -> tuple[bytearray, bytearray]:
+def nv12_planes_from_otf(beats128: list[int], width: int, y_height: int, uv_phase: str = "even") -> tuple[bytearray, bytearray]:
     beats_per_line = width // 4
     y_plane = bytearray(width * y_height)
     uv_plane = bytearray(width * (y_height // 2))
@@ -299,7 +299,7 @@ def nv12_planes_from_otf(beats128: list[int], width: int, y_height: int) -> tupl
         y_plane[y_base + x + 2] = (beat >> 72) & 0xFF
         y_plane[y_base + x + 3] = (beat >> 104) & 0xFF
 
-        if y & 1:
+        if ((uv_phase == "odd") and (y & 1)) or ((uv_phase == "even") and ((y & 1) == 0)):
             uv_base = (y >> 1) * width
             uv_plane[uv_base + x + 0] = (beat >> 16) & 0xFF
             uv_plane[uv_base + x + 1] = (beat >> 0) & 0xFF
@@ -465,15 +465,15 @@ def compare_rgba1010102(expected_path: Path, actual_path: Path, width: int, acti
     return 0 if mismatch_count == 0 and len(expected_beats) == len(actual_beats) else 1
 
 
-def compare_nv12(expected_y_path: Path, expected_uv_path: Path, actual_path: Path, width: int, active_height: int, stored_y_height: int, stored_uv_height: int, out_dir: Path, frame_repeat: int = 1) -> int:
+def compare_nv12(expected_y_path: Path, expected_uv_path: Path, actual_path: Path, width: int, active_height: int, stored_y_height: int, stored_uv_height: int, out_dir: Path, frame_repeat: int = 1, uv_phase: str = "even") -> int:
     expected_y_words = parse_memh_words(expected_y_path)
     expected_uv_words = parse_memh_words(expected_uv_path)
     actual_beats = parse_otf_beats(actual_path)
 
     expected_y_plane = words_to_plane(expected_y_words, width, stored_y_height)
     expected_uv_plane = words_to_plane(expected_uv_words, width, stored_uv_height)
-    expected_beats = repeat_beats(nv12_expected_beats(expected_y_plane, expected_uv_plane, width, stored_y_height), frame_repeat)
-    actual_y_plane, actual_uv_plane = nv12_planes_from_otf(actual_beats, width, stored_y_height)
+    expected_beats = repeat_beats(nv12_expected_beats(expected_y_plane, expected_uv_plane, width, stored_y_height, uv_phase), frame_repeat)
+    actual_y_plane, actual_uv_plane = nv12_planes_from_otf(actual_beats, width, stored_y_height, uv_phase)
 
     mismatch_count, first_mismatch = compare_beats(expected_beats, actual_beats, width)
 
@@ -567,7 +567,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     gen.add_argument("--stored-height", type=int)
     gen.add_argument("--stored-y-height", type=int)
     gen.add_argument("--stored-uv-height", type=int)
-    gen.add_argument("--nv12-uv-phase", choices=["odd", "even"], default="odd")
+    gen.add_argument("--nv12-uv-phase", choices=["odd", "even"], default="even")
     gen.add_argument("--p010-uv-phase", choices=["odd", "even"], default="even")
     gen.add_argument("--out", required=True)
 
@@ -582,6 +582,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     cmp_p.add_argument("--stored-height", type=int)
     cmp_p.add_argument("--stored-y-height", type=int)
     cmp_p.add_argument("--stored-uv-height", type=int)
+    cmp_p.add_argument("--nv12-uv-phase", choices=["odd", "even"], default="even")
     cmp_p.add_argument("--p010-uv-phase", choices=["odd", "even"], default="even")
     cmp_p.add_argument("--frame-repeat", type=int, default=1)
     cmp_p.add_argument("--out-dir", required=True)
@@ -671,7 +672,7 @@ def main() -> int:
         return 0 if mismatch_count == 0 and len(expected_beats) == len(actual_beats) else 1
     return compare_nv12(Path(args.expected_y), Path(args.expected_uv), actual_path, args.width,
                         args.active_height, args.stored_y_height, args.stored_uv_height,
-                        out_dir, args.frame_repeat)
+                        out_dir, args.frame_repeat, args.nv12_uv_phase)
 
 
 if __name__ == "__main__":

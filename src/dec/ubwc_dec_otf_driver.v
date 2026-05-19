@@ -138,8 +138,8 @@ module otf_driver (
         end
     endfunction
 
-    // Match the YUV420 table where the first active line uses the ODD layout
-    // without chroma bytes, and the second active line uses the EVEN layout.
+    // Match the encoder OTF input table: for YUV420, the first active line
+    // carries UV bytes and the next active line is Y-only.
 
     assign h_total_beats              = div_up4_u16(cfg_otf_h_total);
     assign h_sync_beats               = div_up4_u16(cfg_otf_h_sync);
@@ -159,7 +159,7 @@ module otf_driver (
     assign active_line                = (v_cnt >= v_act_start) ?
                                         ((|active_line_raw[15:12]) ? 12'hfff : active_line_raw[11:0]) :
                                                                  12'd0;
-    assign line_has_uv                = active_line[0];
+    assign line_has_uv                = !active_line[0];
     assign is_rgba                    = (cfg_format == 5'b00000) || (cfg_format == 5'b00001);
     assign is_yuv420_10               = (cfg_format == 5'b00011);
     assign fifo_empty_sel             = i_fifo_empty0;

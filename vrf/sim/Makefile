@@ -998,7 +998,7 @@ wrapper_tajmahal_cases_prepare:
 			grep -v '^@' $(K_OUTDOOR61_G016_UV_TILED_UNCOMP_SRC) > $(BUILD_DIR)/inject_tile_plane1.txt; \
 			grep -v '^@' $(K_OUTDOOR61_G016_Y_LINEAR_SRC) > $(BUILD_DIR)/golden_p010_y_linear.memh; \
 			grep -v '^@' $(K_OUTDOOR61_G016_UV_LINEAR_SRC) > $(BUILD_DIR)/golden_p010_uv_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format p010 --expected-y $(BUILD_DIR)/golden_p010_y_linear.memh --expected-uv $(BUILD_DIR)/golden_p010_uv_linear.memh --width 4096 --stored-y-height 608 --stored-uv-height 304 --p010-uv-phase odd --out $(BUILD_DIR)/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format p010 --expected-y $(BUILD_DIR)/golden_p010_y_linear.memh --expected-uv $(BUILD_DIR)/golden_p010_uv_linear.memh --width 4096 --stored-y-height 608 --stored-uv-height 304 --p010-uv-phase even --out $(BUILD_DIR)/expected_otf_stream.txt; \
 			;; \
 		*) \
 			echo "Unsupported CASE_ID=$(EFFECTIVE_CASE_ID) for wrapper TajMahal cases"; \
