@@ -10,7 +10,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
     localparam integer AXI_AW   = 64;
     localparam integer AXI_DW   = 64;
     localparam integer AXI_IDW  = 4;
-    localparam integer AXI_LENW = 8;
+    localparam integer AXI_LENW = 5;
     localparam integer SB_WIDTH = 3;
 
     localparam integer IMG_W              = 4096;

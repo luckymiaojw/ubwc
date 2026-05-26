@@ -39,7 +39,7 @@ module ubwc_dec_apb_reg_blk #(
     input   wire    [3                      :0]         i_stage_seen_axi                ,
     input   wire    [4                      :0]         i_stage_done_axi                ,
     input   wire                                        i_vivo_idle_axi                 ,
-    input   wire                                        i_vivo_error_axi                ,
+    input   wire    [6                      :0]         i_vivo_error_axi                ,
     input   wire                                        i_irq_pending_axi               ,
     input   wire                                        i_irq_correct_pending_axi       ,
     input   wire                                        i_irq_error_pending_axi         ,
@@ -126,7 +126,7 @@ module ubwc_dec_apb_reg_blk #(
     localparam  [4                      :0]         APB_ADDR_STAT_OTF_LINE          = 5'h1d; // 0x74
     localparam  [4                      :0]         APB_ADDR_STAT_OTF_DE            = 5'h1e; // 0x78
     localparam  integer                             IRQ_CTRL_START_BIT              = 5;
-    localparam  integer                             STATUS_BUS_W                    = 18;
+    localparam  integer                             STATUS_BUS_W                    = 24;
     localparam  integer                             BASE_FIFO_DEPTH                 = 4;
     localparam  integer                             BASE_FIFO_PTR_W                 = 2;
     localparam  integer                             BASE_FIFO_CNT_W                 = 3;
@@ -299,7 +299,7 @@ module ubwc_dec_apb_reg_blk #(
     wire                                            frame_start_toggle_seen_axi     ;
     assign frame_start_toggle_seen_axi = r_meta_start_sync_ff1 ^ r_meta_start_sync_ff2;
     wire        [STATUS_BUS_W        -1 :0]         status_bus_axi                  ;
-    wire                                            status_vivo_error_pclk          ;
+    wire        [6                      :0]         status_vivo_error_pclk          ;
     wire                                            status_vivo_idle_pclk           ;
     wire        [4                      :0]         status_stage_done_pclk          ;
     wire        [3                      :0]         status_stage_seen_pclk          ;
@@ -388,7 +388,7 @@ module ubwc_dec_apb_reg_blk #(
             fifo_meta_uv_wr_ptr                 <= {BASE_FIFO_PTR_W{1'b0}};
             fifo_meta_uv_rd_ptr                 <= {BASE_FIFO_PTR_W{1'b0}};
             fifo_meta_uv_count                  <= {BASE_FIFO_CNT_W{1'b0}};
-            r_vivo_ubwc_en                      <= 1'b1;
+            r_vivo_ubwc_en                      <= 1'b0;
             r_vivo_sreset                       <= 1'b0;
             r_meta_start_toggle                 <= 1'b0;
             r_start_wait_busy_seen              <= 1'b0;
@@ -408,7 +408,7 @@ module ubwc_dec_apb_reg_blk #(
             r_otf_cfg_v_sync                    <= 16'd0;
             r_otf_cfg_v_bp                      <= 16'd0;
             r_otf_cfg_v_act                     <= 16'd0;
-            r_irq_enable                        <= 1'b1;
+            r_irq_enable                        <= 1'b0;
             r_irq_clear_toggle                  <= 1'b0;
         end else begin
             if (base_fifo_start_pclk) begin
@@ -571,8 +571,8 @@ module ubwc_dec_apb_reg_blk #(
             r_meta_start_sync_ff2 <= 1'b0;
             r_frame_start_cfg_valid_axi <= 1'b0;
             r_frame_start_pulse_axi <= 1'b0;
-            r_irq_enable_sync_ff1 <= 1'b1;
-            r_irq_enable_sync_ff2 <= 1'b1;
+            r_irq_enable_sync_ff1 <= 1'b0;
+            r_irq_enable_sync_ff2 <= 1'b0;
             r_irq_clear_sync_ff1 <= 1'b0;
             r_irq_clear_sync_ff2 <= 1'b0;
             a_tile_cfg_lvl2_bank_swizzle_en <= 1'b0;
@@ -588,7 +588,7 @@ module ubwc_dec_apb_reg_blk #(
             a_tile_base_addr_uv0 <= {AXI_AW{1'b0}};
             a_tile_base_addr_rgba_y1 <= {AXI_AW{1'b0}};
             a_tile_base_addr_uv1 <= {AXI_AW{1'b0}};
-            a_vivo_ubwc_en <= 1'b1;
+            a_vivo_ubwc_en <= 1'b0;
             a_vivo_sreset <= 1'b0;
             a_meta_base_format <= 5'd0;
             a_meta_base_addr_rgba_y0 <= {AXI_AW{1'b0}};
@@ -700,17 +700,17 @@ module ubwc_dec_apb_reg_blk #(
         end
     end
 
-    assign status_vivo_error_pclk      = r_status_sync_ff2[0];
-    assign status_vivo_idle_pclk       = r_status_sync_ff2[1];
-    assign status_stage_done_pclk      = r_status_sync_ff2[6:2];
-    assign status_stage_seen_pclk      = r_status_sync_ff2[10:7];
-    assign status_meta_busy_pclk       = r_status_sync_ff2[11];
-    assign status_tile_busy_pclk       = r_status_sync_ff2[12];
-    assign status_vivo_busy_pclk       = r_status_sync_ff2[13];
-    assign status_otf_busy_pclk        = r_status_sync_ff2[14];
-    assign status_frame_active_pclk    = r_status_sync_ff2[15];
-    assign status_any_stage_busy_pclk  = r_status_sync_ff2[16];
-    assign status_irq_pending_pclk     = r_status_sync_ff2[17];
+    assign status_vivo_error_pclk      = r_status_sync_ff2[6:0];
+    assign status_vivo_idle_pclk       = r_status_sync_ff2[7];
+    assign status_stage_done_pclk      = r_status_sync_ff2[12:8];
+    assign status_stage_seen_pclk      = r_status_sync_ff2[16:13];
+    assign status_meta_busy_pclk       = r_status_sync_ff2[17];
+    assign status_tile_busy_pclk       = r_status_sync_ff2[18];
+    assign status_vivo_busy_pclk       = r_status_sync_ff2[19];
+    assign status_otf_busy_pclk        = r_status_sync_ff2[20];
+    assign status_frame_active_pclk    = r_status_sync_ff2[21];
+    assign status_any_stage_busy_pclk  = r_status_sync_ff2[22];
+    assign status_irq_pending_pclk     = r_status_sync_ff2[23];
     assign status_irq_error_pending_pclk = r_irq_type_sync_ff2[0];
     assign status_irq_correct_pending_pclk = r_irq_type_sync_ff2[1];
 
@@ -806,7 +806,7 @@ module ubwc_dec_apb_reg_blk #(
                 r_prdata = {{(DW-1){1'b0}}, status_vivo_idle_pclk};
             end
             APB_ADDR_STATUS3: begin
-                r_prdata = {{(DW-1){1'b0}}, status_vivo_error_pclk};
+                r_prdata = {{(DW-7){1'b0}}, status_vivo_error_pclk};
             end
             APB_ADDR_IRQ_CTRL: begin
                 r_prdata = {{(DW-6){1'b0}},

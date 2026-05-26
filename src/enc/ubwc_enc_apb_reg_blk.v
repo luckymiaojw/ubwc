@@ -117,7 +117,8 @@ module ubwc_enc_apb_reg_blk
         input   wire    [31                     :0]         i_meta_axi_w_count1             ,
         output  wire                                        o_start_pulse                   ,
         output  wire                                        o_irq_enable                    ,
-        output  wire                                        o_irq_clear_pulse
+        output  wire                                        o_irq_clear_pulse               ,
+        output  wire                                        o_vsync_reset_en
     );
 
     localparam  [DW                  -1 :0]         REG_VERSION                     = 32'h0001_0000;
@@ -164,6 +165,7 @@ module ubwc_enc_apb_reg_blk
     localparam  integer                             REG_META_AXI_W_CNT0             = 38;
     localparam  integer                             REG_META_AXI_W_CNT1             = 39;
     localparam  integer                             IRQ_CTRL_START_BIT              = 5;
+    localparam  integer                             IRQ_CTRL_VSYNC_RESET_EN_BIT     = 6;
     localparam  integer                             REG_IDX_W                       = $clog2(NREG);
     localparam  integer                             ADDR_CFG_FIFO_DEPTH             = 4;
     localparam  integer                             ADDR_CFG_FIFO_PTR_W             = 2;
@@ -180,6 +182,8 @@ module ubwc_enc_apb_reg_blk
     reg                                             irq_enable_sync_ff2             ;
     reg                                             irq_clear_sync_ff1              ;
     reg                                             irq_clear_sync_ff2              ;
+    reg                                             vsync_reset_en_sync_ff1         ;
+    reg                                             vsync_reset_en_sync_ff2         ;
     reg                                             irq_pending_pclk_ff1            ;
     reg                                             irq_pending_pclk_ff2            ;
     reg                                             irq_correct_pclk_ff1            ;
@@ -290,14 +294,13 @@ module ubwc_enc_apb_reg_blk
                     regs[i] <= REG_VERSION;
                 else if (i == REG_DATE_IDX)
                     regs[i] <= REG_DATE;
-                else if (i == REG_IRQ_CTRL)
-                    regs[i] <= {{(DW-1){1'b0}}, 1'b1};
                 else
                     regs[i] <= {DW{1'b0}};
             end
         end else if (apb_write) begin
             if (reg_addr == REG_IRQ_CTRL[AW-3:0])
-                regs[REG_IRQ_CTRL] <= {{(DW-1){1'b0}}, PWDATA[0]};
+                regs[REG_IRQ_CTRL] <= {{(DW-7){1'b0}}, PWDATA[IRQ_CTRL_VSYNC_RESET_EN_BIT],
+                                       5'd0, PWDATA[0]};
             else if ((reg_addr > REG_DATE_IDX[AW-3:0]) && (reg_addr < NREG) &&
                 (reg_addr != REG_STATUS0[AW-3:0]) &&
                 (reg_addr != REG_STATUS1[AW-3:0]))
@@ -684,14 +687,14 @@ module ubwc_enc_apb_reg_blk
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
-            irq_enable_sync_ff1 <= 1'b1;
+            irq_enable_sync_ff1 <= 1'b0;
         else
             irq_enable_sync_ff1 <= regs[REG_IRQ_CTRL][0];
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
-            irq_enable_sync_ff2 <= 1'b1;
+            irq_enable_sync_ff2 <= 1'b0;
         else
             irq_enable_sync_ff2 <= irq_enable_sync_ff1;
     end
@@ -708,6 +711,20 @@ module ubwc_enc_apb_reg_blk
             irq_clear_sync_ff2 <= 1'b0;
         else
             irq_clear_sync_ff2 <= irq_clear_sync_ff1;
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            vsync_reset_en_sync_ff1 <= 1'b0;
+        else
+            vsync_reset_en_sync_ff1 <= regs[REG_IRQ_CTRL][IRQ_CTRL_VSYNC_RESET_EN_BIT];
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn)
+            vsync_reset_en_sync_ff2 <= 1'b0;
+        else
+            vsync_reset_en_sync_ff2 <= vsync_reset_en_sync_ff1;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
@@ -753,7 +770,8 @@ module ubwc_enc_apb_reg_blk
         else if (reg_addr == REG_STATUS1[AW-3:0])
             r_prdata = status1;
         else if (reg_addr == REG_IRQ_CTRL[AW-3:0])
-            r_prdata = {{(DW-6){1'b0}}, 1'b0, irq_error_pclk_ff2, irq_correct_pclk_ff2,
+            r_prdata = {{(DW-7){1'b0}}, regs[REG_IRQ_CTRL][IRQ_CTRL_VSYNC_RESET_EN_BIT],
+                        1'b0, irq_error_pclk_ff2, irq_correct_pclk_ff2,
                         irq_pending_pclk_ff2, 1'b0, regs[REG_IRQ_CTRL][0]};
         else if (reg_addr == REG_STATUS2[AW-3:0])
             r_prdata = status2;
@@ -901,5 +919,6 @@ module ubwc_enc_apb_reg_blk
     assign enc_irq_clear_pulse         = irq_clear_pulse_axi;
     assign o_irq_enable                = irq_enable_sync_ff2;
     assign o_irq_clear_pulse           = irq_clear_pulse_axi;
+    assign o_vsync_reset_en            = vsync_reset_en_sync_ff2;
 
 endmodule

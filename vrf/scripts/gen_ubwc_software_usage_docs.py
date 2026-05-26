@@ -26,13 +26,13 @@ FORMAT_ROWS = [
 ENC_CONFIG_ROWS = [
     ("0x000", "VERSION", "上电后读取一次", "只读"),
     ("0x004", "DATE", "上电后读取一次", "只读"),
-    ("0x060[0]", "IRQ enable", "上电后或中断策略变化时配置", "1"),
+    ("0x060[0]", "IRQ enable", "上电后或中断策略变化时配置", "寄存器复位值 0；需要中断时软件写 1"),
     ("0x00C", "REG_TILE_CFG1: 4-line/lossy/tile_pitch", "更改图像格式时配置", "按格式计算"),
     ("0x008", "REG_TILE_CFG0: ubwc/bank/swizzle", "更改图像格式时配置", "按系统策略"),
     ("0x014", "REG_ENC_CI_CFG1: lossy", "更改图像格式时配置", "0 或按格式"),
     ("0x018", "REG_ENC_CI_CFG2: reserved cfg", "更改图像格式时配置", "0"),
     ("0x01C", "REG_ENC_CI_CFG3: reserved cfg", "更改图像格式时配置", "0"),
-    ("0x010", "REG_ENC_CI_CFG0: input_type/alen", "更改图像格式时配置", "input_type=1, alen=7"),
+    ("0x010", "REG_ENC_CI_CFG0: input_type/alen", "更改图像格式时配置", "寄存器复位值 0；普通 tiled UBWC 路径软件写 input_type=1、alen=7"),
     ("0x024", "REG_OTF_CFG1: width/height", "更改图像格式时配置", "按图像尺寸"),
     ("0x028", "REG_OTF_CFG2: tile_w/tile_h", "更改图像格式时配置", "RGBA=16x4; YUV420_8=32x8; YUV420_10=32x4"),
     ("0x02C", "REG_OTF_CFG3: tile columns", "更改图像格式时配置", "[15:0] y_tile_cols；[31:16] uv_tile_cols，RGBA 的 uv 写 0"),
@@ -53,11 +53,11 @@ ENC_CONFIG_ROWS = [
 DEC_CONFIG_ROWS = [
     ("0x000", "VERSION", "上电后读取一次", "只读"),
     ("0x004", "DATE", "上电后读取一次", "只读"),
-    ("0x060[0]", "IRQ enable", "上电后或中断策略变化时配置", "1"),
+    ("0x060[0]", "IRQ enable", "上电后或中断策略变化时配置", "寄存器复位值 0；需要中断时软件写 1"),
     ("0x008", "APB_ADDR_TILE_CFG0: swizzle/layout", "更改图像格式时配置", "按系统策略"),
     ("0x00C", "APB_ADDR_TILE_CFG1: tile pitch", "更改图像格式时配置", "按格式/宽度计算"),
-    ("0x010", "APB_ADDR_TILE_CFG2: CI cfg", "更改图像格式时配置", "input_type=1，其余按格式"),
-    ("0x014", "APB_ADDR_VIVO_CFG", "更改图像格式时配置", "vivo_ubwc_en=1"),
+    ("0x010", "APB_ADDR_TILE_CFG2: CI cfg", "更改图像格式时配置", "寄存器复位值 0；普通 tiled UBWC 路径软件写 input_type=1，其余按格式"),
+    ("0x014", "APB_ADDR_VIVO_CFG", "更改图像格式时配置", "寄存器复位值 0；启动 decode 前软件写 vivo_ubwc_en=1"),
     ("0x018", "APB_ADDR_OTF_CFG0: img_width/format", "更改图像格式时配置", "按输出图像配置"),
     ("0x01C", "APB_ADDR_OTF_CFG1: h_total/h_sync", "更改图像格式时配置", "按 OTF timing 配置"),
     ("0x020", "APB_ADDR_OTF_CFG2: h_bp/h_act", "更改图像格式时配置", "按 OTF timing 配置"),
@@ -589,7 +589,7 @@ write(0x008, REG_TILE_CFG0);      // [0] ubwc_en; [3:1] bank_swizzle; [12:8] hig
 write(0x014, REG_ENC_CI_CFG1);    // [16] enc_ci_lossy
 write(0x018, REG_ENC_CI_CFG2);    // [30:0] enc_ci_ubwc_cfg_0..9，建议写 0
 write(0x01C, REG_ENC_CI_CFG3);    // [5:0] cfg_10; [13:8] cfg_11，建议写 0
-write(0x010, REG_ENC_CI_CFG0);    // [0] input_type=1; [10:8] alen=7
+write(0x010, REG_ENC_CI_CFG0);    // reset=0; [0] input_type 写 1; [10:8] alen 写 7
 write(0x024, REG_OTF_CFG1);       // [15:0] width; [31:16] height
 write(0x028, REG_OTF_CFG2);       // [15:0] tile_w; [19:16] tile_h
 write(0x02C, REG_OTF_CFG3);       // [15:0] y_tile_cols; [31:16] uv_tile_cols，RGBA 的 uv 写 0
@@ -611,7 +611,7 @@ write(0x020, REG_OTF_CFG0);       // [2:0] format</pre>
 read(0x004); // DATE
 write(0x008, APB_ADDR_TILE_CFG0); // [2:0] bank_swizzle; [8:4] highest_bank_bit; [9] bank_spread; [10] 4line; [11] lossy_rgba_2_1
 write(0x00C, APB_ADDR_TILE_CFG1); // [11:0] tile_cfg_pitch
-write(0x010, APB_ADDR_TILE_CFG2); // [0] ci_input_type; [8] ci_lossy; [10:9] alpha_mode
+write(0x010, APB_ADDR_TILE_CFG2); // reset=0; [0] ci_input_type 写 1; [8] ci_lossy; [10:9] alpha_mode
 write(0x014, VIVO_CFG);           // [0] vivo_ubwc_en; [1] vivo_sreset
 write(0x02C, META_CFG0);          // [15:0] Y/RGBA tile_x_numbers; [31:16] Y/RGBA tile_y_numbers
 write(0x018, OTF_CFG0);           // [15:0] img_width; [20:16] format
@@ -775,7 +775,7 @@ write(0x008, REG_TILE_CFG0);
 write(0x014, REG_ENC_CI_CFG1);
 write(0x018, REG_ENC_CI_CFG2);
 write(0x01C, REG_ENC_CI_CFG3);
-write(0x010, REG_ENC_CI_CFG0); // input_type=1, alen=7
+write(0x010, REG_ENC_CI_CFG0); // reset=0, software writes input_type=1 and alen=7
 write(0x024, REG_OTF_CFG1);
 write(0x028, REG_OTF_CFG2);
 write(0x02C, REG_OTF_CFG3);

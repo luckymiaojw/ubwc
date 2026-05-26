@@ -81,6 +81,7 @@ typedef struct {
     uint32_t ci_cfg3;
     uint32_t irq_enable;
     uint32_t do_start;
+    uint32_t vsync_reset_en;
 } ubwc_enc_config_t;
 
 static inline uint32_t ubwc_enc_align_up_u32(uint32_t value, uint32_t unit)
@@ -337,9 +338,13 @@ static inline uint32_t ubwc_enc_reg_base_hi(uint64_t base_addr)
     return (uint32_t)((base_addr >> 32) & 0xffffffffull);
 }
 
-static inline uint32_t ubwc_enc_reg_irq_ctrl(uint32_t irq_enable, uint32_t do_start)
+static inline uint32_t ubwc_enc_reg_irq_ctrl(uint32_t irq_enable,
+                                             uint32_t do_start,
+                                             uint32_t vsync_reset_en)
 {
-    return (irq_enable & 1u) | ((do_start & 1u) << 5);
+    return (irq_enable & 1u) |
+           ((do_start & 1u) << 5) |
+           ((vsync_reset_en & 1u) << 6);
 }
 
 static inline ubwc_enc_config_t ubwc_enc_default_config(uint32_t format,
@@ -371,6 +376,7 @@ static inline ubwc_enc_config_t ubwc_enc_default_config(uint32_t format,
     cfg.ci_cfg3 = ubwc_enc_reg_enc_ci_cfg3();
     cfg.irq_enable = 1u;
     cfg.do_start = 1u;
+    cfg.vsync_reset_en = 0u;
     return cfg;
 }
 
@@ -404,7 +410,7 @@ static inline size_t ubwc_enc_make_reg_writes_ex(const ubwc_enc_config_t *cfg,
         {UBWC_ENC_REG_META_ACTIVE_SIZE, ubwc_enc_reg_meta_active_size(c->active_width_px, c->active_height_px), "REG_META_ACTIVE_SIZE"},
         {UBWC_ENC_REG_META_PITCH,       ubwc_enc_reg_meta_pitch(c->format, c->active_width_px), "REG_META_PITCH"},
         {UBWC_ENC_REG_OTF_CFG0,         ubwc_enc_reg_otf_cfg0(c->format), "REG_OTF_CFG0"},
-        {UBWC_ENC_REG_IRQ_CTRL,         ubwc_enc_reg_irq_ctrl(c->irq_enable, c->do_start), "REG_IRQ_CTRL"}
+        {UBWC_ENC_REG_IRQ_CTRL,         ubwc_enc_reg_irq_ctrl(c->irq_enable, c->do_start, c->vsync_reset_en), "REG_IRQ_CTRL"}
     };
     size_t n = sizeof(regs) / sizeof(regs[0]);
     size_t i;

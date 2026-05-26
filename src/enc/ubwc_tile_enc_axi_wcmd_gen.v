@@ -20,7 +20,7 @@ module ubwc_tile_enc_axi_wcmd_gen
         parameter                                       AXI_AW                          = 64,
         parameter                                       AXI_DW                          = 256,
         parameter                                       AXI_SW                          = 32,
-        parameter                                       AXI_LENW                        = 8,
+        parameter                                       AXI_LENW                        = 5,
         parameter                                       AXI_IDW                         = 6,
         parameter                                       CMD_DEPTH                       = 8,
         parameter                                       DATA_DEPTH                      = 16
@@ -67,6 +67,10 @@ module ubwc_tile_enc_axi_wcmd_gen
     localparam  integer                             DATA_PTR_W                      = $clog2(DATA_DEPTH);
     localparam  integer                             BEAT_BYTE_LG2                   = $clog2(AXI_SW);
     localparam  integer                             BEATCNT_W                       = AXI_LENW + 1;
+    localparam  integer                             CMD_TOTAL_BYTES_W               = 14;
+    localparam  integer                             CMD_TOTAL_BYTES_PAD_W           = CMD_TOTAL_BYTES_W -
+                                                                                      BEATCNT_W -
+                                                                                      BEAT_BYTE_LG2;
     localparam  [2                      :0]         AXI_SIZE_W                      = 3'($clog2(AXI_SW));
     localparam  [12                     :0]         BEAT_BYTES_M1_W                 = 13'(AXI_SW - 1);
     localparam  [1                      :0]         ST_IDLE                         = 2'd0;
@@ -129,7 +133,9 @@ module ubwc_tile_enc_axi_wcmd_gen
     assign aw_fire_w                  = (state_r == ST_AW) && i_m_axi_awready;
     assign w_fire_w                   = (state_r == ST_W) && data_avail && i_m_axi_wready;
     assign one_beat_w                 = {{(BEATCNT_W-1){1'b0}}, 1'b1};
-    assign cmd_total_bytes_w          = {cmd_total_beats_w, {BEAT_BYTE_LG2{1'b0}}};
+    assign cmd_total_bytes_w          = {{CMD_TOTAL_BYTES_PAD_W{1'b0}},
+                                         cmd_total_beats_w,
+                                         {BEAT_BYTE_LG2{1'b0}}};
     assign bytes_to_4k_w              = 13'd4096 - {1'b0, cmd_start_addr_w[11:0]};
     assign bytes_to_4k_ceil_w         = bytes_to_4k_w + BEAT_BYTES_M1_W;
     assign first_burst_beats_calc_w   = (({1'b0, cmd_start_addr_w[11:0]} + cmd_total_bytes_w) > 14'd4096) ?

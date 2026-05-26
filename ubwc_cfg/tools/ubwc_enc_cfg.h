@@ -81,6 +81,7 @@ typedef struct {
     uint32_t ci_cfg3;
     uint32_t irq_enable;
     uint32_t do_start;
+    uint32_t vsync_reset_en;
 } ubwc_enc_config_t;
 
 static inline uint32_t ubwc_enc_align_up_u32(uint32_t value, uint32_t unit)
@@ -141,20 +142,39 @@ static inline uint32_t ubwc_enc_tile_cols(uint32_t format, uint32_t width_px)
     return ubwc_enc_ceil_div_u32(ubwc_enc_aligned_width_px(format, width_px), tile_w);
 }
 
-static inline uint32_t ubwc_enc_tile_rows(uint32_t format, uint32_t height_px)
+static inline uint32_t ubwc_enc_uv_height_px(uint32_t height_px)
 {
-    uint32_t tile_h = ubwc_enc_tile_h(format);
-    return ubwc_enc_ceil_div_u32(ubwc_enc_align_up_u32(height_px, tile_h * 4u), tile_h);
+    return ubwc_enc_ceil_div_u32(height_px, 2u);
+}
+
+static inline uint32_t ubwc_enc_stored_uv_height_px(uint32_t format, uint32_t height_px)
+{
+    if (ubwc_enc_is_rgba_format(format)) {
+        return 0u;
+    }
+    return ubwc_enc_align_up_u32(ubwc_enc_uv_height_px(height_px),
+                                 ubwc_enc_tile_h(format) * 4u);
 }
 
 static inline uint32_t ubwc_enc_stored_height_px(uint32_t format, uint32_t height_px)
 {
-    return ubwc_enc_align_up_u32(height_px, ubwc_enc_tile_h(format) * 4u);
+    if (ubwc_enc_is_rgba_format(format)) {
+        return ubwc_enc_align_up_u32(height_px, ubwc_enc_tile_h(format) * 4u);
+    }
+    return ubwc_enc_stored_uv_height_px(format, height_px) * 2u;
 }
 
-static inline uint32_t ubwc_enc_uv_height_px(uint32_t height_px)
+static inline uint32_t ubwc_enc_tile_rows(uint32_t format, uint32_t height_px)
 {
-    return ubwc_enc_ceil_div_u32(height_px, 2u);
+    return ubwc_enc_stored_height_px(format, height_px) / ubwc_enc_tile_h(format);
+}
+
+static inline uint32_t ubwc_enc_uv_tile_rows(uint32_t format, uint32_t height_px)
+{
+    if (ubwc_enc_is_rgba_format(format)) {
+        return 0u;
+    }
+    return ubwc_enc_stored_uv_height_px(format, height_px) / ubwc_enc_tile_h(format);
 }
 
 static inline uint32_t ubwc_enc_y_tile_cols(uint32_t format, uint32_t width_px)
@@ -210,12 +230,29 @@ static inline uint32_t ubwc_enc_tile_plane_size(uint32_t format,
     return ubwc_enc_align_up_u32(pitch * stored_height, 4096u);
 }
 
+static inline uint32_t ubwc_enc_meta_uv_plane_size(uint32_t format,
+                                                   uint32_t width_px,
+                                                   uint32_t height_px)
+{
+    uint32_t meta_pitch = ubwc_enc_meta_data_plane_pitch(format, width_px);
+    uint32_t meta_lines = ubwc_enc_align_up_u32(ubwc_enc_uv_tile_rows(format, height_px), 16u);
+    return ubwc_enc_align_up_u32(meta_pitch * meta_lines, 4096u);
+}
+
+static inline uint32_t ubwc_enc_tile_uv_plane_size(uint32_t format,
+                                                   uint32_t width_px,
+                                                   uint32_t height_px)
+{
+    uint32_t pitch = ubwc_enc_surface_pitch_bytes(format, width_px);
+    uint32_t stored_height = ubwc_enc_stored_uv_height_px(format, height_px);
+    return ubwc_enc_align_up_u32(pitch * stored_height, 4096u);
+}
+
 static inline ubwc_enc_layout_size_t ubwc_enc_layout_sizes(uint32_t format,
                                                           uint32_t width_px,
                                                           uint32_t height_px)
 {
     ubwc_enc_layout_size_t s;
-    uint32_t uv_height = ubwc_enc_uv_height_px(height_px);
 
     s.meta_y_size = ubwc_enc_meta_plane_size(format, width_px, height_px);
     s.tile_y_size = ubwc_enc_tile_plane_size(format, width_px, height_px);
@@ -223,8 +260,8 @@ static inline ubwc_enc_layout_size_t ubwc_enc_layout_sizes(uint32_t format,
         s.meta_uv_size = 0u;
         s.tile_uv_size = 0u;
     } else {
-        s.meta_uv_size = ubwc_enc_meta_plane_size(format, width_px, uv_height);
-        s.tile_uv_size = ubwc_enc_tile_plane_size(format, width_px, uv_height);
+        s.meta_uv_size = ubwc_enc_meta_uv_plane_size(format, width_px, height_px);
+        s.tile_uv_size = ubwc_enc_tile_uv_plane_size(format, width_px, height_px);
     }
     s.total_size = s.meta_y_size + s.tile_y_size + s.meta_uv_size + s.tile_uv_size;
     return s;
@@ -337,9 +374,13 @@ static inline uint32_t ubwc_enc_reg_base_hi(uint64_t base_addr)
     return (uint32_t)((base_addr >> 32) & 0xffffffffull);
 }
 
-static inline uint32_t ubwc_enc_reg_irq_ctrl(uint32_t irq_enable, uint32_t do_start)
+static inline uint32_t ubwc_enc_reg_irq_ctrl(uint32_t irq_enable,
+                                             uint32_t do_start,
+                                             uint32_t vsync_reset_en)
 {
-    return (irq_enable & 1u) | ((do_start & 1u) << 5);
+    return (irq_enable & 1u) |
+           ((do_start & 1u) << 5) |
+           ((vsync_reset_en & 1u) << 6);
 }
 
 static inline ubwc_enc_config_t ubwc_enc_default_config(uint32_t format,
@@ -371,6 +412,7 @@ static inline ubwc_enc_config_t ubwc_enc_default_config(uint32_t format,
     cfg.ci_cfg3 = ubwc_enc_reg_enc_ci_cfg3();
     cfg.irq_enable = 1u;
     cfg.do_start = 1u;
+    cfg.vsync_reset_en = 0u;
     return cfg;
 }
 
@@ -404,7 +446,7 @@ static inline size_t ubwc_enc_make_reg_writes_ex(const ubwc_enc_config_t *cfg,
         {UBWC_ENC_REG_META_ACTIVE_SIZE, ubwc_enc_reg_meta_active_size(c->active_width_px, c->active_height_px), "REG_META_ACTIVE_SIZE"},
         {UBWC_ENC_REG_META_PITCH,       ubwc_enc_reg_meta_pitch(c->format, c->active_width_px), "REG_META_PITCH"},
         {UBWC_ENC_REG_OTF_CFG0,         ubwc_enc_reg_otf_cfg0(c->format), "REG_OTF_CFG0"},
-        {UBWC_ENC_REG_IRQ_CTRL,         ubwc_enc_reg_irq_ctrl(c->irq_enable, c->do_start), "REG_IRQ_CTRL"}
+        {UBWC_ENC_REG_IRQ_CTRL,         ubwc_enc_reg_irq_ctrl(c->irq_enable, c->do_start, c->vsync_reset_en), "REG_IRQ_CTRL"}
     };
     size_t n = sizeof(regs) / sizeof(regs[0]);
     size_t i;

@@ -264,7 +264,7 @@ module ubwc_enc_otf_data_packer
     assign is_odd_line                = inf_lcnt[0];
     assign fifo_a_rd_en               = fifo_a_vld && fifo_a_rdy;
     assign fifo_b_rd_en               = fifo_b_vld && fifo_b_rdy;
-    assign pipe_stall                 = out_fifo_a_afull | (need_b && !is_odd_line && out_fifo_b_afull);
+    assign pipe_stall                 = out_fifo_a_afull | (need_b && is_odd_line && out_fifo_b_afull);
     assign in_fifo_rd                 = !in_fifo_empty && !pipe_stall;
     assign ext_a_data128              = is_rgba ? inf_data : 128'd0;
     assign ext_a_data32               = is_yuv_8 ?
@@ -280,18 +280,18 @@ module ubwc_enc_otf_data_packer
     assign ext_a_vld_128              = is_rgba;
     assign ext_a_vld_32               = is_yuv_8;
     assign ext_a_vld_64               = is_yuv_10;
-    assign ext_b_data32               = (is_yuv_8 && !is_odd_line) ?
+    assign ext_b_data32               = (is_yuv_8 && is_odd_line) ?
                                                                      {inf_data[71:64], inf_data[87:80],
                                                                      inf_data[7:0],   inf_data[23:16]} :
                                                                      32'd0;
-    assign ext_b_data64               = (is_yuv_10 && !is_odd_line) ?
+    assign ext_b_data64               = (is_yuv_10 && is_odd_line) ?
                                                                       {inf_data[73:64], 6'b0,
                                                                       inf_data[93:84], 6'b0,
                                                                       inf_data[9:0],   6'b0,
                                                                       inf_data[29:20], 6'b0} :
                                                                       64'd0;
-    assign ext_b_vld_32               = is_yuv_8 && !is_odd_line;
-    assign ext_b_vld_64               = is_yuv_10 && !is_odd_line;
+    assign ext_b_vld_32               = is_yuv_8 && is_odd_line;
+    assign ext_b_vld_64               = is_yuv_10 && is_odd_line;
     assign a_take_128                 = in_fifo_rd && ext_a_vld_128;
     assign a_take_32                  = in_fifo_rd && ext_a_vld_32;
     assign a_take_64                  = in_fifo_rd && ext_a_vld_64;

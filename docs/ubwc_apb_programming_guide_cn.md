@@ -51,16 +51,16 @@ R0 回归覆盖了 4096x600 RGBA8888/NV12/P010 的 ENC/DEC 连续两帧 wrapper 
 | 模块 | 寄存器 | 说明 |
 | --- | --- | --- |
 | ENC/DEC | `VERSION/DATE` | 只读检查，用于确认 RTL 版本 |
-| ENC | `REG_IRQ_CTRL[0]` @ `0x060` | IRQ enable，复位默认已经为 1 |
-| DEC | `APB_ADDR_IRQ_CTRL[0]` @ `0x060` | IRQ enable，复位默认已经为 1 |
-| DEC | `APB_ADDR_VIVO_CFG` @ `0x014` | 通常 `vivo_ubwc_en=1` 后保持不变 |
+| ENC | `REG_IRQ_CTRL[0]` @ `0x060` | IRQ enable；寄存器复位值为 0，需要中断输出时软件写 1 |
+| DEC | `APB_ADDR_IRQ_CTRL[0]` @ `0x060` | IRQ enable；寄存器复位值为 0，需要中断输出时软件写 1 |
+| DEC | `APB_ADDR_VIVO_CFG` @ `0x014` | 寄存器复位值为 0，启动 decode 前软件写 `vivo_ubwc_en=1` |
 
 ### 2.2 只有格式、尺寸或 layout 变化时才需要配置
 
 | 模块 | 寄存器组 | 说明 |
 | --- | --- | --- |
 | ENC | `REG_TILE_CFG0/1` | bank swizzle、bank spread、4-line format、tile pitch |
-| ENC | `REG_ENC_CI_CFG0/1/2/3` | CI 行为配置，通常 input_type=1、alen=7 |
+| ENC | `REG_ENC_CI_CFG0/1/2/3` | CI 行为配置；寄存器复位值为 0，普通 tiled UBWC 路径软件应写 `input_type=1`、`alen=7` |
 | ENC | `REG_OTF_CFG0/1/2/3` | 输入格式、宽高、tile 尺寸、tile columns |
 | ENC | `REG_META_ACTIVE_SIZE`、`REG_META_PITCH` | metadata active size 和 pitch |
 | DEC | `APB_ADDR_TILE_CFG0/1/2` | tile layout、CI 配置 |
@@ -98,7 +98,7 @@ write(0x00c, REG_TILE_CFG1); // four_line_format, lossy_rgba_2_1, tile_pitch
 write(0x008, REG_TILE_CFG0); // ubwc_en, bank swizzle, bank spread
 ```
 
-`REG_TILE_CFG1[0] four_line_format` 推荐：
+`REG_TILE_CFG1[0] four_line_format` 按图像格式配置：
 
 | 格式 | four_line_format |
 | --- | ---: |
@@ -118,14 +118,14 @@ tile_pitch  = pixel_pitch / 16
 write(0x014, REG_ENC_CI_CFG1);
 write(0x018, REG_ENC_CI_CFG2);
 write(0x01c, REG_ENC_CI_CFG3);
-write(0x010, REG_ENC_CI_CFG0); // input_type 和 alen
+write(0x010, REG_ENC_CI_CFG0); // reset=0；[0] input_type 写 1；[10:8] alen 写 7
 ```
 
 当前软件通常写：
 
 ```text
-enc_ci_input_type = 1;
-enc_ci_alen       = 7;
+enc_ci_input_type = 1; // 1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件写 1
+enc_ci_alen       = 7; // 寄存器复位值为 0，普通 VIVO_ENC 配置软件写 7
 reserved cfg bits = 0;
 ```
 
@@ -243,7 +243,7 @@ write(0x010, APB_ADDR_TILE_CFG2); // ci_input_type, ci_lossy, alpha
 3. 配置 VIVO：
 
 ```text
-write(0x014, APB_ADDR_VIVO_CFG); // 通常 vivo_ubwc_en=1
+write(0x014, APB_ADDR_VIVO_CFG); // reset=0；启动 decode 前写 vivo_ubwc_en=1
 ```
 
 4. 配置 metadata tile 数量：

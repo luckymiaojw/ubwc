@@ -141,10 +141,26 @@ static inline uint32_t ubwc_dec_aligned_width_px(uint32_t format, uint32_t width
     return ubwc_dec_align_up_u32(width_px, tile_w * 4u);
 }
 
+static inline uint32_t ubwc_dec_uv_height_px(uint32_t height_px)
+{
+    return ubwc_dec_ceil_div_u32(height_px, 2u);
+}
+
+static inline uint32_t ubwc_dec_stored_uv_height_px(uint32_t format, uint32_t height_px)
+{
+    if (ubwc_dec_is_rgba_format(format)) {
+        return 0u;
+    }
+    return ubwc_dec_align_up_u32(ubwc_dec_uv_height_px(height_px),
+                                 ubwc_dec_tile_h(format) * 4u);
+}
+
 static inline uint32_t ubwc_dec_stored_height_px(uint32_t format, uint32_t height_px)
 {
-    uint32_t tile_h = ubwc_dec_tile_h(format);
-    return ubwc_dec_align_up_u32(height_px, tile_h * 4u);
+    if (ubwc_dec_is_rgba_format(format)) {
+        return ubwc_dec_align_up_u32(height_px, ubwc_dec_tile_h(format) * 4u);
+    }
+    return ubwc_dec_stored_uv_height_px(format, height_px) * 2u;
 }
 
 static inline uint32_t ubwc_dec_tile_x_numbers(uint32_t format, uint32_t width_px)
@@ -155,13 +171,15 @@ static inline uint32_t ubwc_dec_tile_x_numbers(uint32_t format, uint32_t width_p
 
 static inline uint32_t ubwc_dec_tile_y_numbers(uint32_t format, uint32_t height_px)
 {
-    return ubwc_dec_ceil_div_u32(ubwc_dec_stored_height_px(format, height_px),
-                                 ubwc_dec_tile_h(format));
+    return ubwc_dec_stored_height_px(format, height_px) / ubwc_dec_tile_h(format);
 }
 
-static inline uint32_t ubwc_dec_uv_height_px(uint32_t height_px)
+static inline uint32_t ubwc_dec_uv_tile_y_numbers(uint32_t format, uint32_t height_px)
 {
-    return ubwc_dec_ceil_div_u32(height_px, 2u);
+    if (ubwc_dec_is_rgba_format(format)) {
+        return 0u;
+    }
+    return ubwc_dec_stored_uv_height_px(format, height_px) / ubwc_dec_tile_h(format);
 }
 
 static inline uint32_t ubwc_dec_surface_pitch_bytes(uint32_t format, uint32_t width_px)
@@ -199,12 +217,29 @@ static inline uint32_t ubwc_dec_tile_plane_size(uint32_t format,
     return ubwc_dec_align_up_u32(pitch * stored_height, 4096u);
 }
 
+static inline uint32_t ubwc_dec_meta_uv_plane_size(uint32_t format,
+                                                   uint32_t width_px,
+                                                   uint32_t height_px)
+{
+    uint32_t meta_pitch = ubwc_dec_meta_data_plane_pitch(format, width_px);
+    uint32_t meta_lines = ubwc_dec_align_up_u32(ubwc_dec_uv_tile_y_numbers(format, height_px), 16u);
+    return ubwc_dec_align_up_u32(meta_pitch * meta_lines, 4096u);
+}
+
+static inline uint32_t ubwc_dec_tile_uv_plane_size(uint32_t format,
+                                                   uint32_t width_px,
+                                                   uint32_t height_px)
+{
+    uint32_t pitch = ubwc_dec_surface_pitch_bytes(format, width_px);
+    uint32_t stored_height = ubwc_dec_stored_uv_height_px(format, height_px);
+    return ubwc_dec_align_up_u32(pitch * stored_height, 4096u);
+}
+
 static inline ubwc_dec_layout_size_t ubwc_dec_layout_sizes(uint32_t format,
                                                           uint32_t width_px,
                                                           uint32_t height_px)
 {
     ubwc_dec_layout_size_t s;
-    uint32_t uv_height = ubwc_dec_uv_height_px(height_px);
 
     s.meta_y_size = ubwc_dec_meta_plane_size(format, width_px, height_px);
     s.tile_y_size = ubwc_dec_tile_plane_size(format, width_px, height_px);
@@ -212,8 +247,8 @@ static inline ubwc_dec_layout_size_t ubwc_dec_layout_sizes(uint32_t format,
         s.meta_uv_size = 0u;
         s.tile_uv_size = 0u;
     } else {
-        s.meta_uv_size = ubwc_dec_meta_plane_size(format, width_px, uv_height);
-        s.tile_uv_size = ubwc_dec_tile_plane_size(format, width_px, uv_height);
+        s.meta_uv_size = ubwc_dec_meta_uv_plane_size(format, width_px, height_px);
+        s.tile_uv_size = ubwc_dec_tile_uv_plane_size(format, width_px, height_px);
     }
     s.total_size = s.meta_y_size + s.tile_y_size + s.meta_uv_size + s.tile_uv_size;
     return s;
@@ -329,7 +364,6 @@ static inline ubwc_dec_config_t ubwc_dec_default_config(uint32_t format,
 {
     ubwc_dec_base_cfg_t zero_base = {0u, 0u, 0u, 0u};
     const ubwc_dec_base_cfg_t *b = (base == 0) ? &zero_base : base;
-    uint32_t stored_h = ubwc_dec_stored_height_px(format, height_px);
     uint32_t lossy = (format == UBWC_DEC_FMT_RGBA8888_L_2_1) ? 1u : 0u;
     ubwc_dec_config_t cfg;
 
@@ -341,10 +375,10 @@ static inline ubwc_dec_config_t ubwc_dec_default_config(uint32_t format,
     cfg.h_sync = 0u;
     cfg.h_bp = 0u;
     cfg.h_act = width_px;
-    cfg.v_total = stored_h;
+    cfg.v_total = height_px;
     cfg.v_sync = 0u;
     cfg.v_bp = 0u;
-    cfg.v_act = stored_h;
+    cfg.v_act = height_px;
     cfg.lvl1_bank_swizzle_en = 0u;
     cfg.lvl2_bank_swizzle_en = 1u;
     cfg.lvl3_bank_swizzle_en = 1u;

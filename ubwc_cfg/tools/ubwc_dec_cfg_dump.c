@@ -45,11 +45,12 @@ int main(int argc, char **argv)
 
     printf("UBWC DEC config: format=%d width=%u height=%u base=0x%llx\n",
            format, width_px, height_px, (unsigned long long)base_addr);
-    printf("tile_w=%u tile_h=%u bpp=%u stored_height=%u\n",
+    printf("tile_w=%u tile_h=%u bpp=%u stored_y_height=%u stored_uv_height=%u\n",
            ubwc_dec_tile_w((uint32_t)format),
            ubwc_dec_tile_h((uint32_t)format),
            ubwc_dec_bytes_per_pixel((uint32_t)format),
-           ubwc_dec_stored_height_px((uint32_t)format, height_px));
+           ubwc_dec_stored_height_px((uint32_t)format, height_px),
+           ubwc_dec_stored_uv_height_px((uint32_t)format, height_px));
     printf("surface_pitch_bytes=%u tile_pitch=%u\n",
            ubwc_dec_surface_pitch_bytes((uint32_t)format, width_px),
            ubwc_dec_tile_pitch((uint32_t)format, width_px));

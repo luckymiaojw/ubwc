@@ -5,7 +5,7 @@ module tb_ubwc_dec_axi_rd_interconnect_backpressure;
     localparam integer AXI_AW   = 64;
     localparam integer AXI_DW   = 256;
     localparam integer AXI_IDW  = 6;
-    localparam integer AXI_LENW = 8;
+    localparam integer AXI_LENW = 5;
 
     reg                    clk;
     reg                    rst_n;

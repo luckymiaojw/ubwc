@@ -18,7 +18,7 @@ module ubwc_dec_wrapper_top #(
     parameter   integer                  AXI_AW                      = 64    ,
     parameter   integer                  AXI_DW                      = 64    ,
     parameter   integer                  AXI_IDW                     = 4     ,
-    parameter   integer                  AXI_LENW                    = 8     ,
+    parameter   integer                  AXI_LENW                    = 5     ,
     parameter   integer                  SB_WIDTH                    = 1     ,
     parameter   integer                  COM_BUF_AW                  = 12    ,
     parameter   integer                  COM_BUF_DW                  = 128   ,
@@ -110,6 +110,7 @@ module ubwc_dec_wrapper_top #(
     localparam integer                  VIVO_CO_FIFO_DEPTH_BITS     = 4;
     localparam integer                  VIVO_COORD_FIFO_DEPTH       = 16;
     localparam integer                  VIVO_RVO_FIFO_DEPTH_BITS    = 4;
+    localparam integer                  IP_AXI_LENW                 = 8;
 
     wire                                ctrl_rst_n                             ;
     wire                                sram_rst_n                             ;
@@ -169,7 +170,7 @@ module ubwc_dec_wrapper_top #(
     wire                                dec_irq_enable_axi                     ;
     wire                                dec_irq_clear_pulse_axi                ;
     wire                                vivo_idle_int                          ;
-    wire                                vivo_error_int                         ;
+    wire    [6                      :0] vivo_error_int                         ;
     wire    [32                  -1 :0] meta_error_cnt_int                     ;
     wire    [32                  -1 :0] meta_cmd_fail_cnt_int                  ;
     wire    [32                  -1 :0] tile_cmd_fail_cnt_int                  ;
@@ -198,7 +199,7 @@ module ubwc_dec_wrapper_top #(
     wire    [10                  -1 :0] meta_dec_y                             ;
     wire    [AXI_IDW                :0] core_m_axi_arid                        ;
     wire    [AXI_AW              -1 :0] core_m_axi_araddr                      ;
-    wire    [AXI_LENW            -1 :0] core_m_axi_arlen                       ;
+    wire    [IP_AXI_LENW         -1 :0] core_m_axi_arlen                       ;
     wire    [3                   -1 :0] core_m_axi_arsize                      ;
     wire    [2                   -1 :0] core_m_axi_arburst                     ;
     wire                                core_m_axi_arvalid                     ;
@@ -254,12 +255,13 @@ module ubwc_dec_wrapper_top #(
     wire    [AXI_IDW                :0] core_m_axi_rid_r                       ;
     wire    [AXI_IDW                :0] rd_x2x_rid_m                           ;
     wire    [AXI_IDW                :0] rd_x2x_arid_s                          ;
+    wire    [IP_AXI_LENW         -1 :0] rd_x2x_arlen_s                         ;
     wire    [2                      :0] rd_x2x_arsize_s                        ;
     wire    [1                      :0] rd_x2x_arlock_s                        ;
     wire    [AXI_AW              -1 :0] axi_aw_zero                            ;
     wire    [AXI_IDW             -1 :0] axi_id_zero                            ;
     wire    [AXI_IDW                :0] axi_id_ext_zero                        ;
-    wire    [AXI_LENW            -1 :0] axi_len_zero                           ;
+    wire    [IP_AXI_LENW         -1 :0] axi_len_zero                           ;
     wire    [CORE_AXI_DW         -1 :0] core_axi_data_zero                     ;
     wire    [CORE_AXI_DW/8       -1 :0] core_axi_strb_zero                     ;
     wire    [3                      :0] o_m_axi_arsize_int                     ;
@@ -287,7 +289,7 @@ module ubwc_dec_wrapper_top #(
     wire                                vivo_co_valid                          ;
     wire                                vivo_co_ready                          ;
     wire                                vivo_idle_vivo                         ;
-    wire                                vivo_error_vivo                        ;
+    wire    [6                      :0] vivo_error_vivo                        ;
     wire                                vivo_ci_fifo_full                      ;
     wire                                vivo_ci_fifo_empty                     ;
     wire        [VIVO_CI_FIFO_W      -1 :0] vivo_ci_fifo_din                   ;
@@ -352,13 +354,13 @@ module ubwc_dec_wrapper_top #(
     reg     [32                  -1 :0] meta_error_cnt_d              ;
     reg     [32                  -1 :0] meta_cmd_fail_cnt_d           ;
     reg     [32                  -1 :0] tile_cmd_fail_cnt_d           ;
-    reg                                 vivo_error_d                  ;
+    reg     [6                      :0] vivo_error_d                  ;
     reg     [4                   -1 :0] dec_frame_fcnt_active_r       ;
     reg     [4                   -1 :0] dec_frame_fcnt_next           ;
     reg                                 vivo_idle_meta                ;
     reg                                 vivo_idle_sync                ;
-    reg                                 vivo_error_meta               ;
-    reg                                 vivo_error_sync               ;
+    reg     [6                      :0] vivo_error_meta               ;
+    reg     [6                      :0] vivo_error_sync               ;
     reg                                vivo_ubwc_en_meta              ;
     reg                                vivo_ubwc_en_sync              ;
     reg                                vivo_sreset_meta               ;
@@ -370,7 +372,7 @@ module ubwc_dec_wrapper_top #(
     assign axi_aw_zero                   = {AXI_AW{1'b0}};
     assign axi_id_zero                   = {AXI_IDW{1'b0}};
     assign axi_id_ext_zero               = {(AXI_IDW+1){1'b0}};
-    assign axi_len_zero                  = {AXI_LENW{1'b0}};
+    assign axi_len_zero                  = {IP_AXI_LENW{1'b0}};
     assign core_axi_data_zero            = {CORE_AXI_DW{1'b0}};
     assign core_axi_strb_zero            = {(CORE_AXI_DW/8){1'b0}};
     assign o_m_axi_arsize_int            = {1'b0, rd_x2x_arsize_s};
@@ -382,6 +384,7 @@ module ubwc_dec_wrapper_top #(
     assign dec_vivo_reset                = ~vivo_rst_n;
     assign core_m_axi_rid_r              = rd_x2x_rid_m;
     assign o_m_axi_arid                  = rd_x2x_arid_s;
+    assign o_m_axi_arlen                 = rd_x2x_arlen_s[AXI_LENW-1:0];
     assign o_m_axi_arsize                = o_m_axi_arsize_int;
     assign o_m_axi_arlock                = o_m_axi_arlock_int;
     assign rd_interconnect_core_busy_int = meta_m_axi_arvalid | tile_m_axi_arvalid |
@@ -399,7 +402,7 @@ module ubwc_dec_wrapper_top #(
     assign dec_error_irq_event_int       = ((meta_error_cnt_int != meta_error_cnt_d) && (|meta_error_cnt_int)) ||
                                            ((meta_cmd_fail_cnt_int != meta_cmd_fail_cnt_d) && (|meta_cmd_fail_cnt_int)) ||
                                            ((tile_cmd_fail_cnt_int != tile_cmd_fail_cnt_d) && (|tile_cmd_fail_cnt_int)) ||
-                                           (vivo_error_int & ~vivo_error_d) ||
+                                           (|(vivo_error_int & ~vivo_error_d)) ||
                                            otf_underflow_int;
     assign o_stage_done                  = dec_stage_done_int;
     assign o_frame_done                  = dec_frame_done_int;
@@ -540,14 +543,14 @@ module ubwc_dec_wrapper_top #(
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
-            vivo_error_meta <= 1'b0;
+            vivo_error_meta <= 7'd0;
         else
             vivo_error_meta <= vivo_error_vivo;
     end
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
-            vivo_error_sync <= 1'b0;
+            vivo_error_sync <= 7'd0;
         else
             vivo_error_sync <= vivo_error_meta;
     end
@@ -965,7 +968,7 @@ module ubwc_dec_wrapper_top #(
         .arvalid_s                  ( o_m_axi_arvalid               ),
         .arid_s                     ( rd_x2x_arid_s                 ),
         .araddr_s                   ( o_m_axi_araddr                ),
-        .arlen_s                    ( o_m_axi_arlen                 ),
+        .arlen_s                    ( rd_x2x_arlen_s                ),
         .arsize_s                   ( rd_x2x_arsize_s               ),
         .arburst_s                  ( o_m_axi_arburst               ),
         .arlock_s                   ( rd_x2x_arlock_s               ),
@@ -1003,7 +1006,7 @@ module ubwc_dec_wrapper_top #(
 
     always @(posedge i_axi_clk or negedge ctrl_rst_n) begin
         if (!ctrl_rst_n)
-            vivo_error_d <= 1'b0;
+            vivo_error_d <= 7'd0;
         else
             vivo_error_d <= vivo_error_int;
     end
@@ -1178,7 +1181,11 @@ module ubwc_dec_wrapper_top #(
         .empty                      ( vivo_rvo_fifo_empty           )
     );
 
-    ubwc_dec_vivo_top u_dec_vivo_top (
+    ubwc_dec_vivo_top
+    #(
+        .SB_WIDTH                  ( SB_WIDTH                      )
+    )
+    u_dec_vivo_top (
         .i_clk                      ( i_vivo_clk                    ),
         .i_reset                    ( dec_vivo_reset                ),
         .i_sreset                   ( vivo_sreset_sync              ),
@@ -1191,6 +1198,7 @@ module ubwc_dec_wrapper_top #(
         .i_ci_metadata              ( vivo_ci_metadata_int          ),
         .i_ci_lossy                 ( vivo_ci_lossy_int             ),
         .i_ci_alpha_mode            ( vivo_ci_alpha_mode_int        ),
+        .i_ci_sb                    ( {SB_WIDTH{1'b0}}              ),
         .i_cvi_valid                ( vivo_cvi_valid_int            ),
         .i_cvi_data                 ( vivo_cvi_data_int             ),
         .i_cvi_last                 ( vivo_cvi_last_int             ),
@@ -1198,6 +1206,7 @@ module ubwc_dec_wrapper_top #(
         .o_co_valid                 ( vivo_co_valid                 ),
         .o_co_alen                  (                               ),
         .i_co_ready                 ( vivo_co_ready                 ),
+        .o_co_sb                    (                               ),
         .o_rvo_valid                ( vivo_rvo_valid                ),
         .o_rvo_data                 ( vivo_rvo_data                 ),
         .o_rvo_last                 ( vivo_rvo_last                 ),

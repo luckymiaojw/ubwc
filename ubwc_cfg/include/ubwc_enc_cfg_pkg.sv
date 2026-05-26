@@ -96,21 +96,42 @@ package ubwc_enc_cfg_pkg;
                               ubwc_enc_tile_w(format));
     endfunction
 
-    function automatic int unsigned ubwc_enc_tile_rows(input int unsigned format,
-                                                      input int unsigned height_px);
-        ubwc_enc_tile_rows =
-            ubwc_enc_ceil_div(ubwc_enc_align_up(height_px,
-                                                ubwc_enc_tile_h(format) * 4),
-                              ubwc_enc_tile_h(format));
+    function automatic int unsigned ubwc_enc_uv_height_px(input int unsigned height_px);
+        ubwc_enc_uv_height_px = ubwc_enc_ceil_div(height_px, 2);
+    endfunction
+
+    function automatic int unsigned ubwc_enc_stored_uv_height_px(input int unsigned format,
+                                                                input int unsigned height_px);
+        if (ubwc_enc_is_rgba_format(format)) begin
+            ubwc_enc_stored_uv_height_px = 0;
+        end else begin
+            ubwc_enc_stored_uv_height_px =
+                ubwc_enc_align_up(ubwc_enc_uv_height_px(height_px), ubwc_enc_tile_h(format) * 4);
+        end
     endfunction
 
     function automatic int unsigned ubwc_enc_stored_height_px(input int unsigned format,
                                                              input int unsigned height_px);
-        ubwc_enc_stored_height_px = ubwc_enc_align_up(height_px, ubwc_enc_tile_h(format) * 4);
+        if (ubwc_enc_is_rgba_format(format)) begin
+            ubwc_enc_stored_height_px = ubwc_enc_align_up(height_px, ubwc_enc_tile_h(format) * 4);
+        end else begin
+            ubwc_enc_stored_height_px = ubwc_enc_stored_uv_height_px(format, height_px) * 2;
+        end
     endfunction
 
-    function automatic int unsigned ubwc_enc_uv_height_px(input int unsigned height_px);
-        ubwc_enc_uv_height_px = ubwc_enc_ceil_div(height_px, 2);
+    function automatic int unsigned ubwc_enc_tile_rows(input int unsigned format,
+                                                      input int unsigned height_px);
+        ubwc_enc_tile_rows = ubwc_enc_stored_height_px(format, height_px) / ubwc_enc_tile_h(format);
+    endfunction
+
+    function automatic int unsigned ubwc_enc_uv_tile_rows(input int unsigned format,
+                                                         input int unsigned height_px);
+        if (ubwc_enc_is_rgba_format(format)) begin
+            ubwc_enc_uv_tile_rows = 0;
+        end else begin
+            ubwc_enc_uv_tile_rows =
+                ubwc_enc_stored_uv_height_px(format, height_px) / ubwc_enc_tile_h(format);
+        end
     endfunction
 
     function automatic int unsigned ubwc_enc_y_tile_cols(input int unsigned format,
@@ -172,6 +193,24 @@ package ubwc_enc_cfg_pkg;
                               ubwc_enc_stored_height_px(format, height_px), 4096);
     endfunction
 
+    function automatic int unsigned ubwc_enc_meta_uv_plane_size(input int unsigned format,
+                                                               input int unsigned width_px,
+                                                               input int unsigned height_px);
+        int unsigned meta_pitch;
+        int unsigned meta_lines;
+        meta_pitch = ubwc_enc_meta_data_plane_pitch(format, width_px);
+        meta_lines = ubwc_enc_align_up(ubwc_enc_uv_tile_rows(format, height_px), 16);
+        ubwc_enc_meta_uv_plane_size = ubwc_enc_align_up(meta_pitch * meta_lines, 4096);
+    endfunction
+
+    function automatic int unsigned ubwc_enc_tile_uv_plane_size(input int unsigned format,
+                                                               input int unsigned width_px,
+                                                               input int unsigned height_px);
+        ubwc_enc_tile_uv_plane_size =
+            ubwc_enc_align_up(ubwc_enc_surface_pitch_bytes(format, width_px) *
+                              ubwc_enc_stored_uv_height_px(format, height_px), 4096);
+    endfunction
+
     function automatic ubwc_enc_base_cfg_t ubwc_enc_layout_bases(input int unsigned format,
                                                                  input int unsigned width_px,
                                                                  input int unsigned height_px,
@@ -179,14 +218,12 @@ package ubwc_enc_cfg_pkg;
         int unsigned meta_y_size;
         int unsigned tile_y_size;
         int unsigned meta_uv_size;
-        int unsigned uv_height;
         ubwc_enc_base_cfg_t b;
 
-        uv_height = ubwc_enc_uv_height_px(height_px);
         meta_y_size = ubwc_enc_meta_plane_size(format, width_px, height_px);
         tile_y_size = ubwc_enc_tile_plane_size(format, width_px, height_px);
         meta_uv_size = ubwc_enc_is_rgba_format(format) ? 0 :
-                       ubwc_enc_meta_plane_size(format, width_px, uv_height);
+                       ubwc_enc_meta_uv_plane_size(format, width_px, height_px);
 
         b.meta_base_y = meta_y_base_addr;
         b.tile_base_y = meta_y_base_addr + {32'd0, meta_y_size};

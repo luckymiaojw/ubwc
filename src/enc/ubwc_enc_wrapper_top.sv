@@ -22,7 +22,7 @@ module ubwc_enc_wrapper_top
         parameter                                       APB_BLK_NREG                    = 64,
         parameter                                       AXI_AW                          = 64,
         parameter                                       AXI_DW                          = 64,
-        parameter                                       AXI_LENW                        = 8,
+        parameter                                       AXI_LENW                        = 5,
         parameter                                       AXI_IDW                         = 4,
         parameter                                       COM_BUF_AW                      = 12,
         parameter                                       COM_BUF_DW                      = 128
@@ -101,6 +101,7 @@ module ubwc_enc_wrapper_top
     );
 
     localparam  integer                             CORE_AXI_DW                     = 256;
+    localparam  integer                             IP_AXI_LENW                     = 8;
     localparam  integer                             COORD_FIFO_DEPTH                = 32;
     localparam  integer                             TH_DW                           = 13;
     localparam  integer                             TW_DW                           = 8;
@@ -168,6 +169,7 @@ module ubwc_enc_wrapper_top
     wire                                            enc_start_core_pulse            ;
     wire                                            enc_irq_enable                  ;
     wire                                            enc_irq_clear_pulse             ;
+    wire                                            enc_vsync_reset_en              ;
     wire                                            enc_correct_irq_pulse           ;
     wire                                            enc_addr_cfg_done_pulse         ;
     wire                                            enc_addr_cfg_done_slot          ;
@@ -272,7 +274,7 @@ module ubwc_enc_wrapper_top
     wire        [AXI_IDW             -1 :0]         axi_id_zero                     ;
     wire        [AXI_IDW                :0]         axi_id_ext_zero                 ;
     wire        [AXI_AW              -1 :0]         axi_aw_zero                     ;
-    wire        [AXI_LENW            -1 :0]         axi_len_zero                    ;
+    wire        [IP_AXI_LENW         -1 :0]         axi_len_zero                    ;
     wire        [3                      :0]         axi_cache_zero                  ;
     wire        [2                      :0]         axi_size_zero                   ;
     wire        [2                      :0]         axi_prot_zero                   ;
@@ -281,7 +283,7 @@ module ubwc_enc_wrapper_top
     wire        [AXI_DW              -1 :0]         axi_data_zero                   ;
     wire        [AXI_IDW                :0]         core_m_axi_awid                 ;
     wire        [AXI_AW              -1 :0]         core_m_axi_awaddr               ;
-    wire        [AXI_LENW            -1 :0]         core_m_axi_awlen                ;
+    wire        [IP_AXI_LENW         -1 :0]         core_m_axi_awlen                ;
     wire        [2                   -1 :0]         core_m_axi_awburst              ;
     wire        [2                   -1 :0]         core_m_axi_awlock               ;
     wire                                            core_m_axi_awlock_int           ;
@@ -302,6 +304,7 @@ module ubwc_enc_wrapper_top
     wire        [AXI_IDW             -1 :0]         enc_axi_awid                    ;
     wire        [AXI_AW              -1 :0]         enc_axi_awaddr                  ;
     wire        [AXI_LENW            -1 :0]         enc_axi_awlen                   ;
+    wire        [IP_AXI_LENW         -1 :0]         enc_axi_awlen_ip                ;
     wire        [3                   -1 :0]         enc_axi_awsize                  ;
     wire        [2                   -1 :0]         enc_axi_awburst                 ;
     wire        [2                   -1 :0]         enc_axi_awlock                  ;
@@ -321,6 +324,7 @@ module ubwc_enc_wrapper_top
     wire        [AXI_IDW             -1 :0]         meta_axi_awid                   ;
     wire        [AXI_AW              -1 :0]         meta_axi_awaddr                 ;
     wire        [AXI_LENW            -1 :0]         meta_axi_awlen                  ;
+    wire        [IP_AXI_LENW         -1 :0]         meta_axi_awlen_ip               ;
     wire        [3                   -1 :0]         meta_axi_awsize                 ;
     wire        [2                   -1 :0]         meta_axi_awburst                ;
     wire        [2                   -1 :0]         meta_axi_awlock                 ;
@@ -337,6 +341,7 @@ module ubwc_enc_wrapper_top
     wire        [2                   -1 :0]         meta_axi_bresp                  ;
     wire                                            meta_axi_bvalid                 ;
     wire                                            meta_axi_bready                 ;
+    wire        [IP_AXI_LENW         -1 :0]         x2x_m_axi_awlen                 ;
 
     wire        [256                 -1 :0]         rvi_data                        ;
     wire        [32                  -1 :0]         rvi_mask                        ;
@@ -376,7 +381,7 @@ module ubwc_enc_wrapper_top
     assign axi_id_zero          = {AXI_IDW{1'b0}};
     assign axi_id_ext_zero      = {(AXI_IDW+1){1'b0}};
     assign axi_aw_zero          = {AXI_AW{1'b0}};
-    assign axi_len_zero         = {AXI_LENW{1'b0}};
+    assign axi_len_zero         = {IP_AXI_LENW{1'b0}};
     assign axi_cache_zero       = 4'd0;
     assign axi_size_zero        = 3'd0;
     assign axi_prot_zero        = 3'd0;
@@ -390,6 +395,9 @@ module ubwc_enc_wrapper_top
     assign m_axi_b_fire         = i_m_axi_bvalid & o_m_axi_bready;
     assign enc_ubwc_en_axi      = enc_ubwc_en_axi_sync_r;
     assign enc_ubwc_en_vivo     = enc_ubwc_en_vivo_sync_r;
+    assign enc_axi_awlen_ip     = {{(IP_AXI_LENW-AXI_LENW){1'b0}}, enc_axi_awlen};
+    assign meta_axi_awlen_ip    = {{(IP_AXI_LENW-AXI_LENW){1'b0}}, meta_axi_awlen};
+    assign o_m_axi_awlen        = x2x_m_axi_awlen[AXI_LENW-1:0];
     assign enc_axi_idle         = (m_axi_aw_outstanding_count == 16'd0) &&
                                   (m_axi_w_outstanding_count == 16'd0) &&
                                   !m_axi_w_burst_active &&
@@ -494,6 +502,8 @@ module ubwc_enc_wrapper_top
         .i_vivo_rstn                     ( i_vivo_rstn                     ),
         .i_enc_ubwc_en                   ( enc_ubwc_en_axi                 ),
         .i_start_pulse                   ( enc_start_pulse                 ),
+        .i_vsync_reset_en                ( enc_vsync_reset_en              ),
+        .i_otf_vsync                     ( i_otf_vsync                     ),
         .i_axi_idle                      ( enc_axi_idle                    ),
         .i_error_clear                   ( enc_irq_clear_pulse             ),
         .o_axi_rstn                      ( rst_n_sys                       ),
@@ -684,7 +694,8 @@ module ubwc_enc_wrapper_top
         .i_meta_axi_w_count1             ( enc_meta_axi_w_count1           ),
         .o_start_pulse                   ( enc_start_pulse                 ),
         .o_irq_enable                    ( enc_irq_enable                  ),
-        .o_irq_clear_pulse               ( enc_irq_clear_pulse             )
+        .o_irq_clear_pulse               ( enc_irq_clear_pulse             ),
+        .o_vsync_reset_en                ( enc_vsync_reset_en              )
     );
 
     ubwc_enc_otf_to_tile
@@ -1060,7 +1071,7 @@ module ubwc_enc_wrapper_top
         .awvalid_m1                      ( enc_axi_awvalid                 ),
         .awaddr_m1                       ( enc_axi_awaddr                  ),
         .awid_m1                         ( enc_axi_awid                    ),
-        .awlen_m1                        ( enc_axi_awlen                   ),
+        .awlen_m1                        ( enc_axi_awlen_ip                ),
         .awsize_m1                       ( enc_axi_awsize                  ),
         .awburst_m1                      ( enc_axi_awburst                 ),
         .awlock_m1                       ( enc_axi_awlock_bit              ),
@@ -1097,7 +1108,7 @@ module ubwc_enc_wrapper_top
         .awvalid_m2                      ( meta_axi_awvalid                ),
         .awaddr_m2                       ( meta_axi_awaddr                 ),
         .awid_m2                         ( meta_axi_awid                   ),
-        .awlen_m2                        ( meta_axi_awlen                  ),
+        .awlen_m2                        ( meta_axi_awlen_ip               ),
         .awsize_m2                       ( meta_axi_awsize                 ),
         .awburst_m2                      ( meta_axi_awburst                ),
         .awlock_m2                       ( meta_axi_awlock_bit             ),
@@ -1253,7 +1264,7 @@ module ubwc_enc_wrapper_top
         .awvalid_s1                      ( o_m_axi_awvalid                 ),
         .awaddr_s1                       ( o_m_axi_awaddr                  ),
         .awid_s1                         ( o_m_axi_awid                    ),
-        .awlen_s1                        ( o_m_axi_awlen                   ),
+        .awlen_s1                        ( x2x_m_axi_awlen                 ),
         .awsize_s1                       ( o_m_axi_awsize                  ),
         .awburst_s1                      ( o_m_axi_awburst                 ),
         .awlock_s1                       ( o_m_axi_awlock                  ),

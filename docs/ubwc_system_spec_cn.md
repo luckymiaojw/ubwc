@@ -2,6 +2,15 @@
 
 本文整理当前 UBWC ENC/DEC wrapper、APB 寄存器、软件配置流程、调试方案和 PPA 约束。ENC 与 DEC 分开描述，每个模块都按 1 Feature、2 Interface、3 Register、4 Diagram、5 Work Mode、6 Debug、7 PPA 的结构组织。
 
+## 版本变更记录
+
+后续每次迭代都需要在本表追加一行，记录版本号、日期、影响范围和修改摘要；已有版本记录只追加、不覆盖。若同一轮迭代同时修改 RTL、寄存器、配置工具和文档，需要在同一行中明确列出影响范围。
+
+| 版本 | 日期 | 影响范围 | 修改内容 | 文档/验证状态 |
+| --- | --- | --- | --- | --- |
+| R0.1-dev | 2026-05-19 | ENC reset、AXI wrapper、寄存器、配置工具、系统 spec | 增加 ENC `IRQ_CTRL[6] vsync_reset_en`，支持输入 `i_otf_vsync` 上升沿触发 AXI-drain soft reset 并重新 arm frame start；`ubwc_cfg`/`vrf` ENC 配置函数增加 `vsync_reset_en` 参数；ENC/DEC 对外 `AXI_LENW` 默认改为 5 bit，支持最大 32 beat；系统 spec 将对外 `AXI_IDW` 默认值按 5 bit 表达，内部低 4 bit 保留 FCNT/ID 语义。 | 文档已同步；ENC APB 寄存器表已更新；本地 lint/单元检查已完成。 |
+| R0 | 2026-05-19 | ENC/DEC wrapper、寄存器、系统 spec、回归基线 | 建立 R0 系统级 spec 结构；整理 ENC/DEC Feature、Interface、Register、Diagram、Work Mode、Debug、PPA；完成连续两帧 RGBA8888、NV12、P010/G016 回归记录。 | R0 release tag：`R0`；回归记录见文末。 |
+
 ## ENC
 
 ### ENC 1. Feature
@@ -16,7 +25,7 @@ ENC 将输入 OTF 像素流编码为 UBWC compressed tile 数据和 metadata，�
 | 支持格式 | RGBA8888、RGBA1010102、YUV420_8/NV12、YUV420_10/P010、RGBA8888 lossy 2:1 |
 | 支持像素尺寸 | 当前 SRAM/line-buffer 规格按最大有效宽度 4096 px 设计；1440x3200 属于该宽度范围内。实际配置以 OTF width/height 和 layout 计算结果为准 |
 | SRAM | 当前外部工作 SRAM 为 bank0/bank1 两个同规格 bank，单 bank 64 KiB，两 bank 合计 128 KiB。SRAM 容量主要由最大支持图像宽度决定；图像高度只影响行组处理次数，不增加单 bank 容量；小于或等于 4096 px 宽的 RGBA/YUV420 场景复用同一规格 SRAM |
-| 连续帧 | 软件每帧写一组 base address 后写 `IRQ_CTRL[5]=1` 产生 start token；OTF 数据携带 `i_otf_fcnt` |
+| 连续帧 | 软件每帧写一组 base address 后写 `IRQ_CTRL[5]=1` 产生 start token；OTF 数据携带 `i_otf_fcnt`。若使能 `IRQ_CTRL[6]`，输入 `i_otf_vsync` 上升沿会触发 ENC soft reset 并在复位释放后重新 arm frame start |
 | 地址 slot | 两组地址 slot，硬件按 `fcnt[0]` 选择 slot0/slot1 |
 | 中断 | 正确中断在最后有效输出完成后产生；错误中断用于地址未配置、OTF 行/帧错误、FIFO overflow、VIVO/metadata error |
 
@@ -32,8 +41,8 @@ ENC wrapper 参数：
 | `APB_BLK_NREG` | 64 | APB register count |
 | `AXI_AW` | 64 | AXI address width |
 | `AXI_DW` | 64 | AXI data width |
-| `AXI_LENW` | 8 | AXI burst length width |
-| `AXI_IDW` | 4 | 内部 AXI ID/FCNT 语义宽度为 4 bit；wrapper 对外 AXI ID 端口宽度为 `AXI_IDW+1=5 bit` |
+| `AXI_LENW` | 5 | 对外 AXI burst length width，支持最大 32 beat |
+| 外部 `AXI_IDW` | 5 | wrapper 对外 AXI ID 端口默认 5 bit；内部有效 FCNT/ID 语义为低 4 bit |
 | `COM_BUF_AW` | 12 | SRAM word address width |
 | `COM_BUF_DW` | 128 | SRAM data width |
 
@@ -76,7 +85,7 @@ ENC wrapper port：
 | SRAM bank1 | `o_bank1_din` | output | `COM_BUF_DW` | Bank1 SRAM write data |
 | SRAM bank1 | `i_bank1_dout` | input | `COM_BUF_DW` | Bank1 SRAM read data |
 | SRAM bank1 | `i_bank1_dout_vld` | input | 1 bit | Bank1 SRAM read data valid |
-| AXI AW | `o_m_axi_awid` | output | `AXI_IDW+1`，默认 5 bit | 对外 AXI AW ID；内部有效 FCNT/ID 语义为低 4 bit |
+| AXI AW | `o_m_axi_awid` | output | 5 bit | 对外 AXI AW ID；内部有效 FCNT/ID 语义为低 4 bit |
 | AXI AW | `o_m_axi_awaddr` | output | `AXI_AW` | AXI AW address |
 | AXI AW | `o_m_axi_awlen` | output | `AXI_LENW` | AXI AW burst length |
 | AXI AW | `o_m_axi_awsize` | output | 3 bit | AXI AW beat size |
@@ -91,7 +100,7 @@ ENC wrapper port：
 | AXI W | `o_m_axi_wvalid` | output | 1 bit | AXI W valid |
 | AXI W | `o_m_axi_wlast` | output | 1 bit | AXI W last beat |
 | AXI W | `i_m_axi_wready` | input | 1 bit | AXI W ready |
-| AXI B | `i_m_axi_bid` | input | `AXI_IDW+1`，默认 5 bit | 对外 AXI B ID；低 4 bit 对应内部 FCNT/ID 语义 |
+| AXI B | `i_m_axi_bid` | input | 5 bit | 对外 AXI B ID；低 4 bit 对应内部 FCNT/ID 语义 |
 | AXI B | `i_m_axi_bresp` | input | 2 bit | AXI B response |
 | AXI B | `i_m_axi_bvalid` | input | 1 bit | AXI B valid |
 | AXI B | `o_m_axi_bready` | output | 1 bit | AXI B ready |
@@ -110,29 +119,29 @@ ENC register 总表：
 | `0x0000` | `REG_VERSION` | RO | `0x00010000` | `[31:0]` | `version` | IP version，上电后读一次确认软件/RTL 兼容性。 |
 | `0x0004` | `REG_DATE` | RO | `0x20260406` | `[31:0]` | `date` | RTL date，上电后读一次。 |
 | `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[0]` | `enc_ubwc_en` | ENC UBWC enable；格式/尺寸/layout 变化时配置。 |
-| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[1]` | `lvl1_bank_swizzle_en` | Level-1 bank swizzle enable。 |
-| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[2]` | `lvl2_bank_swizzle_en` | Level-2 bank swizzle enable。 |
-| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[3]` | `lvl3_bank_swizzle_en` | Level-3 bank swizzle enable。 |
-| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[12:8]` | `highest_bank_bit` | Highest bank bit。 |
-| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[16]` | `bank_spread_en` | Bank spread enable。 |
-| `0x000c` | `REG_TILE_CFG1` | RW | `0` | `[0]` | `four_line_format` | 4-line format select；RGBA 通常写 1，YUV420 写 0。 |
+| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[1]` | `lvl1_bank_swizzle_en` | Level-1 bank swizzle 配置和 AP 配置同步。 |
+| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[2]` | `lvl2_bank_swizzle_en` | Level-2 bank swizzle 配置和 AP 配置同步。 |
+| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[3]` | `lvl3_bank_swizzle_en` | Level-3 bank swizzle 配置和 AP 配置同步。 |
+| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[12:8]` | `highest_bank_bit` | highest bank bit 配置和 AP 配置同步。 |
+| `0x0008` | `REG_TILE_CFG0` | RW | `0` | `[16]` | `bank_spread_en` | bank spread 配置和 AP 配置同步。 |
+| `0x000c` | `REG_TILE_CFG1` | RW | `0` | `[0]` | `four_line_format` | 不同图像格式配置：RGBA/RGBA10 写 1；YUV420/NV12/P010 写 0。 |
 | `0x000c` | `REG_TILE_CFG1` | RW | `0` | `[1]` | `is_lossy_rgba_2_1_format` | RGBA 2:1 lossy format select。 |
 | `0x000c` | `REG_TILE_CFG1` | RW | `0` | `[26:16]` | `tile_pitch` | Compressed tile pitch，单位为 16 bytes。 |
-| `0x0010` | `REG_ENC_CI_CFG0` | RW | `0` | `[0]` | `enc_ci_input_type` | CI input type；当前软件通常写 1。 |
-| `0x0010` | `REG_ENC_CI_CFG0` | RW | `0` | `[10:8]` | `enc_ci_alen` | CI ALEN；当前软件通常写 7。 |
-| `0x0014` | `REG_ENC_CI_CFG1` | RW | `0` | `[16]` | `enc_ci_lossy` | CI lossy enable。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[2:0]` | `cfg0` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[5:3]` | `cfg1` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[9:6]` | `cfg2` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[13:10]` | `cfg3` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[17:14]` | `cfg4` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[21:18]` | `cfg5` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[23:22]` | `cfg6` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[25:24]` | `cfg7` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[27:26]` | `cfg8` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[30:28]` | `cfg9` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x001c` | `REG_ENC_CI_CFG3` | RW | `0` | `[5:0]` | `cfg10` | 保留 UBWC CI configuration；当前软件写 0。 |
-| `0x001c` | `REG_ENC_CI_CFG3` | RW | `0` | `[13:8]` | `cfg11` | 保留 UBWC CI configuration；当前软件写 0。 |
+| `0x0010` | `REG_ENC_CI_CFG0` | RW | `0` | `[0]` | `enc_ci_input_type` | CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。 |
+| `0x0010` | `REG_ENC_CI_CFG0` | RW | `0` | `[10:8]` | `enc_ci_alen` | CI alen 配置；寄存器复位值为 0，普通 VIVO_ENC 配置软件应写 7。 |
+| `0x0014` | `REG_ENC_CI_CFG1` | RW | `0` | `[16]` | `enc_ci_lossy` | lossy 模式使能。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[2:0]` | `cfg0` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[5:3]` | `cfg1` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[9:6]` | `cfg2` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[13:10]` | `cfg3` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[17:14]` | `cfg4` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[21:18]` | `cfg5` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[23:22]` | `cfg6` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[25:24]` | `cfg7` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[27:26]` | `cfg8` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x0018` | `REG_ENC_CI_CFG2` | RW | `0` | `[30:28]` | `cfg9` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x001c` | `REG_ENC_CI_CFG3` | RW | `0` | `[5:0]` | `cfg10` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
+| `0x001c` | `REG_ENC_CI_CFG3` | RW | `0` | `[13:8]` | `cfg11` | VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。 |
 | `0x0020` | `REG_OTF_CFG0` | RW | `0` | `[2:0]` | `otf_cfg_format` | 输入格式：0 RGBA8888，1 RGBA1010102，2 NV12，3 P010。 |
 | `0x0024` | `REG_OTF_CFG1` | RW | `0` | `[15:0]` | `otf_cfg_width` | 输入 active width。 |
 | `0x0024` | `REG_OTF_CFG1` | RW | `0` | `[31:16]` | `otf_cfg_height` | 输入 active height。 |
@@ -160,18 +169,19 @@ ENC register 总表：
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[6]` | `meta_err_0` | Metadata co-buffer overflow。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[7]` | `meta_err_1` | Metadata tile order error。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[8]` | `frame_done` | Frame done。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[9]` | `addr_cfg_invalid` | 当前帧地址 slot 无效。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[9]` | `addr_cfg_invalid` | 当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 `fcnt[0]` 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 `active_addr_cfg_valid` 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 `fcnt[0]` 对齐后，再写 `REG_IRQ_CTRL[1] irq_clear` 清 sticky 状态；关闭 `enc_ubwc_en` 或硬复位也会清零。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[10]` | `addr_cfg_valid0` | Address slot0 valid。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[11]` | `addr_cfg_valid1` | Address slot1 valid。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[12]` | `addr_cfg_overflow` | Address slot FIFO overflow sticky。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[13]` | `rst_drain_timeout` | AXI drain timeout during soft reset。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[12]` | `addr_cfg_overflow` | 地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 `REG_TILE_BASE_UV_HI` 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 `REG_IRQ_CTRL[1] irq_clear` 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 `enc_ubwc_en` 后重新配置。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[13]` | `rst_drain_timeout` | 软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 `16'hffff` 个 `i_axi_clk` 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 `REG_IRQ_CTRL[1] irq_clear` 或硬复位后清零。 |
 | `0x005c` | `REG_STATUS1` | RO | dynamic | `[7:0]` | `stage_done` | ENC stage done bitmap。 |
-| `0x0060` | `REG_IRQ_CTRL` | RW | `1` | `[0]` | `irq_enable` | IRQ enable。 |
+| `0x0060` | `REG_IRQ_CTRL` | RW | `0` | `[0]` | `irq_enable` | 中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。 |
 | `0x0060` | `REG_IRQ_CTRL` | W1P | `0` | `[1]` | `irq_clear` | 写 1 清 pending/status sticky。 |
 | `0x0060` | `REG_IRQ_CTRL` | RO | dynamic | `[2]` | `irq_pending` | Any IRQ pending。 |
 | `0x0060` | `REG_IRQ_CTRL` | RO | dynamic | `[3]` | `irq_correct_pending` | Correct IRQ pending。 |
 | `0x0060` | `REG_IRQ_CTRL` | RO | dynamic | `[4]` | `irq_error_pending` | Error IRQ pending。 |
 | `0x0060` | `REG_IRQ_CTRL` | W1P | `0` | `[5]` | `start` | 写 1 产生 frame start token。 |
+| `0x0060` | `REG_IRQ_CTRL` | RW | `0` | `[6]` | `vsync_reset_en` | 置 1 后，ENC 输入 `i_otf_vsync` 上升沿通过 AXI-drain reset sequencer 触发整条 ENC 链路 soft reset，并在复位释放后重新 arm frame start。 |
 | `0x0064` | `REG_STATUS2` | RO | dynamic | `[0]` | `irq_status_any` | Any IRQ mirror。 |
 | `0x0064` | `REG_STATUS2` | RO | dynamic | `[1]` | `irq_status_correct` | Correct IRQ mirror。 |
 | `0x0064` | `REG_STATUS2` | RO | dynamic | `[2]` | `irq_status_error` | Error IRQ mirror。 |
@@ -229,11 +239,11 @@ ENC Register 逐项说明：
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
 | `[0]` | `enc_ubwc_en` | RW | 0 | ENC UBWC enable。 |
-| `[1]` | `lvl1_bank_swizzle_en` | RW | 0 | Level-1 bank swizzle enable。 |
-| `[2]` | `lvl2_bank_swizzle_en` | RW | 0 | Level-2 bank swizzle enable。 |
-| `[3]` | `lvl3_bank_swizzle_en` | RW | 0 | Level-3 bank swizzle enable。 |
-| `[12:8]` | `highest_bank_bit` | RW | 0 | Highest bank bit。 |
-| `[16]` | `bank_spread_en` | RW | 0 | Bank spread enable。 |
+| `[1]` | `lvl1_bank_swizzle_en` | RW | 0 | Level-1 bank swizzle 配置和 AP 配置同步。 |
+| `[2]` | `lvl2_bank_swizzle_en` | RW | 0 | Level-2 bank swizzle 配置和 AP 配置同步。 |
+| `[3]` | `lvl3_bank_swizzle_en` | RW | 0 | Level-3 bank swizzle 配置和 AP 配置同步。 |
+| `[12:8]` | `highest_bank_bit` | RW | 0 | highest bank bit 配置和 AP 配置同步。 |
+| `[16]` | `bank_spread_en` | RW | 0 | bank spread 配置和 AP 配置同步。 |
 
 计算说明：这些字段来自系统 memory layout/bank swizzle 策略，不随每帧地址变化；图像格式、尺寸或 layout 策略变化时重新配置。
 
@@ -243,7 +253,7 @@ ENC Register 逐项说明：
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[0]` | `four_line_format` | RW | 0 | 4-line format select。 |
+| `[0]` | `four_line_format` | RW | 0 | 不同图像格式配置：RGBA/RGBA10 写 1；YUV420/NV12/P010 写 0。 |
 | `[1]` | `is_lossy_rgba_2_1_format` | RW | 0 | RGBA 2:1 lossy format select。 |
 | `[26:16]` | `tile_pitch` | RW | 0 | Compressed tile pitch，单位为 16 bytes。 |
 
@@ -255,10 +265,10 @@ ENC Register 逐项说明：
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[0]` | `enc_ci_input_type` | RW | 0 | CI input type。 |
-| `[10:8]` | `enc_ci_alen` | RW | 0 | CI ALEN。 |
+| `[0]` | `enc_ci_input_type` | RW | 0 | CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。 |
+| `[10:8]` | `enc_ci_alen` | RW | 0 | CI alen 配置；寄存器复位值为 0，普通 VIVO_ENC 配置软件应写 7。 |
 
-计算说明：由 CI 协议配置决定，当前 helper 默认使用 `input_type=1`、`alen=7`。
+计算说明：`REG_ENC_CI_CFG0` 复位值为 `0x0000_0000`；普通 tiled UBWC 场景软件应写 `input_type=1`、`alen=7`。
 
 #### 3.6 ENC CI CFG1
 
@@ -266,7 +276,7 @@ ENC Register 逐项说明：
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[16]` | `enc_ci_lossy` | RW | 0 | CI lossy enable。 |
+| `[16]` | `enc_ci_lossy` | RW | 0 | lossy 模式使能。 |
 
 计算说明：与压缩策略一致；lossless 场景写 0，启用对应 lossy 策略时写 1。
 
@@ -450,13 +460,13 @@ REG_META_ACTIVE_SIZE.height= 1200
 | `[6]` | `meta_err_0` | RO | dynamic | Metadata co-buffer overflow。 |
 | `[7]` | `meta_err_1` | RO | dynamic | Metadata tile order error。 |
 | `[8]` | `frame_done` | RO | dynamic | Frame done。 |
-| `[9]` | `addr_cfg_invalid` | RO | dynamic | 当前帧地址 slot 无效。 |
+| `[9]` | `addr_cfg_invalid` | RO | dynamic | 当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 `fcnt[0]` 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 `active_addr_cfg_valid` 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 `fcnt[0]` 对齐后，再写 `REG_IRQ_CTRL[1] irq_clear` 清 sticky 状态；关闭 `enc_ubwc_en` 或硬复位也会清零。 |
 | `[10]` | `addr_cfg_valid0` | RO | dynamic | Address slot0 valid。 |
 | `[11]` | `addr_cfg_valid1` | RO | dynamic | Address slot1 valid。 |
-| `[12]` | `addr_cfg_overflow` | RO | dynamic | Address slot FIFO overflow sticky。 |
-| `[13]` | `rst_drain_timeout` | RO | dynamic | AXI drain timeout during soft reset。 |
+| `[12]` | `addr_cfg_overflow` | RO | dynamic | 地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 `REG_TILE_BASE_UV_HI` 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 `REG_IRQ_CTRL[1] irq_clear` 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 `enc_ubwc_en` 后重新配置。 |
+| `[13]` | `rst_drain_timeout` | RO | dynamic | 软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 `16'hffff` 个 `i_axi_clk` 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 `REG_IRQ_CTRL[1] irq_clear` 或硬复位后清零。 |
 
-计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源和 OTF 输入异常。
+计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源、OTF 输入异常和软复位 drain 是否异常。`addr_cfg_invalid=1` 表示当前要处理的帧已经到达，但 `fcnt[0]` 对应 slot 没有可用地址配置；软件应补齐地址组并确认帧号/slot 与 buffer 队列没有错位。`addr_cfg_overflow=1` 表示软件提交地址组的速度超过硬件消耗地址组的速度，至少有一次地址组 commit 被拒绝进入 FIFO；软件需要重新确认 buffer 队列和硬件地址队列的对应关系。`rst_drain_timeout=1` 表示本次软复位没有正常等到 AXI 写通路排空，复位 sequencer 已按超时路径继续进入 reset hold；软件应检查外部 AXI slave/interconnect 是否长时间不返回 ready/response，或是否在复位窗口仍有上游数据持续触发写请求。
 
 #### 3.17 Status1
 
@@ -474,14 +484,15 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[0]` | `irq_enable` | RW | 1 | IRQ enable。 |
+| `[0]` | `irq_enable` | RW | 0 | 中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。 |
 | `[1]` | `irq_clear` | W1P | 0 | 写 1 清 pending/status sticky。 |
 | `[2]` | `irq_pending` | RO | dynamic | Any IRQ pending。 |
 | `[3]` | `irq_correct_pending` | RO | dynamic | Correct IRQ pending。 |
 | `[4]` | `irq_error_pending` | RO | dynamic | Error IRQ pending。 |
 | `[5]` | `start` | W1P | 0 | 写 1 产生 frame start token。 |
+| `[6]` | `vsync_reset_en` | RW | 0 | 置 1 后，输入 `i_otf_vsync` 上升沿触发 ENC soft reset；复位前会等待 AXI write drain，复位释放后重新 arm frame start。 |
 
-计算说明：每帧地址配置完成后写 `REG_IRQ_CTRL[5]=1` 启动；中断处理完成后写 `REG_IRQ_CTRL[1]=1` 清除。
+计算说明：每帧地址配置完成后写 `REG_IRQ_CTRL[5]=1` 启动；中断处理完成后写 `REG_IRQ_CTRL[1]=1` 清除。`REG_IRQ_CTRL[6]` 是可选自动复位模式，适合希望每个输入 VSYNC 重新初始化 ENC 内部流水的系统；软件必须在 VSYNC 到来前保证本帧地址 slot 已配置。
 
 #### 3.19 Status2
 
@@ -670,8 +681,8 @@ ENC 软件工作流程：
    REG_TILE_BASE_Y_LO/HI
    REG_META_BASE_UV_LO/HI
    REG_TILE_BASE_UV_LO/HI
-4. 写 REG_IRQ_CTRL[5]=1 产生本帧 start token。
-5. 上游按 i_otf_fcnt 输入 OTF frame。
+4. 写 REG_IRQ_CTRL[5]=1 产生本帧 start token；如果需要 VSYNC 自动复位模式，可在初始化时置 `REG_IRQ_CTRL[6]=1`。
+5. 上游按 i_otf_fcnt 输入 OTF frame；在 `REG_IRQ_CTRL[6]=1` 时，`i_otf_vsync` 上升沿会先触发 soft reset，再由 reset sequencer 重新 arm frame start。
 6. 硬件按 fcnt[0] 选择地址 slot，并写出 compressed tile 和 metadata。
 7. 软件处理中断，读 STATUS/COUNT 寄存器定位状态，写 REG_IRQ_CTRL[1]=1 清中断。
 ```
@@ -737,7 +748,7 @@ DEC 从外部 memory 读取 UBWC metadata 和 compressed tile 数据，经过 VI
 | SRAM | 当前外部工作 SRAM 为 bank0/bank1 两个同规格 bank，单 bank 64 KiB，两 bank 合计 128 KiB。SRAM 容量主要由最大支持图像宽度决定；图像高度只影响行组处理次数，不增加单 bank 容量；小于或等于 4096 px 宽的 RGBA/YUV420 场景复用同一规格 SRAM |
 | 连续帧 | 软件每帧写一组 input UBWC base address 后写 `IRQ_CTRL[5]=1` |
 | 地址 slot | 两组地址 slot，start 后递增/锁存 frame count，按 `fcnt[0]` 选择 slot |
-| VIVO 状态 | `STATUS2[0]` 为模块级 `vivo_idle`，`STATUS3[0]` 为模块级 `vivo_error`；当前只暴露 1 bit 聚合状态，不再暴露多路子状态 |
+| VIVO 状态 | `STATUS2[0]` 为 1 bit `vivo_idle`；`STATUS3[6:0]` 为 7 bit `vivo_error` bitmap。 |
 | 中断 | 正确中断在最后有效输出数据完成后产生；错误中断用于 AXI/VIVO/OTF/地址异常 |
 
 ### DEC 2. Interface
@@ -750,8 +761,8 @@ DEC wrapper 参数：
 | `APB_DW` | 32 | APB data width |
 | `AXI_AW` | 64 | AXI address width |
 | `AXI_DW` | 64 | AXI data width |
-| `AXI_IDW` | 4 | 内部 AXI ID/FCNT 语义宽度为 4 bit；wrapper 对外 AXI ID 端口宽度为 `AXI_IDW+1=5 bit` |
-| `AXI_LENW` | 8 | AXI burst length width |
+| 外部 `AXI_IDW` | 5 | wrapper 对外 AXI ID 端口默认 5 bit；内部有效 FCNT/ID 语义为低 4 bit |
+| `AXI_LENW` | 5 | 对外 AXI burst length width，支持最大 32 beat |
 | `SB_WIDTH` | 1 | Sideband width |
 | `COM_BUF_AW` | 12 | SRAM word address width |
 | `COM_BUF_DW` | 128 | SRAM data width |
@@ -796,7 +807,7 @@ DEC wrapper port：
 | SRAM bank1 | `i_bank1_dout_vld` | input | 1 bit | Bank1 SRAM read data valid |
 | AXI clock/reset | `i_axi_clk` | input | 1 bit | AXI read master clock |
 | AXI clock/reset | `i_axi_rstn` | input | 1 bit | `i_axi_clk` domain synchronous reset, active low |
-| AXI AR | `o_m_axi_arid` | output | `AXI_IDW+1`，默认 5 bit | 对外 AXI AR ID；内部有效 FCNT/ID 语义为低 4 bit |
+| AXI AR | `o_m_axi_arid` | output | 5 bit | 对外 AXI AR ID；内部有效 FCNT/ID 语义为低 4 bit |
 | AXI AR | `o_m_axi_araddr` | output | `AXI_AW` | AXI AR address |
 | AXI AR | `o_m_axi_arlen` | output | `AXI_LENW` | AXI AR burst length |
 | AXI AR | `o_m_axi_arsize` | output | 4 bit | AXI AR beat size |
@@ -806,7 +817,7 @@ DEC wrapper port：
 | AXI AR | `o_m_axi_arprot` | output | 3 bit | AXI AR protection attribute |
 | AXI AR | `o_m_axi_arvalid` | output | 1 bit | AXI AR valid |
 | AXI AR | `i_m_axi_arready` | input | 1 bit | AXI AR ready |
-| AXI R | `i_m_axi_rid` | input | `AXI_IDW+1`，默认 5 bit | 对外 AXI R ID；低 4 bit 对应内部 FCNT/ID 语义 |
+| AXI R | `i_m_axi_rid` | input | 5 bit | 对外 AXI R ID；低 4 bit 对应内部 FCNT/ID 语义 |
 | AXI R | `i_m_axi_rdata` | input | `AXI_DW` | AXI R data |
 | AXI R | `i_m_axi_rvalid` | input | 1 bit | AXI R valid |
 | AXI R | `i_m_axi_rresp` | input | 2 bit | AXI R response |
@@ -826,18 +837,18 @@ DEC register 总表：
 | --- | --- | --- | --- | --- | --- | --- |
 | `0x0000` | `REG_VERSION` | RO | `0x00010000` | `[31:0]` | `version` | IP version，上电后读一次。 |
 | `0x0004` | `REG_DATE` | RO | `0x20260403` | `[31:0]` | `date` | RTL date，上电后读一次。 |
-| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[0]` | `lvl1_bank_swizzle_en` | Level-1 bank swizzle enable。 |
-| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[1]` | `lvl2_bank_swizzle_en` | Level-2 bank swizzle enable。 |
-| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[2]` | `lvl3_bank_swizzle_en` | Level-3 bank swizzle enable。 |
-| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[8:4]` | `highest_bank_bit` | Highest bank bit。 |
-| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[9]` | `bank_spread_en` | Bank spread enable。 |
-| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[10]` | `four_line_format` | 4-line format select。 |
+| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[0]` | `lvl1_bank_swizzle_en` | Level-1 bank swizzle 配置和 AP 配置同步。 |
+| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[1]` | `lvl2_bank_swizzle_en` | Level-2 bank swizzle 配置和 AP 配置同步。 |
+| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[2]` | `lvl3_bank_swizzle_en` | Level-3 bank swizzle 配置和 AP 配置同步。 |
+| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[8:4]` | `highest_bank_bit` | highest bank bit 配置和 AP 配置同步。 |
+| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[9]` | `bank_spread_en` | bank spread 配置和 AP 配置同步。 |
+| `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[10]` | `four_line_format` | 不同图像格式配置：RGBA/RGBA10 写 1；YUV420/NV12/P010 写 0。 |
 | `0x0008` | `APB_ADDR_TILE_CFG0` | RW | `0` | `[11]` | `is_lossy_rgba_2_1_format` | RGBA 2:1 lossy format select。 |
 | `0x000c` | `APB_ADDR_TILE_CFG1` | RW | `0` | `[11:0]` | `tile_cfg_pitch` | tile pitch，单位为 16 bytes。 |
-| `0x0010` | `APB_ADDR_TILE_CFG2` | RW | `0` | `[0]` | `ci_input_type` | CI input type；当前软件通常写 1。 |
-| `0x0010` | `APB_ADDR_TILE_CFG2` | RW | `0` | `[8]` | `ci_lossy` | CI lossy enable。 |
+| `0x0010` | `APB_ADDR_TILE_CFG2` | RW | `0` | `[0]` | `ci_input_type` | CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。 |
+| `0x0010` | `APB_ADDR_TILE_CFG2` | RW | `0` | `[8]` | `ci_lossy` | lossy 模式使能。 |
 | `0x0010` | `APB_ADDR_TILE_CFG2` | RW | `0` | `[10:9]` | `ci_alpha_mode` | CI alpha mode。 |
-| `0x0014` | `APB_ADDR_VIVO_CFG` | RW | `1` | `[0]` | `vivo_ubwc_en` | VIVO UBWC enable。 |
+| `0x0014` | `APB_ADDR_VIVO_CFG` | RW | `0` | `[0]` | `vivo_ubwc_en` | VIVO UBWC path 使能；寄存器复位值为 0，启动 decode 前软件应配置为 1。 |
 | `0x0014` | `APB_ADDR_VIVO_CFG` | RW | `0` | `[1]` | `vivo_sreset` | VIVO soft reset。 |
 | `0x0018` | `APB_ADDR_OTF_CFG0` | RW | `0` | `[15:0]` | `otf_cfg_img_width` | 输出 active width。 |
 | `0x0018` | `APB_ADDR_OTF_CFG0` | RW | `0` | `[20:16]` | `otf_cfg_format` | 输出 OTF format。 |
@@ -869,8 +880,8 @@ DEC register 总表：
 | `0x0054` | `APB_ADDR_STATUS1` | RO | dynamic | `[4:0]` | `stage_done` | DEC stage done bitmap。 |
 | `0x0054` | `APB_ADDR_STATUS1` | RO | dynamic | `[8:5]` | `stage_seen` | Stage entered busy bitmap。 |
 | `0x0058` | `APB_ADDR_STATUS2` | RO | dynamic | `[0]` | `vivo_idle` | VIVO idle 状态。 |
-| `0x005c` | `APB_ADDR_STATUS3` | RO | dynamic | `[0]` | `vivo_error` | VIVO error 状态。 |
-| `0x0060` | `APB_ADDR_IRQ_CTRL` | RW | `1` | `[0]` | `irq_enable` | IRQ enable。 |
+| `0x005c` | `APB_ADDR_STATUS3` | RO | dynamic | `[6:0]` | `vivo_error` | VIVO error bitmap。 |
+| `0x0060` | `APB_ADDR_IRQ_CTRL` | RW | `0` | `[0]` | `irq_enable` | 中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。 |
 | `0x0060` | `APB_ADDR_IRQ_CTRL` | W1P | `0` | `[1]` | `irq_clear` | 写 1 清 pending/status sticky。 |
 | `0x0060` | `APB_ADDR_IRQ_CTRL` | RO | dynamic | `[2]` | `irq_pending` | Any IRQ pending。 |
 | `0x0060` | `APB_ADDR_IRQ_CTRL` | RO | dynamic | `[3]` | `irq_error_pending` | Error IRQ pending。 |
@@ -898,11 +909,11 @@ DEC 分立寄存器字段表和计算过程：
 | `APB_ADDR_TILE_CFG0` | `[2]` | `lvl3_bank_swizzle_en` | 来自 memory layout 和格式/压缩策略；格式、尺寸或 layout 变化时配置。 |
 | `APB_ADDR_TILE_CFG0` | `[8:4]` | `highest_bank_bit` | 来自 memory layout 和格式/压缩策略；格式、尺寸或 layout 变化时配置。 |
 | `APB_ADDR_TILE_CFG0` | `[9]` | `bank_spread_en` | 来自 memory layout 和格式/压缩策略；格式、尺寸或 layout 变化时配置。 |
-| `APB_ADDR_TILE_CFG0` | `[10]` | `four_line_format` | 来自图像格式；格式变化时配置。 |
+| `APB_ADDR_TILE_CFG0` | `[10]` | `four_line_format` | 来自图像格式；RGBA/RGBA10 写 1，YUV420/NV12/P010 写 0。 |
 | `APB_ADDR_TILE_CFG0` | `[11]` | `lossy_rgba_2_1` | 来自压缩策略；lossy 策略变化时配置。 |
 | `APB_ADDR_TILE_CFG1` | `[11:0]` | `tile_cfg_pitch` | `tile_cfg_pitch = tile_pitch_bytes / 16`。 |
-| `APB_ADDR_TILE_CFG2` | `[0]` | `ci_input_type` | 由 CI 解码策略决定；当前软件通常配置 `ci_input_type=1`。 |
-| `APB_ADDR_TILE_CFG2` | `[8]` | `ci_lossy` | 由 CI 解码策略决定。 |
+| `APB_ADDR_TILE_CFG2` | `[0]` | `ci_input_type` | CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。 |
+| `APB_ADDR_TILE_CFG2` | `[8]` | `ci_lossy` | lossy 模式使能；lossless 写 0，启用对应 lossy 策略时写 1。 |
 | `APB_ADDR_TILE_CFG2` | `[10:9]` | `ci_alpha_mode` | 由 CI 解码策略决定。 |
 | `APB_ADDR_VIVO_CFG` | `[0]` | `vivo_ubwc_en` | 上电后或 VIVO reset 策略变化时配置；连续帧模式下通常不逐帧改写。 |
 | `APB_ADDR_VIVO_CFG` | `[1]` | `vivo_sreset` | 上电后或 VIVO reset 策略变化时配置；连续帧模式下通常不逐帧改写。 |
@@ -936,8 +947,8 @@ DEC 分立寄存器字段表和计算过程：
 | `APB_ADDR_STATUS1` | `[4:0]` | `stage_done` | 硬件根据真实 stage 事件锁存；软件只读。 |
 | `APB_ADDR_STATUS1` | `[8:5]` | `stage_seen` | 硬件根据真实 stage 事件锁存；软件只读。 |
 | `APB_ADDR_STATUS2` | `[0]` | `vivo_idle` | VIVO 子模块 idle 状态。 |
-| `APB_ADDR_STATUS3` | `[0]` | `vivo_error` | VIVO 子模块 error 状态。 |
-| `APB_ADDR_IRQ_CTRL` | `[0]` | `irq_enable` | IRQ enable。 |
+| `APB_ADDR_STATUS3` | `[6:0]` | `vivo_error` | VIVO 子模块 error bitmap。 |
+| `APB_ADDR_IRQ_CTRL` | `[0]` | `irq_enable` | 中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。 |
 | `APB_ADDR_IRQ_CTRL` | `[1]` | `irq_clear` | 处理中断后写 1 清除。 |
 | `APB_ADDR_IRQ_CTRL` | `[2]` | `irq_pending` | Any IRQ pending。 |
 | `APB_ADDR_IRQ_CTRL` | `[3]` | `irq_error_pending` | Error IRQ pending。 |
@@ -1046,7 +1057,7 @@ DEC debug 入口：
 | start 后无输出 | `APB_ADDR_STATUS0`、`APB_ADDR_IRQ_CTRL[2]` | 看 frame_active、meta/tile/vivo/otf busy 是否推进 |
 | metadata 阶段异常 | `APB_ADDR_STAT_META`、AXI R response、metadata 相关波形 | 检查 metadata 地址、RID/fcnt、metadata decode |
 | tile read 异常 | `APB_ADDR_STAT_TILE`、AXI AR/R handshake | 检查 tile base、tile_arcmd_gen、AXI read |
-| VIVO 异常 | `APB_ADDR_STATUS2[0]`、`APB_ADDR_STATUS3[0]` | 检查模块级 VIVO idle/error 状态 |
+| VIVO 异常 | `APB_ADDR_STATUS2[0]`、`APB_ADDR_STATUS3[6:0]` | 检查模块级 VIVO idle 与 7 bit error bitmap |
 | OTF 输出异常 | `APB_ADDR_STAT_OTF_TILE`、`APB_ADDR_STAT_OTF_LINE`、`APB_ADDR_STAT_OTF_DE` | 检查 tile-to-OTF 和 downstream ready |
 | 中断不符合预期 | `APB_ADDR_IRQ_CTRL[2:4]`、`APB_ADDR_STATUS4` | 区分 correct pending 和 error pending |
 

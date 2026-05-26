@@ -19,7 +19,7 @@ module ubwc_wrapper_top #(
     parameter ENC_APB_BLK_NREG       = 64,
     parameter ENC_AXI_AW             = 64,
     parameter ENC_AXI_DW             = 64,
-    parameter ENC_AXI_LENW           = 8,
+    parameter ENC_AXI_LENW           = 5,
     parameter ENC_AXI_IDW            = 4,
     parameter ENC_COM_BUF_AW         = 12,
     parameter ENC_COM_BUF_DW         = 128,
@@ -29,7 +29,7 @@ module ubwc_wrapper_top #(
     parameter DEC_AXI_AW             = 64,
     parameter DEC_AXI_DW             = 64,
     parameter DEC_AXI_IDW            = 4,
-    parameter DEC_AXI_LENW           = 8,
+    parameter DEC_AXI_LENW           = 5,
     parameter DEC_COM_BUF_AW         = 12,
     parameter DEC_COM_BUF_DW         = 128,
     parameter DEC_FORCE_FULL_PAYLOAD = 0

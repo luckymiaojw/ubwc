@@ -47,8 +47,8 @@ ENC_FIELDS = [
     ("ENC", h(0x00C), "REG_TILE_CFG1", "0", "four_line_format", "RW", "0", "4-line tile format enable. RGBA=1, YUV420=0."),
     ("ENC", h(0x00C), "REG_TILE_CFG1", "1", "is_lossy_rgba_2_1_format", "RW", "0", "RGBA8888 lossy 2:1 layout select."),
     ("ENC", h(0x00C), "REG_TILE_CFG1", "26:16", "tile_pitch", "RW", "0", "Tile pitch in 16-byte units. RTL exports {1'b0, bits[26:16]}."),
-    ("ENC", h(0x010), "REG_ENC_CI_CFG0", "0", "enc_ci_input_type", "RW", "0", "CI input type. Current encoder software should write 1."),
-    ("ENC", h(0x010), "REG_ENC_CI_CFG0", "10:8", "enc_ci_alen", "RW", "0", "CI ALEN setting. Current software writes 3'd7."),
+    ("ENC", h(0x010), "REG_ENC_CI_CFG0", "0", "enc_ci_input_type", "RW", "0", "CI input type. 1=tiled data, 0=linear data. Register reset is 0; software should write 1 for the normal tiled UBWC path."),
+    ("ENC", h(0x010), "REG_ENC_CI_CFG0", "10:8", "enc_ci_alen", "RW", "0", "CI ALEN setting. Register reset is 0; software should write 7 for the normal VIVO_ENC configuration."),
     ("ENC", h(0x014), "REG_ENC_CI_CFG1", "16", "enc_ci_lossy", "RW", "0", "CI lossy enable."),
     ("ENC", h(0x018), "REG_ENC_CI_CFG2", "2:0", "enc_ci_ubwc_cfg_0", "RW", "0", "Reserved UBWC CI configuration; software writes 0."),
     ("ENC", h(0x018), "REG_ENC_CI_CFG2", "5:3", "enc_ci_ubwc_cfg_1", "RW", "0", "Reserved UBWC CI configuration; software writes 0."),
@@ -89,18 +89,19 @@ ENC_FIELDS = [
     ("ENC", h(0x058), "REG_STATUS0", "6", "meta_err_0", "RO", "dynamic", "Metadata co-buffer overflow error."),
     ("ENC", h(0x058), "REG_STATUS0", "7", "meta_err_1", "RO", "dynamic", "Metadata tile-order error."),
     ("ENC", h(0x058), "REG_STATUS0", "8", "frame_done", "RO", "dynamic", "Frame done status from wrapper."),
-    ("ENC", h(0x058), "REG_STATUS0", "9", "addr_cfg_invalid", "RO", "dynamic", "Current frame needs an address slot that is not configured."),
+    ("ENC", h(0x058), "REG_STATUS0", "9", "addr_cfg_invalid", "RO", "dynamic", "Sticky current-slot address-not-configured error. The ENC data path selects address slot0 or slot1 from the current frame fcnt[0]. When hardware checks the current slot address validity and the selected address FIFO is empty, active_addr_cfg_valid is 0, this bit is set and held, and the condition contributes to error IRQ. This means the current frame has no usable META/TILE base addresses. Software must submit the per-frame address group for the corresponding slot, confirm that the software buffer queue is aligned with fcnt[0], then clear the sticky status with REG_IRQ_CTRL[1] irq_clear; disabling enc_ubwc_en or hard reset also clears it."),
     ("ENC", h(0x058), "REG_STATUS0", "10", "addr_cfg_valid0", "RO", "dynamic", "Address slot 0 has a configured entry."),
     ("ENC", h(0x058), "REG_STATUS0", "11", "addr_cfg_valid1", "RO", "dynamic", "Address slot 1 has a configured entry."),
-    ("ENC", h(0x058), "REG_STATUS0", "12", "addr_cfg_overflow", "RO", "dynamic", "Address slot FIFO overflow sticky status."),
-    ("ENC", h(0x058), "REG_STATUS0", "13", "rst_drain_timeout", "RO", "dynamic", "AXI drain timeout during encoder soft reset."),
+    ("ENC", h(0x058), "REG_STATUS0", "12", "addr_cfg_overflow", "RO", "dynamic", "Sticky address-configuration FIFO overflow status. One frame address group contains four 64-bit base addresses: META Y, TILE Y, META UV, and TILE UV. Software commits one address group by writing REG_TILE_BASE_UV_HI. The APB block alternates committed groups into slot0/slot1 address FIFOs; each slot FIFO depth is 4. If the selected slot FIFO is full when the commit write occurs, the current address group is not pushed, this bit is set and held, and the condition contributes to error IRQ. Software should stop submitting new address groups, wait for existing frames to consume FIFO entries, clear the sticky bit with REG_IRQ_CTRL[1] irq_clear, and make sure the software buffer queue is aligned with the hardware address queue; if needed, disable enc_ubwc_en and reconfigure."),
+    ("ENC", h(0x058), "REG_STATUS0", "13", "rst_drain_timeout", "RO", "dynamic", "Sticky AXI drain timeout during encoder soft reset. Before asserting the internal soft reset, ENC stops issuing new AXI writes and waits for tile/meta AXI write outstanding transactions to drain. If idle is not reached within 16'hffff i_axi_clk cycles, this bit is set and held until REG_IRQ_CTRL[1] irq_clear or hard reset."),
     ("ENC", h(0x05C), "REG_STATUS1", "7:0", "stage_done", "RO", "dynamic", "Encoder stage done bitmap."),
-    ("ENC", h(0x060), "REG_IRQ_CTRL", "0", "irq_enable", "RW", "1", "Interrupt enable."),
+    ("ENC", h(0x060), "REG_IRQ_CTRL", "0", "irq_enable", "RW", "0", "Interrupt enable. Register reset is 0; software should write 1 when IRQ output is required."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "1", "irq_clear", "W1P", "0", "Write 1 to generate an interrupt clear pulse; readback is 0."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "2", "irq_pending", "RO", "dynamic", "Any pending interrupt."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "3", "irq_correct_pending", "RO", "dynamic", "Correct/frame-done interrupt pending."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "4", "irq_error_pending", "RO", "dynamic", "Error interrupt pending."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "5", "start", "W1P", "0", "Write 1 after one full output address group has been configured. Address writes only fill the pending address queues; start is a separate frame token."),
+    ("ENC", h(0x060), "REG_IRQ_CTRL", "6", "vsync_reset_en", "RW", "0", "When set, an input OTF VSYNC rising edge requests an encoder soft reset through the AXI-drain reset sequencer and re-arms the frame start token after reset release."),
     ("ENC", h(0x064), "REG_STATUS2", "2:0", "irq_status", "RO", "dynamic", "Bit0 any IRQ, bit1 correct IRQ, bit2 error IRQ."),
 ]
 
@@ -128,10 +129,10 @@ DEC_FIELDS = [
     ("DEC", h(0x008), "APB_ADDR_TILE_CFG0", "10", "tile_cfg_4line_format", "RW", "0", "4-line tile format; stored for readback."),
     ("DEC", h(0x008), "APB_ADDR_TILE_CFG0", "11", "tile_cfg_is_lossy_rgba_2_1_format", "RW", "0", "RGBA8888 lossy 2:1 layout select."),
     ("DEC", h(0x00C), "APB_ADDR_TILE_CFG1", "11:0", "tile_cfg_pitch", "RW", "0", "Tile pitch in 16-byte units."),
-    ("DEC", h(0x010), "APB_ADDR_TILE_CFG2", "0", "tile_cfg_ci_input_type", "RW", "0", "CI input type. Software should write 1 for tiled CI."),
+    ("DEC", h(0x010), "APB_ADDR_TILE_CFG2", "0", "tile_cfg_ci_input_type", "RW", "0", "CI input type. 1=tiled data, 0=linear data. Register reset is 0; software should write 1 for the normal tiled UBWC path."),
     ("DEC", h(0x010), "APB_ADDR_TILE_CFG2", "8", "tile_cfg_ci_lossy", "RW", "0", "CI lossy enable."),
     ("DEC", h(0x010), "APB_ADDR_TILE_CFG2", "10:9", "tile_cfg_ci_alpha_mode", "RW", "0", "CI alpha mode."),
-    ("DEC", h(0x014), "APB_ADDR_VIVO_CFG", "0", "vivo_ubwc_en", "RW", "1", "VIVO UBWC path enable."),
+    ("DEC", h(0x014), "APB_ADDR_VIVO_CFG", "0", "vivo_ubwc_en", "RW", "0", "VIVO UBWC path enable. Register reset is 0; software should write 1 before starting decode."),
     ("DEC", h(0x014), "APB_ADDR_VIVO_CFG", "1", "vivo_sreset", "RW", "0", "VIVO soft reset."),
     ("DEC", h(0x018), "APB_ADDR_OTF_CFG0", "15:0", "otf_cfg_img_width", "RW", "0", "Valid output image width in pixels."),
     ("DEC", h(0x018), "APB_ADDR_OTF_CFG0", "20:16", "otf_cfg_format", "RW", "0", "Output OTF format; also drives meta_base_format."),
@@ -164,7 +165,7 @@ DEC_FIELDS = [
     ("DEC", h(0x054), "APB_ADDR_STATUS1", "8:5", "stage_seen", "RO", "dynamic", "Stage-seen-busy bitmap for meta/tile/vivo/otf."),
     ("DEC", h(0x058), "APB_ADDR_STATUS2", "0", "vivo_idle", "RO", "dynamic", "VIVO idle status."),
     ("DEC", h(0x05C), "APB_ADDR_STATUS3", "0", "vivo_error", "RO", "dynamic", "VIVO error status."),
-    ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "0", "irq_enable", "RW", "1", "Interrupt enable."),
+    ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "0", "irq_enable", "RW", "0", "Interrupt enable. Register reset is 0; software should write 1 when IRQ output is required."),
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "1", "irq_clear", "W1P", "0", "Write 1 to clear latched correct/error interrupt status."),
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "2", "irq_pending", "RO", "dynamic", "Any pending interrupt."),
     ("DEC", h(0x060), "APB_ADDR_IRQ_CTRL", "3", "irq_error_pending", "RO", "dynamic", "Error interrupt pending."),
@@ -183,13 +184,13 @@ PROGRAMMING = [
     ["阶段", "模块", "配置频率", "步骤", "APB 操作", "说明"],
     ["上电检查", "ENC/DEC", "上电后一次", "1", "READ 0x000", "读取 VERSION，当前期望值为 0x00010000。"],
     ["上电检查", "ENC/DEC", "上电后一次", "2", "READ 0x004", "读取 DATE。当前 ENC 为 0x20260406，DEC 为 0x20260403。"],
-    ["中断初始化", "ENC/DEC", "图像格式发生变化时配置", "3", "WRITE IRQ_CTRL[0]=1", "使能中断。ENC IRQ_CTRL 地址为 0x060，DEC IRQ_CTRL 地址为 0x060。复位默认 irq_enable=1。"],
+    ["中断初始化", "ENC/DEC", "图像格式发生变化时配置", "3", "WRITE IRQ_CTRL[0]=1", "使能中断。ENC IRQ_CTRL 地址为 0x060，DEC IRQ_CTRL 地址为 0x060。寄存器复位值为 0，软件需要写 1 才使能 IRQ。"],
     ["公共计算", "ENC/DEC", "图像格式发生变化时配置", "4", "软件计算 layout", "根据 format、width、height 计算 tile_w、tile_h、tile_cols、tile_rows、tile_pitch、meta_pitch 和各 plane base address。若只切换 frame buffer 地址，本步骤不需要重复。"],
     ["公共计算", "ENC/DEC", "图像格式发生变化时配置", "5", "选择 format code", "0=RGBA8888，1=RGBA1010102，2=YUV420_8/NV12，3=YUV420_10/P010。"],
     ["ENC 静态配置", "ENC", "图像格式发生变化时配置", "6", "WRITE 0x00C REG_TILE_CFG1", "配置 four_line_format、lossy_rgba_2_1_format、tile_pitch。RGBA 写 four_line_format=1，YUV420 写 four_line_format=0。"],
     ["ENC 静态配置", "ENC", "图像格式发生变化时配置", "7", "WRITE 0x008 REG_TILE_CFG0", "配置 ubwc_en、bank swizzle、bank spread。相同格式和 layout 的连续帧不需要重复写。"],
     ["ENC CI 配置", "ENC", "图像格式发生变化时配置", "8", "WRITE 0x014/0x018/0x01C", "先写 CI_CFG1/2/3。保留 cfg bit 建议写 0。"],
-    ["ENC CI 配置", "ENC", "图像格式发生变化时配置", "9", "WRITE 0x010 REG_ENC_CI_CFG0", "最后写 CI_CFG0，配置 enc_ci_input_type 和 enc_ci_alen。当前软件通常写 input_type=1、alen=7。"],
+    ["ENC CI 配置", "ENC", "图像格式发生变化时配置", "9", "WRITE 0x010 REG_ENC_CI_CFG0", "最后写 CI_CFG0；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置 enc_ci_input_type=1、enc_ci_alen=7。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "10", "WRITE 0x024 REG_OTF_CFG1", "配置 width[15:0] 和 height[31:16]。连续帧尺寸不变时不需要重写。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "11", "WRITE 0x028 REG_OTF_CFG2", "配置 tile_w 和 tile_h。RGBA=16x4，YUV420_8=32x8，YUV420_10=32x4。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "12", "WRITE 0x02C REG_OTF_CFG3", "配置 y_tile_cols 和 uv_tile_cols。RGBA: y=ceil(width/16), uv=0；YUV: y=ceil(width/32), uv=ceil(width/32)。"],
@@ -202,12 +203,12 @@ PROGRAMMING = [
     ["ENC 每帧地址", "ENC", "每帧都要配置", "19", "WRITE 0x048", "配置 UV tile data base 低 32 bit，RGBA 写 0。"],
     ["ENC 每帧地址", "ENC", "每帧都要配置", "20", "WRITE 0x04C REG_TILE_BASE_UV_HI", "配置 UV tile data base 高 32 bit，RGBA 写 0。本写入会提交当前四个 64 bit base address 为一组帧地址，必须最后写。"],
     ["ENC 启动", "ENC", "每帧", "21", "WRITE 0x060 bit[5]=1", "写 START token。地址写入只填充地址队列，不再作为 start 标志；写 START 后再送入对应 OTF vsync/hsync/de/data。"],
-    ["ENC 监控", "ENC", "运行中", "22", "READ 0x058/0x05C/0x060/0x064", "读取 STATUS0、STATUS1、IRQ_CTRL、STATUS2。addr_cfg_invalid 表示当前 fcnt[0] 对应地址 slot 未配置。IRQ bit 区分 correct/error pending。"],
+    ["ENC 监控", "ENC", "运行中", "22", "READ 0x058/0x05C/0x060/0x064", "读取 STATUS0、STATUS1、IRQ_CTRL、STATUS2。addr_cfg_invalid 表示当前 fcnt[0] 对应 slot 没有可用地址配置，是 sticky 错误状态；软件补齐地址并确认队列对齐后，通过 REG_IRQ_CTRL[1] irq_clear 清除。IRQ bit 区分 correct/error pending。"],
     ["ENC 清中断", "ENC", "软件处理中断后", "23", "WRITE 0x060 bit[1]=1", "清除 ENC 中断 pending。统计计数仍可用于调试。"],
     ["DEC 静态配置", "DEC", "图像格式发生变化时配置", "24", "WRITE 0x008 APB_ADDR_TILE_CFG0", "配置 bank swizzle、bank spread、4-line format、lossy_rgba_2_1_format。这些配置在 frame start 时锁存到 AXI 域。"],
     ["DEC 静态配置", "DEC", "图像格式发生变化时配置", "25", "WRITE 0x00C APB_ADDR_TILE_CFG1", "配置 tile_cfg_pitch，单位 16 byte。"],
-    ["DEC CI 配置", "DEC", "图像格式发生变化时配置", "26", "WRITE 0x010 APB_ADDR_TILE_CFG2", "配置 CI input type、lossy、alpha mode。当前 tiled UBWC 流通常写 input_type=1。"],
-    ["DEC VIVO 配置", "DEC", "图像格式发生变化时配置", "27", "WRITE 0x014 APB_ADDR_VIVO_CFG", "配置 vivo_ubwc_en 和 vivo_sreset。通常 vivo_ubwc_en 复位后保持 1。"],
+    ["DEC CI 配置", "DEC", "图像格式发生变化时配置", "26", "WRITE 0x010 APB_ADDR_TILE_CFG2", "配置 CI input type、lossy、alpha mode。寄存器复位值为 0，普通 tiled UBWC 路径软件应配置 ci_input_type=1。"],
+    ["DEC VIVO 配置", "DEC", "图像格式发生变化时配置", "27", "WRITE 0x014 APB_ADDR_VIVO_CFG", "配置 vivo_ubwc_en 和 vivo_sreset。寄存器复位值为 0，启动 decode 前软件应配置 vivo_ubwc_en=1。"],
     ["DEC 几何配置", "DEC", "图像格式发生变化时配置", "28", "WRITE 0x018 APB_ADDR_OTF_CFG0", "配置输出 img_width 和 format，同时更新 meta_base_format。"],
     ["DEC OTF timing", "DEC", "图像格式发生变化时配置", "29", "WRITE 0x01C/0x020", "配置 h_total、h_sync、h_bp、h_act。输出 timing 不变时连续帧不需要重写。"],
     ["DEC OTF timing", "DEC", "图像格式发生变化时配置", "30", "WRITE 0x024/0x028", "配置 v_total、v_sync、v_bp、v_act。输出 timing 不变时连续帧不需要重写。"],
@@ -263,6 +264,8 @@ def cfg_note(block: str, addr: str, field: str, access: str) -> str:
         return "上电后读取一次，用于确认软件和 RTL 版本匹配。"
     if field == "start":
         return "每帧地址组写完整后写 1；读回为 0。地址写入不再单独启动帧。"
+    if field == "vsync_reset_en":
+        return "按系统策略配置；置 1 后 ENC 输入 VSYNC 上升沿会触发软复位并重新 arm frame start。"
     if "irq_enable" in field:
         return "上电后或中断策略变化时配置。"
     if "irq_clear" in field:
@@ -290,6 +293,8 @@ def cfg_note_en(block: str, addr: str, field: str, access: str) -> str:
         return "Read once after reset to confirm software/RTL compatibility."
     if field == "start":
         return "Write 1 after the per-frame address group is complete; readback is 0. Address writes do not start a frame by themselves."
+    if field == "vsync_reset_en":
+        return "Configure according to the system policy. When set, ENC input VSYNC rising edges trigger a soft reset and re-arm frame start."
     if "irq_enable" in field:
         return "Configure after reset or when the interrupt policy changes."
     if "irq_clear" in field:
@@ -336,9 +341,9 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
     if lower.endswith("tile_pitch") or lower == "tile_cfg_pitch":
         return "tile surface pitch 配置，单位为 16 byte。"
     if "ci_input_type" in lower:
-        return "CI 输入类型配置；tiled UBWC 数据通常写 1。"
+        return "CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。"
     if "ci_alen" in lower:
-        return "CI AXI burst length/ALEN 配置。"
+        return "CI alen 配置；寄存器复位值为 0，普通 VIVO_ENC 配置软件应写 7。"
     if "ci_lossy" in lower:
         return "CI 有损模式使能。"
     if "ci_alpha" in lower:
@@ -388,7 +393,7 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
     if "meta_base_addr_uv" in lower:
         return "DEC UV metadata base 地址。"
     if "vivo_ubwc_en" in lower:
-        return "VIVO UBWC path 使能。"
+        return "VIVO UBWC path 使能；寄存器复位值为 0，启动 decode 前软件应配置为 1。"
     if "vivo_sreset" in lower:
         return "VIVO 子模块软复位。"
     if "h_total" in lower:
@@ -418,9 +423,9 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
     if lower == "meta_err_1":
         return "metadata tile order 错误状态。"
     if "addr_cfg_overflow" in lower:
-        return "ENC 地址 slot FIFO overflow 粘性状态。"
+        return "地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 REG_TILE_BASE_UV_HI 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 REG_IRQ_CTRL[1] irq_clear 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 enc_ubwc_en 后重新配置。"
     if "rst_drain_timeout" in lower:
-        return "ENC 软复位等待 AXI drain 超时状态。"
+        return "软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 16'hffff 个 i_axi_clk 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 REG_IRQ_CTRL[1] irq_clear 或硬复位后清零。"
     if "busy" in lower:
         return "对应处理 stage 的 busy 状态。"
     if "idle" in lower:
@@ -436,7 +441,7 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
     if "frame_done" in lower:
         return "当前/上一帧处理完成状态。"
     if "addr_cfg_invalid" in lower:
-        return "当前 fcnt[0] 对应地址 slot 未配置，数据会被阻塞并上报错误。"
+        return "当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 fcnt[0] 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 active_addr_cfg_valid 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 fcnt[0] 对齐后，再写 REG_IRQ_CTRL[1] irq_clear 清 sticky 状态；关闭 enc_ubwc_en 或硬复位也会清零。"
     if "addr_cfg_valid0" in lower:
         return "ENC 地址 slot0 中存在已配置地址。"
     if "addr_cfg_valid1" in lower:
@@ -446,11 +451,13 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
     if "stage_seen" in lower:
         return "stage 曾经 busy 的记录位图。"
     if "irq_enable" in lower:
-        return "中断使能。"
+        return "中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。"
     if "irq_clear" in lower:
         return "中断清除写 1 脉冲。"
     if lower == "start":
         return "帧 START 写 1 脉冲；地址组写完后再写该 bit 启动本帧。"
+    if lower == "vsync_reset_en":
+        return "ENC 输入 VSYNC 上升沿触发整条 ENC 链路软复位；复位通过 AXI drain reset sequencer 执行。"
     if "irq_pending" in lower:
         return "任意中断 pending 状态。"
     if "irq_correct_pending" in lower:
@@ -477,11 +484,26 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
 
 
 def reset_cn(reset: str) -> str:
+    if reset == "dynamic":
+        return h32(0)
     if reset == "0":
         return h32(0)
     if reset == "1":
         return h32(1)
     return reset
+
+
+def reset_doc(field: str, reset: str) -> str:
+    if field in {"version", "date"}:
+        return reset_cn(reset)
+    return h32(0)
+
+
+def field_doc_name(field: str) -> str:
+    text = field.replace("[", "_").replace(":", "_").replace("]", "_")
+    while "__" in text:
+        text = text.replace("__", "_")
+    return text.strip("_")
 
 
 ENG_HEADER = ["Module", "Register Address", "Register Name", "Access", "Reset Value", "Bit Field", "Field Name", "Description", "Notes"]
@@ -500,9 +522,9 @@ def english_table_rows(block: str, fields: list[tuple[str, str, str, str, str, s
             addr4(addr),
             reg,
             access,
-            reset if reset == "dynamic" else reset_cn(reset),
+            reset_doc(field, reset),
             bits,
-            field,
+            field_doc_name(field),
             desc,
             cfg_note_en(block, addr, field, access),
         ])
@@ -525,9 +547,9 @@ def cn_table_rows(block: str, fields: list[tuple[str, str, str, str, str, str, s
             addr4(addr),
             reg,
             access_cn(access),
-            reset_cn(reset),
+            reset_doc(field, reset),
             bits,
-            field,
+            field_doc_name(field),
             desc_cn(block, reg, field, desc),
             cfg_note(block, addr, field, access),
         ])

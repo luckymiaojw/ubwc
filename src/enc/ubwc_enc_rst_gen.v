@@ -20,6 +20,8 @@ module ubwc_enc_rst_gen
         input   wire                                        i_vivo_rstn                     ,
         input   wire                                        i_enc_ubwc_en                   ,
         input   wire                                        i_start_pulse                   ,
+        input   wire                                        i_vsync_reset_en                ,
+        input   wire                                        i_otf_vsync                     ,
         input   wire                                        i_axi_idle                      ,
         input   wire                                        i_error_clear                   ,
 
@@ -42,6 +44,9 @@ module ubwc_enc_rst_gen
     wire                                            start_toggle_sync_vivo_pulse    ;
     wire                                            enc_ubwc_en_otf                 ;
     wire                                            enc_ubwc_en_vivo                ;
+    wire                                            vsync_reset_event_otf           ;
+    wire                                            vsync_reset_pulse_axi           ;
+    wire                                            start_req                       ;
     wire                                            soft_reset_req                  ;
     wire                                            axi_drain_timeout_hit           ;
     wire                                            axi_drain_done                  ;
@@ -74,6 +79,13 @@ module ubwc_enc_rst_gen
     reg                                             enc_ubwc_en_otf_sync_r          ;
     reg                                             enc_ubwc_en_vivo_meta_r         ;
     reg                                             enc_ubwc_en_vivo_sync_r         ;
+    reg                                             vsync_reset_en_otf_meta_r       ;
+    reg                                             vsync_reset_en_otf_sync_r       ;
+    reg                                             otf_vsync_d_r                   ;
+    reg                                             vsync_reset_toggle_otf_r        ;
+    reg                                             vsync_reset_toggle_axi_meta_r   ;
+    reg                                             vsync_reset_toggle_axi_sync_r   ;
+    reg                                             vsync_reset_toggle_axi_d_r      ;
     reg                                             otf_rstn_axi_meta_r             ;
     reg                                             otf_rstn_axi_sync_r             ;
     reg                                             vivo_rstn_axi_meta_r            ;
@@ -83,7 +95,12 @@ module ubwc_enc_rst_gen
     assign start_toggle_sync_vivo_pulse = start_toggle_vivo_sync_r ^ start_toggle_vivo_sync_d_r;
     assign enc_ubwc_en_otf              = enc_ubwc_en_otf_sync_r;
     assign enc_ubwc_en_vivo             = enc_ubwc_en_vivo_sync_r;
-    assign soft_reset_req               = !i_enc_ubwc_en || i_start_pulse;
+    assign vsync_reset_event_otf        = vsync_reset_en_otf_sync_r &&
+                                          i_otf_vsync && !otf_vsync_d_r;
+    assign vsync_reset_pulse_axi        = vsync_reset_toggle_axi_sync_r ^
+                                          vsync_reset_toggle_axi_d_r;
+    assign start_req                    = i_start_pulse | vsync_reset_pulse_axi;
+    assign soft_reset_req               = !i_enc_ubwc_en || start_req;
     assign axi_drain_timeout_hit        = (axi_drain_cnt == DRAIN_TIMEOUT_CYCLES);
     assign axi_drain_done               = i_axi_idle || axi_drain_timeout_hit;
     assign axi_enter_hold               = (axi_rst_state == AXI_RST_DRAIN) && axi_drain_done;
@@ -166,7 +183,7 @@ module ubwc_enc_rst_gen
             start_pending_r <= 1'b0;
         else if (!i_enc_ubwc_en)
             start_pending_r <= 1'b0;
-        else if (i_start_pulse)
+        else if (start_req)
             start_pending_r <= 1'b1;
         else if (start_fire_ready)
             start_pending_r <= 1'b0;
@@ -260,6 +277,55 @@ module ubwc_enc_rst_gen
             enc_ubwc_en_otf_sync_r <= 1'b0;
         else
             enc_ubwc_en_otf_sync_r <= enc_ubwc_en_otf_meta_r;
+    end
+
+    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
+        if (!i_otf_rstn)
+            vsync_reset_en_otf_meta_r <= 1'b0;
+        else
+            vsync_reset_en_otf_meta_r <= i_vsync_reset_en;
+    end
+
+    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
+        if (!i_otf_rstn)
+            vsync_reset_en_otf_sync_r <= 1'b0;
+        else
+            vsync_reset_en_otf_sync_r <= vsync_reset_en_otf_meta_r;
+    end
+
+    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
+        if (!i_otf_rstn)
+            otf_vsync_d_r <= 1'b0;
+        else
+            otf_vsync_d_r <= i_otf_vsync;
+    end
+
+    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
+        if (!i_otf_rstn)
+            vsync_reset_toggle_otf_r <= 1'b0;
+        else if (vsync_reset_event_otf)
+            vsync_reset_toggle_otf_r <= ~vsync_reset_toggle_otf_r;
+    end
+
+    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
+        if (!i_axi_rstn)
+            vsync_reset_toggle_axi_meta_r <= 1'b0;
+        else
+            vsync_reset_toggle_axi_meta_r <= vsync_reset_toggle_otf_r;
+    end
+
+    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
+        if (!i_axi_rstn)
+            vsync_reset_toggle_axi_sync_r <= 1'b0;
+        else
+            vsync_reset_toggle_axi_sync_r <= vsync_reset_toggle_axi_meta_r;
+    end
+
+    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
+        if (!i_axi_rstn)
+            vsync_reset_toggle_axi_d_r <= 1'b0;
+        else
+            vsync_reset_toggle_axi_d_r <= vsync_reset_toggle_axi_sync_r;
     end
 
     always @(posedge i_otf_clk or negedge i_otf_rstn) begin

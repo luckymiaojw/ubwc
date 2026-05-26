@@ -138,18 +138,16 @@ task automatic ubwc_dec_apb_program_simple(
     input logic [63:0] meta_y_base_addr
 );
     ubwc_dec_cfg_pkg::ubwc_dec_base_cfg_t base;
-    int unsigned stored_height_px;
 
     base = ubwc_dec_cfg_pkg::ubwc_dec_layout_bases(format, width_px, height_px,
                                                    meta_y_base_addr);
-    stored_height_px = ubwc_dec_cfg_pkg::ubwc_dec_stored_height_px(format, height_px);
     ubwc_dec_apb_program(format, width_px, height_px,
                          base.tile_base_rgba_y,
                          base.tile_base_uv,
                          base.meta_base_rgba_y,
                          base.meta_base_uv,
                          width_px, 0, 0, width_px,
-                         stored_height_px, 0, 0, stored_height_px);
+                         height_px, 0, 0, height_px);
 endtask
 
 task automatic ubwc_dec_apb_program_simple_full(

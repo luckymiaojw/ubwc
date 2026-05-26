@@ -9,10 +9,10 @@ ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,9,tile_cfg_bank_spr
 ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,10,tile_cfg_4line_format,4-line tile format; stored for readback.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x0008,APB_ADDR_TILE_CFG0,RW,0x00000000,11,tile_cfg_is_lossy_rgba_2_1_format,RGBA8888 lossy 2:1 layout select.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x000c,APB_ADDR_TILE_CFG1,RW,0x00000000,11:0,tile_cfg_pitch,Tile pitch in 16-byte units.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
-ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,0,tile_cfg_ci_input_type,CI input type. Software should write 1 for tiled CI.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
+ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,0,tile_cfg_ci_input_type,"CI input type. 1=tiled data, 0=linear data. Register reset is 0; software should write 1 for the normal tiled UBWC path.","Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,8,tile_cfg_ci_lossy,CI lossy enable.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x0010,APB_ADDR_TILE_CFG2,RW,0x00000000,10:9,tile_cfg_ci_alpha_mode,CI alpha mode.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
-ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000001,0,vivo_ubwc_en,VIVO UBWC path enable.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
+ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000000,0,vivo_ubwc_en,VIVO UBWC path enable. Register reset is 0; software should write 1 before starting decode.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x0014,APB_ADDR_VIVO_CFG,RW,0x00000000,1,vivo_sreset,VIVO soft reset.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_OTF_CFG0,RW,0x00000000,15:0,otf_cfg_img_width,Valid output image width in pixels.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x0018,APB_ADDR_OTF_CFG0,RW,0x00000000,20:16,otf_cfg_format,Output OTF format; also drives meta_base_format.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
@@ -26,34 +26,34 @@ ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_OTF_CFG4,RW,0x00000000,15:0,otf_cfg_v_bp,Ve
 ubwc_dec_apb_reg_blk,0x0028,APB_ADDR_OTF_CFG4,RW,0x00000000,31:16,otf_cfg_v_act,Vertical active height.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG0,RW,0x00000000,15:0,meta_tile_x_numbers,Y/RGBA metadata tile columns; YUV420 UV columns are derived by format.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
 ubwc_dec_apb_reg_blk,0x002c,APB_ADDR_META_CFG0,RW,0x00000000,31:16,meta_tile_y_numbers,Y/RGBA metadata tile rows; YUV420 UV rows are derived internally.,"Configure when image format, size, layout, or timing changes. Reuse when only frame buffer addresses change."
-ubwc_dec_apb_reg_blk,0x0030,REG_META_BASE_Y_LO,RW,0x00000000,31:0,meta_base_addr_rgba_y[31:0],RGBA/Y metadata base address low word.,Per-frame configuration. Low/high words form one 64-bit base address.
-ubwc_dec_apb_reg_blk,0x0034,REG_META_BASE_Y_HI,RW,0x00000000,31:0,meta_base_addr_rgba_y[63:32],RGBA/Y metadata base address high word.,Per-frame configuration. Low/high words complete this base address.
-ubwc_dec_apb_reg_blk,0x0038,REG_TILE_BASE_Y_LO,RW,0x00000000,31:0,tile_base_addr_rgba_y[31:0],RGBA/Y compressed tile data base address low word.,Per-frame configuration. Low/high words form one 64-bit base address.
-ubwc_dec_apb_reg_blk,0x003c,REG_TILE_BASE_Y_HI,RW,0x00000000,31:0,tile_base_addr_rgba_y[63:32],RGBA/Y compressed tile data base address high word.,Per-frame configuration. Low/high words complete this base address.
-ubwc_dec_apb_reg_blk,0x0040,REG_META_BASE_UV_LO,RW,0x00000000,31:0,meta_base_addr_uv[31:0],UV metadata base address low word.,Per-frame configuration. Low/high words form one 64-bit base address.
-ubwc_dec_apb_reg_blk,0x0044,REG_META_BASE_UV_HI,RW,0x00000000,31:0,meta_base_addr_uv[63:32],UV metadata base address high word.,Per-frame configuration. Low/high words complete this base address.
-ubwc_dec_apb_reg_blk,0x0048,REG_TILE_BASE_UV_LO,RW,0x00000000,31:0,tile_base_addr_uv[31:0],UV compressed tile data base address low word. RGBA format does not use this address.,Per-frame configuration. Low/high words form one 64-bit base address.
-ubwc_dec_apb_reg_blk,0x004c,REG_TILE_BASE_UV_HI,RW,0x00000000,31:0,tile_base_addr_uv[63:32],UV compressed tile data base address high word. RGBA format does not use this address.,Per-frame configuration. Low/high words complete this base address.
-ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,dynamic,0,frame_active,Current frame active.,Read-only status or statistic information.
-ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,dynamic,1,meta_busy,Metadata stage busy.,Read during runtime.
-ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,dynamic,2,tile_busy,Tile address/read stage busy.,Read during runtime.
-ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,dynamic,3,vivo_busy,VIVO stage busy.,Read during runtime.
-ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,dynamic,4,otf_busy,Tile-to-OTF stage busy.,Read during runtime.
-ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,dynamic,5,all_stage_idle,No current busy stage.,Read during runtime.
-ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,dynamic,6,frame_idle_done,No busy stage and frame_active=0.,Read during runtime.
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS1,RO,dynamic,4:0,stage_done,"Done bitmap: bit0 meta, bit1 tile address, bit2 reserved, bit3 otf, bit4 frame.",Read during runtime.
-ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS1,RO,dynamic,8:5,stage_seen,Stage-seen-busy bitmap for meta/tile/vivo/otf.,Read-only status or statistic information.
-ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS2,RO,dynamic,0,vivo_idle,VIVO idle status.,Read during runtime.
-ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS3,RO,dynamic,0,vivo_error,VIVO error status.,Read during runtime.
-ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RW,0x00000001,0,irq_enable,Interrupt enable.,Configure after reset or when the interrupt policy changes.
+ubwc_dec_apb_reg_blk,0x0030,REG_META_BASE_Y_LO,RW,0x00000000,31:0,meta_base_addr_rgba_y_31_0,RGBA/Y metadata base address low word.,Per-frame configuration. Low/high words form one 64-bit base address.
+ubwc_dec_apb_reg_blk,0x0034,REG_META_BASE_Y_HI,RW,0x00000000,31:0,meta_base_addr_rgba_y_63_32,RGBA/Y metadata base address high word.,Per-frame configuration. Low/high words complete this base address.
+ubwc_dec_apb_reg_blk,0x0038,REG_TILE_BASE_Y_LO,RW,0x00000000,31:0,tile_base_addr_rgba_y_31_0,RGBA/Y compressed tile data base address low word.,Per-frame configuration. Low/high words form one 64-bit base address.
+ubwc_dec_apb_reg_blk,0x003c,REG_TILE_BASE_Y_HI,RW,0x00000000,31:0,tile_base_addr_rgba_y_63_32,RGBA/Y compressed tile data base address high word.,Per-frame configuration. Low/high words complete this base address.
+ubwc_dec_apb_reg_blk,0x0040,REG_META_BASE_UV_LO,RW,0x00000000,31:0,meta_base_addr_uv_31_0,UV metadata base address low word.,Per-frame configuration. Low/high words form one 64-bit base address.
+ubwc_dec_apb_reg_blk,0x0044,REG_META_BASE_UV_HI,RW,0x00000000,31:0,meta_base_addr_uv_63_32,UV metadata base address high word.,Per-frame configuration. Low/high words complete this base address.
+ubwc_dec_apb_reg_blk,0x0048,REG_TILE_BASE_UV_LO,RW,0x00000000,31:0,tile_base_addr_uv_31_0,UV compressed tile data base address low word. RGBA format does not use this address.,Per-frame configuration. Low/high words form one 64-bit base address.
+ubwc_dec_apb_reg_blk,0x004c,REG_TILE_BASE_UV_HI,RW,0x00000000,31:0,tile_base_addr_uv_63_32,UV compressed tile data base address high word. RGBA format does not use this address.,Per-frame configuration. Low/high words complete this base address.
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,0x00000000,0,frame_active,Current frame active.,Read-only status or statistic information.
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,0x00000000,1,meta_busy,Metadata stage busy.,Read during runtime.
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,0x00000000,2,tile_busy,Tile address/read stage busy.,Read during runtime.
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,0x00000000,3,vivo_busy,VIVO stage busy.,Read during runtime.
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,0x00000000,4,otf_busy,Tile-to-OTF stage busy.,Read during runtime.
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,0x00000000,5,all_stage_idle,No current busy stage.,Read during runtime.
+ubwc_dec_apb_reg_blk,0x0050,APB_ADDR_STATUS0,RO,0x00000000,6,frame_idle_done,No busy stage and frame_active=0.,Read during runtime.
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS1,RO,0x00000000,4:0,stage_done,"Done bitmap: bit0 meta, bit1 tile address, bit2 reserved, bit3 otf, bit4 frame.",Read during runtime.
+ubwc_dec_apb_reg_blk,0x0054,APB_ADDR_STATUS1,RO,0x00000000,8:5,stage_seen,Stage-seen-busy bitmap for meta/tile/vivo/otf.,Read-only status or statistic information.
+ubwc_dec_apb_reg_blk,0x0058,APB_ADDR_STATUS2,RO,0x00000000,0,vivo_idle,VIVO idle status.,Read during runtime.
+ubwc_dec_apb_reg_blk,0x005c,APB_ADDR_STATUS3,RO,0x00000000,0,vivo_error,VIVO error status.,Read during runtime.
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RW,0x00000000,0,irq_enable,Interrupt enable. Register reset is 0; software should write 1 when IRQ output is required.,Configure after reset or when the interrupt policy changes.
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,W1P,0x00000000,1,irq_clear,Write 1 to clear latched correct/error interrupt status.,Write 1 after software handles the interrupt; readback is 0.
-ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,dynamic,2,irq_pending,Any pending interrupt.,Read during runtime or after interrupt handling for status/debug.
-ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,dynamic,3,irq_error_pending,Error interrupt pending.,Read during runtime or after interrupt handling for status/debug.
-ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,dynamic,4,irq_correct_pending,Correct/frame interrupt pending.,Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,0x00000000,2,irq_pending,Any pending interrupt.,Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,0x00000000,3,irq_error_pending,Error interrupt pending.,Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,RO,0x00000000,4,irq_correct_pending,Correct/frame interrupt pending.,Read during runtime or after interrupt handling for status/debug.
 ubwc_dec_apb_reg_blk,0x0060,APB_ADDR_IRQ_CTRL,W1P,0x00000000,5,start,Write 1 after one full input UBWC address group has been configured. Address writes only fill the pending address queues; start is a separate frame token.,Write 1 after the per-frame address group is complete; readback is 0. Address writes do not start a frame by themselves.
-ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_STATUS4,RO,dynamic,2:0,irq_status,"Bit0 any IRQ, bit1 error IRQ, bit2 correct IRQ.",Read during runtime or after interrupt handling for status/debug.
-ubwc_dec_apb_reg_blk,0x0068,APB_ADDR_STAT_META,RO,dynamic,31:0,stat_meta_tile_cnt,Metadata valid tile count for the current/last frame.,Read during runtime or after interrupt handling for status/debug.
-ubwc_dec_apb_reg_blk,0x006c,APB_ADDR_STAT_TILE,RO,dynamic,31:0,stat_tile_addr_cnt,Tile address generator valid tile count.,Read during runtime or after interrupt handling for status/debug.
-ubwc_dec_apb_reg_blk,0x0070,APB_ADDR_STAT_OTF_TILE,RO,dynamic,31:0,stat_otf_tile_cnt,Tile-to-OTF accepted tile count.,Read during runtime or after interrupt handling for status/debug.
-ubwc_dec_apb_reg_blk,0x0074,APB_ADDR_STAT_OTF_LINE,RO,dynamic,31:0,stat_otf_line_cnt,OTF output line count.,Read during runtime or after interrupt handling for status/debug.
-ubwc_dec_apb_reg_blk,0x0078,APB_ADDR_STAT_OTF_DE,RO,dynamic,31:0,stat_otf_de_cnt,OTF output data-enable beat count.,Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x0064,APB_ADDR_STATUS4,RO,0x00000000,2:0,irq_status,"Bit0 any IRQ, bit1 error IRQ, bit2 correct IRQ.",Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x0068,APB_ADDR_STAT_META,RO,0x00000000,31:0,stat_meta_tile_cnt,Metadata valid tile count for the current/last frame.,Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x006c,APB_ADDR_STAT_TILE,RO,0x00000000,31:0,stat_tile_addr_cnt,Tile address generator valid tile count.,Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x0070,APB_ADDR_STAT_OTF_TILE,RO,0x00000000,31:0,stat_otf_tile_cnt,Tile-to-OTF accepted tile count.,Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x0074,APB_ADDR_STAT_OTF_LINE,RO,0x00000000,31:0,stat_otf_line_cnt,OTF output line count.,Read during runtime or after interrupt handling for status/debug.
+ubwc_dec_apb_reg_blk,0x0078,APB_ADDR_STAT_OTF_DE,RO,0x00000000,31:0,stat_otf_de_cnt,OTF output data-enable beat count.,Read during runtime or after interrupt handling for status/debug.

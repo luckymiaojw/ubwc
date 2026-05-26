@@ -158,6 +158,7 @@
     <div class="layout">
       <nav>
         <h2>目录</h2>
+        <a href="#revision">版本变更记录</a>
         <a href="#enc">ENC</a>
         <a class="sub" href="#enc-feature">1. Feature</a>
         <a class="sub" href="#enc-interface">2. Interface</a>
@@ -176,6 +177,27 @@
         <a class="sub" href="#dec-ppa">7. PPA</a>
       </nav>
       <main>
+        <section id="revision">
+          <h2>版本变更记录</h2>
+          <p>后续每次迭代都需要在本表追加一行，记录版本号、日期、影响范围和修改摘要；已有版本记录只追加、不覆盖。若同一轮迭代同时修改 RTL、寄存器、配置工具和文档，需要在同一行中明确列出影响范围。</p>
+          <table>
+            <tr><th>版本</th><th>日期</th><th>影响范围</th><th>修改内容</th><th>文档/验证状态</th></tr>
+            <tr>
+              <td>R0.1-dev</td>
+              <td>2026-05-19</td>
+              <td>ENC reset、AXI wrapper、寄存器、配置工具、系统 spec</td>
+              <td>增加 ENC <code>IRQ_CTRL[6] vsync_reset_en</code>，支持输入 <code>i_otf_vsync</code> 上升沿触发 AXI-drain soft reset 并重新 arm frame start；<code>ubwc_cfg</code>/<code>vrf</code> ENC 配置函数增加 <code>vsync_reset_en</code> 参数；ENC/DEC 对外 <code>AXI_LENW</code> 默认改为 5 bit，支持最大 32 beat；系统 spec 将对外 <code>AXI_IDW</code> 默认值按 5 bit 表达，内部低 4 bit 保留 FCNT/ID 语义。</td>
+              <td>文档已同步；ENC APB 寄存器表已更新；本地 lint/单元检查已完成。</td>
+            </tr>
+            <tr>
+              <td>R0</td>
+              <td>2026-05-19</td>
+              <td>ENC/DEC wrapper、寄存器、系统 spec、回归基线</td>
+              <td>建立 R0 系统级 spec 结构；整理 ENC/DEC Feature、Interface、Register、Diagram、Work Mode、Debug、PPA；完成连续两帧 RGBA8888、NV12、P010/G016 回归记录。</td>
+              <td>R0 release tag：<code>R0</code>；回归记录见文末。</td>
+            </tr>
+          </table>
+        </section>
         <section id="enc">
           <h2>ENC</h2>
           <h3 id="enc-feature">ENC 1. Feature</h3>
@@ -188,7 +210,7 @@
             <tr><td>支持格式</td><td>RGBA8888、RGBA1010102、YUV420_8/NV12、YUV420_10/P010、RGBA8888 lossy 2:1。</td></tr>
             <tr><td>支持像素尺寸</td><td>当前 SRAM/line-buffer 规格按最大有效宽度 4096 px 设计；1440x3200 属于该宽度范围内。实际配置以 OTF width/height 和 layout 计算结果为准。</td></tr>
             <tr><td>SRAM</td><td>当前外部工作 SRAM 为 bank0/bank1 两个同规格 bank，单 bank 64 KiB，两 bank 合计 128 KiB。SRAM 容量主要由最大支持图像宽度决定；图像高度只影响行组处理次数，不增加单 bank 容量；小于或等于 4096 px 宽的 RGBA/YUV420 场景复用同一规格 SRAM。</td></tr>
-            <tr><td>连续帧</td><td>软件每帧写一组 base address 后写 <code>IRQ_CTRL[5]=1</code> 产生 start token；OTF 数据携带 <code>i_otf_fcnt</code>。</td></tr>
+            <tr><td>连续帧</td><td>软件每帧写一组 base address 后写 <code>IRQ_CTRL[5]=1</code> 产生 start token；OTF 数据携带 <code>i_otf_fcnt</code>。若使能 <code>IRQ_CTRL[6]</code>，输入 <code>i_otf_vsync</code> 上升沿会触发 ENC soft reset 并在复位释放后重新 arm frame start。</td></tr>
             <tr><td>地址 slot</td><td>两组地址 slot，硬件按 <code>fcnt[0]</code> 选择 slot0/slot1。</td></tr>
             <tr><td>中断</td><td>正确中断在最后有效输出完成后产生；错误中断用于地址未配置、OTF 行/帧错误、FIFO overflow、VIVO/metadata error。</td></tr>
           </table>
@@ -199,7 +221,7 @@
             <tr><td><code>SB_WIDTH</code></td><td>1</td><td>Sideband width</td></tr>
             <tr><td><code>APB_AW/APB_DW</code></td><td>16 / 32</td><td>APB byte address/data width</td></tr>
             <tr><td><code>APB_BLK_NREG</code></td><td>64</td><td>APB register count</td></tr>
-            <tr><td><code>AXI_AW/AXI_DW/AXI_LENW/AXI_IDW</code></td><td>64 / 64 / 8 / 4</td><td>内部 AXI ID/FCNT 语义宽度为 4 bit；wrapper 对外 AXI ID 端口宽度为 <code>AXI_IDW+1=5 bit</code>。</td></tr>
+            <tr><td><code>AXI_AW/AXI_DW/AXI_LENW/外部AXI_IDW</code></td><td>64 / 64 / 5 / 5</td><td><code>AXI_LENW</code> 对外为 5 bit，支持最大 32 beat；wrapper 对外 AXI ID 端口默认 5 bit；内部有效 FCNT/ID 语义为低 4 bit。</td></tr>
             <tr><td><code>COM_BUF_AW/COM_BUF_DW</code></td><td>12 / 128</td><td>外部 SRAM bank address/data width</td></tr>
           </table>
           <h4>Port</h4>
@@ -240,7 +262,7 @@
             <tr><td>SRAM bank1</td><td><code>o_bank1_din</code></td><td>output</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM write data</td></tr>
             <tr><td>SRAM bank1</td><td><code>i_bank1_dout</code></td><td>input</td><td><code>COM_BUF_DW</code></td><td>Bank1 SRAM read data</td></tr>
             <tr><td>SRAM bank1</td><td><code>i_bank1_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank1 SRAM read data valid</td></tr>
-            <tr><td>AXI AW</td><td><code>o_m_axi_awid</code></td><td>output</td><td><code>AXI_IDW+1</code>，默认 5 bit</td><td>对外 AXI AW ID；内部有效 FCNT/ID 语义为低 4 bit</td></tr>
+            <tr><td>AXI AW</td><td><code>o_m_axi_awid</code></td><td>output</td><td>5 bit</td><td>对外 AXI AW ID；内部有效 FCNT/ID 语义为低 4 bit</td></tr>
             <tr><td>AXI AW</td><td><code>o_m_axi_awaddr</code></td><td>output</td><td><code>AXI_AW</code></td><td>AXI AW address</td></tr>
             <tr><td>AXI AW</td><td><code>o_m_axi_awlen</code></td><td>output</td><td><code>AXI_LENW</code></td><td>AXI AW burst length</td></tr>
             <tr><td>AXI AW</td><td><code>o_m_axi_awsize</code></td><td>output</td><td>3 bit</td><td>AXI AW beat size</td></tr>
@@ -255,7 +277,7 @@
             <tr><td>AXI W</td><td><code>o_m_axi_wvalid</code></td><td>output</td><td>1 bit</td><td>AXI W valid</td></tr>
             <tr><td>AXI W</td><td><code>o_m_axi_wlast</code></td><td>output</td><td>1 bit</td><td>AXI W last beat</td></tr>
             <tr><td>AXI W</td><td><code>i_m_axi_wready</code></td><td>input</td><td>1 bit</td><td>AXI W ready</td></tr>
-            <tr><td>AXI B</td><td><code>i_m_axi_bid</code></td><td>input</td><td><code>AXI_IDW+1</code>，默认 5 bit</td><td>对外 AXI B ID；低 4 bit 对应内部 FCNT/ID 语义</td></tr>
+            <tr><td>AXI B</td><td><code>i_m_axi_bid</code></td><td>input</td><td>5 bit</td><td>对外 AXI B ID；低 4 bit 对应内部 FCNT/ID 语义</td></tr>
             <tr><td>AXI B</td><td><code>i_m_axi_bresp</code></td><td>input</td><td>2 bit</td><td>AXI B response</td></tr>
             <tr><td>AXI B</td><td><code>i_m_axi_bvalid</code></td><td>input</td><td>1 bit</td><td>AXI B valid</td></tr>
             <tr><td>AXI B</td><td><code>o_m_axi_bready</code></td><td>output</td><td>1 bit</td><td>AXI B ready</td></tr>
@@ -271,29 +293,29 @@
             <tr><td><code>0x0000</code></td><td><code>REG_VERSION</code></td><td>RO</td><td><code>0x00010000</code></td><td><code>[31:0]</code></td><td><code>version</code></td><td>IP version，上电后读一次确认软件/RTL 兼容性。</td></tr>
             <tr><td><code>0x0004</code></td><td><code>REG_DATE</code></td><td>RO</td><td><code>0x20260406</code></td><td><code>[31:0]</code></td><td><code>date</code></td><td>RTL date，上电后读一次。</td></tr>
             <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>enc_ubwc_en</code></td><td>ENC UBWC enable；格式/尺寸/layout 变化时配置。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>Level-1 bank swizzle enable。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[2]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>Level-2 bank swizzle enable。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[3]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>Level-3 bank swizzle enable。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[12:8]</code></td><td><code>highest_bank_bit</code></td><td>Highest bank bit。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[16]</code></td><td><code>bank_spread_en</code></td><td>Bank spread enable。</td></tr>
-            <tr><td><code>0x000c</code></td><td><code>REG_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>four_line_format</code></td><td>4-line format select；RGBA 通常写 1，YUV420 写 0。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>Level-1 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[2]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>Level-2 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[3]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>Level-3 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[12:8]</code></td><td><code>highest_bank_bit</code></td><td>highest bank bit 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>REG_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[16]</code></td><td><code>bank_spread_en</code></td><td>bank spread 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x000c</code></td><td><code>REG_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>four_line_format</code></td><td>不同图像格式配置：RGBA/RGBA10 写 1；YUV420/NV12/P010 写 0。</td></tr>
             <tr><td><code>0x000c</code></td><td><code>REG_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>is_lossy_rgba_2_1_format</code></td><td>RGBA 2:1 lossy format select。</td></tr>
             <tr><td><code>0x000c</code></td><td><code>REG_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[26:16]</code></td><td><code>tile_pitch</code></td><td>Compressed tile pitch，单位为 16 bytes。</td></tr>
-            <tr><td><code>0x0010</code></td><td><code>REG_ENC_CI_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>enc_ci_input_type</code></td><td>CI input type；当前软件通常写 1。</td></tr>
-            <tr><td><code>0x0010</code></td><td><code>REG_ENC_CI_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[10:8]</code></td><td><code>enc_ci_alen</code></td><td>CI ALEN；当前软件通常写 7。</td></tr>
-            <tr><td><code>0x0014</code></td><td><code>REG_ENC_CI_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[16]</code></td><td><code>enc_ci_lossy</code></td><td>CI lossy enable。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[2:0]</code></td><td><code>cfg0</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[5:3]</code></td><td><code>cfg1</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[9:6]</code></td><td><code>cfg2</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[13:10]</code></td><td><code>cfg3</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[17:14]</code></td><td><code>cfg4</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[21:18]</code></td><td><code>cfg5</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[23:22]</code></td><td><code>cfg6</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[25:24]</code></td><td><code>cfg7</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[27:26]</code></td><td><code>cfg8</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[30:28]</code></td><td><code>cfg9</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x001c</code></td><td><code>REG_ENC_CI_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[5:0]</code></td><td><code>cfg10</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
-            <tr><td><code>0x001c</code></td><td><code>REG_ENC_CI_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[13:8]</code></td><td><code>cfg11</code></td><td>保留 UBWC CI configuration；当前软件写 0。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>REG_ENC_CI_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>enc_ci_input_type</code></td><td>CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>REG_ENC_CI_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[10:8]</code></td><td><code>enc_ci_alen</code></td><td>CI alen 配置；寄存器复位值为 0，普通 VIVO_ENC 配置软件应写 7。</td></tr>
+            <tr><td><code>0x0014</code></td><td><code>REG_ENC_CI_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[16]</code></td><td><code>enc_ci_lossy</code></td><td>lossy 模式使能。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[2:0]</code></td><td><code>cfg0</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[5:3]</code></td><td><code>cfg1</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[9:6]</code></td><td><code>cfg2</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[13:10]</code></td><td><code>cfg3</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[17:14]</code></td><td><code>cfg4</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[21:18]</code></td><td><code>cfg5</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[23:22]</code></td><td><code>cfg6</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[25:24]</code></td><td><code>cfg7</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[27:26]</code></td><td><code>cfg8</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x0018</code></td><td><code>REG_ENC_CI_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[30:28]</code></td><td><code>cfg9</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x001c</code></td><td><code>REG_ENC_CI_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[5:0]</code></td><td><code>cfg10</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
+            <tr><td><code>0x001c</code></td><td><code>REG_ENC_CI_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[13:8]</code></td><td><code>cfg11</code></td><td>VIVO_ENC 模块使用，默认写 0；除非 VIVO_ENC 集成规格明确要求，否则软件保持 0。</td></tr>
             <tr><td><code>0x0020</code></td><td><code>REG_OTF_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[2:0]</code></td><td><code>otf_cfg_format</code></td><td>输入格式：0 RGBA8888，1 RGBA1010102，2 NV12，3 P010。</td></tr>
             <tr><td><code>0x0024</code></td><td><code>REG_OTF_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_width</code></td><td>输入 active width。</td></tr>
             <tr><td><code>0x0024</code></td><td><code>REG_OTF_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>otf_cfg_height</code></td><td>输入 active height。</td></tr>
@@ -321,18 +343,19 @@
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>Metadata co-buffer overflow。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>Metadata tile order error。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[8]</code></td><td><code>frame_done</code></td><td>Frame done。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>当前帧地址 slot 无效。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 <code>fcnt[0]</code> 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 <code>active_addr_cfg_valid</code> 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 <code>fcnt[0]</code> 对齐后，再写 <code>REG_IRQ_CTRL[1] irq_clear</code> 清 sticky 状态；关闭 <code>enc_ubwc_en</code> 或硬复位也会清零。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[10]</code></td><td><code>addr_cfg_valid0</code></td><td>Address slot0 valid。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[11]</code></td><td><code>addr_cfg_valid1</code></td><td>Address slot1 valid。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[12]</code></td><td><code>addr_cfg_overflow</code></td><td>Address slot FIFO overflow sticky。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[13]</code></td><td><code>rst_drain_timeout</code></td><td>AXI drain timeout during soft reset。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[12]</code></td><td><code>addr_cfg_overflow</code></td><td>地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 <code>REG_TILE_BASE_UV_HI</code> 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 <code>REG_IRQ_CTRL[1] irq_clear</code> 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 <code>enc_ubwc_en</code> 后重新配置。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[13]</code></td><td><code>rst_drain_timeout</code></td><td>软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 <code>16'hffff</code> 个 <code>i_axi_clk</code> 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 <code>REG_IRQ_CTRL[1] irq_clear</code> 或硬复位后清零。</td></tr>
             <tr><td><code>0x005c</code></td><td><code>REG_STATUS1</code></td><td>RO</td><td>dynamic</td><td><code>[7:0]</code></td><td><code>stage_done</code></td><td>ENC stage done bitmap。</td></tr>
-            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RW</td><td><code>1</code></td><td><code>[0]</code></td><td><code>irq_enable</code></td><td>IRQ enable。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>irq_enable</code></td><td>中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[1]</code></td><td><code>irq_clear</code></td><td>写 1 清 pending/status sticky。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_pending</code></td><td>Any IRQ pending。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[3]</code></td><td><code>irq_correct_pending</code></td><td>Correct IRQ pending。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[4]</code></td><td><code>irq_error_pending</code></td><td>Error IRQ pending。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[5]</code></td><td><code>start</code></td><td>写 1 产生 frame start token。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RW</td><td><code>0</code></td><td><code>[6]</code></td><td><code>vsync_reset_en</code></td><td>置 1 后，ENC 输入 <code>i_otf_vsync</code> 上升沿通过 AXI-drain reset sequencer 触发整条 ENC 链路 soft reset，并在复位释放后重新 arm frame start。</td></tr>
             <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>irq_status_any</code></td><td>Any IRQ mirror。</td></tr>
             <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[1]</code></td><td><code>irq_status_correct</code></td><td>Correct IRQ mirror。</td></tr>
             <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_status_error</code></td><td>Error IRQ mirror。</td></tr>
@@ -374,11 +397,11 @@
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
             <tr><td><code>[0]</code></td><td><code>enc_ubwc_en</code></td><td>RW</td><td>0</td><td>ENC UBWC enable。</td></tr>
-            <tr><td><code>[1]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-1 bank swizzle enable。</td></tr>
-            <tr><td><code>[2]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-2 bank swizzle enable。</td></tr>
-            <tr><td><code>[3]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-3 bank swizzle enable。</td></tr>
-            <tr><td><code>[12:8]</code></td><td><code>highest_bank_bit</code></td><td>RW</td><td>0</td><td>Highest bank bit。</td></tr>
-            <tr><td><code>[16]</code></td><td><code>bank_spread_en</code></td><td>RW</td><td>0</td><td>Bank spread enable。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-1 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-2 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[3]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-3 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[12:8]</code></td><td><code>highest_bank_bit</code></td><td>RW</td><td>0</td><td>highest bank bit 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[16]</code></td><td><code>bank_spread_en</code></td><td>RW</td><td>0</td><td>bank spread 配置和 AP 配置同步。</td></tr>
           </table>
           <div class="note">计算说明：这些字段来自系统 memory layout/bank swizzle 策略，不随每帧地址变化；图像格式、尺寸或 layout 策略变化时重新配置。</div>
 
@@ -386,7 +409,7 @@
           <p><strong>寄存器：</strong><code>REG_TILE_CFG1</code>；<strong>地址：</strong><code>0x000c</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[0]</code></td><td><code>four_line_format</code></td><td>RW</td><td>0</td><td>4-line format select。</td></tr>
+            <tr><td><code>[0]</code></td><td><code>four_line_format</code></td><td>RW</td><td>0</td><td>不同图像格式配置：RGBA/RGBA10 写 1；YUV420/NV12/P010 写 0。</td></tr>
             <tr><td><code>[1]</code></td><td><code>is_lossy_rgba_2_1_format</code></td><td>RW</td><td>0</td><td>RGBA 2:1 lossy format select。</td></tr>
             <tr><td><code>[26:16]</code></td><td><code>tile_pitch</code></td><td>RW</td><td>0</td><td>Compressed tile pitch，单位为 16 bytes。</td></tr>
           </table>
@@ -396,16 +419,16 @@
           <p><strong>寄存器：</strong><code>REG_ENC_CI_CFG0</code>；<strong>地址：</strong><code>0x0010</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[0]</code></td><td><code>enc_ci_input_type</code></td><td>RW</td><td>0</td><td>CI input type。</td></tr>
-            <tr><td><code>[10:8]</code></td><td><code>enc_ci_alen</code></td><td>RW</td><td>0</td><td>CI ALEN。</td></tr>
+            <tr><td><code>[0]</code></td><td><code>enc_ci_input_type</code></td><td>RW</td><td>0</td><td>CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。</td></tr>
+            <tr><td><code>[10:8]</code></td><td><code>enc_ci_alen</code></td><td>RW</td><td>0</td><td>CI alen 配置；寄存器复位值为 0，普通 VIVO_ENC 配置软件应写 7。</td></tr>
           </table>
-          <div class="note">计算说明：由 CI 协议配置决定，当前 helper 默认使用 <code>input_type=1</code>、<code>alen=7</code>。</div>
+          <div class="note">计算说明：<code>REG_ENC_CI_CFG0</code> 复位值为 <code>0x0000_0000</code>；普通 tiled UBWC 场景软件应写 <code>input_type=1</code>、<code>alen=7</code>。</div>
 
           <h5>3.6 ENC CI CFG1</h5>
           <p><strong>寄存器：</strong><code>REG_ENC_CI_CFG1</code>；<strong>地址：</strong><code>0x0014</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[16]</code></td><td><code>enc_ci_lossy</code></td><td>RW</td><td>0</td><td>CI lossy enable。</td></tr>
+            <tr><td><code>[16]</code></td><td><code>enc_ci_lossy</code></td><td>RW</td><td>0</td><td>lossy 模式使能。</td></tr>
           </table>
           <div class="note">计算说明：与压缩策略一致；lossless 场景写 0，启用对应 lossy 策略时写 1。</div>
 
@@ -556,13 +579,13 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>RO</td><td>dynamic</td><td>Metadata co-buffer overflow。</td></tr>
             <tr><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>RO</td><td>dynamic</td><td>Metadata tile order error。</td></tr>
             <tr><td><code>[8]</code></td><td><code>frame_done</code></td><td>RO</td><td>dynamic</td><td>Frame done。</td></tr>
-            <tr><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>RO</td><td>dynamic</td><td>当前帧地址 slot 无效。</td></tr>
+            <tr><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>RO</td><td>dynamic</td><td>当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 <code>fcnt[0]</code> 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 <code>active_addr_cfg_valid</code> 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 <code>fcnt[0]</code> 对齐后，再写 <code>REG_IRQ_CTRL[1] irq_clear</code> 清 sticky 状态；关闭 <code>enc_ubwc_en</code> 或硬复位也会清零。</td></tr>
             <tr><td><code>[10]</code></td><td><code>addr_cfg_valid0</code></td><td>RO</td><td>dynamic</td><td>Address slot0 valid。</td></tr>
             <tr><td><code>[11]</code></td><td><code>addr_cfg_valid1</code></td><td>RO</td><td>dynamic</td><td>Address slot1 valid。</td></tr>
-            <tr><td><code>[12]</code></td><td><code>addr_cfg_overflow</code></td><td>RO</td><td>dynamic</td><td>Address slot FIFO overflow sticky。</td></tr>
-            <tr><td><code>[13]</code></td><td><code>rst_drain_timeout</code></td><td>RO</td><td>dynamic</td><td>AXI drain timeout during soft reset。</td></tr>
+            <tr><td><code>[12]</code></td><td><code>addr_cfg_overflow</code></td><td>RO</td><td>dynamic</td><td>地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 <code>REG_TILE_BASE_UV_HI</code> 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 <code>REG_IRQ_CTRL[1] irq_clear</code> 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 <code>enc_ubwc_en</code> 后重新配置。</td></tr>
+            <tr><td><code>[13]</code></td><td><code>rst_drain_timeout</code></td><td>RO</td><td>dynamic</td><td>软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 <code>16'hffff</code> 个 <code>i_axi_clk</code> 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 <code>REG_IRQ_CTRL[1] irq_clear</code> 或硬复位后清零。</td></tr>
           </table>
-          <div class="note">计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源和 OTF 输入异常。</div>
+          <div class="note">计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源、OTF 输入异常和软复位 drain 是否异常。<code>addr_cfg_invalid=1</code> 表示当前要处理的帧已经到达，但 <code>fcnt[0]</code> 对应 slot 没有可用地址配置；软件应补齐地址组并确认帧号/slot 与 buffer 队列没有错位。<code>addr_cfg_overflow=1</code> 表示软件提交地址组的速度超过硬件消耗地址组的速度，至少有一次地址组 commit 被拒绝进入 FIFO；软件需要重新确认 buffer 队列和硬件地址队列的对应关系。<code>rst_drain_timeout=1</code> 表示本次软复位没有正常等到 AXI 写通路排空，复位 sequencer 已按超时路径继续进入 reset hold；软件应检查外部 AXI slave/interconnect 是否长时间不返回 ready/response，或是否在复位窗口仍有上游数据持续触发写请求。</div>
 
           <h5>3.17 Status1</h5>
           <p><strong>寄存器：</strong><code>REG_STATUS1</code>；<strong>地址：</strong><code>0x005c</code></p>
@@ -576,14 +599,15 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_IRQ_CTRL</code>；<strong>地址：</strong><code>0x0060</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[0]</code></td><td><code>irq_enable</code></td><td>RW</td><td>1</td><td>IRQ enable。</td></tr>
+            <tr><td><code>[0]</code></td><td><code>irq_enable</code></td><td>RW</td><td>0</td><td>中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。</td></tr>
             <tr><td><code>[1]</code></td><td><code>irq_clear</code></td><td>W1P</td><td>0</td><td>写 1 清 pending/status sticky。</td></tr>
             <tr><td><code>[2]</code></td><td><code>irq_pending</code></td><td>RO</td><td>dynamic</td><td>Any IRQ pending。</td></tr>
             <tr><td><code>[3]</code></td><td><code>irq_correct_pending</code></td><td>RO</td><td>dynamic</td><td>Correct IRQ pending。</td></tr>
             <tr><td><code>[4]</code></td><td><code>irq_error_pending</code></td><td>RO</td><td>dynamic</td><td>Error IRQ pending。</td></tr>
             <tr><td><code>[5]</code></td><td><code>start</code></td><td>W1P</td><td>0</td><td>写 1 产生 frame start token。</td></tr>
+            <tr><td><code>[6]</code></td><td><code>vsync_reset_en</code></td><td>RW</td><td>0</td><td>置 1 后，输入 <code>i_otf_vsync</code> 上升沿触发 ENC soft reset；复位前会等待 AXI write drain，复位释放后重新 arm frame start。</td></tr>
           </table>
-          <div class="note">计算说明：每帧地址配置完成后写 <code>REG_IRQ_CTRL[5]=1</code> 启动；中断处理完成后写 <code>REG_IRQ_CTRL[1]=1</code> 清除。</div>
+          <div class="note">计算说明：每帧地址配置完成后写 <code>REG_IRQ_CTRL[5]=1</code> 启动；中断处理完成后写 <code>REG_IRQ_CTRL[1]=1</code> 清除。<code>REG_IRQ_CTRL[6]</code> 是可选自动复位模式，适合希望每个输入 VSYNC 重新初始化 ENC 内部流水的系统；软件必须在 VSYNC 到来前保证本帧地址 slot 已配置。</div>
 
           <h5>3.19 Status2</h5>
           <p><strong>寄存器：</strong><code>REG_STATUS2</code>；<strong>地址：</strong><code>0x0064</code></p>
@@ -722,8 +746,8 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <pre><code>1. 读取 REG_VERSION / REG_DATE。
 2. 图像格式、尺寸或 layout 变化时，配置 TILE_CFG、CI_CFG、OTF_CFG、META_ACTIVE_SIZE、META_PITCH。
 3. 每个输出 buffer 到来时，写 META_Y、TILE_Y、META_UV、TILE_UV 四个 64-bit base address。
-4. 写 REG_IRQ_CTRL[5]=1 产生 start token。
-5. 上游按 i_otf_fcnt 输入 OTF frame。
+4. 写 REG_IRQ_CTRL[5]=1 产生 start token；如果需要 VSYNC 自动复位模式，可在初始化时置 REG_IRQ_CTRL[6]=1。
+5. 上游按 i_otf_fcnt 输入 OTF frame；在 REG_IRQ_CTRL[6]=1 时，i_otf_vsync 上升沿会先触发 soft reset，再由 reset sequencer 重新 arm frame start。
 6. 硬件按 fcnt[0] 选择地址 slot，并写出 compressed tile 和 metadata。
 7. 软件读 STATUS/COUNT 处理状态，写 REG_IRQ_CTRL[1]=1 清中断。</code></pre>
 
@@ -760,7 +784,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td>SRAM</td><td>当前外部工作 SRAM 为 bank0/bank1 两个同规格 bank，单 bank 64 KiB，两 bank 合计 128 KiB。SRAM 容量主要由最大支持图像宽度决定；图像高度只影响行组处理次数，不增加单 bank 容量；小于或等于 4096 px 宽的 RGBA/YUV420 场景复用同一规格 SRAM。</td></tr>
             <tr><td>连续帧</td><td>软件每帧写一组 input UBWC base address 后写 <code>IRQ_CTRL[5]=1</code>。</td></tr>
             <tr><td>地址 slot</td><td>两组地址 slot，start 后递增/锁存 frame count，按 <code>fcnt[0]</code> 选择 slot。</td></tr>
-            <tr><td>VIVO 状态</td><td><code>STATUS2[0]</code> 为模块级 <code>vivo_idle</code>，<code>STATUS3[0]</code> 为模块级 <code>vivo_error</code>；当前只暴露 1 bit 聚合状态，不再暴露多路子状态。</td></tr>
+            <tr><td>VIVO 状态</td><td><code>STATUS2[0]</code> 为 1 bit <code>vivo_idle</code>；<code>STATUS3[6:0]</code> 为 7 bit <code>vivo_error</code> bitmap。</td></tr>
             <tr><td>中断</td><td>正确中断在最后有效输出数据完成后产生；错误中断用于 AXI/VIVO/OTF/地址异常。</td></tr>
           </table>
           <h3 id="dec-interface">DEC 2. Interface</h3>
@@ -768,7 +792,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <table>
             <tr><th>参数</th><th>默认值</th><th>说明</th></tr>
             <tr><td><code>APB_AW/APB_DW</code></td><td>16 / 32</td><td>APB byte address/data width</td></tr>
-            <tr><td><code>AXI_AW/AXI_DW/AXI_IDW/AXI_LENW</code></td><td>64 / 64 / 4 / 8</td><td>内部 AXI ID/FCNT 语义宽度为 4 bit；wrapper 对外 AXI ID 端口宽度为 <code>AXI_IDW+1=5 bit</code>。</td></tr>
+            <tr><td><code>AXI_AW/AXI_DW/外部AXI_IDW/AXI_LENW</code></td><td>64 / 64 / 5 / 5</td><td><code>AXI_LENW</code> 对外为 5 bit，支持最大 32 beat；wrapper 对外 AXI ID 端口默认 5 bit；内部有效 FCNT/ID 语义为低 4 bit。</td></tr>
             <tr><td><code>SB_WIDTH</code></td><td>1</td><td>Sideband width</td></tr>
             <tr><td><code>COM_BUF_AW/COM_BUF_DW</code></td><td>12 / 128</td><td>外部 SRAM bank address/data width</td></tr>
             <tr><td><code>FORCE_FULL_PAYLOAD</code></td><td>0</td><td>验证/兼容配置</td></tr>
@@ -811,7 +835,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td>SRAM bank1</td><td><code>i_bank1_dout_vld</code></td><td>input</td><td>1 bit</td><td>Bank1 SRAM read data valid</td></tr>
             <tr><td>AXI clock/reset</td><td><code>i_axi_clk</code></td><td>input</td><td>1 bit</td><td>AXI read master clock</td></tr>
             <tr><td>AXI clock/reset</td><td><code>i_axi_rstn</code></td><td>input</td><td>1 bit</td><td><code>i_axi_clk</code> domain synchronous reset, active low</td></tr>
-            <tr><td>AXI AR</td><td><code>o_m_axi_arid</code></td><td>output</td><td><code>AXI_IDW+1</code>，默认 5 bit</td><td>对外 AXI AR ID；内部有效 FCNT/ID 语义为低 4 bit</td></tr>
+            <tr><td>AXI AR</td><td><code>o_m_axi_arid</code></td><td>output</td><td>5 bit</td><td>对外 AXI AR ID；内部有效 FCNT/ID 语义为低 4 bit</td></tr>
             <tr><td>AXI AR</td><td><code>o_m_axi_araddr</code></td><td>output</td><td><code>AXI_AW</code></td><td>AXI AR address</td></tr>
             <tr><td>AXI AR</td><td><code>o_m_axi_arlen</code></td><td>output</td><td><code>AXI_LENW</code></td><td>AXI AR burst length</td></tr>
             <tr><td>AXI AR</td><td><code>o_m_axi_arsize</code></td><td>output</td><td>4 bit</td><td>AXI AR beat size</td></tr>
@@ -821,7 +845,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td>AXI AR</td><td><code>o_m_axi_arprot</code></td><td>output</td><td>3 bit</td><td>AXI AR protection attribute</td></tr>
             <tr><td>AXI AR</td><td><code>o_m_axi_arvalid</code></td><td>output</td><td>1 bit</td><td>AXI AR valid</td></tr>
             <tr><td>AXI AR</td><td><code>i_m_axi_arready</code></td><td>input</td><td>1 bit</td><td>AXI AR ready</td></tr>
-            <tr><td>AXI R</td><td><code>i_m_axi_rid</code></td><td>input</td><td><code>AXI_IDW+1</code>，默认 5 bit</td><td>对外 AXI R ID；低 4 bit 对应内部 FCNT/ID 语义</td></tr>
+            <tr><td>AXI R</td><td><code>i_m_axi_rid</code></td><td>input</td><td>5 bit</td><td>对外 AXI R ID；低 4 bit 对应内部 FCNT/ID 语义</td></tr>
             <tr><td>AXI R</td><td><code>i_m_axi_rdata</code></td><td>input</td><td><code>AXI_DW</code></td><td>AXI R data</td></tr>
             <tr><td>AXI R</td><td><code>i_m_axi_rvalid</code></td><td>input</td><td>1 bit</td><td>AXI R valid</td></tr>
             <tr><td>AXI R</td><td><code>i_m_axi_rresp</code></td><td>input</td><td>2 bit</td><td>AXI R response</td></tr>
@@ -838,18 +862,18 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><th>Offset</th><th>Register</th><th>Access</th><th>Reset</th><th>Bit</th><th>Field</th><th>概要</th></tr>
             <tr><td><code>0x0000</code></td><td><code>REG_VERSION</code></td><td>RO</td><td><code>0x00010000</code></td><td><code>[31:0]</code></td><td><code>version</code></td><td>IP version，上电后读一次。</td></tr>
             <tr><td><code>0x0004</code></td><td><code>REG_DATE</code></td><td>RO</td><td><code>0x20260403</code></td><td><code>[31:0]</code></td><td><code>date</code></td><td>RTL date，上电后读一次。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>Level-1 bank swizzle enable。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>Level-2 bank swizzle enable。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[2]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>Level-3 bank swizzle enable。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[8:4]</code></td><td><code>highest_bank_bit</code></td><td>Highest bank bit。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[9]</code></td><td><code>bank_spread_en</code></td><td>Bank spread enable。</td></tr>
-            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[10]</code></td><td><code>four_line_format</code></td><td>4-line format select。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>Level-1 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>Level-2 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[2]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>Level-3 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[8:4]</code></td><td><code>highest_bank_bit</code></td><td>highest bank bit 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[9]</code></td><td><code>bank_spread_en</code></td><td>bank spread 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[10]</code></td><td><code>four_line_format</code></td><td>不同图像格式配置：RGBA/RGBA10 写 1；YUV420/NV12/P010 写 0。</td></tr>
             <tr><td><code>0x0008</code></td><td><code>APB_ADDR_TILE_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[11]</code></td><td><code>is_lossy_rgba_2_1_format</code></td><td>RGBA 2:1 lossy format select。</td></tr>
             <tr><td><code>0x000c</code></td><td><code>APB_ADDR_TILE_CFG1</code></td><td>RW</td><td><code>0</code></td><td><code>[11:0]</code></td><td><code>tile_cfg_pitch</code></td><td>tile pitch，单位为 16 bytes。</td></tr>
-            <tr><td><code>0x0010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>ci_input_type</code></td><td>CI input type；当前软件通常写 1。</td></tr>
-            <tr><td><code>0x0010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[8]</code></td><td><code>ci_lossy</code></td><td>CI lossy enable。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>ci_input_type</code></td><td>CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。</td></tr>
+            <tr><td><code>0x0010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[8]</code></td><td><code>ci_lossy</code></td><td>lossy 模式使能。</td></tr>
             <tr><td><code>0x0010</code></td><td><code>APB_ADDR_TILE_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[10:9]</code></td><td><code>ci_alpha_mode</code></td><td>CI alpha mode。</td></tr>
-            <tr><td><code>0x0014</code></td><td><code>APB_ADDR_VIVO_CFG</code></td><td>RW</td><td><code>1</code></td><td><code>[0]</code></td><td><code>vivo_ubwc_en</code></td><td>VIVO UBWC enable。</td></tr>
+            <tr><td><code>0x0014</code></td><td><code>APB_ADDR_VIVO_CFG</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>vivo_ubwc_en</code></td><td>VIVO UBWC path 使能；寄存器复位值为 0，启动 decode 前软件应配置为 1。</td></tr>
             <tr><td><code>0x0014</code></td><td><code>APB_ADDR_VIVO_CFG</code></td><td>RW</td><td><code>0</code></td><td><code>[1]</code></td><td><code>vivo_sreset</code></td><td>VIVO soft reset。</td></tr>
             <tr><td><code>0x0018</code></td><td><code>APB_ADDR_OTF_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_img_width</code></td><td>输出 active width。</td></tr>
             <tr><td><code>0x0018</code></td><td><code>APB_ADDR_OTF_CFG0</code></td><td>RW</td><td><code>0</code></td><td><code>[20:16]</code></td><td><code>otf_cfg_format</code></td><td>输出 OTF format。</td></tr>
@@ -881,8 +905,8 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td><code>0x0054</code></td><td><code>APB_ADDR_STATUS1</code></td><td>RO</td><td>dynamic</td><td><code>[4:0]</code></td><td><code>stage_done</code></td><td>DEC stage done bitmap。</td></tr>
             <tr><td><code>0x0054</code></td><td><code>APB_ADDR_STATUS1</code></td><td>RO</td><td>dynamic</td><td><code>[8:5]</code></td><td><code>stage_seen</code></td><td>Stage entered busy bitmap。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>APB_ADDR_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>vivo_idle</code></td><td>VIVO idle 状态。</td></tr>
-            <tr><td><code>0x005c</code></td><td><code>APB_ADDR_STATUS3</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>vivo_error</code></td><td>VIVO error 状态。</td></tr>
-            <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RW</td><td><code>1</code></td><td><code>[0]</code></td><td><code>irq_enable</code></td><td>IRQ enable。</td></tr>
+            <tr><td><code>0x005c</code></td><td><code>APB_ADDR_STATUS3</code></td><td>RO</td><td>dynamic</td><td><code>[6:0]</code></td><td><code>vivo_error</code></td><td>VIVO error bitmap。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>irq_enable</code></td><td>中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[1]</code></td><td><code>irq_clear</code></td><td>写 1 清 pending/status sticky。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_pending</code></td><td>Any IRQ pending。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>APB_ADDR_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[3]</code></td><td><code>irq_error_pending</code></td><td>Error IRQ pending。</td></tr>
@@ -916,12 +940,12 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <h5><code>0x0008 APB_ADDR_TILE_CFG0</code></h5>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[0]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-1 bank swizzle enable。</td></tr>
-            <tr><td><code>[1]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-2 bank swizzle enable。</td></tr>
-            <tr><td><code>[2]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-3 bank swizzle enable。</td></tr>
-            <tr><td><code>[8:4]</code></td><td><code>highest_bank_bit</code></td><td>RW</td><td>0</td><td>Highest bank bit。</td></tr>
-            <tr><td><code>[9]</code></td><td><code>bank_spread_en</code></td><td>RW</td><td>0</td><td>Bank spread enable。</td></tr>
-            <tr><td><code>[10]</code></td><td><code>four_line_format</code></td><td>RW</td><td>0</td><td>4-line format select。</td></tr>
+            <tr><td><code>[0]</code></td><td><code>lvl1_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-1 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[1]</code></td><td><code>lvl2_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-2 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[2]</code></td><td><code>lvl3_bank_swizzle_en</code></td><td>RW</td><td>0</td><td>Level-3 bank swizzle 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[8:4]</code></td><td><code>highest_bank_bit</code></td><td>RW</td><td>0</td><td>highest bank bit 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[9]</code></td><td><code>bank_spread_en</code></td><td>RW</td><td>0</td><td>bank spread 配置和 AP 配置同步。</td></tr>
+            <tr><td><code>[10]</code></td><td><code>four_line_format</code></td><td>RW</td><td>0</td><td>不同图像格式配置：RGBA/RGBA10 写 1；YUV420/NV12/P010 写 0。</td></tr>
             <tr><td><code>[11]</code></td><td><code>is_lossy_rgba_2_1_format</code></td><td>RW</td><td>0</td><td>RGBA 2:1 lossy format select。</td></tr>
           </table>
           <div class="note">计算说明：bank/swizzle 字段来自系统 memory layout 策略；<code>four_line_format</code> 和 lossy 字段来自图像格式/压缩策略。格式、尺寸或 layout 变化时重新配置。</div>
@@ -936,16 +960,16 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <h5><code>0x0010 APB_ADDR_TILE_CFG2</code></h5>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[0]</code></td><td><code>ci_input_type</code></td><td>RW</td><td>0</td><td>CI input type。</td></tr>
-            <tr><td><code>[8]</code></td><td><code>ci_lossy</code></td><td>RW</td><td>0</td><td>CI lossy enable。</td></tr>
+            <tr><td><code>[0]</code></td><td><code>ci_input_type</code></td><td>RW</td><td>0</td><td>CI input type 配置；1=tiled data，0=linear data；寄存器复位值为 0，普通 tiled UBWC 路径软件应配置为 1。</td></tr>
+            <tr><td><code>[8]</code></td><td><code>ci_lossy</code></td><td>RW</td><td>0</td><td>lossy 模式使能。</td></tr>
             <tr><td><code>[10:9]</code></td><td><code>ci_alpha_mode</code></td><td>RW</td><td>0</td><td>CI alpha mode。</td></tr>
           </table>
-          <div class="note">计算说明：由 CI 解码策略决定；当前软件通常配置 <code>ci_input_type=1</code>，其他字段按格式/压缩策略配置。</div>
+          <div class="note">计算说明：<code>APB_ADDR_TILE_CFG2[0]</code> 复位值为 0；普通 tiled UBWC 场景软件应写 1，其他字段按格式/压缩策略配置。</div>
 
           <h5><code>0x0014 APB_ADDR_VIVO_CFG</code></h5>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[0]</code></td><td><code>vivo_ubwc_en</code></td><td>RW</td><td>1</td><td>VIVO UBWC enable。</td></tr>
+            <tr><td><code>[0]</code></td><td><code>vivo_ubwc_en</code></td><td>RW</td><td>0</td><td>VIVO UBWC path 使能；寄存器复位值为 0，启动 decode 前软件应配置为 1。</td></tr>
             <tr><td><code>[1]</code></td><td><code>vivo_sreset</code></td><td>RW</td><td>0</td><td>VIVO soft reset。</td></tr>
           </table>
           <div class="note">计算说明：上电后或 VIVO reset 策略变化时配置；正常连续帧模式下不需要每帧改写。</div>
@@ -1057,14 +1081,14 @@ REG_TILE_BASE_UV_HI = tile_uv_base[63:32]</code></pre>
           <h5><code>0x005c APB_ADDR_STATUS3</code></h5>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[0]</code></td><td><code>vivo_error</code></td><td>RO</td><td>dynamic</td><td>VIVO error 状态。</td></tr>
+            <tr><td><code>[6:0]</code></td><td><code>vivo_error</code></td><td>RO</td><td>dynamic</td><td>VIVO error bitmap。</td></tr>
           </table>
           <div class="note">计算说明：VIVO 子模块错误输出映射，无软件计算。</div>
 
           <h5><code>0x0060 APB_ADDR_IRQ_CTRL</code></h5>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[0]</code></td><td><code>irq_enable</code></td><td>RW</td><td>1</td><td>IRQ enable。</td></tr>
+            <tr><td><code>[0]</code></td><td><code>irq_enable</code></td><td>RW</td><td>0</td><td>中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。</td></tr>
             <tr><td><code>[1]</code></td><td><code>irq_clear</code></td><td>W1P</td><td>0</td><td>写 1 清 pending/status sticky。</td></tr>
             <tr><td><code>[2]</code></td><td><code>irq_pending</code></td><td>RO</td><td>dynamic</td><td>Any IRQ pending。</td></tr>
             <tr><td><code>[3]</code></td><td><code>irq_error_pending</code></td><td>RO</td><td>dynamic</td><td>Error IRQ pending。</td></tr>
@@ -1153,7 +1177,7 @@ REG_TILE_BASE_UV_HI = tile_uv_base[63:32]</code></pre>
             <tr><td>start 后无输出</td><td><code>APB_ADDR_STATUS0</code>，<code>APB_ADDR_IRQ_CTRL[2]</code></td><td>看 frame_active、meta/tile/vivo/otf busy 是否推进</td></tr>
             <tr><td>metadata 阶段异常</td><td><code>APB_ADDR_STAT_META</code>，AXI R response</td><td>检查 metadata 地址、RID/fcnt、metadata decode</td></tr>
             <tr><td>tile read 异常</td><td><code>APB_ADDR_STAT_TILE</code>，AXI AR/R handshake</td><td>检查 tile base、tile_arcmd_gen、AXI read</td></tr>
-            <tr><td>VIVO 异常</td><td><code>APB_ADDR_STATUS2[0]</code>，<code>APB_ADDR_STATUS3[0]</code></td><td>检查模块级 VIVO idle/error 状态</td></tr>
+            <tr><td>VIVO 异常</td><td><code>APB_ADDR_STATUS2[0]</code>，<code>APB_ADDR_STATUS3[6:0]</code></td><td>检查模块级 VIVO idle 与 7 bit error bitmap</td></tr>
             <tr><td>OTF 输出异常</td><td><code>APB_ADDR_STAT_OTF_TILE</code>，<code>APB_ADDR_STAT_OTF_LINE</code>，<code>APB_ADDR_STAT_OTF_DE</code></td><td>检查 tile-to-OTF 和 downstream ready</td></tr>
           </table>
 

@@ -506,7 +506,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer AXI_AW          = 64;
     localparam integer AXI_DW          = 256;
     localparam integer M_AXI_DW        = 64;
-    localparam integer AXI_LENW        = 8;
+    localparam integer AXI_LENW        = 5;
     localparam integer AXI_IDW         = 4;
     localparam integer COM_BUF_DW      = 128;
     localparam integer SB_WIDTH        = 1;

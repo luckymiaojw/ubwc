@@ -1,6 +1,9 @@
 `timescale 1ns/1ps
 
-module ubwc_dec_vivo_top (
+module ubwc_dec_vivo_top
+    #(
+        parameter                                       SB_WIDTH                        = 1
+    )(
     input   wire                                        i_clk                           ,
     input   wire                                        i_reset                         ,
     input   wire                                        i_sreset                        ,
@@ -15,6 +18,7 @@ module ubwc_dec_vivo_top (
     input   wire    [3                      :0]         i_ci_metadata                   ,
     input   wire                                        i_ci_lossy                      ,
     input   wire    [1                      :0]         i_ci_alpha_mode                 ,
+    input   wire    [SB_WIDTH-1             :0]         i_ci_sb                         ,
 
     input   wire                                        i_cvi_valid                     ,
     input   wire    [255                    :0]         i_cvi_data                      ,
@@ -24,6 +28,7 @@ module ubwc_dec_vivo_top (
     output  wire                                        o_co_valid                      ,
     output  wire    [2                      :0]         o_co_alen                       ,
     input   wire                                        i_co_ready                      ,
+    output  wire                                        o_co_sb                         ,
 
     output  wire                                        o_rvo_valid                     ,
     output  wire    [255                    :0]         o_rvo_data                      ,
@@ -31,7 +36,7 @@ module ubwc_dec_vivo_top (
     input   wire                                        i_rvo_ready                     ,
 
     output  wire                                        o_idle                          ,
-    output  wire                                        o_error
+    output  wire    [6                      :0]         o_error
 );
 
     localparam  [4                      :0]         CI_READY_PERIOD_M1              = 5'd23;
@@ -60,6 +65,7 @@ module ubwc_dec_vivo_top (
     assign out_fire = o_rvo_valid && i_rvo_ready;
     assign o_co_valid = r_co_valid;
     assign o_co_alen  = r_ci_alen;
+    assign o_co_sb    = i_ci_sb[0] & 1'b0;
     assign need_input_beat = r_tile_active && (r_in_beats_left != 4'd0);
     assign pad_active = r_tile_active && (r_in_beats_left == 4'd0) && (r_out_beats_left != 4'd0);
     assign o_rvo_valid = i_ubwc_en && !r_reset_sync && r_tile_active &&
@@ -72,7 +78,7 @@ module ubwc_dec_vivo_top (
                     !i_cvi_valid &&
                     (!r_co_valid || i_co_ready) &&
                     (!o_rvo_valid || i_rvo_ready);
-    assign o_error = 1'b0;
+    assign o_error = 7'd0;
 
     always @(posedge i_clk or posedge i_reset) begin
         if (i_reset) begin
