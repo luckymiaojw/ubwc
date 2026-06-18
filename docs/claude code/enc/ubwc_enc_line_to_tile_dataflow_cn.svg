@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1880 1340" font-family="Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="13">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+    <marker id="arrRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f5e9e"/>
+    </marker>
+    <marker id="arrGrn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1c6b3a"/>
+    </marker>
+    <marker id="arrPurple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5e2d8a"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="930" y="32" text-anchor="middle" font-size="20" font-weight="bold">ubwc_enc OTF→Tile 子系统 V1 数据流图</text>
+  <text x="930" y="54" text-anchor="middle" font-size="12" fill="#555">三段拆分 · 2 个跨域 async FIFO · SRAM 128-bit/word（2 次读拼 256-bit 输出）· bank 接口 mux 在顶层 otf_to_tile 内</text>
+
+  <!-- clock domain banner -->
+  <line x1="600" y1="68" x2="600" y2="1010" stroke="#bbb" stroke-dasharray="6,4"/>
+  <line x1="1450" y1="68" x2="1450" y2="1010" stroke="#bbb" stroke-dasharray="6,4"/>
+  <text x="295" y="86" text-anchor="middle" font-size="12" font-weight="bold" fill="#777">otf_clk</text>
+  <text x="1020" y="86" text-anchor="middle" font-size="12" font-weight="bold" fill="#777">core_clk (writer + bank + fetcher，同域无 CDC)</text>
+  <text x="1660" y="86" text-anchor="middle" font-size="12" font-weight="bold" fill="#777">axi_clk</text>
+
+  <!-- ============ OTF INPUT ============ -->
+  <rect x="40" y="120" width="170" height="100" rx="8" ry="8" fill="#eaf3ff" stroke="#1f5e9e"/>
+  <text x="125" y="146" text-anchor="middle" font-weight="bold">OTF 输入 (128-bit)</text>
+  <text x="125" y="164" text-anchor="middle" font-size="11">data[127:0] · ready</text>
+  <text x="125" y="180" text-anchor="middle" font-size="11">vsync · hsync · de</text>
+  <text x="125" y="196" text-anchor="middle" font-size="11">fcnt[3:0] · lcnt[11:0]</text>
+  <text x="125" y="212" text-anchor="middle" font-size="10" fill="#666">字节布局 = 现行 otf_to_tile_top</text>
+
+  <!-- ============ OTF_MONITOR ============ -->
+  <rect x="240" y="100" width="320" height="240" rx="10" ry="10" fill="#fafafa" stroke="#1f3a5f" stroke-width="1.5"/>
+  <text x="400" y="124" text-anchor="middle" font-weight="bold" font-size="15">otf_monitor</text>
+  <text x="400" y="142" text-anchor="middle" font-size="11" fill="#555">OTF 数据采集 + 帧连续性检测</text>
+
+  <rect x="258" y="156" width="284" height="52" rx="6" ry="6" fill="#fff" stroke="#1f5e9e"/>
+  <text x="400" y="174" text-anchor="middle" font-size="12" font-weight="bold">数据采集</text>
+  <text x="400" y="190" text-anchor="middle" font-size="11">{tdata, lcnt, vsync, tlast, ...}</text>
+  <text x="400" y="204" text-anchor="middle" font-size="11">原样推入 async FIFO（fcnt 不入）</text>
+
+  <rect x="258" y="216" width="284" height="60" rx="6" ry="6" fill="#fff" stroke="#a02b6e"/>
+  <text x="400" y="234" text-anchor="middle" font-size="12" font-weight="bold">fcnt 连续性检测</text>
+  <text x="400" y="250" text-anchor="middle" font-size="11">内部 4-bit fcnt 寄存器；比对帧边界</text>
+  <text x="400" y="266" text-anchor="middle" font-size="11">不连续 → err + 定位 (fcnt / lcnt)</text>
+
+  <rect x="258" y="284" width="284" height="46" rx="6" ry="6" fill="#fff4d6" stroke="#8a6b1c"/>
+  <text x="400" y="300" text-anchor="middle" font-size="11" font-weight="bold" fill="#8a6b1c">⚠ fcnt 不外传 · 无 tkeep · 行交织 plane</text>
+  <text x="400" y="316" text-anchor="middle" font-size="10">YUV420：偶 lcnt 带 UV · 奇 lcnt 仅 Y</text>
+  <text x="400" y="326" text-anchor="middle" font-size="10" fill="#666">下游用 lcnt[0] 分流</text>
+
+  <!-- err output -->
+  <rect x="498" y="352" width="124" height="48" rx="6" ry="6" fill="#fdecec" stroke="#c0392b"/>
+  <text x="560" y="370" text-anchor="middle" font-size="11" font-weight="bold" fill="#c0392b">o_err / err_pos</text>
+  <text x="560" y="384" text-anchor="middle" font-size="10" fill="#c0392b">→ 起中断</text>
+  <text x="560" y="396" text-anchor="middle" font-size="10" fill="#888">(等软件处理)</text>
+  <path d="M450,340 L450,352" fill="none" stroke="#c0392b" stroke-width="1.4" marker-end="url(#arrRed)"/>
+
+  <!-- OTF in → monitor -->
+  <line x1="210" y1="170" x2="240" y2="170" stroke="#333" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ============ ASYNC FIFO #1 ============ -->
+  <rect x="600" y="120" width="120" height="200" rx="10" ry="10" fill="#fff8d4" stroke="#8a6b1c" stroke-width="1.5"/>
+  <text x="660" y="146" text-anchor="middle" font-weight="bold" font-size="13">Async FIFO #1</text>
+  <text x="660" y="164" text-anchor="middle" font-size="11">(otf_clk → core_clk)</text>
+  <text x="660" y="190" text-anchor="middle" font-size="10" fill="#555">入端载荷：</text>
+  <text x="660" y="208" text-anchor="middle" font-size="11">tdata</text>
+  <text x="660" y="224" text-anchor="middle" font-size="11">lcnt</text>
+  <text x="660" y="240" text-anchor="middle" font-size="11">vsync · tlast</text>
+  <text x="660" y="280" text-anchor="middle" font-size="10" fill="#555">(fcnt 不进 FIFO)</text>
+
+  <line x1="560" y1="184" x2="600" y2="184" stroke="#333" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- ============ LINE_TO_TILE_WRITER ============ -->
+  <rect x="750" y="100" width="370" height="320" rx="10" ry="10" fill="#f3f6fb" stroke="#1f3a5f" stroke-width="1.5"/>
+  <text x="935" y="124" text-anchor="middle" font-weight="bold" font-size="15">line_to_tile_writer (内部拆 3 子块)</text>
+  <text x="935" y="142" text-anchor="middle" font-size="11" fill="#555">writer_in (①②) · writer_addr (③) · writer_ctl (④)</text>
+
+  <!-- Stage 1: 格式判定 + 地址生成 -->
+  <rect x="770" y="156" width="332" height="46" rx="6" ry="6" fill="#fff" stroke="#1f5e9e"/>
+  <text x="936" y="174" text-anchor="middle" font-size="12" font-weight="bold">① 格式判定 · 行整合 · 地址生成</text>
+  <text x="936" y="192" text-anchor="middle" font-size="11">cfg_format + lcnt[0] → 分 Y 路径 / UV 路径 → {data, addr}</text>
+
+  <!-- Stage 2: Y / UV small FIFOs -->
+  <rect x="770" y="210" width="158" height="46" rx="6" ry="6" fill="#eaf3ff" stroke="#1f5e9e"/>
+  <text x="849" y="228" text-anchor="middle" font-size="12" font-weight="bold">② Y/RGBA 小 FIFO</text>
+  <text x="849" y="246" text-anchor="middle" font-size="11">{data, addr}</text>
+
+  <rect x="944" y="210" width="158" height="46" rx="6" ry="6" fill="#fff1e0" stroke="#a8631c"/>
+  <text x="1023" y="228" text-anchor="middle" font-size="12" font-weight="bold">② UV 小 FIFO</text>
+  <text x="1023" y="246" text-anchor="middle" font-size="11">{data, addr}</text>
+
+  <!-- Stage 3: 合并 FIFO -->
+  <rect x="770" y="264" width="332" height="46" rx="6" ry="6" fill="#fdf0f5" stroke="#a02b6e"/>
+  <text x="936" y="282" text-anchor="middle" font-size="12" font-weight="bold">③ writer_addr：合并 FIFO + bank/slot 选</text>
+  <text x="936" y="300" text-anchor="middle" font-size="11">Y/UV word 级交替 · 每拍 pop ≤1 · UV slot 看 group_id[1]</text>
+
+  <!-- Stage 4: 写逻辑 + fcnt + UV slot -->
+  <rect x="770" y="318" width="332" height="92" rx="6" ry="6" fill="#e6f0e8" stroke="#1c6b3a"/>
+  <text x="936" y="336" text-anchor="middle" font-size="12" font-weight="bold">④ writer_ctl：fcnt + done + release</text>
+  <text x="936" y="352" text-anchor="middle" font-size="11">输出 m_writer_en/wen/addr/din → 顶层 mux (寄存 1 拍)</text>
+  <text x="936" y="368" text-anchor="middle" font-size="11" font-weight="bold" fill="#1c6b3a">vsync +1 fcnt · err 期间不停 · partial 行数计数</text>
+  <text x="936" y="384" text-anchor="middle" font-size="11">Y_done / UV_done(在 bank1 写完时) / 末组孤立时主动补</text>
+  <text x="936" y="402" text-anchor="middle" font-size="10" fill="#666">收 Y_release / UV_release → 决定能否重写</text>
+
+  <!-- async fifo → writer -->
+  <line x1="720" y1="186" x2="750" y2="186" stroke="#333" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- stage arrows -->
+  <line x1="849" y1="202" x2="849" y2="210" stroke="#1f5e9e" marker-end="url(#arrBlue)"/>
+  <line x1="1023" y1="202" x2="1023" y2="210" stroke="#a8631c" marker-end="url(#arr)"/>
+  <line x1="849" y1="256" x2="849" y2="264" stroke="#1f5e9e" marker-end="url(#arrBlue)"/>
+  <line x1="1023" y1="256" x2="1023" y2="264" stroke="#a8631c" marker-end="url(#arr)"/>
+  <line x1="936" y1="310" x2="936" y2="318" stroke="#a02b6e" marker-end="url(#arrRed)"/>
+
+  <!-- ============ BANK0/1 SRAM ============ -->
+  <rect x="1160" y="120" width="270" height="115" rx="8" ry="8" fill="#e2eaf6" stroke="#1f3a5f"/>
+  <text x="1295" y="144" text-anchor="middle" font-weight="bold">Bank0 SRAM · 128-bit/word · 4096w</text>
+  <text x="1295" y="162" text-anchor="middle" font-size="11">en · wen · addr · din[128] · dout[128]</text>
+  <text x="1295" y="180" text-anchor="middle" font-size="11" font-weight="bold" fill="#5e2d8a">读延迟 ≤4 拍最长（变长）</text>
+  <text x="1295" y="196" text-anchor="middle" font-size="11" font-weight="bold" fill="#5e2d8a">dout_vld 由 SRAM macro 自身产出</text>
+  <text x="1295" y="212" text-anchor="middle" font-size="10" fill="#666">接口 mux 在顶层 · 输出寄存 1 拍</text>
+  <text x="1295" y="228" text-anchor="middle" font-size="11" font-weight="bold" fill="#1f5e9e">承载一组 tile-line (Y + UV_A 或 UV_B)</text>
+
+  <rect x="1160" y="248" width="270" height="115" rx="8" ry="8" fill="#f3e2da" stroke="#5f2a1f"/>
+  <text x="1295" y="272" text-anchor="middle" font-weight="bold">Bank1 SRAM · 128-bit/word · 4096w</text>
+  <text x="1295" y="290" text-anchor="middle" font-size="11">en · wen · addr · din[128] · dout[128]</text>
+  <text x="1295" y="308" text-anchor="middle" font-size="11" font-weight="bold" fill="#5e2d8a">读延迟 ≤4 拍最长（变长）</text>
+  <text x="1295" y="324" text-anchor="middle" font-size="11" font-weight="bold" fill="#5e2d8a">dout_vld 由 SRAM macro 自身产出</text>
+  <text x="1295" y="340" text-anchor="middle" font-size="10" fill="#666">接口 mux 在顶层 · 输出寄存 1 拍</text>
+  <text x="1295" y="356" text-anchor="middle" font-size="11" font-weight="bold" fill="#a8421c">承载一组 tile-line (Y + UV_A 或 UV_B)</text>
+
+  <!-- writer write logic → banks (via top-level mux) -->
+  <path d="M1102,348 L1130,348 L1130,170 L1160,170" fill="none" stroke="#1c6b3a" stroke-width="1.4" marker-end="url(#arrGrn)"/>
+  <path d="M1102,372 L1140,372 L1140,300 L1160,300" fill="none" stroke="#1c6b3a" stroke-width="1.4" marker-end="url(#arrGrn)"/>
+  <text x="1132" y="240" font-size="10" fill="#1c6b3a">m_writer_*</text>
+  <text x="1132" y="252" font-size="10" fill="#666">(经顶层 mux)</text>
+
+  <!-- done_info from writer to fetcher -->
+  <path d="M770,398 L630,398 L630,540" fill="none" stroke="#5e2d8a" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrPurple)"/>
+  <text x="638" y="414" font-size="11" fill="#5e2d8a" font-weight="bold">→ Y_done / UV_done</text>
+  <text x="638" y="430" font-size="10" fill="#5e2d8a">+ bank · uv_slot · fcnt</text>
+  <text x="638" y="445" font-size="10" fill="#5e2d8a">+ y_rows / uv_rows_b0/b1</text>
+  <text x="638" y="460" font-size="10" fill="#5e2d8a">+ frame_done</text>
+  <text x="638" y="478" font-size="10" fill="#5e2d8a" font-style="italic">(UV_done 仅在 bank1 写完时发)</text>
+
+  <!-- release back from fetcher to writer -->
+  <path d="M540,470 L540,408 L750,408" fill="none" stroke="#c4577e" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrRed)"/>
+  <text x="544" y="488" font-size="11" fill="#c4577e" font-weight="bold">← Y_release / UV_release</text>
+  <text x="544" y="502" font-size="10" fill="#c4577e">1 拍脉冲；一整行 tiles 读完才发</text>
+  <text x="544" y="516" font-size="10" fill="#c4577e">UV_release: 同时释放 bank0+bank1 同 slot</text>
+
+  <!-- ============ TILE_DATA_FETCHER ============ -->
+  <rect x="80" y="450" width="1350" height="540" rx="12" ry="12" fill="#fff8e8" stroke="#8a6b1c" stroke-width="1.5"/>
+  <text x="755" y="478" text-anchor="middle" font-weight="bold" font-size="17">tile_data_fetcher</text>
+  <text x="755" y="498" text-anchor="middle" font-size="12" fill="#555">写优先节流 + 读地址生成 + meta 预计算（mask/forced_pcm/坐标）+ dout 配对 + 合成输出</text>
+
+  <!-- Row 1: 4 subblocks -->
+  <!-- (1) 读发起门控 -->
+  <rect x="110" y="520" width="250" height="110" rx="8" ry="8" fill="#fff" stroke="#a8421c"/>
+  <text x="235" y="540" text-anchor="middle" font-weight="bold" font-size="12">① 读发起门控（self gate）</text>
+  <text x="235" y="558" text-anchor="middle" font-size="11">fetcher 直接看 writer_wen</text>
+  <text x="235" y="572" text-anchor="middle" font-size="11">wen=1 → 不发 ren，不 push meta</text>
+  <text x="235" y="586" text-anchor="middle" font-size="11">wen=0 → 发 ren，push meta (1:1)</text>
+  <text x="235" y="602" text-anchor="middle" font-size="11">credit &gt; 0 &amp;&amp; meta FIFO 不满</text>
+  <text x="235" y="618" text-anchor="middle" font-size="10" fill="#666">写优先 + 容量节流</text>
+
+  <!-- (2) 读地址生成 -->
+  <rect x="380" y="520" width="250" height="110" rx="8" ry="8" fill="#fff" stroke="#1f5e9e"/>
+  <text x="505" y="540" text-anchor="middle" font-weight="bold" font-size="12">② 读地址 · tile 坐标</text>
+  <text x="505" y="558" text-anchor="middle" font-size="11">严格按 i_cfg_y_tile_cols</text>
+  <text x="505" y="574" text-anchor="middle" font-size="11">严格按 i_cfg_uv_tile_cols</text>
+  <text x="505" y="590" text-anchor="middle" font-size="11">推进 (tile_x, tile_y, word_idx)</text>
+  <text x="505" y="606" text-anchor="middle" font-size="11">输出 ren / addr / bank_sel</text>
+  <text x="505" y="622" text-anchor="middle" font-size="10" fill="#666">done_info 决定 bank/plane</text>
+
+  <!-- (3) mask + forced_pcm 预计算 -->
+  <rect x="650" y="520" width="270" height="110" rx="8" ry="8" fill="#f5edff" stroke="#5e2d8a"/>
+  <text x="785" y="540" text-anchor="middle" font-weight="bold" font-size="12">③ mask + forced_pcm 预计算</text>
+  <text x="785" y="556" text-anchor="middle" font-size="11">输入：cfg_active_w/h + tile 坐标</text>
+  <text x="785" y="570" text-anchor="middle" font-size="11">     + done_info 实际行数 (partial)</text>
+  <text x="785" y="586" text-anchor="middle" font-size="11">mask[31:0]：超出 active 或实际行 → 0</text>
+  <text x="785" y="602" text-anchor="middle" font-size="11" font-weight="bold" fill="#5e2d8a">forced_pcm 分 Y/UV 两路</text>
+  <text x="785" y="618" text-anchor="middle" font-size="10">Y tile 自带 fp_Y · UV tile 自带 fp_UV</text>
+
+  <!-- (4) read meta FIFO -->
+  <rect x="940" y="520" width="250" height="110" rx="8" ry="8" fill="#fff" stroke="#8a6b1c"/>
+  <text x="1065" y="540" text-anchor="middle" font-weight="bold" font-size="12">④ read meta FIFO</text>
+  <text x="1065" y="556" text-anchor="middle" font-size="11">每 entry = 1 个 256-bit 输出 beat</text>
+  <text x="1065" y="572" text-anchor="middle" font-size="11">{tile_x, tile_y, mask[31:0],</text>
+  <text x="1065" y="588" text-anchor="middle" font-size="11"> forced_pcm_Y/UV, bank_sel,</text>
+  <text x="1065" y="604" text-anchor="middle" font-size="11"> addr_lo+addr_hi, first/last, stat}</text>
+  <text x="1065" y="622" text-anchor="middle" font-size="10" fill="#666">深度 ≥4（读延迟 ≤3 拍）</text>
+
+  <!-- Row 2: 3 subblocks -->
+  <!-- (5) dout pair holder + 128→256 拼接 -->
+  <rect x="110" y="660" width="380" height="120" rx="8" ry="8" fill="#fff" stroke="#1f3a5f"/>
+  <text x="300" y="680" text-anchor="middle" font-weight="bold" font-size="12">⑤ dout pair holder (≥4 entry FIFO)</text>
+  <text x="300" y="696" text-anchor="middle" font-size="11">收 dout[128] · dout_vld（SRAM macro 提供）</text>
+  <text x="300" y="712" text-anchor="middle" font-size="11">变长延迟 + 多对在飞 → 用 FIFO 缓存</text>
+  <text x="300" y="728" text-anchor="middle" font-size="11">每 2 个 dout 拼成 1 个 256-bit + pop meta</text>
+  <text x="300" y="744" text-anchor="middle" font-size="11">合成 = {data[256], mask, tile_x/y, sof, last, stat_*}</text>
+  <text x="300" y="762" text-anchor="middle" font-size="10" fill="#666">SRAM 保证 dout 顺序与发读顺序一致</text>
+
+  <!-- (6) fetch FIFO -->
+  <rect x="510" y="660" width="380" height="120" rx="8" ry="8" fill="#fff" stroke="#8a6b1c"/>
+  <text x="700" y="680" text-anchor="middle" font-weight="bold" font-size="12">⑥ fetch FIFO</text>
+  <text x="700" y="700" text-anchor="middle" font-size="11">入：合成的 tile beat</text>
+  <text x="700" y="716" text-anchor="middle" font-size="11">吸收 SRAM 读延迟 + 下游背压</text>
+  <text x="700" y="734" text-anchor="middle" font-size="11">free_space − outstanding = credit</text>
+  <text x="700" y="752" text-anchor="middle" font-size="11" fill="#8a6b1c" font-weight="bold">credit → 反馈给 ① 读发起门控</text>
+  <text x="700" y="772" text-anchor="middle" font-size="10" fill="#666">单时钟域 sync FIFO</text>
+
+  <!-- (7) 输出合成 (CI + TILE + SOF) -->
+  <rect x="910" y="660" width="410" height="120" rx="8" ry="8" fill="#e9f7ef" stroke="#1c6b3a"/>
+  <text x="1115" y="680" text-anchor="middle" font-weight="bold" font-size="12">⑦ 输出合成（CI + TILE + SOF）</text>
+  <text x="1115" y="696" text-anchor="middle" font-size="11">tile 首拍 sof=1 搭载 CI：forced_pcm · sb · x/y · fcnt · format</text>
+  <text x="1115" y="712" text-anchor="middle" font-size="11">每拍 TILE 字段：data[256] · keep[32] · last · stat_*</text>
+  <text x="1115" y="730" text-anchor="middle" font-size="11" fill="#1c6b3a" font-weight="bold">下游协议：i_ci_ready &amp; i_tile_rdy 同时 high 才 pop</text>
+  <text x="1115" y="746" text-anchor="middle" font-size="11">UV tile_y = Y tile_y / 2（1 UV tile 跨 2 Y 组）</text>
+  <text x="1115" y="764" text-anchor="middle" font-size="10" fill="#666">每 tile = 1 ci + 8 拍 256-bit data</text>
+
+  <!-- Row 3: UV tile 跨 bank 拼读 + 输出顺序 + 末组孤立 -->
+  <rect x="110" y="810" width="1210" height="90" rx="8" ry="8" fill="#fbf6e8" stroke="#8a6b1c"/>
+  <text x="715" y="832" text-anchor="middle" font-size="12" font-weight="bold" fill="#8a6b1c">⑧ UV 跨 bank 拼读 + tile 输出顺序 + 末组孤立处理</text>
+  <text x="715" y="850" text-anchor="middle" font-size="11">UV tile 触发 = 单次 UV_done（bank1.UV 写完）→ 前半 bank0 后半 bank1 · YUV8: UV 8 行 · P010: UV 4 行（均= 2 Y 行组）</text>
+  <text x="715" y="866" text-anchor="middle" font-size="11" font-weight="bold">输出按 done_info FIFO 序：Y Y UV → Y Y UV → ... · sb 同帧固定 · 帧边界靠 tile_x/y 判断</text>
+  <text x="715" y="882" text-anchor="middle" font-size="11">末组孤立 Y：仍按完整 tile 16 SRAM 读发起（bank1 读 garbage，mask 处理）— 逻辑顺，无特殊分支</text>
+  <text x="715" y="898" text-anchor="middle" font-size="10" fill="#666">fcnt 由 writer 经 done_info 给入 · partial 末组用实际行数算 mask · cfg 帧间锁存</text>
+
+  <!-- internal arrows -->
+  <line x1="360" y1="575" x2="380" y2="575" stroke="#444" marker-end="url(#arr)"/>
+  <line x1="630" y1="575" x2="650" y2="575" stroke="#444" marker-end="url(#arr)"/>
+  <line x1="920" y1="575" x2="940" y2="575" stroke="#444" marker-end="url(#arr)"/>
+
+  <!-- meta FIFO → dout 配对 -->
+  <path d="M1065,630 L1065,648 L390,648 L390,660" fill="none" stroke="#8a6b1c" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="600" y="644" font-size="10" fill="#8a6b1c">meta entry pop（与 dout_vld 配对）</text>
+
+  <!-- dout 配对 → fetch FIFO -->
+  <line x1="490" y1="720" x2="510" y2="720" stroke="#1f3a5f" stroke-width="1.4" marker-end="url(#arr)"/>
+  <!-- fetch FIFO → 输出合成 -->
+  <line x1="890" y1="720" x2="910" y2="720" stroke="#1c6b3a" stroke-width="1.4" marker-end="url(#arrGrn)"/>
+
+  <!-- credit feedback -->
+  <path d="M700,780 L70,780 L70,580 L110,580" fill="none" stroke="#8a6b1c" stroke-width="1.4" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+  <text x="90" y="676" font-size="10" fill="#8a6b1c" font-weight="bold">credit</text>
+  <text x="90" y="690" font-size="10" fill="#8a6b1c">(剩余容量)</text>
+
+  <!-- bank → fetcher (dout + wen monitor) -->
+  <path d="M1295,363 L1295,400 L300,400 L300,520" fill="none" stroke="#1f3a5f" stroke-width="1.4" stroke-dasharray="3,3" marker-end="url(#arrBlue)"/>
+  <text x="312" y="396" font-size="10" fill="#1f3a5f">bank0/1: writer_wen 监听</text>
+
+  <path d="M1295,235 L1295,410 L300,410 L300,660" fill="none" stroke="#1f3a5f" stroke-width="1.4" stroke-dasharray="3,3"/>
+  <path d="M1295,363 L1380,363 L1380,420 L300,420 L300,660" fill="none" stroke="#1f3a5f" stroke-width="0" />
+  <line x1="305" y1="660" x2="305" y2="660" stroke="#1f3a5f"/>
+
+  <!-- fetcher → 合并 async FIFO -->
+  <path d="M1320,720 L1465,720" fill="none" stroke="#1c6b3a" stroke-width="1.6" marker-end="url(#arrGrn)"/>
+
+  <!-- ============ 合并 ASYNC FIFO #2 ============ -->
+  <rect x="1470" y="520" width="190" height="270" rx="10" ry="10" fill="#fff8d4" stroke="#8a6b1c" stroke-width="1.5"/>
+  <text x="1565" y="544" text-anchor="middle" font-weight="bold" font-size="13">Async FIFO #2</text>
+  <text x="1565" y="562" text-anchor="middle" font-size="11">(core_clk → axi_clk)</text>
+  <line x1="1485" y1="572" x2="1645" y2="572" stroke="#ddd"/>
+  <text x="1565" y="590" text-anchor="middle" font-size="11" font-weight="bold">合并载荷 (CI + TILE + SOF)</text>
+  <text x="1565" y="608" text-anchor="middle" font-size="10" fill="#555">每拍：</text>
+  <text x="1565" y="624" text-anchor="middle" font-size="11">sof (=1 表 tile 首拍)</text>
+  <text x="1565" y="640" text-anchor="middle" font-size="11">data[255:0] · keep[31:0]</text>
+  <text x="1565" y="656" text-anchor="middle" font-size="11">last · stat_valid/last/slot</text>
+  <text x="1565" y="676" text-anchor="middle" font-size="10" fill="#555">sof=1 拍额外携带：</text>
+  <text x="1565" y="692" text-anchor="middle" font-size="11">forced_pcm · sb</text>
+  <text x="1565" y="708" text-anchor="middle" font-size="11">tile_x · tile_y</text>
+  <text x="1565" y="724" text-anchor="middle" font-size="11">tile_fcnt · tile_format</text>
+  <text x="1565" y="752" text-anchor="middle" font-size="10" fill="#1c6b3a" font-weight="bold">→ CI/TILE 跨域不会错位</text>
+
+  <!-- demux block -->
+  <rect x="1470" y="810" width="190" height="60" rx="8" ry="8" fill="#fff" stroke="#666"/>
+  <text x="1565" y="830" text-anchor="middle" font-size="12" font-weight="bold">下游侧 demux</text>
+  <text x="1565" y="848" text-anchor="middle" font-size="11">sof=1 → 驱动 o_ci_* + o_tile_*</text>
+  <text x="1565" y="862" text-anchor="middle" font-size="11">sof=0 → 仅 o_tile_*</text>
+
+  <line x1="1565" y1="790" x2="1565" y2="810" stroke="#444" marker-end="url(#arr)"/>
+
+  <!-- ============ DOWNSTREAM PORTS ============ -->
+  <rect x="1690" y="520" width="170" height="160" rx="10" ry="10" fill="#eaf3ff" stroke="#1f5e9e" stroke-width="1.5"/>
+  <text x="1775" y="544" text-anchor="middle" font-weight="bold" font-size="13">对外：o_ci_*</text>
+  <text x="1775" y="566" text-anchor="middle" font-size="11">o_ci_valid / i_ci_ready</text>
+  <text x="1775" y="582" text-anchor="middle" font-size="11">o_ci_forced_pcm</text>
+  <text x="1775" y="598" text-anchor="middle" font-size="11">o_ci_sb[SB_WIDTH-1:0]</text>
+  <text x="1775" y="614" text-anchor="middle" font-size="11">o_tile_x[15:0]</text>
+  <text x="1775" y="630" text-anchor="middle" font-size="11">o_tile_y[15:0]</text>
+  <text x="1775" y="646" text-anchor="middle" font-size="11">o_tile_fcnt[3:0]</text>
+  <text x="1775" y="662" text-anchor="middle" font-size="11">o_tile_format[4:0]</text>
+
+  <rect x="1690" y="700" width="170" height="160" rx="10" ry="10" fill="#e9f7ef" stroke="#1c6b3a" stroke-width="1.5"/>
+  <text x="1775" y="724" text-anchor="middle" font-weight="bold" font-size="13">对外：o_tile_*</text>
+  <text x="1775" y="746" text-anchor="middle" font-size="11">o_tile_vld / i_tile_rdy</text>
+  <text x="1775" y="762" text-anchor="middle" font-size="11">o_tile_data[255:0]</text>
+  <text x="1775" y="778" text-anchor="middle" font-size="11">o_tile_keep[31:0]</text>
+  <text x="1775" y="794" text-anchor="middle" font-size="11">o_tile_last</text>
+  <text x="1775" y="810" text-anchor="middle" font-size="11">o_tile_stat_valid</text>
+  <text x="1775" y="826" text-anchor="middle" font-size="11">o_tile_stat_last</text>
+  <text x="1775" y="842" text-anchor="middle" font-size="11">o_tile_stat_slot</text>
+
+  <path d="M1660,840 L1680,840 L1680,600 L1690,600" fill="none" stroke="#1f5e9e" stroke-width="1.4" marker-end="url(#arrBlue)"/>
+  <path d="M1660,840 L1680,840 L1680,775 L1690,775" fill="none" stroke="#1c6b3a" stroke-width="1.4" marker-end="url(#arrGrn)"/>
+
+  <!-- ============ LEGEND ============ -->
+  <rect x="40" y="1030" width="1800" height="290" rx="8" ry="8" fill="#fafafa" stroke="#ddd"/>
+  <text x="60" y="1054" font-weight="bold" font-size="14">关键设计点（V1 关键修订）</text>
+
+  <text x="60" y="1078" font-size="12" font-weight="bold" fill="#1f5e9e">① otf_monitor — fcnt 容错</text>
+  <text x="80" y="1098" font-size="11">- 数据 + lcnt 入 async FIFO；fcnt 只在内部用于连续性检测和错误定位，**不外传**</text>
+  <text x="80" y="1116" font-size="11">- OTF 端 fcnt 跳变/不连续 → err 单独输出，**不影响下游处理**（下游用 fetcher 自维护 4-bit fcnt）</text>
+
+  <text x="60" y="1140" font-size="12" font-weight="bold" fill="#1f3a5f">② line_to_tile_writer — 三级 FIFO + 整 bank 切换 + fcnt 维护 + UV slot 仲裁</text>
+  <text x="80" y="1158" font-size="11">- 格式判定 → Y/UV 两个小 FIFO → **合并写小 FIFO** → 写逻辑驱动 SRAM；三段彼此解耦</text>
+  <text x="80" y="1176" font-size="11">- **bank 切换粒度 = 写完一个 bank 整组后才切换**；YUV420 时 UV 按 group_id[1] 选 UV_A/UV_B slot</text>
+  <text x="80" y="1194" font-size="11">- **writer 自维护 4-bit fcnt**（vsync 时 +1，与 OTF 端 fcnt 解耦）；done_info 分 Y_done / UV_done 两类发给 fetcher</text>
+
+  <text x="60" y="1218" font-size="12" font-weight="bold" fill="#8a6b1c">③ tile_data_fetcher — 写优先 + 128→256 拼接 + read meta FIFO 预计算 + UV 跨 bank 拼读 + forced_pcm 分 Y/UV</text>
+  <text x="80" y="1236" font-size="11">- 读发起：**writer_wen=0** 时 ren=1，addr 前进；wen=1 让位；同时受 fetch credit 节流（连续 pipeline 读）</text>
+  <text x="80" y="1254" font-size="11">- **SRAM = 128-bit/word，2 次 SRAM 读 → 1 个 256-bit 输出 beat**；每 tile 输出 8 拍 256-bit data</text>
+  <text x="80" y="1272" font-size="11">- 发读拍把 {tile_x, tile_y, mask, fp_Y/fp_UV, bank_sel, addr_lo/hi, first/last, stat_*} 预计算推入 read meta FIFO</text>
+  <text x="80" y="1290" font-size="11">- UV 跨 bank：writer 在 bank1.UV 写完时单次发 UV_done；partial 末组用 done_info 实际行数算 mask</text>
+
+  <text x="60" y="1314" font-size="12" font-weight="bold" fill="#1c6b3a">④ 输出 — CI 与 TILE 合并 1 路跨域 FIFO + SOF；下游 demux：sof=1 驱动 CI+TILE，sof=0 仅 TILE → CI/TILE 永不错位</text>
+
+</svg>

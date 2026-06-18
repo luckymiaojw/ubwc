@@ -17,6 +17,7 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
     localparam integer RGBA_TILE_H         = 4;
     localparam integer RGBA_TILE_X_COUNT   = IMG_W / RGBA_TILE_W;
     localparam integer RGBA_TILE_Y_COUNT   = RGBA_STORED_H / RGBA_TILE_H;
+    localparam integer RGBA_ACTIVE_TILE_Y_COUNT = (RGBA_ACTIVE_H + RGBA_TILE_H - 1) / RGBA_TILE_H;
     localparam integer RGBA_WORDS64_PER_LINE = IMG_W / 2;
     localparam integer RGBA_WORDS64_TOTAL  = RGBA_WORDS64_PER_LINE * RGBA_STORED_H;
     localparam integer RGBA_WORDS64_PER_TILE = 32;
@@ -32,6 +33,8 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
     localparam integer NV12_SLICE_LINES    = 16;
     localparam integer NV12_TILE_X_COUNT   = IMG_W / NV12_TILE_W;
     localparam integer NV12_SLICE_COUNT    = NV12_Y_STORED_H / NV12_SLICE_LINES;
+    localparam integer NV12_ACTIVE_SLICE_COUNT = (NV12_ACTIVE_H + NV12_SLICE_LINES - 1) / NV12_SLICE_LINES;
+    localparam integer NV12_ACTIVE_TILE_Y_COUNT = (NV12_ACTIVE_H + NV12_TILE_H - 1) / NV12_TILE_H;
     localparam integer NV12_Y_WORDS64_PER_LINE  = IMG_W / 8;
     localparam integer NV12_UV_WORDS64_PER_LINE = IMG_W / 8;
     localparam integer NV12_Y_WORDS64_TOTAL  = NV12_Y_WORDS64_PER_LINE * NV12_Y_STORED_H;
@@ -49,11 +52,11 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
 
     localparam integer CASE_ACTIVE_H       = CASE_IS_NV12 ? NV12_ACTIVE_H : RGBA_ACTIVE_H;
     localparam integer CASE_STORED_H       = CASE_IS_NV12 ? NV12_Y_STORED_H : RGBA_STORED_H;
-    localparam integer CASE_FRAME_PIXELS   = IMG_W * CASE_STORED_H;
-    localparam integer CASE_EXPECTED_BEATS = (IMG_W / 4) * CASE_STORED_H;
+    localparam integer CASE_FRAME_PIXELS   = IMG_W * CASE_ACTIVE_H;
+    localparam integer CASE_EXPECTED_BEATS = (IMG_W / 4) * CASE_ACTIVE_H;
     localparam integer CASE_EXPECTED_TILES = CASE_IS_NV12
-                                           ? (NV12_TILE_X_COUNT * NV12_SLICE_COUNT * 3)
-                                           : (RGBA_TILE_X_COUNT * RGBA_TILE_Y_COUNT);
+                                           ? (NV12_TILE_X_COUNT * (NV12_ACTIVE_TILE_Y_COUNT + NV12_ACTIVE_SLICE_COUNT))
+                                           : (RGBA_TILE_X_COUNT * RGBA_ACTIVE_TILE_Y_COUNT);
     localparam integer CASE_TIMEOUT        = CASE_IS_NV12 ? 4000000 : 3000000;
 
     localparam [4:0] FMT_RGBA8888    = 5'b00000;
@@ -432,7 +435,7 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
         integer uv_tile_y;
         begin
             if (CASE_IS_NV12) begin
-                for (slice_idx = 0; slice_idx < NV12_SLICE_COUNT; slice_idx = slice_idx + 1) begin
+                for (slice_idx = 0; slice_idx < NV12_ACTIVE_SLICE_COUNT; slice_idx = slice_idx + 1) begin
                     y_upper_tile_y = slice_idx * 2;
                     y_lower_tile_y = slice_idx * 2 + 1;
                     uv_tile_y      = slice_idx;
@@ -440,21 +443,23 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
                     for (tile_x = 0; tile_x < NV12_TILE_X_COUNT; tile_x = tile_x + 1) begin
                         send_nv12_y_tile(tile_x, y_upper_tile_y, slice_idx);
                     end
-                    for (tile_x = 0; tile_x < NV12_TILE_X_COUNT; tile_x = tile_x + 1) begin
-                        send_nv12_y_tile(tile_x, y_lower_tile_y, slice_idx);
+                    if (y_lower_tile_y < NV12_ACTIVE_TILE_Y_COUNT) begin
+                        for (tile_x = 0; tile_x < NV12_TILE_X_COUNT; tile_x = tile_x + 1) begin
+                            send_nv12_y_tile(tile_x, y_lower_tile_y, slice_idx);
+                        end
                     end
                     for (tile_x = 0; tile_x < NV12_TILE_X_COUNT; tile_x = tile_x + 1) begin
                         send_nv12_uv_tile(tile_x, uv_tile_y, slice_idx);
                     end
                 end
             end else if (CASE_IS_LINEAR_IN) begin
-                for (tile_y = 0; tile_y < RGBA_TILE_Y_COUNT; tile_y = tile_y + 1) begin
+                for (tile_y = 0; tile_y < RGBA_ACTIVE_TILE_Y_COUNT; tile_y = tile_y + 1) begin
                     for (tile_x = 0; tile_x < RGBA_TILE_X_COUNT; tile_x = tile_x + 1) begin
                         send_rgba_linear_tile(tile_x, tile_y);
                     end
                 end
             end else begin
-                for (tile_y = 0; tile_y < RGBA_TILE_Y_COUNT; tile_y = tile_y + 1) begin
+                for (tile_y = 0; tile_y < RGBA_ACTIVE_TILE_Y_COUNT; tile_y = tile_y + 1) begin
                     for (tile_x = 0; tile_x < RGBA_TILE_X_COUNT; tile_x = tile_x + 1) begin
                         send_rgba_tiled_tile(tile_x, tile_y);
                     end
@@ -644,7 +649,7 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
             end
 
             if ((active_x == 0) && ((active_y % 64) == 0)) begin
-                $display("OTF progress(case=%0d): line %0d / %0d", CASE_ID, active_y, CASE_STORED_H);
+                $display("OTF progress(case=%0d): line %0d / %0d", CASE_ID, active_y, CASE_ACTIVE_H);
             end
 
             checked_beat_count  <= checked_beat_count + 1;
@@ -652,7 +657,7 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
 
             if (active_x == IMG_W - 4) begin
                 active_x <= 0;
-                if (active_y == CASE_STORED_H - 1) begin
+                if (active_y == CASE_ACTIVE_H - 1) begin
                     active_y   <= 0;
                     frame_done <= 1'b1;
                 end else begin
@@ -709,7 +714,7 @@ module tb_ubwc_dec_tile_to_otf_tajmahal_core #(
         cfg_otf_v_total   = CASE_IS_NV12 ? 16'd690 : 16'd650;
         cfg_otf_v_sync    = 16'd5;
         cfg_otf_v_bp      = 16'd36;
-        cfg_otf_v_act     = CASE_STORED_H;
+        cfg_otf_v_act     = CASE_ACTIVE_H;
         s_axis_tdata      = 256'd0;
         s_axis_tlast      = 1'b0;
         s_axis_format     = 5'd0;

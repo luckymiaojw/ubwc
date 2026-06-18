@@ -178,9 +178,6 @@ module ubwc_dec_apb_reg_blk #(
     reg         [4                      :0]         r_meta_base_format              ;
     reg         [AXI_AW              -1 :0]         r_meta_base_addr_rgba_y         ;
     reg         [AXI_AW              -1 :0]         r_meta_base_addr_uv             ;
-    reg         [15                     :0]         r_meta_tile_x_numbers           ;
-    reg         [15                     :0]         r_meta_tile_y_numbers           ;
-    reg         [15                     :0]         r_otf_cfg_img_width             ;
     reg         [4                      :0]         r_otf_cfg_format                ;
     reg         [15                     :0]         r_otf_cfg_h_total               ;
     reg         [15                     :0]         r_otf_cfg_h_sync                ;
@@ -237,7 +234,6 @@ module ubwc_dec_apb_reg_blk #(
     reg         [AXI_AW              -1 :0]         a_meta_base_addr_uv1            ;
     reg         [15                     :0]         a_meta_tile_x_numbers           ;
     reg         [15                     :0]         a_meta_tile_y_numbers           ;
-    reg         [15                     :0]         a_otf_cfg_img_width             ;
     reg         [4                      :0]         a_otf_cfg_format                ;
     reg         [15                     :0]         a_otf_cfg_h_total               ;
     reg         [15                     :0]         a_otf_cfg_h_sync                ;
@@ -351,6 +347,29 @@ module ubwc_dec_apb_reg_blk #(
     assign push_meta_y_fifo = apb_write && (apb_addr == REG_META_BASE_Y_HI);
     wire                                            push_meta_uv_fifo               ;
     assign push_meta_uv_fifo = apb_write && (apb_addr == REG_META_BASE_UV_HI);
+    wire                                            cfg_format_is_rgba              ;
+    assign cfg_format_is_rgba = (r_otf_cfg_format == 5'b00000) ||
+                                (r_otf_cfg_format == 5'b00001);
+    wire                                            cfg_format_is_nv12              ;
+    assign cfg_format_is_nv12 = (r_otf_cfg_format == 5'b00010);
+    wire        [17                     :0]         cfg_h_act_ext                  ;
+    assign cfg_h_act_ext = {2'b00, r_otf_cfg_h_act};
+    wire        [17                     :0]         cfg_v_act_ext                  ;
+    assign cfg_v_act_ext = {2'b00, r_otf_cfg_v_act};
+    wire        [17                     :0]         cfg_tile_x_rgba_ext            ;
+    assign cfg_tile_x_rgba_ext = ((cfg_h_act_ext + 18'd63) >> 6) << 2;
+    wire        [17                     :0]         cfg_tile_x_yuv_ext             ;
+    assign cfg_tile_x_yuv_ext = ((cfg_h_act_ext + 18'd127) >> 7) << 2;
+    wire        [17                     :0]         cfg_tile_y_4line_ext           ;
+    assign cfg_tile_y_4line_ext = (cfg_v_act_ext + 18'd3) >> 2;
+    wire        [17                     :0]         cfg_tile_y_8line_ext           ;
+    assign cfg_tile_y_8line_ext = (cfg_v_act_ext + 18'd7) >> 3;
+    wire        [15                     :0]         cfg_meta_tile_x_numbers        ;
+    assign cfg_meta_tile_x_numbers = cfg_format_is_rgba ? cfg_tile_x_rgba_ext[15:0] :
+                                                          cfg_tile_x_yuv_ext[15:0];
+    wire        [15                     :0]         cfg_meta_tile_y_numbers        ;
+    assign cfg_meta_tile_y_numbers = cfg_format_is_nv12 ? cfg_tile_y_8line_ext[15:0] :
+                                                         cfg_tile_y_4line_ext[15:0];
 
     always @(posedge PCLK or negedge PRESETn) begin
         if (!PRESETn) begin
@@ -396,9 +415,6 @@ module ubwc_dec_apb_reg_blk #(
             r_meta_base_format                  <= 5'd0;
             r_meta_base_addr_rgba_y             <= {AXI_AW{1'b0}};
             r_meta_base_addr_uv                 <= {AXI_AW{1'b0}};
-            r_meta_tile_x_numbers               <= 16'd0;
-            r_meta_tile_y_numbers               <= 16'd0;
-            r_otf_cfg_img_width                 <= 16'd0;
             r_otf_cfg_format                    <= 5'd0;
             r_otf_cfg_h_total                   <= 16'd0;
             r_otf_cfg_h_sync                    <= 16'd0;
@@ -528,11 +544,8 @@ module ubwc_dec_apb_reg_blk #(
                     r_meta_base_addr_uv[AXI_AW-1:32] <= PWDATA[AXI_AW-33:0];
                 end
                 APB_ADDR_META_CFG0: begin
-                    r_meta_tile_x_numbers <= PWDATA[15:0];
-                    r_meta_tile_y_numbers <= PWDATA[31:16];
                 end
                 APB_ADDR_OTF_CFG0: begin
-                    r_otf_cfg_img_width <= PWDATA[15:0];
                     r_otf_cfg_format    <= PWDATA[20:16];
                     r_meta_base_format  <= PWDATA[20:16];
                 end
@@ -597,7 +610,6 @@ module ubwc_dec_apb_reg_blk #(
             a_meta_base_addr_uv1 <= {AXI_AW{1'b0}};
             a_meta_tile_x_numbers <= 16'd0;
             a_meta_tile_y_numbers <= 16'd0;
-            a_otf_cfg_img_width <= 16'd0;
             a_otf_cfg_format <= 5'd0;
             a_otf_cfg_h_total <= 16'd0;
             a_otf_cfg_h_sync <= 16'd0;
@@ -638,9 +650,8 @@ module ubwc_dec_apb_reg_blk #(
                 a_meta_base_addr_uv0 <= r_meta_base_addr_uv0;
                 a_meta_base_addr_rgba_y1 <= r_meta_base_addr_rgba_y1;
                 a_meta_base_addr_uv1 <= r_meta_base_addr_uv1;
-                a_meta_tile_x_numbers <= r_meta_tile_x_numbers;
-                a_meta_tile_y_numbers <= r_meta_tile_y_numbers;
-                a_otf_cfg_img_width <= r_otf_cfg_img_width;
+                a_meta_tile_x_numbers <= cfg_meta_tile_x_numbers;
+                a_meta_tile_y_numbers <= cfg_meta_tile_y_numbers;
                 a_otf_cfg_format <= r_otf_cfg_format;
                 a_otf_cfg_h_total <= r_otf_cfg_h_total;
                 a_otf_cfg_h_sync <= r_otf_cfg_h_sync;
@@ -772,10 +783,10 @@ module ubwc_dec_apb_reg_blk #(
                 r_prdata = {{(DW-(AXI_AW-32)){1'b0}}, r_meta_base_addr_uv[AXI_AW-1:32]};
             end
             APB_ADDR_META_CFG0: begin
-                r_prdata = {r_meta_tile_y_numbers, r_meta_tile_x_numbers};
+                r_prdata = {cfg_meta_tile_y_numbers, cfg_meta_tile_x_numbers};
             end
             APB_ADDR_OTF_CFG0: begin
-                r_prdata = {{(DW-21){1'b0}}, r_otf_cfg_format, r_otf_cfg_img_width};
+                r_prdata = {{(DW-21){1'b0}}, r_otf_cfg_format, 16'd0};
             end
             APB_ADDR_OTF_CFG1: begin
                 r_prdata = {r_otf_cfg_h_sync, r_otf_cfg_h_total};
@@ -872,7 +883,7 @@ module ubwc_dec_apb_reg_blk #(
     assign o_meta_base_addr_uv1                = a_meta_base_addr_uv1;
     assign o_meta_tile_x_numbers               = a_meta_tile_x_numbers;
     assign o_meta_tile_y_numbers               = a_meta_tile_y_numbers;
-    assign o_otf_cfg_img_width                 = a_otf_cfg_img_width;
+    assign o_otf_cfg_img_width                 = a_otf_cfg_h_act;
     assign o_otf_cfg_format                    = a_otf_cfg_format;
     assign o_otf_cfg_h_total                   = a_otf_cfg_h_total;
     assign o_otf_cfg_h_sync                    = a_otf_cfg_h_sync;

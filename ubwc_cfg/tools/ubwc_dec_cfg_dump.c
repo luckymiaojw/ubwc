@@ -56,7 +56,7 @@ int main(int argc, char **argv)
            ubwc_dec_tile_pitch((uint32_t)format, width_px));
     printf("meta_tile_x_numbers=%u meta_tile_y_numbers=%u\n\n",
            ubwc_dec_tile_x_numbers((uint32_t)format, width_px),
-           ubwc_dec_tile_y_numbers((uint32_t)format, height_px));
+           ubwc_dec_active_tile_y_numbers((uint32_t)format, height_px));
     printf("layout sizes: meta_y=0x%x tile_y=0x%x meta_uv=0x%x tile_uv=0x%x total=0x%x\n",
            sizes.meta_y_size, sizes.tile_y_size, sizes.meta_uv_size,
            sizes.tile_uv_size, sizes.total_size);

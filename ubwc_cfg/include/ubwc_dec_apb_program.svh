@@ -41,7 +41,7 @@ task automatic ubwc_dec_apb_program_full(
                                                        bank_spread_en,
                                                        four_line_format, lossy_rgba_2_1));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_TILE_CFG1,
-              ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg1(format, width_px));
+              ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg1(format, h_act));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_TILE_CFG2,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg2(ci_input_type,
                                                        ci_lossy,
@@ -60,7 +60,7 @@ task automatic ubwc_dec_apb_program_full(
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_OTF_CFG4,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_otf_cfg4(v_bp, v_act));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_META_CFG0,
-              ubwc_dec_cfg_pkg::ubwc_dec_reg_meta_cfg0(format, width_px, height_px));
+              ubwc_dec_cfg_pkg::ubwc_dec_reg_meta_cfg0(format, h_act, v_act));
 
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_META_BASE_Y_LO,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_base_lo(meta_base_rgba_y));

@@ -1156,8 +1156,7 @@ module tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             dec_ar_len_mismatch_cnt      <= 0;
         end else begin
             if (dec_dut.u_tile_arcmd_gen.tile_cmd_valid &&
-                dec_dut.u_tile_arcmd_gen.tile_cmd_ready &&
-                dec_dut.u_tile_arcmd_gen.tile_cmd_has_payload) begin
+                dec_dut.u_tile_arcmd_gen.tile_cmd_ready) begin
                 dec_tile_fmt_queue[dec_tile_queue_wr_ptr]  <= dec_dut.u_tile_arcmd_gen.tile_cmd_format;
                 dec_tile_x_queue[dec_tile_queue_wr_ptr]    <= dec_dut.u_tile_arcmd_gen.dec_meta_x;
                 dec_tile_y_queue[dec_tile_queue_wr_ptr]    <= dec_dut.u_tile_arcmd_gen.dec_meta_y;

@@ -748,8 +748,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
             tile_queue_wr_ptr <= 0;
         end else begin
             if (dut.u_tile_arcmd_gen.tile_cmd_valid &&
-                dut.u_tile_arcmd_gen.tile_cmd_ready &&
-                dut.u_tile_arcmd_gen.tile_cmd_has_payload) begin
+                dut.u_tile_arcmd_gen.tile_cmd_ready) begin
                 reg [AXI_AW-1:0] exp_addr;
                 tile_fmt_queue[tile_queue_wr_ptr]  <= dut.u_tile_arcmd_gen.tile_cmd_format;
                 tile_x_queue[tile_queue_wr_ptr]    <= dut.u_tile_arcmd_gen.dec_meta_x;
@@ -859,13 +858,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                 tile_rbeat_cnt <= tile_rbeat_cnt + 1;
                 if (DEBUG_LOG && !(dut.vivo_rvo_valid && dut.vivo_rvo_ready)) begin
                     tile_rbeat_no_rvo_cnt <= tile_rbeat_no_rvo_cnt + 1;
-                    $display("DBG: tile beat accepted without rvo fire at cycle=%0d tile_active=%0b out_left=%0d in_left=%0d ci_ready=%0b tready=%0b rvalid=%0b rlast=%0b",
+                    $display("DBG: tile beat accepted without rvo fire at cycle=%0d vivo_ci_v/r=%0b/%0b vivo_cvi_v/r=%0b/%0b vivo_rvo_v/r=%0b/%0b tready=%0b rvalid=%0b rlast=%0b",
                              cycle_cnt,
-                             dut.u_dec_vivo_top.r_tile_active,
-                             dut.u_dec_vivo_top.r_out_beats_left,
-                             dut.u_dec_vivo_top.r_in_beats_left,
+                             dut.vivo_ci_valid_int,
                              dut.vivo_ci_ready_raw,
+                             dut.vivo_cvi_valid_int,
+                             dut.vivo_cvi_ready_int,
+                             dut.vivo_rvo_valid,
                              dut.vivo_rvo_ready,
+                             dut.otf_axis_tready_int,
                              dut.tile_m_axi_rvalid,
                              dut.tile_m_axi_rlast);
                 end
@@ -883,7 +884,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                 fifo_rd_cnt <= fifo_rd_cnt + 1;
             end
             if (DEBUG_LOG && (cycle_cnt >= 3329) && (cycle_cnt <= 3346)) begin
-                $display("DBG: cyc=%0d m_rvalid=%0b m_rready=%0b m_rlast=%0b inflight=%0b owner_s0=%0b rbuf_valid=%0b s1_rvalid=%0b s1_rready=%0b s1_rlast=%0b ci_ready=%0b tile_active=%0b out_left=%0d in_left=%0d",
+                $display("DBG: cyc=%0d m_rvalid=%0b m_rready=%0b m_rlast=%0b inflight=%0b owner_s0=%0b rbuf_valid=%0b s1_rvalid=%0b s1_rready=%0b s1_rlast=%0b ci_valid=%0b ci_ready=%0b cvi_valid=%0b cvi_ready=%0b rvo_valid=%0b rvo_ready=%0b",
                          cycle_cnt,
                          i_m_axi_rvalid,
                          o_m_axi_rready,
@@ -894,10 +895,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                          dut.tile_m_axi_rvalid,
                          dut.tile_m_axi_rready,
                          dut.tile_m_axi_rlast,
-                         dut.tile_ci_ready_int,
-                         dut.u_dec_vivo_top.r_tile_active,
-                         dut.u_dec_vivo_top.r_out_beats_left,
-                         dut.u_dec_vivo_top.r_in_beats_left);
+                         dut.vivo_ci_valid_int,
+                         dut.vivo_ci_ready_raw,
+                         dut.vivo_cvi_valid_int,
+                         dut.vivo_cvi_ready_int,
+                         dut.vivo_rvo_valid,
+                         dut.vivo_rvo_ready);
             end
 
             if (!axi_rsp_active) begin
@@ -1088,9 +1091,11 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                      dut.tile_ci_ready_int, dut.otf_axis_tile_ready_int, dut.otf_axis_tready_int);
             $display("  dbg wrapper valid  : ci_valid=%0b tile_valid=%0b tvalid=%0b rvo_valid=%0b",
                      dut.tile_ci_valid_int, dut.otf_axis_tile_valid, dut.otf_axis_tvalid, dut.vivo_rvo_valid);
-            $display("  dbg vivo state     : tile_active=%0b out_left=%0d in_left=%0d ci_ready_raw=%0b cvi_ready=%0b",
-                     dut.u_dec_vivo_top.r_tile_active, dut.u_dec_vivo_top.r_out_beats_left, dut.u_dec_vivo_top.r_in_beats_left,
-                     dut.vivo_ci_ready_raw, dut.tile_cvi_ready_int);
+            $display("  dbg vivo interface : ci_v/r=%0b/%0b cvi_v/r=%0b/%0b co_v=%0b rvo_v/r=%0b/%0b",
+                     dut.vivo_ci_valid_int, dut.vivo_ci_ready_raw,
+                     dut.vivo_cvi_valid_int, dut.vivo_cvi_ready_int,
+                     dut.vivo_co_valid,
+                     dut.vivo_rvo_valid, dut.vivo_rvo_ready);
         $display("  dbg otf core       : writer_vld=%0b fetcher_req=%0b fetcher_done=%0b fifo_empty=%0b stream_started=%0b phase=%0d",
                  dut.u_tile_to_otf.writer_vld, dut.u_tile_to_otf.fetcher_req, dut.u_tile_to_otf.fetcher_done,
                  (dut.u_tile_to_otf.fifo_empty0 & dut.u_tile_to_otf.fifo_empty1), dut.u_tile_to_otf.u_otf_driver.stream_started,
@@ -1287,12 +1292,14 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                  dut.otf_axis_tile_valid,
                  dut.otf_axis_tvalid,
                  dut.vivo_rvo_valid);
-        $display("  dbg vivo state     : tile_active=%0b out_left=%0d in_left=%0d ci_ready_raw=%0b cvi_ready=%0b",
-                 dut.u_dec_vivo_top.r_tile_active,
-                 dut.u_dec_vivo_top.r_out_beats_left,
-                 dut.u_dec_vivo_top.r_in_beats_left,
+        $display("  dbg vivo interface : ci_v/r=%0b/%0b cvi_v/r=%0b/%0b co_v=%0b rvo_v/r=%0b/%0b",
+                 dut.vivo_ci_valid_int,
                  dut.vivo_ci_ready_raw,
-                 dut.tile_cvi_ready_int);
+                 dut.vivo_cvi_valid_int,
+                 dut.vivo_cvi_ready_int,
+                 dut.vivo_co_valid,
+                 dut.vivo_rvo_valid,
+                 dut.vivo_rvo_ready);
         $display("  dbg otf core       : writer_vld=%0b fetcher_req=%0b fetcher_done=%0b fifo_empty=%0b stream_started=%0b phase=%0d",
                  dut.u_tile_to_otf.writer_vld,
                  dut.u_tile_to_otf.fetcher_req,
@@ -1358,17 +1365,16 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                  dut.u_tile_arcmd_gen.o_ci_valid,
                  dut.u_tile_arcmd_gen.tile_cmd_valid,
                  dut.u_tile_arcmd_gen.tile_cmd_ready);
-        $display("  dbg tile fifos     : ci_full=%0b ci_valid=%0b ci_has_payload=%0b pending_full=%0b pending_empty=%0b pending_valid=%0b rdata_full=%0b rdata_empty=%0b rdata_valid=%0b",
+        $display("  dbg tile fifos     : ci_full=%0b ci_valid=%0b pending_full=%0b pending_empty=%0b pending_valid=%0b rdata_full=%0b rdata_empty=%0b rdata_valid=%0b",
                  dut.u_tile_arcmd_gen.ci_fifo_full,
                  dut.u_tile_arcmd_gen.ci_fifo_valid,
-                 dut.u_tile_arcmd_gen.ci_fifo_has_payload,
                  dut.u_tile_arcmd_gen.ci_pending_fifo_full,
                  dut.u_tile_arcmd_gen.ci_pending_fifo_empty,
                  dut.u_tile_arcmd_gen.ci_pending_fifo_valid,
                  dut.u_tile_arcmd_gen.rdata_fifo_full,
                  dut.u_tile_arcmd_gen.rdata_fifo_empty,
                  dut.u_tile_arcmd_gen.rdata_fifo_valid);
-        $display("  dbg tile state     : ar_split=%0b ar_valid_from_fifo=%0b ar_fire=%0b r_collect_active=%0b r_collect_ready=%0b r_collect_done=%0b ci_pending_rd=%0b ci_out_has_payload=%0b cvi_active=%0b cvi_left=%0d",
+        $display("  dbg tile state     : ar_split=%0b ar_valid_from_fifo=%0b ar_fire=%0b r_collect_active=%0b r_collect_ready=%0b r_collect_done=%0b ci_pending_rd=%0b cvi_active=%0b cvi_left=%0d",
                  dut.u_tile_arcmd_gen.ar_split_active,
                  dut.u_tile_arcmd_gen.ar_valid_from_fifo,
                  dut.u_tile_arcmd_gen.ar_fire,
@@ -1376,7 +1382,6 @@ module tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12 #(
                  dut.u_tile_arcmd_gen.r_collect_ready,
                  dut.u_tile_arcmd_gen.r_collect_done,
                  dut.u_tile_arcmd_gen.ci_pending_fifo_rd_en,
-                 dut.u_tile_arcmd_gen.ci_out_has_payload,
                  dut.u_tile_arcmd_gen.cvi_stream_active_reg,
                  dut.u_tile_arcmd_gen.cvi_stream_beats_left_reg);
         $display("  dbg tile beats     : pending_alen=%0d pending_payload=%0d r_left=%0d r_last=%0b done_wait=%0b ci_out_can_load=%0b rdata_count=%0d pending_count=%0d ci_count=%0d",

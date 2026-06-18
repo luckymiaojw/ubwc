@@ -18,7 +18,6 @@ module ubwc_tile_addr #(
     input   wire    [4                      :0]         i_meta_format                   ,
     input   wire    [3                      :0]         i_meta_flag                     ,
     input   wire    [2                      :0]         i_meta_alen                     ,
-    input   wire                                        i_meta_has_payload              ,
     input   wire    [11                     :0]         i_meta_x                        ,
     input   wire    [9                      :0]         i_meta_y                        ,
     input   wire    [3                      :0]         i_meta_fcnt                     ,
@@ -28,7 +27,6 @@ module ubwc_tile_addr #(
     output  wire    [4                      :0]         o_cmd_format                    ,
     output  wire    [3                      :0]         o_cmd_meta                      ,
     output  wire    [2                      :0]         o_cmd_alen                      ,
-    output  wire                                        o_cmd_has_payload               ,
     output  wire    [3                      :0]         o_cmd_fcnt
 );
 
@@ -250,8 +248,7 @@ module ubwc_tile_addr #(
                                         meta_is_p010 ? 3'd2 :
                                                        3'd4;
     assign surface_pitch_bytes        = {{(ADDR_W-16){1'b0}}, i_cfg_pitch, 4'b0000};
-    assign compressed_size_bytes      = i_meta_has_payload ? (({6'd0, i_meta_alen} + 9'd1) << 5) :
-                                                             9'd0;
+    assign compressed_size_bytes      = ({6'd0, i_meta_alen} + 9'd1) << 5;
     assign lossy_rgba_2_1_active      = i_cfg_is_lossy_rgba_2_1_format &&
                                         (i_meta_format == META_FMT_RGBA8888);
     assign payload_base_addr          = meta_is_uv ? cfg_base_addr_uv :
@@ -297,7 +294,7 @@ module ubwc_tile_addr #(
     assign addr_after_lossy           = lossy_rgba_2_1_active ? addr_after_lossy_bump :
                                                                 addr_after_lvl3;
     assign bank_spread_en             = i_cfg_bank_spread_en && !lossy_rgba_2_1_active;
-    assign bank_spread_bump           = bank_spread_en && i_meta_has_payload &&
+    assign bank_spread_bump           = bank_spread_en &&
                                         (compressed_size_bytes <= 9'd128) &&
                                         (addr_after_lossy[8] ^ addr_after_lossy[9]);
     assign addr_after_spread          = bank_spread_bump ? (addr_after_lossy + 64'd128) :
@@ -309,7 +306,6 @@ module ubwc_tile_addr #(
     assign o_cmd_format               = i_meta_format;
     assign o_cmd_meta                 = i_meta_flag;
     assign o_cmd_alen                 = i_meta_alen;
-    assign o_cmd_has_payload          = i_meta_has_payload;
     assign o_cmd_fcnt                 = i_meta_fcnt;
 
 endmodule

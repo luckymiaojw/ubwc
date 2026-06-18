@@ -14,24 +14,49 @@ module tb_enc_sync_sram_1rw #(
     output reg                dout_vld
 );
     reg [DATA_W-1:0] mem [0:(1 << ADDR_W)-1];
+    reg [DATA_W-1:0] dout_pipe [0:2];
+    reg [2:0]        dout_vld_pipe;
+    integer          tb_bank_dly;
     integer idx;
 
     initial begin
         dout     = {DATA_W{1'b0}};
         dout_vld = 1'b0;
+        dout_vld_pipe = 3'd0;
+        tb_bank_dly = 1;
+        void'($value$plusargs("tb_bank_dly=%d", tb_bank_dly));
+        if (tb_bank_dly < 1)
+            tb_bank_dly = 1;
+        if (tb_bank_dly > 4)
+            tb_bank_dly = 4;
+        for (idx = 0; idx < 3; idx = idx + 1)
+            dout_pipe[idx] = {DATA_W{1'b0}};
         for (idx = 0; idx < (1 << ADDR_W); idx = idx + 1)
             mem[idx] = {DATA_W{1'b0}};
     end
 
     always @(posedge clk) begin
         dout_vld <= 1'b0;
+        dout_vld_pipe <= {dout_vld_pipe[1:0], 1'b0};
+        dout_pipe[2] <= dout_pipe[1];
+        dout_pipe[1] <= dout_pipe[0];
         if (en) begin
             if (wen) begin
                 mem[addr] <= din;
             end else begin
-                dout     <= mem[addr];
-                dout_vld <= 1'b1;
+                if (tb_bank_dly <= 1) begin
+                    dout     <= mem[addr];
+                    dout_vld <= 1'b1;
+                end else begin
+                    dout_pipe[0]      <= mem[addr];
+                    dout_vld_pipe[0]  <= 1'b1;
+                    dout              <= dout_pipe[tb_bank_dly - 2];
+                    dout_vld          <= dout_vld_pipe[tb_bank_dly - 2];
+                end
             end
+        end else if (tb_bank_dly > 1) begin
+            dout     <= dout_pipe[tb_bank_dly - 2];
+            dout_vld <= dout_vld_pipe[tb_bank_dly - 2];
         end
     end
 endmodule
@@ -395,12 +420,13 @@ module tb_enc_axi_write_sink #(
                 write_beat_to_mem(curr_beat_addr_w, wdata, wstrb);
 
                 if (curr_is_meta_w && dbg_meta_sink_en) begin
-                    $display("[TB_META_SINK] t=%0t w addr=%016x base=%016x beat=%0d/%0d wlast=%0b exp_last=%0b active=%0b aw_pop=%0b data=%064x",
+                    $display("[TB_META_SINK] t=%0t w addr=%016x base=%016x beat=%0d/%0d strb=%08x wlast=%0b exp_last=%0b active=%0b aw_pop=%0b data=%064x",
                              $time,
                              curr_beat_addr_w,
                              curr_addr_w,
                              curr_beat_idx_w,
                              curr_beats_w,
+                             wstrb,
                              wlast,
                              curr_last_w,
                              burst_active,
@@ -486,7 +512,55 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     parameter integer RGBA_TILE_COLS = 256,
     parameter integer RGBA_TILE_ROWS = 152,
     parameter integer RGBA_META_WORDS64 = 5120,
-    parameter integer COM_BUF_AW = 12
+    parameter integer CFG_NV12_ACTIVE_H = 600,
+    parameter integer CFG_NV12_Y_STORED_H = 640,
+    parameter integer CFG_NV12_UV_STORED_H = 320,
+    parameter integer CFG_NV12_TILE_PITCH = 4096,
+    parameter integer CFG_NV12_Y_TILE_COLS = 128,
+    parameter integer CFG_NV12_UV_TILE_COLS = 128,
+    parameter integer CFG_NV12_Y_TILE_ROWS = 80,
+    parameter integer CFG_NV12_UV_TILE_ROWS = 40,
+    parameter integer CFG_NV12_COMP_Y_WORDS64 = 311296,
+    parameter integer CFG_NV12_COMP_UV_WORDS64 = 163840,
+    parameter integer CFG_NV12_META_Y_WORDS64 = 1536,
+    parameter integer CFG_NV12_META_UV_WORDS64 = 1024,
+    parameter integer CFG_G016_ACTIVE_H = 600,
+    parameter integer CFG_G016_Y_STORED_H = 608,
+    parameter integer CFG_G016_UV_STORED_H = 304,
+    parameter integer CFG_G016_TILE_PITCH = 8192,
+    parameter integer CFG_G016_Y_TILE_COLS = 128,
+    parameter integer CFG_G016_UV_TILE_COLS = 128,
+    parameter integer CFG_G016_Y_TILE_ROWS = 152,
+    parameter integer CFG_G016_UV_TILE_ROWS = 76,
+    parameter integer CFG_G016_COMP_Y_WORDS64 = 622592,
+    parameter integer CFG_G016_COMP_UV_WORDS64 = 311296,
+    parameter integer CFG_G016_META_Y_WORDS64 = 2560,
+    parameter integer CFG_G016_META_UV_WORDS64 = 1536,
+    parameter [63:0] CFG_RGBA_TILE_BASE_Y_ADDR = 64'h0000_0000_8000_A000,
+    parameter [63:0] CFG_RGBA_META_BASE_Y_ADDR = 64'h0000_0000_8000_0000,
+    parameter [63:0] CFG_NV12_TILE_BASE_Y_ADDR = 64'h0000_0000_8000_3000,
+    parameter [63:0] CFG_NV12_TILE_BASE_UV_ADDR = 64'h0000_0000_8028_5000,
+    parameter [63:0] CFG_NV12_META_BASE_Y_ADDR = 64'h0000_0000_8000_0000,
+    parameter [63:0] CFG_NV12_META_BASE_UV_ADDR = 64'h0000_0000_8028_3000,
+    parameter [63:0] CFG_G016_TILE_BASE_Y_ADDR = 64'h0000_0000_8000_5000,
+    parameter [63:0] CFG_G016_TILE_BASE_UV_ADDR = 64'h0000_0000_804C_8000,
+    parameter [63:0] CFG_G016_META_BASE_Y_ADDR = 64'h0000_0000_8000_0000,
+    parameter [63:0] CFG_G016_META_BASE_UV_ADDR = 64'h0000_0000_804C_5000,
+    parameter integer COM_BUF_AW = 12,
+    parameter integer CASE_TILE_EXPECT_LINEAR = 0,
+    parameter integer CASE_CI_LOSSY = 0,
+    parameter integer CASE_UBWC_CFG_0 = 0,
+    parameter integer CASE_UBWC_CFG_1 = 0,
+    parameter integer CASE_UBWC_CFG_2 = 0,
+    parameter integer CASE_UBWC_CFG_3 = 0,
+    parameter integer CASE_UBWC_CFG_4 = 0,
+    parameter integer CASE_UBWC_CFG_5 = 0,
+    parameter integer CASE_UBWC_CFG_6 = 0,
+    parameter integer CASE_UBWC_CFG_7 = 0,
+    parameter integer CASE_UBWC_CFG_8 = 0,
+    parameter integer CASE_UBWC_CFG_9 = 0,
+    parameter integer CASE_UBWC_CFG_10 = 0,
+    parameter integer CASE_UBWC_CFG_11 = 0
 ) ();
     localparam integer CASE_RGBA8888    = 0;
     localparam integer CASE_RGBA1010102 = 1;
@@ -501,6 +575,15 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         end
     endfunction
 
+    task automatic report_first_mismatch_header;
+        input string checker_name;
+        input string wave_scope;
+        begin
+            $display("[TB][FIRST_MISMATCH] time=%0t checker=%0s scope=%0s",
+                     $time, checker_name, wave_scope);
+        end
+    endtask
+
     localparam integer APB_AW          = 16;
     localparam integer APB_DW          = 32;
     localparam integer AXI_AW          = 64;
@@ -510,36 +593,55 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer AXI_IDW         = 4;
     localparam integer COM_BUF_DW      = 128;
     localparam integer SB_WIDTH        = 1;
+    localparam [63:0]  META_BYTE_CMP_MASK = 64'h1f1f_1f1f_1f1f_1f1f;
+
+    localparam [63:0]  CFG_RGBA_TILE_BASE_Y_ADDR_Z  = {32'd0, CFG_RGBA_TILE_BASE_Y_ADDR[31:0]};
+    localparam [63:0]  CFG_RGBA_META_BASE_Y_ADDR_Z  = {32'd0, CFG_RGBA_META_BASE_Y_ADDR[31:0]};
+    localparam [63:0]  CFG_NV12_TILE_BASE_Y_ADDR_Z  = {32'd0, CFG_NV12_TILE_BASE_Y_ADDR[31:0]};
+    localparam [63:0]  CFG_NV12_TILE_BASE_UV_ADDR_Z = {32'd0, CFG_NV12_TILE_BASE_UV_ADDR[31:0]};
+    localparam [63:0]  CFG_NV12_META_BASE_Y_ADDR_Z  = {32'd0, CFG_NV12_META_BASE_Y_ADDR[31:0]};
+    localparam [63:0]  CFG_NV12_META_BASE_UV_ADDR_Z = {32'd0, CFG_NV12_META_BASE_UV_ADDR[31:0]};
+    localparam [63:0]  CFG_G016_TILE_BASE_Y_ADDR_Z  = {32'd0, CFG_G016_TILE_BASE_Y_ADDR[31:0]};
+    localparam [63:0]  CFG_G016_TILE_BASE_UV_ADDR_Z = {32'd0, CFG_G016_TILE_BASE_UV_ADDR[31:0]};
+    localparam [63:0]  CFG_G016_META_BASE_Y_ADDR_Z  = {32'd0, CFG_G016_META_BASE_Y_ADDR[31:0]};
+    localparam [63:0]  CFG_G016_META_BASE_UV_ADDR_Z = {32'd0, CFG_G016_META_BASE_UV_ADDR[31:0]};
 
     localparam real TB_APB_CLK_HALF_NS   = 5.0000;   // 100 MHz
     localparam real TB_AXI_CLK_HALF_NS   = 1.0000;   // 500 MHz
     localparam real TB_CORE_CLK_HALF_NS  = 2.5000;   // 200 MHz
     localparam real TB_OTF_CLK_HALF_NS   = 1.5625;   // 320 MHz
 
-    localparam integer NV12_ACTIVE_H   = 600;
-    localparam integer NV12_Y_STORED_H = 640;
-    localparam integer NV12_UV_STORED_H= 320;
-    localparam integer NV12_TILE_PITCH   = 4096;
-    localparam integer NV12_Y_TILE_COLS  = 128;
-    localparam integer NV12_UV_TILE_COLS = 128;
-    localparam integer NV12_Y_TILE_ROWS  = 80;
-    localparam integer NV12_UV_TILE_ROWS = 40;
-    localparam integer NV12_COMP_Y_WORDS64  = 311296;
-    localparam integer NV12_COMP_UV_WORDS64 = 163840;
+    localparam integer NV12_ACTIVE_H   = CFG_NV12_ACTIVE_H;
+    localparam integer NV12_Y_STORED_H = CFG_NV12_Y_STORED_H;
+    localparam integer NV12_UV_STORED_H= CFG_NV12_UV_STORED_H;
+    localparam integer NV12_TILE_PITCH   = CFG_NV12_TILE_PITCH;
+    localparam integer NV12_Y_TILE_COLS  = CFG_NV12_Y_TILE_COLS;
+    localparam integer NV12_UV_TILE_COLS = CFG_NV12_UV_TILE_COLS;
+    localparam integer NV12_Y_TILE_ROWS  = CFG_NV12_Y_TILE_ROWS;
+    localparam integer NV12_UV_TILE_ROWS = CFG_NV12_UV_TILE_ROWS;
+    localparam integer NV12_UV_ACTIVE_H  = (NV12_ACTIVE_H + 1) / 2;
+    localparam integer NV12_Y_ACTIVE_TILE_ROWS  = (NV12_ACTIVE_H + 7) / 8;
+    localparam integer NV12_UV_ACTIVE_TILE_ROWS = (NV12_UV_ACTIVE_H + 7) / 8;
+    localparam integer NV12_COMP_Y_WORDS64  = CFG_NV12_COMP_Y_WORDS64;
+    localparam integer NV12_COMP_UV_WORDS64 = CFG_NV12_COMP_UV_WORDS64;
 
-    localparam integer G016_ACTIVE_H      = 600;
-    localparam integer G016_Y_STORED_H    = 608;
-    localparam integer G016_UV_STORED_H   = 304;
-    localparam integer G016_TILE_PITCH    = 8192;
-    localparam integer G016_Y_TILE_COLS   = 128;
-    localparam integer G016_UV_TILE_COLS  = 128;
-    localparam integer G016_Y_TILE_ROWS   = 152;
-    localparam integer G016_UV_TILE_ROWS  = 76;
+    localparam integer G016_ACTIVE_H      = CFG_G016_ACTIVE_H;
+    localparam integer G016_Y_STORED_H    = CFG_G016_Y_STORED_H;
+    localparam integer G016_UV_STORED_H   = CFG_G016_UV_STORED_H;
+    localparam integer G016_TILE_PITCH    = CFG_G016_TILE_PITCH;
+    localparam integer G016_Y_TILE_COLS   = CFG_G016_Y_TILE_COLS;
+    localparam integer G016_UV_TILE_COLS  = CFG_G016_UV_TILE_COLS;
+    localparam integer G016_Y_TILE_ROWS   = CFG_G016_Y_TILE_ROWS;
+    localparam integer G016_UV_TILE_ROWS  = CFG_G016_UV_TILE_ROWS;
+    localparam integer G016_UV_ACTIVE_H   = (G016_ACTIVE_H + 1) / 2;
+    localparam integer G016_Y_ACTIVE_TILE_ROWS  = (G016_ACTIVE_H + 3) / 4;
+    localparam integer G016_UV_ACTIVE_TILE_ROWS = (G016_UV_ACTIVE_H + 3) / 4;
 
     localparam integer CASE_IS_NV12       = (CASE_ID == CASE_NV12);
     localparam integer CASE_IS_G016       = (CASE_ID == CASE_G016);
     localparam integer CASE_HAS_PLANE1    = CASE_IS_NV12 || CASE_IS_G016;
     localparam integer CASE_IS_RGBA10     = (CASE_ID == CASE_RGBA1010102);
+    localparam integer CASE_IS_LOSSY_RGBA_2_1 = (CASE_ID == CASE_RGBA8888) && (CASE_CI_LOSSY != 0);
     localparam integer CASE_OTF_FMT       = CASE_IS_G016 ? 3'd3 :
                                             (CASE_IS_NV12 ? 3'd2 :
                                              (CASE_IS_RGBA10 ? 3'd1 : 3'd0));
@@ -548,6 +650,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                              (CASE_IS_RGBA10 ? 5'd1 : 5'd0));
     localparam integer CASE_STORED_H      = CASE_IS_G016 ? G016_Y_STORED_H :
                                             (CASE_IS_NV12 ? NV12_Y_STORED_H : RGBA_STORED_H);
+    localparam integer CASE_ACTIVE_H      = CASE_IS_G016 ? G016_ACTIVE_H :
+                                            (CASE_IS_NV12 ? NV12_ACTIVE_H : RGBA_ACTIVE_H);
     localparam integer CASE_TILE_W        = CASE_IS_G016 ? 32 :
                                             (CASE_IS_NV12 ? 32 : 16);
     localparam integer CASE_TILE_H        = CASE_IS_G016 ? 4 :
@@ -566,23 +670,39 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                                           : ((RGBA_TILE_PITCH * RGBA_STORED_H) / 8));
     localparam integer CASE_TILE1_WORDS64 = CASE_IS_G016 ? ((G016_TILE_PITCH * G016_UV_STORED_H) / 8) :
                                             (CASE_IS_NV12 ? ((NV12_TILE_PITCH * NV12_UV_STORED_H) / 8) : 1);
+    localparam integer CASE_LINEAR_TILE0_WORDS64 = align_up_int(IMG_W * CASE_BYTES_PER_PIXEL * CASE_ACTIVE_H, 8) / 8;
+    localparam integer CASE_LINEAR_TILE1_WORDS64 = CASE_HAS_PLANE1 ?
+                                             (align_up_int(IMG_W * CASE_BYTES_PER_PIXEL *
+                                                           (CASE_IS_G016 ? G016_UV_ACTIVE_H : NV12_UV_ACTIVE_H), 8) / 8) : 1;
+    localparam integer CASE_TILE0_FILE_WORDS64 = (CASE_TILE_EXPECT_LINEAR != 0) ?
+                                             CASE_LINEAR_TILE0_WORDS64 : CASE_TILE0_WORDS64;
+    localparam integer CASE_TILE1_FILE_WORDS64 = (CASE_TILE_EXPECT_LINEAR != 0) ?
+                                             CASE_LINEAR_TILE1_WORDS64 : CASE_TILE1_WORDS64;
     localparam integer CASE_EXPECTED_TILES = CASE_IS_G016 ? ((G016_Y_TILE_COLS  * G016_Y_TILE_ROWS) +
                                                              (G016_UV_TILE_COLS * G016_UV_TILE_ROWS)) :
                                              (CASE_IS_NV12 ? ((NV12_Y_TILE_COLS  * NV12_Y_TILE_ROWS) +
                                                               (NV12_UV_TILE_COLS * NV12_UV_TILE_ROWS))
                                                            : (RGBA_TILE_COLS * RGBA_TILE_ROWS));
-    localparam integer CASE_EXPECTED_BEATS = CASE_EXPECTED_TILES * 8;
-    localparam integer MAX_FRAME_REPEAT    = 8;
+    localparam integer CASE_ACTIVE_TILE_ROWS = (RGBA_ACTIVE_H + 3) / 4;
+    localparam integer CASE_ACTIVE_EXPECTED_TILES =
+                                             CASE_IS_G016 ? ((G016_Y_TILE_COLS  * G016_Y_ACTIVE_TILE_ROWS) +
+                                                            (G016_UV_TILE_COLS * G016_UV_ACTIVE_TILE_ROWS)) :
+                                             (CASE_IS_NV12 ? ((NV12_Y_TILE_COLS  * NV12_Y_ACTIVE_TILE_ROWS) +
+                                                              (NV12_UV_TILE_COLS * NV12_UV_ACTIVE_TILE_ROWS))
+                                                           : (RGBA_TILE_COLS * CASE_ACTIVE_TILE_ROWS));
+    localparam integer CASE_EXPECTED_BEATS = CASE_ACTIVE_EXPECTED_TILES * 8;
+    localparam integer MAX_FRAME_REPEAT    = 100;
     localparam integer TILE_QUEUE_CAPACITY = CASE_EXPECTED_TILES * MAX_FRAME_REPEAT;
     localparam integer CASE_TIMEOUT_CYCLES = CASE_IS_NV12 ? 20000000 : 20000000;
     localparam integer CASE_ADDR_CHECK_EN  = 1;
-    localparam [63:0]  CASE_TILE_BASE_Y_ADDR   = CASE_IS_G016 ? 64'h0000_0000_8000_5000 :
-                                                  (CASE_IS_NV12 ? 64'h0000_0000_8000_3000 : 64'h0000_0000_8000_A000);
-    localparam [63:0]  CASE_TILE_BASE_UV_ADDR  = CASE_IS_G016 ? 64'h0000_0000_804C_8000 :
-                                                  (CASE_IS_NV12 ? 64'h0000_0000_8028_5000 : 64'h0000_0000_0000_0000);
-    localparam [63:0]  CASE_META_BASE_Y_ADDR   = 64'h0000_0000_8000_0000;
-    localparam [63:0]  CASE_META_BASE_UV_ADDR  = CASE_IS_G016 ? 64'h0000_0000_804C_5000 :
-                                                  (CASE_IS_NV12 ? 64'h0000_0000_8028_3000 : 64'h0000_0000_0000_0000);
+    localparam [63:0]  CASE_TILE_BASE_Y_ADDR   = CASE_IS_G016 ? CFG_G016_TILE_BASE_Y_ADDR_Z :
+                                                  (CASE_IS_NV12 ? CFG_NV12_TILE_BASE_Y_ADDR_Z : CFG_RGBA_TILE_BASE_Y_ADDR_Z);
+    localparam [63:0]  CASE_TILE_BASE_UV_ADDR  = CASE_IS_G016 ? CFG_G016_TILE_BASE_UV_ADDR_Z :
+                                                  (CASE_IS_NV12 ? CFG_NV12_TILE_BASE_UV_ADDR_Z : 64'h0000_0000_0000_0000);
+    localparam [63:0]  CASE_META_BASE_Y_ADDR   = CASE_IS_G016 ? CFG_G016_META_BASE_Y_ADDR_Z :
+                                                  (CASE_IS_NV12 ? CFG_NV12_META_BASE_Y_ADDR_Z : CFG_RGBA_META_BASE_Y_ADDR_Z);
+    localparam [63:0]  CASE_META_BASE_UV_ADDR  = CASE_IS_G016 ? CFG_G016_META_BASE_UV_ADDR_Z :
+                                                  (CASE_IS_NV12 ? CFG_NV12_META_BASE_UV_ADDR_Z : 64'h0000_0000_0000_0000);
     localparam integer CASE_CMP0_WORDS64       = CASE_IS_NV12 ? NV12_COMP_Y_WORDS64 : CASE_TILE0_WORDS64;
     localparam integer CASE_CMP1_WORDS64       = CASE_HAS_PLANE1 ? (CASE_IS_NV12 ? NV12_COMP_UV_WORDS64 : CASE_TILE1_WORDS64) : 1;
     localparam integer CASE_FAKE_CMP0_WORDS64  = CASE_IS_G016 ? (G016_Y_TILE_COLS  * G016_Y_TILE_ROWS  * 32) :
@@ -591,10 +711,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer CASE_FAKE_CMP1_WORDS64  = CASE_HAS_PLANE1 ? (CASE_IS_G016 ? (G016_UV_TILE_COLS * G016_UV_TILE_ROWS * 32)
                                                                                   : (NV12_UV_TILE_COLS * NV12_UV_TILE_ROWS * 32))
                                                                   : 0;
-    localparam integer CASE_META0_WORDS64      = CASE_IS_G016 ? 2560 :
-                                                  (CASE_IS_NV12 ? 1536 : RGBA_META_WORDS64);
-    localparam integer CASE_META1_WORDS64      = CASE_IS_G016 ? 1536 :
-                                                  (CASE_IS_NV12 ? 1024 : 1);
+    localparam integer CASE_META0_WORDS64      = CASE_IS_G016 ? CFG_G016_META_Y_WORDS64 :
+                                                  (CASE_IS_NV12 ? CFG_NV12_META_Y_WORDS64 : RGBA_META_WORDS64);
+    localparam integer CASE_META1_WORDS64      = CASE_IS_G016 ? CFG_G016_META_UV_WORDS64 :
+                                                  (CASE_IS_NV12 ? CFG_NV12_META_UV_WORDS64 : 1);
     localparam integer CASE_META_TOTAL_WORDS64 = CASE_META0_WORDS64 + (CASE_HAS_PLANE1 ? CASE_META1_WORDS64 : 0);
     localparam integer CASE_EXPECTED_META_W    = CASE_META_TOTAL_WORDS64;
     localparam integer CASE_EXPECTED_META_AW   = CASE_META_TOTAL_WORDS64;
@@ -605,12 +725,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer CASE_FAKE_META0_WORDS64 = CASE_META0_WORDS64;
     localparam integer CASE_FAKE_META1_WORDS64 = CASE_HAS_PLANE1 ? CASE_META1_WORDS64 : 0;
     localparam integer CASE_FAKE_ACTIVE_META0_WORDS64 =
-                                                 CASE_IS_G016 ? ((G016_Y_TILE_COLS  * G016_Y_TILE_ROWS)  / 8) :
-                                                 (CASE_IS_NV12 ? ((NV12_Y_TILE_COLS * NV12_Y_TILE_ROWS) / 8)
-                                                               : ((RGBA_TILE_COLS   * RGBA_TILE_ROWS)   / 8));
+                                                 CASE_IS_G016 ? (((G016_Y_TILE_COLS  + 7) / 8) * G016_Y_ACTIVE_TILE_ROWS) :
+                                                 (CASE_IS_NV12 ? (((NV12_Y_TILE_COLS + 7) / 8) * NV12_Y_ACTIVE_TILE_ROWS)
+                                                               : (((RGBA_TILE_COLS   + 7) / 8) * CASE_ACTIVE_TILE_ROWS));
     localparam integer CASE_FAKE_ACTIVE_META1_WORDS64 =
-                                                 CASE_HAS_PLANE1 ? (CASE_IS_G016 ? ((G016_UV_TILE_COLS * G016_UV_TILE_ROWS) / 8)
-                                                                                  : ((NV12_UV_TILE_COLS * NV12_UV_TILE_ROWS) / 8))
+                                                 CASE_HAS_PLANE1 ? (CASE_IS_G016 ? (((G016_UV_TILE_COLS + 7) / 8) * G016_UV_ACTIVE_TILE_ROWS)
+                                                                                  : (((NV12_UV_TILE_COLS + 7) / 8) * NV12_UV_ACTIVE_TILE_ROWS))
                                                                  : 0;
     localparam integer CASE_FAKE_EXPECTED_META_W    = CASE_FAKE_ACTIVE_META0_WORDS64 +
                                                       (CASE_HAS_PLANE1 ? CASE_FAKE_ACTIVE_META1_WORDS64 : 0);
@@ -620,13 +740,18 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer CASE_FAKE_EXPECTED_META1_W   = CASE_FAKE_ACTIVE_META1_WORDS64;
     localparam integer CASE_FAKE_EXPECTED_META1_AW  = CASE_FAKE_ACTIVE_META1_WORDS64;
     localparam [63:0]  CASE_MAIN_BASE_MIN      = CASE_TILE_BASE_Y_ADDR;
-    localparam [63:0]  CASE_META_BASE_MIN      = 64'h0000_0000_8000_0000;
+    localparam [63:0]  CASE_META_BASE_MIN      = (CASE_HAS_PLANE1 && (CASE_META_BASE_UV_ADDR < CASE_META_BASE_Y_ADDR)) ?
+                                                 CASE_META_BASE_UV_ADDR : CASE_META_BASE_Y_ADDR;
+    localparam [63:0]  CASE_META_REF_END_ADDR  = CASE_HAS_PLANE1 ?
+                                                 (((CASE_META_BASE_Y_ADDR + (CASE_META0_WORDS64 * 8)) >
+                                                   (CASE_META_BASE_UV_ADDR + (CASE_META1_WORDS64 * 8))) ?
+                                                  (CASE_META_BASE_Y_ADDR + (CASE_META0_WORDS64 * 8)) :
+                                                  (CASE_META_BASE_UV_ADDR + (CASE_META1_WORDS64 * 8))) :
+                                                 (CASE_META_BASE_Y_ADDR + (CASE_META0_WORDS64 * 8));
     localparam integer CASE_MAIN_REF_WORDS64   = CASE_HAS_PLANE1 ?
                                                  (((CASE_TILE_BASE_UV_ADDR + (CASE_CMP1_WORDS64 * 8)) - CASE_MAIN_BASE_MIN) >> 3) :
                                                  CASE_CMP0_WORDS64;
-    localparam integer CASE_META_REF_WORDS64   = CASE_HAS_PLANE1 ?
-                                                 (((CASE_META_BASE_UV_ADDR + (CASE_META1_WORDS64 * 8)) - CASE_META_BASE_MIN) >> 3) :
-                                                 CASE_META0_WORDS64;
+    localparam integer CASE_META_REF_WORDS64   = (CASE_META_REF_END_ADDR - CASE_META_BASE_MIN) >> 3;
     localparam [63:0]  CASE_MAIN_END_ADDR      = CASE_HAS_PLANE1 ? (CASE_TILE_BASE_UV_ADDR + (CASE_CMP1_WORDS64 * 8))
                                                                  : (CASE_TILE_BASE_Y_ADDR  + (CASE_CMP0_WORDS64 * 8));
     localparam [63:0]  CASE_META_END_ADDR      = CASE_HAS_PLANE1 ? (CASE_META_BASE_UV_ADDR + (CASE_META1_WORDS64 * 8))
@@ -701,22 +826,23 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     reg  [63:0]                 tile_plane1_words [0:CASE_TILE1_WORDS64-1];
     reg  [63:0]                 exp_main_words [0:CASE_MAIN_REF_WORDS64-1];
     reg  [63:0]                 exp_meta_words [0:CASE_META_REF_WORDS64-1];
+    reg  [63:0]                 exp_meta_plane0_words [0:CASE_META0_WORDS64-1];
+    reg  [63:0]                 exp_meta_plane1_words [0:CASE_META1_WORDS64-1];
 
     reg  [4:0]                  cmd_fmt_queue [0:TILE_QUEUE_CAPACITY-1];
     reg  [15:0]                 cmd_x_queue   [0:TILE_QUEUE_CAPACITY-1];
     reg  [15:0]                 cmd_y_queue   [0:TILE_QUEUE_CAPACITY-1];
-    reg  [4:0]                  rvi_fmt_queue [0:TILE_QUEUE_CAPACITY-1];
-    reg  [15:0]                 rvi_x_queue   [0:TILE_QUEUE_CAPACITY-1];
-    reg  [15:0]                 rvi_y_queue   [0:TILE_QUEUE_CAPACITY-1];
+    reg  [2:0]                  cmd_alen_queue[0:TILE_QUEUE_CAPACITY-1];
+    reg  [AXI_AW-1:0]           cmd_addr_queue[0:TILE_QUEUE_CAPACITY-1];
     reg  [4:0]                  cvo_fmt_queue [0:TILE_QUEUE_CAPACITY-1];
     reg  [15:0]                 cvo_x_queue   [0:TILE_QUEUE_CAPACITY-1];
     reg  [15:0]                 cvo_y_queue   [0:TILE_QUEUE_CAPACITY-1];
     reg  [AXI_AW-1:0]           cvo_addr_queue[0:TILE_QUEUE_CAPACITY-1];
     reg  [3:0]                  cvo_beats_queue[0:TILE_QUEUE_CAPACITY-1];
+    reg  [3:0]                  cvo_valid_beats_queue[0:TILE_QUEUE_CAPACITY-1];
 
     integer                     cmd_wr_ptr;
     integer                     cmd_rd_ptr;
-    integer                     rvi_cmd_wr_ptr;
     integer                     cvo_cmd_wr_ptr;
     integer                     cvo_cmd_rd_ptr;
     reg                         active_cmd_valid;
@@ -745,6 +871,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     integer                     frames_completed;
     integer                     expected_tiles_total;
     integer                     expected_beats_total;
+    integer                     expected_rvi_beats_total;
+    integer                     fake_expected_beats_total;
     integer                     expected_meta_aw_total;
     integer                     expected_meta_w_total;
     integer                     expected_meta_aw_plane0_total;
@@ -761,10 +889,15 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     integer                     otf_done_count;
     integer                     rvi_beat_count;
     integer                     rvi_beat_idx;
-    integer                     rvi_cmd_rd_ptr;
     integer                     cvo_beat_count;
+    integer                     vivo_ci_mismatch_count;
     integer                     rvi_data_mismatch_count;
+    integer                     rvi_mask_mismatch_count;
+    integer                     rvi_last_mismatch_count;
+    integer                     rvi_coord_mismatch_count;
     integer                     cvo_data_mismatch_count;
+    integer                     cvo_mask_mismatch_count;
+    integer                     cvo_last_mismatch_count;
     reg                         rvi_active_cmd_valid;
     reg  [4:0]                  rvi_active_cmd_fmt;
     reg  [15:0]                 rvi_active_cmd_x;
@@ -775,6 +908,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     reg  [15:0]                 cvo_active_cmd_y;
     reg  [AXI_AW-1:0]           cvo_active_cmd_addr;
     reg  [3:0]                  cvo_active_cmd_beats;
+    reg  [3:0]                  cvo_active_valid_beats;
     integer                     cvo_beat_idx;
     reg                         first_rvi_data_mismatch_seen;
     reg  [4:0]                  first_rvi_data_fmt;
@@ -783,6 +917,28 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     integer                     first_rvi_data_beat;
     reg  [AXI_DW-1:0]           first_rvi_data_expected;
     reg  [AXI_DW-1:0]           first_rvi_data_actual;
+    reg                         first_rvi_mask_mismatch_seen;
+    reg  [4:0]                  first_rvi_mask_fmt;
+    reg  [15:0]                 first_rvi_mask_x;
+    reg  [15:0]                 first_rvi_mask_y;
+    integer                     first_rvi_mask_beat;
+    reg  [31:0]                 first_rvi_mask_expected;
+    reg  [31:0]                 first_rvi_mask_actual;
+    reg                         first_rvi_last_mismatch_seen;
+    reg  [4:0]                  first_rvi_last_fmt;
+    reg  [15:0]                 first_rvi_last_x;
+    reg  [15:0]                 first_rvi_last_y;
+    integer                     first_rvi_last_beat;
+    reg                         first_rvi_last_expected;
+    reg                         first_rvi_last_actual;
+    reg                         first_rvi_coord_mismatch_seen;
+    reg  [4:0]                  first_rvi_coord_exp_fmt;
+    reg  [15:0]                 first_rvi_coord_exp_x;
+    reg  [15:0]                 first_rvi_coord_exp_y;
+    reg  [4:0]                  first_rvi_coord_act_fmt;
+    reg  [15:0]                 first_rvi_coord_act_x;
+    reg  [15:0]                 first_rvi_coord_act_y;
+    integer                     first_rvi_coord_beat;
     reg                         first_cvo_data_mismatch_seen;
     reg  [4:0]                  first_cvo_data_fmt;
     reg  [15:0]                 first_cvo_data_x;
@@ -790,6 +946,30 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     integer                     first_cvo_data_beat;
     reg  [AXI_DW-1:0]           first_cvo_data_expected;
     reg  [AXI_DW-1:0]           first_cvo_data_actual;
+    reg                         first_cvo_mask_mismatch_seen;
+    reg  [4:0]                  first_cvo_mask_fmt;
+    reg  [15:0]                 first_cvo_mask_x;
+    reg  [15:0]                 first_cvo_mask_y;
+    integer                     first_cvo_mask_beat;
+    reg  [31:0]                 first_cvo_mask_expected;
+    reg  [31:0]                 first_cvo_mask_actual;
+    reg                         first_cvo_last_mismatch_seen;
+    reg  [4:0]                  first_cvo_last_fmt;
+    reg  [15:0]                 first_cvo_last_x;
+    reg  [15:0]                 first_cvo_last_y;
+    integer                     first_cvo_last_beat;
+    reg                         first_cvo_last_expected;
+    reg                         first_cvo_last_actual;
+    reg                         first_vivo_ci_mismatch_seen;
+    reg  [4:0]                  first_vivo_ci_mismatch_fmt;
+    reg  [15:0]                 first_vivo_ci_mismatch_x;
+    reg  [15:0]                 first_vivo_ci_mismatch_y;
+    reg  [7:0]                  first_vivo_ci_expected_metadata;
+    reg  [7:0]                  first_vivo_ci_actual_metadata;
+    reg  [2:0]                  first_vivo_ci_expected_alen;
+    reg  [2:0]                  first_vivo_ci_actual_alen;
+    reg                         first_vivo_ci_expected_pcm;
+    reg                         first_vivo_ci_actual_pcm;
     reg                         first_aw_mismatch_seen;
     reg  [AXI_AW-1:0]           first_aw_actual;
     reg  [AXI_AW-1:0]           first_aw_expected;
@@ -881,6 +1061,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     reg  [AXI_AW-1:0]           main_burst_addr;
     reg  [AXI_LENW:0]           main_burst_beats_total;
     reg  [AXI_LENW:0]           main_burst_beat_idx;
+    reg                         lossy_aw_split_pending;
+    reg  [AXI_AW-1:0]           lossy_aw_split_addr;
+    reg  [AXI_LENW:0]           lossy_aw_split_beats;
+    reg  [4:0]                  lossy_aw_split_fmt;
+    reg  [15:0]                 lossy_aw_split_x;
+    reg  [15:0]                 lossy_aw_split_y;
     reg                         meta_burst_active;
     reg  [AXI_AW-1:0]           meta_burst_addr;
     reg  [AXI_LENW:0]           meta_burst_beats_total;
@@ -906,17 +1092,59 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     reg                         ref_cmp_mismatch;
     reg                         ref_cmp_range_error;
     reg  [AXI_DW-1:0]           ref_cmp_expected_word;
+    reg                         lossy_aw_expected_valid_w;
+    reg                         lossy_aw_expected_split_w;
+    reg  [AXI_AW-1:0]           lossy_aw_expected_addr_w;
+    reg  [AXI_LENW-1:0]         lossy_aw_expected_len_w;
+    reg  [AXI_LENW:0]           lossy_aw_expected_beats_w;
+    reg  [AXI_AW-1:0]           lossy_aw_second_addr_w;
+    reg  [AXI_LENW:0]           lossy_aw_second_beats_w;
+    reg  [4:0]                  lossy_aw_expected_fmt_w;
+    reg  [15:0]                 lossy_aw_expected_x_w;
+    reg  [15:0]                 lossy_aw_expected_y_w;
+    integer                     lossy_aw_total_beats_i;
+    integer                     lossy_aw_bytes_to_4k_i;
+    integer                     lossy_aw_first_beats_i;
+    integer                     lossy_aw_second_beats_i;
+    reg                         fake_cvo_drv_valid;
+    integer                     fake_cvo_drv_rd_ptr;
+    integer                     fake_cvo_drv_beat_idx;
     wire                        tb_output_activity;
     wire                        ci_cmd_fire_w;
+    wire                        fake_vivo_ci_fire_w;
+    wire                        fake_vivo_ci_active_w;
+    wire [7:0]                  fake_vivo_co_meta_byte_w;
+    wire [7:0]                  fake_vivo_co_metadata_w;
+    reg                         fake_cvo_drv_cmd_valid_w;
+    reg  [AXI_AW-1:0]           fake_cvo_drv_addr_w;
+    reg  [AXI_DW-1:0]           fake_cvo_drv_data_w;
+    reg  [31:0]                 fake_cvo_drv_mask_w;
+    reg                         fake_cvo_drv_last_w;
+    reg                         cvo_expect_valid_w;
+    reg                         cvo_expect_direct_w;
+    reg                         cvo_expect_queue_w;
+    reg  [4:0]                  cvo_expect_fmt_w;
+    reg  [15:0]                 cvo_expect_x_w;
+    reg  [15:0]                 cvo_expect_y_w;
+    reg  [AXI_AW-1:0]           cvo_expect_base_addr_w;
+    reg  [AXI_AW-1:0]           cvo_expect_addr_w;
+    reg  [AXI_DW-1:0]           cvo_expect_data_w;
+    reg  [31:0]                 cvo_expect_mask_w;
+    reg                         cvo_expect_last_w;
+    reg  [3:0]                  cvo_expect_beat_w;
+    reg  [3:0]                  cvo_expect_beats_w;
+    reg  [3:0]                  cvo_expect_valid_beats_w;
     wire                        rvi_mon_fire_w;
     wire [AXI_DW-1:0]           rvi_mon_data_w;
     wire [31:0]                 rvi_mon_mask_w;
+    wire [AXI_DW-1:0]           rvi_exp_data_w;
+    wire [31:0]                 rvi_exp_mask_w;
+    wire                        rvi_exp_last_w;
     wire                        meta_aw_fire_w;
     wire                        meta_w_fire_w;
     wire                        meta_use_curr_aw_w;
     wire [AXI_AW-1:0]           meta_write_beat_addr_w;
     wire                        meta_write_underflow_w;
-    wire                        rvi_start_direct_w;
     wire                        cvo_start_direct_w;
     integer                     main_dump_fd;
     integer                     main_dump_fd_plane1;
@@ -1073,6 +1301,224 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         end
     endfunction
 
+    function automatic integer expected_tile_active_cols;
+        input [4:0] fmt;
+        begin
+            if ((fmt == 5'd0) || (fmt == 5'd1))
+                expected_tile_active_cols = RGBA_TILE_COLS;
+            else if (fmt == 5'd8)
+                expected_tile_active_cols = NV12_Y_TILE_COLS;
+            else if (fmt == 5'd9)
+                expected_tile_active_cols = NV12_UV_TILE_COLS;
+            else if (fmt == 5'd14)
+                expected_tile_active_cols = G016_Y_TILE_COLS;
+            else
+                expected_tile_active_cols = G016_UV_TILE_COLS;
+        end
+    endfunction
+
+    function automatic integer expected_tile_active_rows;
+        input [4:0] fmt;
+        begin
+            if ((fmt == 5'd0) || (fmt == 5'd1))
+                expected_tile_active_rows = CASE_ACTIVE_TILE_ROWS;
+            else if (fmt == 5'd8)
+                expected_tile_active_rows = NV12_Y_ACTIVE_TILE_ROWS;
+            else if (fmt == 5'd9)
+                expected_tile_active_rows = NV12_UV_ACTIVE_TILE_ROWS;
+            else if (fmt == 5'd14)
+                expected_tile_active_rows = G016_Y_ACTIVE_TILE_ROWS;
+            else
+                expected_tile_active_rows = G016_UV_ACTIVE_TILE_ROWS;
+        end
+    endfunction
+
+    function automatic expected_ci_forced_pcm;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        integer plane_active_height;
+        integer tile_h;
+        integer partial_width;
+        integer partial_height;
+        integer tile_cols;
+        integer tile_rows;
+        begin
+            if ((fmt == 5'd0) || (fmt == 5'd1)) begin
+                plane_active_height = RGBA_ACTIVE_H;
+                tile_h              = 4;
+            end else if (fmt == 5'd8) begin
+                plane_active_height = NV12_ACTIVE_H;
+                tile_h              = 8;
+            end else if (fmt == 5'd9) begin
+                plane_active_height = NV12_UV_ACTIVE_H;
+                tile_h              = 8;
+            end else if (fmt == 5'd14) begin
+                plane_active_height = G016_ACTIVE_H;
+                tile_h              = 4;
+            end else begin
+                plane_active_height = G016_UV_ACTIVE_H;
+                tile_h              = 4;
+            end
+
+            tile_cols             = expected_tile_active_cols(fmt);
+            tile_rows             = expected_tile_active_rows(fmt);
+            partial_width         = (IMG_W % CASE_TILE_W) != 0;
+            partial_height        = (plane_active_height % tile_h) != 0;
+            expected_ci_forced_pcm = ((partial_width  != 0) && (tile_cols != 0) && (tile_x == (tile_cols - 1))) ||
+                                     ((partial_height != 0) && (tile_rows != 0) && (tile_y == (tile_rows - 1)));
+        end
+    endfunction
+
+    function automatic [AXI_AW-1:0] expected_meta_byte_addr;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        reg [AXI_AW-1:0] base_addr_local;
+        reg [AXI_AW-1:0] offset_local;
+        begin
+            base_addr_local = ((fmt == 5'd9) || (fmt == 5'd15)) ?
+                              CASE_META_BASE_UV_ADDR : CASE_META_BASE_Y_ADDR;
+            offset_local = ((tile_y >> 4) * CASE_META_PITCH_BYTES * 16) +
+                           ((tile_x >> 4) << 8) +
+                           (((tile_y >> 3) & 1) << 7) +
+                           (((tile_x >> 3) & 1) << 6) +
+                           ((tile_y & 7) << 3) +
+                           (tile_x & 7);
+            expected_meta_byte_addr = base_addr_local + offset_local;
+        end
+    endfunction
+
+    function automatic [7:0] expected_meta_byte;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        integer byte_sel;
+        integer offset_local;
+        integer word_idx;
+        reg [63:0] word_local;
+        reg [AXI_AW-1:0] byte_addr_local;
+        begin
+            offset_local = ((tile_y >> 4) * CASE_META_PITCH_BYTES * 16) +
+                           ((tile_x >> 4) << 8) +
+                           (((tile_y >> 3) & 1) << 7) +
+                           (((tile_x >> 3) & 1) << 6) +
+                           ((tile_y & 7) << 3) +
+                           (tile_x & 7);
+            byte_sel     = offset_local & 7;
+            word_idx     = offset_local >> 3;
+            word_local   = 64'd0;
+            if (tb_fake_mode_en) begin
+                if ((fmt == 5'd9) || (fmt == 5'd15)) begin
+                    if ((word_idx >= 0) && (word_idx < CASE_META1_WORDS64))
+                        word_local = exp_meta_plane1_words[word_idx];
+                end else begin
+                    if ((word_idx >= 0) && (word_idx < CASE_META0_WORDS64))
+                        word_local = exp_meta_plane0_words[word_idx];
+                end
+            end else begin
+                byte_addr_local = expected_meta_byte_addr(fmt, tile_x, tile_y);
+                byte_sel        = byte_addr_local[2:0];
+                word_local      = meta_ref_word64(byte_addr_local);
+            end
+            expected_meta_byte = word_local[byte_sel*8 +: 8];
+        end
+    endfunction
+
+    function automatic integer fake_meta_compressed_size;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        input [7:0] meta_byte;
+        integer regular_size;
+        integer coord_active;
+        begin
+            coord_active = (tile_x < expected_tile_active_cols(fmt)) &&
+                           (tile_y < expected_tile_active_rows(fmt));
+            regular_size = ({1'b0, meta_byte[3:1]} + 4'd1) << 5;
+
+            if (!coord_active)
+                fake_meta_compressed_size = 0;
+            else if (meta_byte[7:6] != 2'b00)
+                fake_meta_compressed_size = 32;
+            else if (!meta_byte[4])
+                fake_meta_compressed_size = 32;
+            else if ((fmt == 5'd0) && meta_byte[5] && (regular_size == 256))
+                fake_meta_compressed_size = 192;
+            else
+                fake_meta_compressed_size = regular_size;
+        end
+    endfunction
+
+    function automatic [2:0] fake_meta_alen_from_byte;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        input [7:0] meta_byte;
+        integer coord_active;
+        begin
+            coord_active = (tile_x < expected_tile_active_cols(fmt)) &&
+                           (tile_y < expected_tile_active_rows(fmt));
+            fake_meta_alen_from_byte = coord_active ? meta_byte[3:1] :
+                                                      3'd0;
+        end
+    endfunction
+
+    function automatic [3:0] fake_meta_valid_beats_from_byte;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        input [7:0] meta_byte;
+        begin
+            fake_meta_valid_beats_from_byte = {1'b0, fake_meta_alen_from_byte(fmt,
+                                                                               tile_x,
+                                                                               tile_y,
+                                                                               meta_byte)} + 4'd1;
+        end
+    endfunction
+
+    function automatic [3:0] fake_meta_total_beats_from_byte;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        input [7:0] meta_byte;
+        reg [3:0] valid_beats;
+        begin
+            valid_beats = fake_meta_valid_beats_from_byte(fmt, tile_x, tile_y, meta_byte);
+            fake_meta_total_beats_from_byte = (valid_beats == 4'd0) ? 4'd1 : valid_beats;
+        end
+    endfunction
+
+    function automatic [AXI_AW-1:0] expected_tile_addr_with_alen;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        input [2:0] alen;
+        reg [AXI_AW-1:0] addr_local;
+        reg [AXI_AW-1:0] base_addr_local;
+        reg [AXI_AW-1:0] addr_delta_local;
+        reg [AXI_AW-1:0] addr_unit_local;
+        integer base_word;
+        begin
+            if ((fmt == 5'd0) && (CASE_IS_LOSSY_RGBA_2_1 != 0)) begin
+                base_word = rgba_tile_base_word(tile_x, tile_y >> 1);
+                addr_local = CASE_TILE_BASE_Y_ADDR + (base_word << 3) +
+                             ((tile_y & 1) ? 64'd128 : 64'd0);
+            end else begin
+                addr_local = expected_tile_addr(fmt, tile_x, tile_y);
+                base_addr_local = ((fmt == 5'd9) || (fmt == 5'd15)) ?
+                                  CASE_TILE_BASE_UV_ADDR : CASE_TILE_BASE_Y_ADDR;
+                addr_delta_local = addr_local - base_addr_local;
+                addr_unit_local  = addr_delta_local >> 4;
+                if (alen <= 3'd3) begin
+                    if (addr_unit_local[5] ^ addr_unit_local[4])
+                        addr_local = addr_local + 64'd128;
+                end
+            end
+            expected_tile_addr_with_alen = addr_local;
+        end
+    endfunction
+
     function automatic [AXI_DW-1:0] pack_expected_tile_axi_word;
         input [4:0] fmt;
         input integer tile_x;
@@ -1085,7 +1531,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         reg [63:0] w2;
         reg [63:0] w3;
         begin
-            if ((fmt == 5'd0) || (fmt == 5'd1)) begin
+            if (CASE_TILE_EXPECT_LINEAR != 0) begin
+                pack_expected_tile_axi_word = pack_expected_linear_tile_axi_word(fmt, tile_x, tile_y, beat_idx);
+            end else if ((fmt == 5'd0) || (fmt == 5'd1)) begin
                 word64_base = rgba_tile_base_word(tile_x, tile_y);
                 word_idx    = word64_base + beat_idx * 4;
                 w0 = (word_idx + 0 < CASE_TILE0_WORDS64) ? tile_plane0_words[word_idx + 0] : 64'd0;
@@ -1121,7 +1569,187 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 w2 = (word_idx + 2 < CASE_TILE1_WORDS64) ? tile_plane1_words[word_idx + 2] : 64'd0;
                 w3 = (word_idx + 3 < CASE_TILE1_WORDS64) ? tile_plane1_words[word_idx + 3] : 64'd0;
             end
-            pack_expected_tile_axi_word = {w3, w2, w1, w0};
+            if (CASE_TILE_EXPECT_LINEAR == 0)
+                pack_expected_tile_axi_word = {w3, w2, w1, w0};
+        end
+    endfunction
+
+    function automatic [7:0] expected_linear_byte;
+        input integer plane_sel;
+        input integer byte_idx;
+        integer word_idx;
+        integer byte_off;
+        reg [63:0] word_local;
+        begin
+            word_idx = byte_idx / 8;
+            byte_off = byte_idx % 8;
+            word_local = 64'd0;
+            if (plane_sel == 0) begin
+                if ((word_idx >= 0) && (word_idx < CASE_TILE0_WORDS64))
+                    word_local = tile_plane0_words[word_idx];
+            end else begin
+                if ((word_idx >= 0) && (word_idx < CASE_TILE1_WORDS64))
+                    word_local = tile_plane1_words[word_idx];
+            end
+            expected_linear_byte = word_local[byte_off*8 +: 8];
+        end
+    endfunction
+
+    function automatic [AXI_DW-1:0] pack_expected_linear_tile_axi_word;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        input integer beat_idx;
+        integer plane_sel;
+        integer tile_width_px;
+        integer tile_height_ln;
+        integer bytes_per_pixel;
+        integer plane_active_h;
+        integer plane_row_bytes;
+        integer tile_row_bytes;
+        integer beats_per_tile_row;
+        integer row_in_tile;
+        integer beat_in_row;
+        integer row_abs;
+        integer col_byte_base;
+        integer byte_idx;
+        integer src_byte_idx;
+        integer sample_byte_idx;
+        reg [15:0] sample16;
+        reg [7:0] byte_local;
+        reg [AXI_DW-1:0] data_local;
+        begin
+            plane_sel = 0;
+            tile_width_px = 16;
+            tile_height_ln = 4;
+            bytes_per_pixel = 4;
+            plane_active_h = CASE_ACTIVE_H;
+            plane_row_bytes = IMG_W * 4;
+
+            if (fmt == 5'd8) begin
+                tile_width_px = 32;
+                tile_height_ln = 8;
+                bytes_per_pixel = 1;
+                plane_active_h = NV12_ACTIVE_H;
+                plane_row_bytes = IMG_W;
+            end else if (fmt == 5'd14) begin
+                tile_width_px = 32;
+                tile_height_ln = 4;
+                bytes_per_pixel = 2;
+                plane_active_h = G016_ACTIVE_H;
+                plane_row_bytes = IMG_W * 2;
+            end else if (fmt == 5'd15) begin
+                plane_sel = 1;
+                tile_width_px = 32;
+                tile_height_ln = 4;
+                bytes_per_pixel = 2;
+                plane_active_h = G016_UV_ACTIVE_H;
+                plane_row_bytes = IMG_W * 2;
+            end else if ((fmt != 5'd0) && (fmt != 5'd1)) begin
+                plane_sel = 1;
+                tile_width_px = 16;
+                tile_height_ln = 8;
+                bytes_per_pixel = 2;
+                plane_active_h = NV12_UV_ACTIVE_H;
+                plane_row_bytes = IMG_W;
+            end
+
+            tile_row_bytes = tile_width_px * bytes_per_pixel;
+            beats_per_tile_row = tile_row_bytes / 32;
+            if (beats_per_tile_row <= 0)
+                beats_per_tile_row = 1;
+            row_in_tile = beat_idx / beats_per_tile_row;
+            beat_in_row = beat_idx % beats_per_tile_row;
+            row_abs = tile_y * tile_height_ln + row_in_tile;
+            col_byte_base = tile_x * tile_row_bytes + beat_in_row * 32;
+
+            data_local = {AXI_DW{1'b0}};
+            for (byte_idx = 0; byte_idx < 32; byte_idx = byte_idx + 1) begin
+                if ((row_abs < plane_active_h) && ((col_byte_base + byte_idx) < plane_row_bytes)) begin
+                    src_byte_idx = row_abs * plane_row_bytes + col_byte_base + byte_idx;
+                    if ((fmt == 5'd14) || (fmt == 5'd15)) begin
+                        sample_byte_idx = (src_byte_idx / 2) * 2;
+                        sample16 = {expected_linear_byte(plane_sel, sample_byte_idx + 1),
+                                    expected_linear_byte(plane_sel, sample_byte_idx)};
+                        sample16 = sample16 & 16'hffc0;
+                        byte_local = (src_byte_idx[0] != 0) ? sample16[15:8] : sample16[7:0];
+                    end else begin
+                        byte_local = expected_linear_byte(plane_sel, src_byte_idx);
+                    end
+                    data_local[byte_idx*8 +: 8] = byte_local;
+                end
+            end
+
+            pack_expected_linear_tile_axi_word = data_local;
+        end
+    endfunction
+
+    function automatic [AXI_DW/8-1:0] expected_tile_axi_mask;
+        input [4:0] fmt;
+        input integer tile_x;
+        input integer tile_y;
+        input integer beat_idx;
+        integer tile_width_px;
+        integer tile_height_ln;
+        integer bytes_per_pixel;
+        integer plane_active_h;
+        integer plane_row_bytes;
+        integer tile_row_bytes;
+        integer beats_per_tile_row;
+        integer row_in_tile;
+        integer beat_in_row;
+        integer row_abs;
+        integer col_byte_base;
+        integer byte_idx;
+        reg [AXI_DW/8-1:0] mask_local;
+        begin
+            tile_width_px = 16;
+            tile_height_ln = 4;
+            bytes_per_pixel = 4;
+            plane_active_h = CASE_ACTIVE_H;
+            plane_row_bytes = IMG_W * 4;
+
+            if (fmt == 5'd8) begin
+                tile_width_px = 32;
+                tile_height_ln = 8;
+                bytes_per_pixel = 1;
+                plane_active_h = NV12_ACTIVE_H;
+                plane_row_bytes = IMG_W;
+            end else if (fmt == 5'd14) begin
+                tile_width_px = 32;
+                tile_height_ln = 4;
+                bytes_per_pixel = 2;
+                plane_active_h = G016_ACTIVE_H;
+                plane_row_bytes = IMG_W * 2;
+            end else if (fmt == 5'd15) begin
+                tile_width_px = 32;
+                tile_height_ln = 4;
+                bytes_per_pixel = 2;
+                plane_active_h = G016_UV_ACTIVE_H;
+                plane_row_bytes = IMG_W * 2;
+            end else if ((fmt != 5'd0) && (fmt != 5'd1)) begin
+                tile_width_px = 16;
+                tile_height_ln = 8;
+                bytes_per_pixel = 2;
+                plane_active_h = NV12_UV_ACTIVE_H;
+                plane_row_bytes = IMG_W;
+            end
+
+            tile_row_bytes = tile_width_px * bytes_per_pixel;
+            beats_per_tile_row = tile_row_bytes / 32;
+            if (beats_per_tile_row <= 0)
+                beats_per_tile_row = 1;
+            row_in_tile = beat_idx / beats_per_tile_row;
+            beat_in_row = beat_idx % beats_per_tile_row;
+            row_abs = tile_y * tile_height_ln + row_in_tile;
+            col_byte_base = tile_x * tile_row_bytes + beat_in_row * 32;
+
+            mask_local = {(AXI_DW/8){1'b0}};
+            for (byte_idx = 0; byte_idx < (AXI_DW/8); byte_idx = byte_idx + 1) begin
+                if ((row_abs < plane_active_h) && ((col_byte_base + byte_idx) < plane_row_bytes))
+                    mask_local[byte_idx] = 1'b1;
+            end
+            expected_tile_axi_mask = mask_local;
         end
     endfunction
 
@@ -1163,8 +1791,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         integer main_uv_words64;
         begin
             if (tb_fake_mode_en) begin
-                main_y_words64  = CASE_FAKE_CMP0_WORDS64;
-                main_uv_words64 = CASE_HAS_PLANE1 ? CASE_FAKE_CMP1_WORDS64 : 0;
+                main_y_words64  = CASE_CMP0_WORDS64;
+                main_uv_words64 = CASE_HAS_PLANE1 ? CASE_CMP1_WORDS64 : 0;
             end else begin
                 main_y_words64  = CASE_CMP0_WORDS64;
                 main_uv_words64 = CASE_HAS_PLANE1 ? CASE_CMP1_WORDS64 : 0;
@@ -1293,6 +1921,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 exp_main_words[idx] = 64'd0;
             for (idx = 0; idx < CASE_META_REF_WORDS64; idx = idx + 1)
                 exp_meta_words[idx] = 64'd0;
+            for (idx = 0; idx < CASE_META0_WORDS64; idx = idx + 1)
+                exp_meta_plane0_words[idx] = 64'd0;
+            for (idx = 0; idx < CASE_META1_WORDS64; idx = idx + 1)
+                exp_meta_plane1_words[idx] = 64'd0;
         end
     endtask
 
@@ -1404,6 +2036,51 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         end
     endtask
 
+    task automatic load_dump64_to_meta_plane;
+        input [8*256-1:0]        file_name;
+        input integer            plane_sel;
+        input integer            exp_word_count;
+        integer                  fd;
+        integer                  r;
+        integer                  idx;
+        reg [8*256-1:0]          line_buf_local;
+        reg [63:0]               word_local;
+        reg [AXI_AW-1:0]         header_addr_local;
+        begin
+            fd = $fopen(file_name, "r");
+            if (fd == 0) begin
+                fail_count = fail_count + 1;
+                $display("[TB][ERROR] cannot open meta-plane reference file: %0s", file_name);
+            end else begin
+                idx = 0;
+                while (!$feof(fd)) begin
+                    line_buf_local = '0;
+                    r = $fgets(line_buf_local, fd);
+                    if (r != 0) begin
+                        if ($sscanf(line_buf_local, "@%h", header_addr_local) == 1) begin
+                        end else if ($sscanf(line_buf_local, "%h", word_local) == 1) begin
+                            if (plane_sel != 0) begin
+                                if (idx < CASE_META1_WORDS64)
+                                    exp_meta_plane1_words[idx] = word_local;
+                            end else begin
+                                if (idx < CASE_META0_WORDS64)
+                                    exp_meta_plane0_words[idx] = word_local;
+                            end
+                            idx = idx + 1;
+                        end
+                    end
+                end
+                $fclose(fd);
+
+                if (idx != exp_word_count) begin
+                    fail_count = fail_count + 1;
+                    $display("[TB][ERROR] meta-plane word count mismatch file=%0s exp=%0d act=%0d",
+                             file_name, exp_word_count, idx);
+                end
+            end
+        end
+    endtask
+
     task automatic compare_ref_beat;
         input integer            is_meta;
         input [AXI_AW-1:0]       beat_addr;
@@ -1436,7 +2113,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                     end else if (exp_word != 64'd0) begin
                         for (byte_idx = 0; byte_idx < 8; byte_idx = byte_idx + 1) begin
                             if (actual_strb[lane_idx*8 + byte_idx] &&
-                                (actual_data[lane_idx*64 + byte_idx*8 +: 8] !== exp_word[byte_idx*8 +: 8])) begin
+                                ((is_meta != 0) ?
+                                 (actual_data[lane_idx*64 + byte_idx*8 +: 5] !== exp_word[byte_idx*8 +: 5]) :
+                                 (actual_data[lane_idx*64 + byte_idx*8 +: 8] !== exp_word[byte_idx*8 +: 8]))) begin
                                 mismatch = 1'b1;
                             end
                         end
@@ -1464,6 +2143,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             if (fd == 0) begin
                 fail_count = fail_count + 1;
                 meta_dump_word_count_error_count = meta_dump_word_count_error_count + 1;
+                report_first_mismatch_header("ENC_META_DUMP_OPEN",
+                                             "post-sim meta dump compare");
                 $display("[TB][ERROR] cannot open dumped meta file for compare: %0s", file_name);
             end else begin
                 idx = 0;
@@ -1475,13 +2156,17 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                             if (header_addr_local !== file_base_addr) begin
                                 fail_count = fail_count + 1;
                                 meta_dump_word_count_error_count = meta_dump_word_count_error_count + 1;
+                                report_first_mismatch_header("ENC_META_DUMP_BASE",
+                                                             "post-sim meta dump compare");
                                 $display("[TB][ERROR] dumped meta base mismatch file=%0s exp=0x%016x act=0x%016x",
                                          file_name, file_base_addr, header_addr_local);
                             end
                         end else if ($sscanf(line_buf_local, "%h", word_local) == 1) begin
                             curr_addr_local = file_base_addr + (idx * 8);
                             exp_word_local  = meta_ref_word64(curr_addr_local);
-                            if ((exp_word_local !== 64'd0) && (word_local !== exp_word_local)) begin
+                            if ((exp_word_local !== 64'd0) &&
+                                ((word_local & META_BYTE_CMP_MASK) !==
+                                 (exp_word_local & META_BYTE_CMP_MASK))) begin
                                 meta_dump_mismatch_count = meta_dump_mismatch_count + 1;
                                 if (plane_sel != 0)
                                     meta_dump_mismatch_plane1_count = meta_dump_mismatch_plane1_count + 1;
@@ -1492,6 +2177,16 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                     first_meta_dump_addr         = curr_addr_local;
                                     first_meta_dump_expected     = exp_word_local;
                                     first_meta_dump_actual       = word_local;
+                                    report_first_mismatch_header("ENC_META_DUMP_DATA",
+                                                                 "post-sim meta dump compare");
+                                    $display("[TB][FIRST_MISMATCH]   file=%0s plane=%0d addr=0x%016x word_idx=%0d",
+                                             file_name,
+                                             plane_sel,
+                                             curr_addr_local,
+                                             idx);
+                                    $display("[TB][FIRST_MISMATCH]   expected=0x%016x actual=0x%016x",
+                                             exp_word_local,
+                                             word_local);
                                 end
                             end
                             idx = idx + 1;
@@ -1503,6 +2198,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 if (idx != exp_word_count) begin
                     fail_count = fail_count + 1;
                     meta_dump_word_count_error_count = meta_dump_word_count_error_count + 1;
+                    report_first_mismatch_header("ENC_META_DUMP_WORD_COUNT",
+                                                 "post-sim meta dump compare");
                     $display("[TB][ERROR] dumped meta word count mismatch file=%0s exp=%0d act=%0d",
                              file_name, exp_word_count, idx);
                 end
@@ -1661,7 +2358,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             if (meta_dump_fd != 0) begin
                 u_axi_mem.dump_range64(meta_dump_fd,
                                        CASE_META_BASE_Y_ADDR,
-                                       (meta_ref_words_plane0 != 0) ? meta_ref_words_plane0 : CASE_META0_WORDS64,
+                                       tb_fake_mode_en ? CASE_FAKE_ACTIVE_META0_WORDS64 :
+                                       ((meta_ref_words_plane0 != 0) ? meta_ref_words_plane0 : CASE_META0_WORDS64),
                                        1'b0,
                                        meta_dump_has_prev_addr,
                                        meta_dump_next_addr);
@@ -1671,7 +2369,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 meta_dump_next_addr     = {AXI_AW{1'b0}};
                 u_axi_mem.dump_range64(meta_dump_fd_plane1,
                                        CASE_META_BASE_UV_ADDR,
-                                       (meta_ref_words_plane1 != 0) ? meta_ref_words_plane1 : CASE_META1_WORDS64,
+                                       tb_fake_mode_en ? CASE_FAKE_ACTIVE_META1_WORDS64 :
+                                       ((meta_ref_words_plane1 != 0) ? meta_ref_words_plane1 : CASE_META1_WORDS64),
                                        1'b0,
                                        meta_dump_has_prev_addr,
                                        meta_dump_next_addr);
@@ -1698,7 +2397,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         integer expected_meta_w_local;
         begin
             settle_cycles = 0;
-            expected_tile_count_local = CASE_EXPECTED_TILES * completed_frames_exp;
+            expected_tile_count_local = CASE_ACTIVE_EXPECTED_TILES * completed_frames_exp;
             expected_beat_count_local = CASE_EXPECTED_BEATS * completed_frames_exp;
             if (tb_fake_mode_en) begin
                 expected_meta_aw_local = CASE_FAKE_EXPECTED_META_AW * completed_frames_exp;
@@ -1714,7 +2413,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                     if ((otf_done_count >= completed_frames_exp) &&
                         (coord_count >= expected_tile_count_local) &&
                         (aw_count >= expected_tile_count_local) &&
-                        (w_count >= expected_beat_count_local) &&
+                        (w_count >= fake_expected_beats_total) &&
                         (meta_aw_count >= expected_meta_aw_local) &&
                         (meta_w_count >= expected_meta_w_local) &&
                         !tb_output_activity) begin
@@ -1902,6 +2601,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         reg [31:0] reg2_data;
         reg [31:0] reg3_data;
         reg [31:0] reg4_data;
+        reg [31:0] reg5_data;
+        reg [31:0] reg6_data;
+        reg [31:0] reg7_data;
         reg [31:0] reg8_data;
         reg [31:0] reg9_data;
         reg [31:0] reg10_data;
@@ -1921,7 +2623,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             reg3_data = 32'd0;
             reg3_data[0]      = CASE_IS_G016 ? 1'b1 :
                                 (CASE_HAS_PLANE1 ? 1'b0 : 1'b1);
-            reg3_data[1]      = 1'b0;
+            reg3_data[1]      = (CASE_IS_LOSSY_RGBA_2_1 != 0);
             reg3_data[26:16]  = CASE_PITCH_UNITS[10:0];
 
             reg4_data = 32'd0;
@@ -1929,6 +2631,25 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             reg4_data[10:8]   = 3'd7;
             reg4_data[20:16]  = CASE_CI_FMT[4:0];
             reg4_data[24]     = 1'b0;
+
+            reg5_data = 32'd0;
+            reg5_data[16]     = (CASE_CI_LOSSY != 0);
+
+            reg6_data = 32'd0;
+            reg6_data[2:0]    = CASE_UBWC_CFG_0;
+            reg6_data[5:3]    = CASE_UBWC_CFG_1;
+            reg6_data[9:6]    = CASE_UBWC_CFG_2;
+            reg6_data[13:10]  = CASE_UBWC_CFG_3;
+            reg6_data[17:14]  = CASE_UBWC_CFG_4;
+            reg6_data[21:18]  = CASE_UBWC_CFG_5;
+            reg6_data[23:22]  = CASE_UBWC_CFG_6;
+            reg6_data[25:24]  = CASE_UBWC_CFG_7;
+            reg6_data[27:26]  = CASE_UBWC_CFG_8;
+            reg6_data[30:28]  = CASE_UBWC_CFG_9;
+
+            reg7_data = 32'd0;
+            reg7_data[5:0]    = CASE_UBWC_CFG_10;
+            reg7_data[13:8]   = CASE_UBWC_CFG_11;
 
             reg8_data = 32'd0;
             reg8_data[2:0]    = CASE_OTF_FMT[2:0];
@@ -1952,9 +2673,9 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 apb_write(16'h0048, CASE_TILE_BASE_UV_ADDR[31:0]);
                 apb_write(16'h004c, CASE_TILE_BASE_UV_ADDR[63:32]);
             end
-            apb_write(16'h0014, 32'd0);
-            apb_write(16'h0018, 32'd0);
-            apb_write(16'h001c, 32'd0);
+            apb_write(16'h0014, reg5_data);
+            apb_write(16'h0018, reg6_data);
+            apb_write(16'h001c, reg7_data);
             apb_write(16'h0010, reg4_data);
             apb_write(16'h0024, reg9_data);
             apb_write(16'h0028, reg10_data);
@@ -1980,7 +2701,39 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .AXI_LENW    (AXI_LENW),
         .AXI_IDW     (AXI_IDW),
         .COM_BUF_AW  (COM_BUF_AW),
-        .COM_BUF_DW  (COM_BUF_DW)
+        .COM_BUF_DW  (COM_BUF_DW),
+        .ENC_VIVO_FAKE_MODEL_EN           (1),
+        .ENC_VIVO_FAKE_TILE_EXPECT_LINEAR (CASE_TILE_EXPECT_LINEAR),
+        .ENC_VIVO_FAKE_IMG_W              (IMG_W),
+        .ENC_VIVO_FAKE_RGBA_ACTIVE_H      (RGBA_ACTIVE_H),
+        .ENC_VIVO_FAKE_RGBA_TILE_PITCH    (RGBA_TILE_PITCH),
+        .ENC_VIVO_FAKE_RGBA_TILE_COLS     (RGBA_TILE_COLS),
+        .ENC_VIVO_FAKE_RGBA_TILE_ROWS     (RGBA_TILE_ROWS),
+        .ENC_VIVO_FAKE_NV12_ACTIVE_H      (NV12_ACTIVE_H),
+        .ENC_VIVO_FAKE_NV12_UV_ACTIVE_H   (NV12_UV_ACTIVE_H),
+        .ENC_VIVO_FAKE_NV12_TILE_PITCH    (NV12_TILE_PITCH),
+        .ENC_VIVO_FAKE_NV12_Y_TILE_COLS   (NV12_Y_TILE_COLS),
+        .ENC_VIVO_FAKE_NV12_UV_TILE_COLS  (NV12_UV_TILE_COLS),
+        .ENC_VIVO_FAKE_NV12_Y_TILE_ROWS   (NV12_Y_TILE_ROWS),
+        .ENC_VIVO_FAKE_NV12_UV_TILE_ROWS  (NV12_UV_TILE_ROWS),
+        .ENC_VIVO_FAKE_G016_ACTIVE_H      (G016_ACTIVE_H),
+        .ENC_VIVO_FAKE_G016_UV_ACTIVE_H   (G016_UV_ACTIVE_H),
+        .ENC_VIVO_FAKE_G016_TILE_PITCH    (G016_TILE_PITCH),
+        .ENC_VIVO_FAKE_G016_Y_TILE_COLS   (G016_Y_TILE_COLS),
+        .ENC_VIVO_FAKE_G016_UV_TILE_COLS  (G016_UV_TILE_COLS),
+        .ENC_VIVO_FAKE_G016_Y_TILE_ROWS   (G016_Y_TILE_ROWS),
+        .ENC_VIVO_FAKE_G016_UV_TILE_ROWS  (G016_UV_TILE_ROWS),
+        .ENC_VIVO_FAKE_META_PITCH_BYTES   (CASE_META_PITCH_BYTES),
+        .ENC_VIVO_FAKE_TILE_BASE_Y_ADDR   (CASE_TILE_BASE_Y_ADDR),
+        .ENC_VIVO_FAKE_TILE_BASE_UV_ADDR  (CASE_TILE_BASE_UV_ADDR),
+        .ENC_VIVO_FAKE_META_BASE_Y_ADDR   (CASE_META_BASE_Y_ADDR),
+        .ENC_VIVO_FAKE_META_BASE_UV_ADDR  (CASE_META_BASE_UV_ADDR),
+        .ENC_VIVO_FAKE_TILE0_WORDS64      (CASE_TILE0_FILE_WORDS64),
+        .ENC_VIVO_FAKE_TILE1_WORDS64      (CASE_TILE1_FILE_WORDS64),
+        .ENC_VIVO_FAKE_CMP0_WORDS64       (CASE_CMP0_WORDS64),
+        .ENC_VIVO_FAKE_CMP1_WORDS64       (CASE_CMP1_WORDS64),
+        .ENC_VIVO_FAKE_META0_WORDS64      (CASE_META0_WORDS64),
+        .ENC_VIVO_FAKE_META1_WORDS64      (CASE_META1_WORDS64)
     ) dut (
         .PCLK            (pclk),
         .PRESETn         (rst_n),
@@ -2122,7 +2875,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .done       (otf_done),
         .error_flag (otf_error),
         .img_width  (IMG_W[15:0]),
-        .img_height (CASE_STORED_H[15:0]),
+        .img_height (CASE_ACTIVE_H[15:0]),
         .otf_vsync  (i_otf_vsync),
         .otf_hsync  (i_otf_hsync),
         .otf_de     (i_otf_de),
@@ -2171,18 +2924,38 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     assign meta_write_beat_addr_w    = meta_use_curr_aw_w ? dut.meta_axi_awaddr : meta_burst_addr;
     assign meta_write_underflow_w    = meta_w_fire_w && !meta_burst_active && !meta_use_curr_aw_w;
     assign ci_cmd_fire_w             = dut.ubwc_enc_otf_to_tile_inst.ci_fifo_wr_en;
-    assign rvi_mon_fire_w            = dut.ubwc_enc_otf_to_tile_inst.data_fifo_wr_en;
-    assign rvi_mon_data_w            = dut.ubwc_enc_otf_to_tile_inst.data_fifo_din[0   +: 256];
-    assign rvi_mon_mask_w            = dut.ubwc_enc_otf_to_tile_inst.data_fifo_din[256 +: 32];
-    assign rvi_start_direct_w        = ci_cmd_fire_w &&
-                                       rvi_mon_fire_w &&
-                                       !rvi_active_cmd_valid &&
-                                       (rvi_cmd_rd_ptr >= rvi_cmd_wr_ptr);
-    assign cvo_start_direct_w        = tb_fake_mode_en ?
-                                       (ci_cmd_fire_w &&
-                                        dut.enc_cvo_valid && dut.enc_cvo_ready &&
-                                        !cvo_active_cmd_valid &&
-                                        (cvo_cmd_rd_ptr >= cvo_cmd_wr_ptr)) :
+    assign fake_vivo_ci_fire_w       = dut.enc_ci_valid && dut.enc_ci_ready;
+    assign fake_vivo_ci_active_w     = (dut.enc_ci_tile_xcoord <
+                                        expected_tile_active_cols(dut.tile_format)) &&
+                                       (dut.enc_ci_tile_ycoord <
+                                        expected_tile_active_rows(dut.tile_format));
+    assign fake_vivo_co_meta_byte_w  = expected_meta_byte(dut.tile_format,
+                                                          dut.enc_ci_tile_xcoord,
+                                                          dut.enc_ci_tile_ycoord);
+    assign fake_vivo_co_metadata_w   = fake_vivo_ci_active_w ? fake_vivo_co_meta_byte_w : 8'd0;
+    assign rvi_mon_fire_w            = dut.rvi_valid && dut.rvi_ready;
+    assign rvi_mon_data_w            = dut.rvi_data;
+    assign rvi_mon_mask_w            = dut.rvi_mask;
+    assign rvi_exp_data_w            = rvi_active_cmd_valid ?
+                                       pack_expected_tile_axi_word(rvi_active_cmd_fmt,
+                                                                   rvi_active_cmd_x,
+                                                                   rvi_active_cmd_y,
+                                                                   rvi_beat_idx) :
+                                       pack_expected_tile_axi_word(dut.rvi_tile_format,
+                                                                   dut.rvi_tile_xcoord,
+                                                                   dut.rvi_tile_ycoord,
+                                                                   0);
+    assign rvi_exp_mask_w            = rvi_active_cmd_valid ?
+                                       expected_tile_axi_mask(rvi_active_cmd_fmt,
+                                                              rvi_active_cmd_x,
+                                                              rvi_active_cmd_y,
+                                                              rvi_beat_idx) :
+                                       expected_tile_axi_mask(dut.rvi_tile_format,
+                                                              dut.rvi_tile_xcoord,
+                                                              dut.rvi_tile_ycoord,
+                                                              0);
+    assign rvi_exp_last_w            = rvi_active_cmd_valid ? (rvi_beat_idx == 7) : 1'b0;
+    assign cvo_start_direct_w        = tb_fake_mode_en ? 1'b0 :
                                        (dut.enc_axi_awvalid && dut.enc_axi_awready &&
                                         dut.enc_cvo_valid && dut.enc_cvo_ready &&
                                         !cvo_active_cmd_valid &&
@@ -2192,6 +2965,364 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                        dut.meta_axi_awvalid || dut.meta_axi_wvalid ||
                                        active_cmd_valid || rvi_active_cmd_valid ||
                                        main_burst_active || meta_burst_active;
+
+    always @(*) begin
+        fake_cvo_drv_valid = fake_cvo_drv_cmd_valid_w;
+    end
+
+    always @(*) begin
+        fake_cvo_drv_cmd_valid_w = (fake_cvo_drv_rd_ptr < cvo_cmd_wr_ptr);
+        fake_cvo_drv_addr_w      = {AXI_AW{1'b0}};
+        fake_cvo_drv_data_w      = {AXI_DW{1'b0}};
+        fake_cvo_drv_mask_w      = 32'd0;
+        fake_cvo_drv_last_w      = 1'b0;
+
+        if (fake_cvo_drv_cmd_valid_w && (fake_cvo_drv_rd_ptr < TILE_QUEUE_CAPACITY)) begin
+            fake_cvo_drv_addr_w = cvo_addr_queue[fake_cvo_drv_rd_ptr] +
+                                  (fake_cvo_drv_beat_idx * (AXI_DW/8));
+            fake_cvo_drv_data_w = pack_main_ref_axi_word(fake_cvo_drv_addr_w);
+            if (fake_cvo_drv_beat_idx < cvo_valid_beats_queue[fake_cvo_drv_rd_ptr])
+                fake_cvo_drv_mask_w = 32'hFFFF_FFFF;
+            fake_cvo_drv_last_w = (fake_cvo_drv_beat_idx ==
+                                  (cvo_beats_queue[fake_cvo_drv_rd_ptr] - 1));
+        end
+    end
+
+    always @(*) begin
+        cvo_expect_valid_w       = 1'b0;
+        cvo_expect_direct_w      = 1'b0;
+        cvo_expect_queue_w       = 1'b0;
+        cvo_expect_fmt_w         = 5'd0;
+        cvo_expect_x_w           = 16'd0;
+        cvo_expect_y_w           = 16'd0;
+        cvo_expect_base_addr_w   = {AXI_AW{1'b0}};
+        cvo_expect_addr_w        = {AXI_AW{1'b0}};
+        cvo_expect_data_w        = {AXI_DW{1'b0}};
+        cvo_expect_mask_w        = 32'd0;
+        cvo_expect_last_w        = 1'b0;
+        cvo_expect_beat_w        = 4'd0;
+        cvo_expect_beats_w       = 4'd1;
+        cvo_expect_valid_beats_w = 4'd1;
+
+        if (cvo_active_cmd_valid) begin
+            cvo_expect_valid_w       = 1'b1;
+            cvo_expect_fmt_w         = cvo_active_cmd_fmt;
+            cvo_expect_x_w           = cvo_active_cmd_x;
+            cvo_expect_y_w           = cvo_active_cmd_y;
+            cvo_expect_base_addr_w   = cvo_active_cmd_addr;
+            cvo_expect_beat_w        = cvo_beat_idx[3:0];
+            cvo_expect_beats_w       = cvo_active_cmd_beats;
+            cvo_expect_valid_beats_w = cvo_active_valid_beats;
+        end else if (cvo_start_direct_w) begin
+            cvo_expect_valid_w       = 1'b1;
+            cvo_expect_direct_w      = 1'b1;
+            cvo_expect_base_addr_w   = dut.enc_axi_awaddr;
+            cvo_expect_beats_w       = {1'b0, dut.enc_axi_awlen[2:0]} + 4'd1;
+            cvo_expect_valid_beats_w = {1'b0, dut.enc_axi_awlen[2:0]} + 4'd1;
+        end else if ((cvo_cmd_rd_ptr < cvo_cmd_wr_ptr) &&
+                     (cvo_cmd_rd_ptr < TILE_QUEUE_CAPACITY)) begin
+            cvo_expect_valid_w       = 1'b1;
+            cvo_expect_queue_w       = 1'b1;
+            cvo_expect_fmt_w         = cvo_fmt_queue[cvo_cmd_rd_ptr];
+            cvo_expect_x_w           = cvo_x_queue[cvo_cmd_rd_ptr];
+            cvo_expect_y_w           = cvo_y_queue[cvo_cmd_rd_ptr];
+            cvo_expect_base_addr_w   = cvo_addr_queue[cvo_cmd_rd_ptr];
+            cvo_expect_beats_w       = cvo_beats_queue[cvo_cmd_rd_ptr];
+            cvo_expect_valid_beats_w = cvo_valid_beats_queue[cvo_cmd_rd_ptr];
+        end
+
+        cvo_expect_addr_w = cvo_expect_base_addr_w +
+                            ({60'd0, cvo_expect_beat_w} << 5);
+        cvo_expect_data_w = pack_main_ref_axi_word(cvo_expect_addr_w);
+        if (cvo_expect_beat_w < cvo_expect_valid_beats_w)
+            cvo_expect_mask_w = 32'hFFFF_FFFF;
+        cvo_expect_last_w = (cvo_expect_beat_w == (cvo_expect_beats_w - 4'd1));
+    end
+
+    always @(*) begin
+        lossy_aw_expected_valid_w = 1'b0;
+        lossy_aw_expected_split_w = 1'b0;
+        lossy_aw_expected_addr_w  = {AXI_AW{1'b0}};
+        lossy_aw_expected_len_w   = {AXI_LENW{1'b0}};
+        lossy_aw_expected_beats_w = {(AXI_LENW+1){1'b0}};
+        lossy_aw_second_addr_w    = {AXI_AW{1'b0}};
+        lossy_aw_second_beats_w   = {(AXI_LENW+1){1'b0}};
+        lossy_aw_expected_fmt_w   = 5'd0;
+        lossy_aw_expected_x_w     = 16'd0;
+        lossy_aw_expected_y_w     = 16'd0;
+        lossy_aw_total_beats_i    = 0;
+        lossy_aw_bytes_to_4k_i    = 0;
+        lossy_aw_first_beats_i    = 0;
+        lossy_aw_second_beats_i   = 0;
+
+        if (lossy_aw_split_pending) begin
+            lossy_aw_expected_valid_w = 1'b1;
+            lossy_aw_expected_addr_w  = lossy_aw_split_addr;
+            lossy_aw_expected_beats_w = lossy_aw_split_beats;
+            lossy_aw_expected_fmt_w   = lossy_aw_split_fmt;
+            lossy_aw_expected_x_w     = lossy_aw_split_x;
+            lossy_aw_expected_y_w     = lossy_aw_split_y;
+        end else if ((cmd_rd_ptr < cmd_wr_ptr) &&
+                     (cmd_rd_ptr < TILE_QUEUE_CAPACITY)) begin
+            lossy_aw_expected_valid_w = 1'b1;
+            lossy_aw_expected_addr_w  = cmd_addr_queue[cmd_rd_ptr];
+            lossy_aw_expected_fmt_w   = cmd_fmt_queue[cmd_rd_ptr];
+            lossy_aw_expected_x_w     = cmd_x_queue[cmd_rd_ptr];
+            lossy_aw_expected_y_w     = cmd_y_queue[cmd_rd_ptr];
+            lossy_aw_total_beats_i    = cmd_alen_queue[cmd_rd_ptr] + 1;
+            lossy_aw_bytes_to_4k_i    = 4096 - cmd_addr_queue[cmd_rd_ptr][11:0];
+            if ((cmd_addr_queue[cmd_rd_ptr][11:0] +
+                 (lossy_aw_total_beats_i << 5)) > 4096)
+                lossy_aw_first_beats_i = (lossy_aw_bytes_to_4k_i + 31) >> 5;
+            else
+                lossy_aw_first_beats_i = lossy_aw_total_beats_i;
+            lossy_aw_second_beats_i   = lossy_aw_total_beats_i - lossy_aw_first_beats_i;
+            lossy_aw_expected_beats_w = lossy_aw_first_beats_i;
+            lossy_aw_second_beats_w   = lossy_aw_second_beats_i;
+            lossy_aw_second_addr_w    = cmd_addr_queue[cmd_rd_ptr] +
+                                        (lossy_aw_first_beats_i << 5);
+            lossy_aw_expected_split_w = (lossy_aw_second_beats_i != 0);
+        end
+
+        if (lossy_aw_expected_valid_w)
+            lossy_aw_expected_len_w = lossy_aw_expected_beats_w[AXI_LENW-1:0] -
+                                      {{(AXI_LENW-1){1'b0}}, 1'b1};
+    end
+
+    always @(posedge vivo_clk or negedge rst_n) begin
+        if (!rst_n) begin
+            fake_cvo_drv_rd_ptr   <= 0;
+            fake_cvo_drv_beat_idx <= 0;
+        end else if (!tb_fake_mode_en) begin
+            fake_cvo_drv_rd_ptr   <= 0;
+            fake_cvo_drv_beat_idx <= 0;
+        end else if (fake_cvo_drv_cmd_valid_w && dut.enc_cvo_valid && dut.enc_cvo_ready) begin
+            if (fake_cvo_drv_last_w) begin
+                fake_cvo_drv_rd_ptr   <= fake_cvo_drv_rd_ptr + 1;
+                fake_cvo_drv_beat_idx <= 0;
+            end else begin
+                fake_cvo_drv_beat_idx <= fake_cvo_drv_beat_idx + 1;
+            end
+        end
+    end
+
+    always @(posedge vivo_clk or negedge rst_n) begin
+        if (!rst_n) begin
+            vivo_ci_mismatch_count          <= 0;
+            first_vivo_ci_mismatch_seen     <= 1'b0;
+            first_vivo_ci_mismatch_fmt      <= 5'd0;
+            first_vivo_ci_mismatch_x        <= 16'd0;
+            first_vivo_ci_mismatch_y        <= 16'd0;
+            first_vivo_ci_expected_metadata <= 8'd0;
+            first_vivo_ci_actual_metadata   <= 8'd0;
+            first_vivo_ci_expected_alen     <= 3'd0;
+            first_vivo_ci_actual_alen       <= 3'd0;
+            first_vivo_ci_expected_pcm      <= 1'b0;
+            first_vivo_ci_actual_pcm        <= 1'b0;
+            rvi_beat_count                  <= 0;
+            rvi_beat_idx                    <= 0;
+            rvi_data_mismatch_count         <= 0;
+            rvi_mask_mismatch_count         <= 0;
+            rvi_last_mismatch_count         <= 0;
+            rvi_coord_mismatch_count        <= 0;
+            rvi_active_cmd_valid            <= 1'b0;
+            rvi_active_cmd_fmt              <= 5'd0;
+            rvi_active_cmd_x                <= 16'd0;
+            rvi_active_cmd_y                <= 16'd0;
+            first_rvi_data_mismatch_seen    <= 1'b0;
+            first_rvi_data_fmt              <= 5'd0;
+            first_rvi_data_x                <= 16'd0;
+            first_rvi_data_y                <= 16'd0;
+            first_rvi_data_beat             <= 0;
+            first_rvi_data_expected         <= {AXI_DW{1'b0}};
+            first_rvi_data_actual           <= {AXI_DW{1'b0}};
+            first_rvi_mask_mismatch_seen    <= 1'b0;
+            first_rvi_mask_fmt              <= 5'd0;
+            first_rvi_mask_x                <= 16'd0;
+            first_rvi_mask_y                <= 16'd0;
+            first_rvi_mask_beat             <= 0;
+            first_rvi_mask_expected         <= 32'd0;
+            first_rvi_mask_actual           <= 32'd0;
+            first_rvi_last_mismatch_seen    <= 1'b0;
+            first_rvi_last_fmt              <= 5'd0;
+            first_rvi_last_x                <= 16'd0;
+            first_rvi_last_y                <= 16'd0;
+            first_rvi_last_beat             <= 0;
+            first_rvi_last_expected         <= 1'b0;
+            first_rvi_last_actual           <= 1'b0;
+            first_rvi_coord_mismatch_seen   <= 1'b0;
+            first_rvi_coord_exp_fmt         <= 5'd0;
+            first_rvi_coord_exp_x           <= 16'd0;
+            first_rvi_coord_exp_y           <= 16'd0;
+            first_rvi_coord_act_fmt         <= 5'd0;
+            first_rvi_coord_act_x           <= 16'd0;
+            first_rvi_coord_act_y           <= 16'd0;
+            first_rvi_coord_beat            <= 0;
+        end else begin
+            if (fake_vivo_ci_fire_w) begin : vivo_ci_checker_block
+                reg [7:0] vivo_ci_exp_metadata;
+                reg [2:0] vivo_ci_exp_alen;
+                reg       vivo_ci_exp_pcm;
+
+                vivo_ci_exp_alen     = 3'd7;
+                vivo_ci_exp_metadata = {4'h1, vivo_ci_exp_alen, 1'b0};
+                vivo_ci_exp_pcm      = expected_ci_forced_pcm(dut.tile_format,
+                                                              dut.enc_ci_tile_xcoord,
+                                                              dut.enc_ci_tile_ycoord);
+                if ((dut.enc_ci_metadata !== vivo_ci_exp_metadata) ||
+                    (dut.enc_ci_alen !== vivo_ci_exp_alen) ||
+                    (dut.enc_ci_forced_pcm !== vivo_ci_exp_pcm)) begin
+                    vivo_ci_mismatch_count <= vivo_ci_mismatch_count + 1;
+                    if (!first_vivo_ci_mismatch_seen) begin
+                        first_vivo_ci_mismatch_seen     <= 1'b1;
+                        first_vivo_ci_mismatch_fmt      <= dut.tile_format;
+                        first_vivo_ci_mismatch_x        <= dut.enc_ci_tile_xcoord;
+                        first_vivo_ci_mismatch_y        <= dut.enc_ci_tile_ycoord;
+                        first_vivo_ci_expected_metadata <= vivo_ci_exp_metadata;
+                        first_vivo_ci_actual_metadata   <= dut.enc_ci_metadata;
+                        first_vivo_ci_expected_alen     <= vivo_ci_exp_alen;
+                        first_vivo_ci_actual_alen       <= dut.enc_ci_alen;
+                        first_vivo_ci_expected_pcm      <= vivo_ci_exp_pcm;
+                        first_vivo_ci_actual_pcm        <= dut.enc_ci_forced_pcm;
+                        report_first_mismatch_header("ENC_CI_INPUT",
+                                                     "u_core.dut.ubwc_enc_vivo_top_inst.i_ci_*");
+                        $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d",
+                                 dut.tile_format,
+                                 dut.enc_ci_tile_xcoord,
+                                 dut.enc_ci_tile_ycoord);
+                        $display("[TB][FIRST_MISMATCH]   metadata exp=0x%02x act=0x%02x alen exp=%0d act=%0d pcm exp=%0d act=%0d",
+                                 vivo_ci_exp_metadata,
+                                 dut.enc_ci_metadata,
+                                 vivo_ci_exp_alen,
+                                 dut.enc_ci_alen,
+                                 vivo_ci_exp_pcm,
+                                 dut.enc_ci_forced_pcm);
+                    end
+                end
+            end
+
+            if (rvi_mon_fire_w) begin
+                rvi_beat_count <= rvi_beat_count + 1;
+
+                if (masked_axi_word_mismatch(rvi_mon_data_w,
+                                             rvi_mon_mask_w,
+                                             rvi_exp_data_w)) begin
+                    rvi_data_mismatch_count <= rvi_data_mismatch_count + 1;
+                    if (!first_rvi_data_mismatch_seen) begin
+                        first_rvi_data_mismatch_seen <= 1'b1;
+                        first_rvi_data_fmt           <= rvi_active_cmd_valid ? rvi_active_cmd_fmt : dut.rvi_tile_format;
+                        first_rvi_data_x             <= rvi_active_cmd_valid ? rvi_active_cmd_x : dut.rvi_tile_xcoord;
+                        first_rvi_data_y             <= rvi_active_cmd_valid ? rvi_active_cmd_y : dut.rvi_tile_ycoord;
+                        first_rvi_data_beat          <= rvi_active_cmd_valid ? rvi_beat_idx : 0;
+                        first_rvi_data_expected      <= rvi_exp_data_w;
+                        first_rvi_data_actual        <= rvi_mon_data_w;
+                        report_first_mismatch_header("ENC_RVI_DATA",
+                                                     "u_core.dut.ubwc_enc_vivo_top_inst.i_rvi_data");
+                        $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d beat=%0d mask=0x%08x",
+                                 rvi_active_cmd_valid ? rvi_active_cmd_fmt : dut.rvi_tile_format,
+                                 rvi_active_cmd_valid ? rvi_active_cmd_x   : dut.rvi_tile_xcoord,
+                                 rvi_active_cmd_valid ? rvi_active_cmd_y   : dut.rvi_tile_ycoord,
+                                 rvi_active_cmd_valid ? rvi_beat_idx       : 0,
+                                 rvi_mon_mask_w);
+                        $display("[TB][FIRST_MISMATCH]   expected=0x%064x", rvi_exp_data_w);
+                        $display("[TB][FIRST_MISMATCH]   actual  =0x%064x", rvi_mon_data_w);
+                    end
+                end
+
+                if (rvi_mon_mask_w !== rvi_exp_mask_w) begin
+                    rvi_mask_mismatch_count <= rvi_mask_mismatch_count + 1;
+                    if (!first_rvi_mask_mismatch_seen) begin
+                        first_rvi_mask_mismatch_seen <= 1'b1;
+                        first_rvi_mask_fmt           <= rvi_active_cmd_valid ? rvi_active_cmd_fmt : dut.rvi_tile_format;
+                        first_rvi_mask_x             <= rvi_active_cmd_valid ? rvi_active_cmd_x : dut.rvi_tile_xcoord;
+                        first_rvi_mask_y             <= rvi_active_cmd_valid ? rvi_active_cmd_y : dut.rvi_tile_ycoord;
+                        first_rvi_mask_beat          <= rvi_active_cmd_valid ? rvi_beat_idx : 0;
+                        first_rvi_mask_expected      <= rvi_exp_mask_w;
+                        first_rvi_mask_actual        <= rvi_mon_mask_w;
+                        report_first_mismatch_header("ENC_RVI_MASK",
+                                                     "u_core.dut.ubwc_enc_vivo_top_inst.i_rvi_mask");
+                        $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d beat=%0d mask exp=0x%08x act=0x%08x",
+                                 rvi_active_cmd_valid ? rvi_active_cmd_fmt : dut.rvi_tile_format,
+                                 rvi_active_cmd_valid ? rvi_active_cmd_x   : dut.rvi_tile_xcoord,
+                                 rvi_active_cmd_valid ? rvi_active_cmd_y   : dut.rvi_tile_ycoord,
+                                 rvi_active_cmd_valid ? rvi_beat_idx       : 0,
+                                 rvi_exp_mask_w,
+                                 rvi_mon_mask_w);
+                    end
+                end
+
+                if (dut.rvi_last !== rvi_exp_last_w) begin
+                    rvi_last_mismatch_count <= rvi_last_mismatch_count + 1;
+                    if (!first_rvi_last_mismatch_seen) begin
+                        first_rvi_last_mismatch_seen <= 1'b1;
+                        first_rvi_last_fmt           <= rvi_active_cmd_valid ? rvi_active_cmd_fmt : dut.rvi_tile_format;
+                        first_rvi_last_x             <= rvi_active_cmd_valid ? rvi_active_cmd_x : dut.rvi_tile_xcoord;
+                        first_rvi_last_y             <= rvi_active_cmd_valid ? rvi_active_cmd_y : dut.rvi_tile_ycoord;
+                        first_rvi_last_beat          <= rvi_active_cmd_valid ? rvi_beat_idx : 0;
+                        first_rvi_last_expected      <= rvi_exp_last_w;
+                        first_rvi_last_actual        <= dut.rvi_last;
+                        report_first_mismatch_header("ENC_RVI_LAST",
+                                                     "u_core.dut.ubwc_enc_vivo_top_inst.i_rvi_last");
+                        $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d beat=%0d last exp=%0d act=%0d",
+                                 rvi_active_cmd_valid ? rvi_active_cmd_fmt : dut.rvi_tile_format,
+                                 rvi_active_cmd_valid ? rvi_active_cmd_x   : dut.rvi_tile_xcoord,
+                                 rvi_active_cmd_valid ? rvi_active_cmd_y   : dut.rvi_tile_ycoord,
+                                 rvi_active_cmd_valid ? rvi_beat_idx       : 0,
+                                 rvi_exp_last_w,
+                                 dut.rvi_last);
+                    end
+                end
+
+                if (rvi_active_cmd_valid &&
+                    ((dut.rvi_tile_format !== rvi_active_cmd_fmt) ||
+                     (dut.rvi_tile_xcoord !== rvi_active_cmd_x) ||
+                     (dut.rvi_tile_ycoord !== rvi_active_cmd_y))) begin
+                    rvi_coord_mismatch_count <= rvi_coord_mismatch_count + 1;
+                    if (!first_rvi_coord_mismatch_seen) begin
+                        first_rvi_coord_mismatch_seen <= 1'b1;
+                        first_rvi_coord_exp_fmt       <= rvi_active_cmd_fmt;
+                        first_rvi_coord_exp_x         <= rvi_active_cmd_x;
+                        first_rvi_coord_exp_y         <= rvi_active_cmd_y;
+                        first_rvi_coord_act_fmt       <= dut.rvi_tile_format;
+                        first_rvi_coord_act_x         <= dut.rvi_tile_xcoord;
+                        first_rvi_coord_act_y         <= dut.rvi_tile_ycoord;
+                        first_rvi_coord_beat          <= rvi_beat_idx;
+                        report_first_mismatch_header("ENC_RVI_COORD",
+                                                     "u_core.dut.ubwc_enc_vivo_top_inst.i_rvi_format/xcoord/ycoord");
+                        $display("[TB][FIRST_MISMATCH]   beat=%0d exp fmt=%0d x=%0d y=%0d act fmt=%0d x=%0d y=%0d",
+                                 rvi_beat_idx,
+                                 rvi_active_cmd_fmt,
+                                 rvi_active_cmd_x,
+                                 rvi_active_cmd_y,
+                                 dut.rvi_tile_format,
+                                 dut.rvi_tile_xcoord,
+                                 dut.rvi_tile_ycoord);
+                    end
+                end
+
+                if (rvi_exp_last_w) begin
+                    rvi_active_cmd_valid <= 1'b0;
+                    rvi_beat_idx         <= 0;
+                end else if (!rvi_active_cmd_valid) begin
+                    rvi_active_cmd_valid <= 1'b1;
+                    rvi_active_cmd_fmt   <= dut.rvi_tile_format;
+                    rvi_active_cmd_x     <= dut.rvi_tile_xcoord;
+                    rvi_active_cmd_y     <= dut.rvi_tile_ycoord;
+                    rvi_beat_idx         <= 1;
+                end else begin
+                    rvi_beat_idx         <= rvi_beat_idx + 1;
+                end
+            end
+        end
+    end
+
+    task automatic apply_fake_vivo_forces;
+        begin
+            if (tb_fake_mode_en) begin
+                $display("[TB] fake VIVO golden model enabled: internal metadata/compressed memories.");
+            end
+        end
+    endtask
 
     initial begin
         clk = 1'b0;
@@ -2225,9 +3356,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         rst_n = 1'b0;
         cmd_wr_ptr = 0;
         cmd_rd_ptr = 0;
-        rvi_cmd_wr_ptr = 0;
         cvo_cmd_wr_ptr = 0;
         cvo_cmd_rd_ptr = 0;
+        fake_cvo_drv_rd_ptr = 0;
+        fake_cvo_drv_beat_idx = 0;
         active_cmd_valid = 1'b0;
         active_cmd_fmt = 5'd0;
         active_cmd_x = 16'd0;
@@ -2288,8 +3420,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         tb_frame_repeat = 1;
         frames_started = 0;
         frames_completed = 0;
-        expected_tiles_total = CASE_EXPECTED_TILES;
+        expected_tiles_total = CASE_ACTIVE_EXPECTED_TILES;
         expected_beats_total = CASE_EXPECTED_BEATS;
+        expected_rvi_beats_total = CASE_EXPECTED_BEATS;
+        fake_expected_beats_total = 0;
         expected_meta_aw_total = CASE_FAKE_EXPECTED_META_AW;
         expected_meta_w_total = CASE_FAKE_EXPECTED_META_W;
         expected_meta_aw_plane0_total = CASE_FAKE_EXPECTED_META0_AW;
@@ -2312,8 +3446,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         if (tb_frame_repeat > MAX_FRAME_REPEAT)
             $fatal(1, "tb_frame_repeat=%0d exceeds MAX_FRAME_REPEAT=%0d", tb_frame_repeat, MAX_FRAME_REPEAT);
         expected_stage_done = (tb_frame_repeat > 1) ? 8'hff : 8'h55;
-        expected_tiles_total = CASE_EXPECTED_TILES * tb_frame_repeat;
+        expected_tiles_total = CASE_ACTIVE_EXPECTED_TILES * tb_frame_repeat;
         expected_beats_total = CASE_EXPECTED_BEATS * tb_frame_repeat;
+        expected_rvi_beats_total = CASE_EXPECTED_BEATS * tb_frame_repeat;
+        fake_expected_beats_total = 0;
         expected_meta_aw_total = CASE_FAKE_EXPECTED_META_AW * tb_frame_repeat;
         expected_meta_w_total = CASE_FAKE_EXPECTED_META_W * tb_frame_repeat;
         expected_meta_aw_plane0_total = CASE_FAKE_EXPECTED_META0_AW * tb_frame_repeat;
@@ -2322,10 +3458,15 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         expected_meta_w_plane1_total = CASE_FAKE_EXPECTED_META1_W * tb_frame_repeat;
         rvi_beat_count = 0;
         rvi_beat_idx = 0;
-        rvi_cmd_rd_ptr = 0;
         cvo_beat_count = 0;
+        vivo_ci_mismatch_count = 0;
         rvi_data_mismatch_count = 0;
+        rvi_mask_mismatch_count = 0;
+        rvi_last_mismatch_count = 0;
+        rvi_coord_mismatch_count = 0;
         cvo_data_mismatch_count = 0;
+        cvo_mask_mismatch_count = 0;
+        cvo_last_mismatch_count = 0;
         rvi_active_cmd_valid = 1'b0;
         rvi_active_cmd_fmt = 5'd0;
         rvi_active_cmd_x = 16'd0;
@@ -2336,6 +3477,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         cvo_active_cmd_y = 16'd0;
         cvo_active_cmd_addr = {AXI_AW{1'b0}};
         cvo_active_cmd_beats = 4'd0;
+        cvo_active_valid_beats = 4'd0;
         cvo_beat_idx = 0;
         first_rvi_data_mismatch_seen = 1'b0;
         first_rvi_data_fmt = 5'd0;
@@ -2344,6 +3486,28 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         first_rvi_data_beat = 0;
         first_rvi_data_expected = {AXI_DW{1'b0}};
         first_rvi_data_actual = {AXI_DW{1'b0}};
+        first_rvi_mask_mismatch_seen = 1'b0;
+        first_rvi_mask_fmt = 5'd0;
+        first_rvi_mask_x = 16'd0;
+        first_rvi_mask_y = 16'd0;
+        first_rvi_mask_beat = 0;
+        first_rvi_mask_expected = 32'd0;
+        first_rvi_mask_actual = 32'd0;
+        first_rvi_last_mismatch_seen = 1'b0;
+        first_rvi_last_fmt = 5'd0;
+        first_rvi_last_x = 16'd0;
+        first_rvi_last_y = 16'd0;
+        first_rvi_last_beat = 0;
+        first_rvi_last_expected = 1'b0;
+        first_rvi_last_actual = 1'b0;
+        first_rvi_coord_mismatch_seen = 1'b0;
+        first_rvi_coord_exp_fmt = 5'd0;
+        first_rvi_coord_exp_x = 16'd0;
+        first_rvi_coord_exp_y = 16'd0;
+        first_rvi_coord_act_fmt = 5'd0;
+        first_rvi_coord_act_x = 16'd0;
+        first_rvi_coord_act_y = 16'd0;
+        first_rvi_coord_beat = 0;
         first_cvo_data_mismatch_seen = 1'b0;
         first_cvo_data_fmt = 5'd0;
         first_cvo_data_x = 16'd0;
@@ -2351,6 +3515,30 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         first_cvo_data_beat = 0;
         first_cvo_data_expected = {AXI_DW{1'b0}};
         first_cvo_data_actual = {AXI_DW{1'b0}};
+        first_cvo_mask_mismatch_seen = 1'b0;
+        first_cvo_mask_fmt = 5'd0;
+        first_cvo_mask_x = 16'd0;
+        first_cvo_mask_y = 16'd0;
+        first_cvo_mask_beat = 0;
+        first_cvo_mask_expected = 32'd0;
+        first_cvo_mask_actual = 32'd0;
+        first_cvo_last_mismatch_seen = 1'b0;
+        first_cvo_last_fmt = 5'd0;
+        first_cvo_last_x = 16'd0;
+        first_cvo_last_y = 16'd0;
+        first_cvo_last_beat = 0;
+        first_cvo_last_expected = 1'b0;
+        first_cvo_last_actual = 1'b0;
+        first_vivo_ci_mismatch_seen = 1'b0;
+        first_vivo_ci_mismatch_fmt = 5'd0;
+        first_vivo_ci_mismatch_x = 16'd0;
+        first_vivo_ci_mismatch_y = 16'd0;
+        first_vivo_ci_expected_metadata = 8'd0;
+        first_vivo_ci_actual_metadata = 8'd0;
+        first_vivo_ci_expected_alen = 3'd0;
+        first_vivo_ci_actual_alen = 3'd0;
+        first_vivo_ci_expected_pcm = 1'b0;
+        first_vivo_ci_actual_pcm = 1'b0;
         first_aw_mismatch_seen = 1'b0;
         first_aw_actual = {AXI_AW{1'b0}};
         first_aw_expected = {AXI_AW{1'b0}};
@@ -2375,6 +3563,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         main_burst_addr = {AXI_AW{1'b0}};
         main_burst_beats_total = {(AXI_LENW+1){1'b0}};
         main_burst_beat_idx = {(AXI_LENW+1){1'b0}};
+        lossy_aw_split_pending = 1'b0;
+        lossy_aw_split_addr = {AXI_AW{1'b0}};
+        lossy_aw_split_beats = {(AXI_LENW+1){1'b0}};
+        lossy_aw_split_fmt = 5'd0;
+        lossy_aw_split_x = 16'd0;
+        lossy_aw_split_y = 16'd0;
         meta_burst_active = 1'b0;
         meta_burst_addr = {AXI_AW{1'b0}};
         meta_burst_beats_total = {(AXI_LENW+1){1'b0}};
@@ -2427,60 +3621,23 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         open_mem_dump_files();
 
         init_ref_word_arrays();
-        case (CASE_ID)
-            CASE_RGBA8888: begin
-                if (IMG_W == 128) begin
-                    load_dump64_to_tile_plane("../../../vector/rgba8888_128x128/rgba8888_128x128_tiled_mapped.memh",
-                                              0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_WORDS64);
-                end else begin
-                    load_dump64_to_tile_plane("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba8888/visual_from_mdss_writeback_4_wb_2_rec_0_verify_ubwc_enc_in0.txt",
-                                              0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_WORDS64);
-                end
-            end
-            CASE_RGBA1010102: begin
-                load_dump64_to_tile_plane("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba1010102/visual_from_mdss_writeback_38_wb_2_rec_0_verify_ubwc_enc_in0.txt",
-                                          0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_WORDS64);
-            end
-            CASE_G016: begin
-                load_dump64_to_tile_plane("../../../vector/enc_from_mdss_01000007_k_outdoor61_4096x600_g016/visual_from_mdss_writeback_50_wb_2_rec_0_verify_ubwc_enc_in0.txt",
-                                          0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_WORDS64);
-                load_dump64_to_tile_plane("../../../vector/enc_from_mdss_01000007_k_outdoor61_4096x600_g016/visual_from_mdss_writeback_50_wb_2_rec_0_verify_ubwc_enc_in1.txt",
-                                          1, CASE_TILE_BASE_UV_ADDR, CASE_TILE1_WORDS64);
-            end
-            default: begin
-                load_dump64_to_tile_plane("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_nv12/visual_from_mdss_writeback_2_wb_2_rec_0_verify_ubwc_enc_in0.txt",
-                                          0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_WORDS64);
-                load_dump64_to_tile_plane("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_nv12/visual_from_mdss_writeback_2_wb_2_rec_0_verify_ubwc_enc_in1.txt",
-                                          1, CASE_TILE_BASE_UV_ADDR, CASE_TILE1_WORDS64);
-            end
-        endcase
-        case (CASE_ID)
-            CASE_RGBA8888: begin
-                if (IMG_W == 128) begin
-                    load_dump64_to_ref("../../../vector/rgba8888_128x128/rgba8888_128x128_meta_dummy.memh",
-                                       1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
-                end else begin
-                    load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba8888/visual_from_mdss_writeback_4_wb_2_rec_0_verify_ubwc_enc_out2.txt",
-                                       1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
-                end
-            end
-            CASE_RGBA1010102: begin
-                load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba1010102/visual_from_mdss_writeback_38_wb_2_rec_0_verify_ubwc_enc_out2.txt",
-                                   1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
-            end
-            CASE_G016: begin
-                load_dump64_to_ref("../../../vector/enc_from_mdss_01000007_k_outdoor61_4096x600_g016/visual_from_mdss_writeback_50_wb_2_rec_0_verify_ubwc_enc_out2.txt",
-                                   1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
-                load_dump64_to_ref("../../../vector/enc_from_mdss_01000007_k_outdoor61_4096x600_g016/visual_from_mdss_writeback_50_wb_2_rec_0_verify_ubwc_enc_out3.txt",
-                                   1, CASE_META_BASE_UV_ADDR, CASE_META1_WORDS64);
-            end
-            default: begin
-                load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_nv12/visual_from_mdss_writeback_2_wb_2_rec_0_verify_ubwc_enc_out2.txt",
-                                   1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
-                load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_nv12/visual_from_mdss_writeback_2_wb_2_rec_0_verify_ubwc_enc_out3.txt",
-                                   1, CASE_META_BASE_UV_ADDR, CASE_META1_WORDS64);
-            end
-        endcase
+        load_dump64_to_tile_plane("expected_tile_plane0.memh",
+                                  0, CASE_TILE_BASE_Y_ADDR, CASE_TILE0_FILE_WORDS64);
+        if (CASE_HAS_PLANE1) begin
+            load_dump64_to_tile_plane("expected_tile_plane1.memh",
+                                      1, CASE_TILE_BASE_UV_ADDR, CASE_TILE1_FILE_WORDS64);
+        end
+
+        load_dump64_to_ref("expected_meta_plane0.memh",
+                           1, CASE_META_BASE_Y_ADDR, CASE_META0_WORDS64);
+        load_dump64_to_meta_plane("expected_meta_plane0.memh",
+                                  0, CASE_META0_WORDS64);
+        if (CASE_HAS_PLANE1) begin
+            load_dump64_to_ref("expected_meta_plane1.memh",
+                               1, CASE_META_BASE_UV_ADDR, CASE_META1_WORDS64);
+            load_dump64_to_meta_plane("expected_meta_plane1.memh",
+                                      1, CASE_META1_WORDS64);
+        end
         refresh_meta_ref_counts();
         if (!tb_fake_mode_en) begin
             expected_meta_aw_total = meta_ref_active_words_total * tb_frame_repeat;
@@ -2491,30 +3648,14 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             expected_meta_w_plane1_total = meta_ref_active_words_plane1 * tb_frame_repeat;
         end
 
-        if (!tb_fake_mode_en) begin
-            case (CASE_ID)
-                CASE_RGBA8888: begin
-                    load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba8888/visual_from_mdss_writeback_4_wb_2_rec_0_verify_ubwc_enc_out0.txt",
-                                       0, CASE_TILE_BASE_Y_ADDR, CASE_CMP0_WORDS64);
-                end
-                CASE_RGBA1010102: begin
-                    load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_rgba1010102/visual_from_mdss_writeback_38_wb_2_rec_0_verify_ubwc_enc_out0.txt",
-                                       0, CASE_TILE_BASE_Y_ADDR, CASE_CMP0_WORDS64);
-                end
-                CASE_G016: begin
-                    load_dump64_to_ref("../../../vector/enc_from_mdss_01000007_k_outdoor61_4096x600_g016/visual_from_mdss_writeback_50_wb_2_rec_0_verify_ubwc_enc_out0.txt",
-                                       0, CASE_TILE_BASE_Y_ADDR, CASE_CMP0_WORDS64);
-                    load_dump64_to_ref("../../../vector/enc_from_mdss_01000007_k_outdoor61_4096x600_g016/visual_from_mdss_writeback_50_wb_2_rec_0_verify_ubwc_enc_out1.txt",
-                                       0, CASE_TILE_BASE_UV_ADDR, CASE_CMP1_WORDS64);
-                end
-                default: begin
-                    load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_nv12/visual_from_mdss_writeback_2_wb_2_rec_0_verify_ubwc_enc_out0.txt",
-                                       0, CASE_TILE_BASE_Y_ADDR, CASE_CMP0_WORDS64);
-                    load_dump64_to_ref("../../../vector/enc_from_mdss_zp_TajMahal_4096x600_nv12/visual_from_mdss_writeback_2_wb_2_rec_0_verify_ubwc_enc_out1.txt",
-                                       0, CASE_TILE_BASE_UV_ADDR, CASE_CMP1_WORDS64);
-                end
-            endcase
+        load_dump64_to_ref("expected_cmp_plane0.memh",
+                           0, CASE_TILE_BASE_Y_ADDR, CASE_CMP0_WORDS64);
+        if (CASE_HAS_PLANE1) begin
+            load_dump64_to_ref("expected_cmp_plane1.memh",
+                               0, CASE_TILE_BASE_UV_ADDR, CASE_CMP1_WORDS64);
         end
+
+        apply_fake_vivo_forces();
 
         repeat (10) @(posedge clk);
         rst_n = 1'b1;
@@ -2539,7 +3680,6 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         if (!rst_n) begin
             cmd_wr_ptr            <= 0;
             cmd_rd_ptr            <= 0;
-            rvi_cmd_wr_ptr        <= 0;
             cvo_cmd_wr_ptr        <= 0;
             cvo_cmd_rd_ptr        <= 0;
             active_cmd_valid      <= 1'b0;
@@ -2598,30 +3738,18 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             timeout_count         <= 0;
             idle_cycles_after_done<= 0;
             frames_completed      <= 0;
-            rvi_beat_count        <= 0;
-            rvi_beat_idx          <= 0;
-            rvi_cmd_rd_ptr        <= 0;
             cvo_beat_count        <= 0;
-            rvi_data_mismatch_count <= 0;
             cvo_data_mismatch_count <= 0;
-            rvi_active_cmd_valid  <= 1'b0;
-            rvi_active_cmd_fmt    <= 5'd0;
-            rvi_active_cmd_x      <= 16'd0;
-            rvi_active_cmd_y      <= 16'd0;
+            cvo_mask_mismatch_count <= 0;
+            cvo_last_mismatch_count <= 0;
             cvo_active_cmd_valid  <= 1'b0;
             cvo_active_cmd_fmt    <= 5'd0;
             cvo_active_cmd_x      <= 16'd0;
             cvo_active_cmd_y      <= 16'd0;
             cvo_active_cmd_addr   <= {AXI_AW{1'b0}};
             cvo_active_cmd_beats  <= 4'd0;
+            cvo_active_valid_beats<= 4'd0;
             cvo_beat_idx          <= 0;
-            first_rvi_data_mismatch_seen <= 1'b0;
-            first_rvi_data_fmt    <= 5'd0;
-            first_rvi_data_x      <= 16'd0;
-            first_rvi_data_y      <= 16'd0;
-            first_rvi_data_beat   <= 0;
-            first_rvi_data_expected <= {AXI_DW{1'b0}};
-            first_rvi_data_actual   <= {AXI_DW{1'b0}};
             first_cvo_data_mismatch_seen <= 1'b0;
             first_cvo_data_fmt     <= 5'd0;
             first_cvo_data_x       <= 16'd0;
@@ -2629,6 +3757,20 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             first_cvo_data_beat    <= 0;
             first_cvo_data_expected<= {AXI_DW{1'b0}};
             first_cvo_data_actual  <= {AXI_DW{1'b0}};
+            first_cvo_mask_mismatch_seen <= 1'b0;
+            first_cvo_mask_fmt     <= 5'd0;
+            first_cvo_mask_x       <= 16'd0;
+            first_cvo_mask_y       <= 16'd0;
+            first_cvo_mask_beat    <= 0;
+            first_cvo_mask_expected<= 32'd0;
+            first_cvo_mask_actual  <= 32'd0;
+            first_cvo_last_mismatch_seen <= 1'b0;
+            first_cvo_last_fmt     <= 5'd0;
+            first_cvo_last_x       <= 16'd0;
+            first_cvo_last_y       <= 16'd0;
+            first_cvo_last_beat    <= 0;
+            first_cvo_last_expected<= 1'b0;
+            first_cvo_last_actual  <= 1'b0;
             first_aw_mismatch_seen<= 1'b0;
             first_aw_actual       <= {AXI_AW{1'b0}};
             first_aw_expected     <= {AXI_AW{1'b0}};
@@ -2655,6 +3797,12 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             main_burst_addr          <= {AXI_AW{1'b0}};
             main_burst_beats_total   <= {(AXI_LENW+1){1'b0}};
             main_burst_beat_idx      <= {(AXI_LENW+1){1'b0}};
+            lossy_aw_split_pending   <= 1'b0;
+            lossy_aw_split_addr      <= {AXI_AW{1'b0}};
+            lossy_aw_split_beats     <= {(AXI_LENW+1){1'b0}};
+            lossy_aw_split_fmt       <= 5'd0;
+            lossy_aw_split_x         <= 16'd0;
+            lossy_aw_split_y         <= 16'd0;
             meta_burst_active        <= 1'b0;
             meta_burst_addr          <= {AXI_AW{1'b0}};
             meta_burst_beats_total   <= {(AXI_LENW+1){1'b0}};
@@ -2715,26 +3863,59 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                         cmd_fmt_queue[cmd_wr_ptr] <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
                         cmd_x_queue[cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
                         cmd_y_queue[cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
+                        cmd_alen_queue[cmd_wr_ptr]<= fake_meta_alen_from_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                              dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                              dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
+                                                                              expected_meta_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                                 dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                                 dut.ubwc_enc_otf_to_tile_inst.line_tile_y));
+                        cmd_addr_queue[cmd_wr_ptr]<= expected_tile_addr_with_alen(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                  dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                  dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
+                                                                                  fake_meta_alen_from_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                                           dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                                           dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
+                                                                                                           expected_meta_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                                                              dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                                                              dut.ubwc_enc_otf_to_tile_inst.line_tile_y)));
                         cmd_wr_ptr                <= cmd_wr_ptr + 1;
                     end
                 end
             end
 
             if (ci_cmd_fire_w) begin
-                if (!rvi_start_direct_w && (rvi_cmd_wr_ptr < TILE_QUEUE_CAPACITY)) begin
-                    rvi_fmt_queue[rvi_cmd_wr_ptr] <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
-                    rvi_x_queue[rvi_cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
-                    rvi_y_queue[rvi_cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
-                    rvi_cmd_wr_ptr                <= rvi_cmd_wr_ptr + 1;
-                end
                 if (tb_fake_mode_en && !cvo_start_direct_w && (cvo_cmd_wr_ptr < TILE_QUEUE_CAPACITY)) begin
                     cvo_fmt_queue[cvo_cmd_wr_ptr]   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
                     cvo_x_queue[cvo_cmd_wr_ptr]     <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
                     cvo_y_queue[cvo_cmd_wr_ptr]     <= dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
-                    cvo_addr_queue[cvo_cmd_wr_ptr]  <= expected_tile_addr(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
-                                                                          dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
-                                                                          dut.ubwc_enc_otf_to_tile_inst.line_tile_y);
-                    cvo_beats_queue[cvo_cmd_wr_ptr] <= 4'd8;
+                    cvo_addr_queue[cvo_cmd_wr_ptr]  <= expected_tile_addr_with_alen(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                    dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                    dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
+                                                                                    fake_meta_alen_from_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                                             dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                                             dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
+                                                                                                             expected_meta_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                                                                dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                                                                dut.ubwc_enc_otf_to_tile_inst.line_tile_y)));
+                    cvo_beats_queue[cvo_cmd_wr_ptr] <= fake_meta_total_beats_from_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                       dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                       dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
+                                                                                       expected_meta_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                                          dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                                          dut.ubwc_enc_otf_to_tile_inst.line_tile_y));
+                    cvo_valid_beats_queue[cvo_cmd_wr_ptr] <= fake_meta_valid_beats_from_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                             dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                             dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
+                                                                                             expected_meta_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                                                dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                                                dut.ubwc_enc_otf_to_tile_inst.line_tile_y));
+                    fake_expected_beats_total       <= fake_expected_beats_total +
+                                                       fake_meta_total_beats_from_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                       dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                       dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
+                                                                                       expected_meta_byte(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
+                                                                                                          dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
+                                                                                                          dut.ubwc_enc_otf_to_tile_inst.line_tile_y));
                     cvo_cmd_wr_ptr                  <= cvo_cmd_wr_ptr + 1;
                 end
             end
@@ -2745,261 +3926,118 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                     cvo_x_queue[cvo_cmd_wr_ptr]     <= 16'd0;
                     cvo_y_queue[cvo_cmd_wr_ptr]     <= 16'd0;
                     cvo_addr_queue[cvo_cmd_wr_ptr]  <= dut.enc_axi_awaddr;
-                    cvo_beats_queue[cvo_cmd_wr_ptr] <= {1'b0, dut.enc_axi_awlen} + 4'd1;
+                    cvo_beats_queue[cvo_cmd_wr_ptr] <= {1'b0, dut.enc_axi_awlen[2:0]} + 4'd1;
+                    cvo_valid_beats_queue[cvo_cmd_wr_ptr] <= {1'b0, dut.enc_axi_awlen[2:0]} + 4'd1;
                     cvo_cmd_wr_ptr                  <= cvo_cmd_wr_ptr + 1;
-                end
-            end
-
-            if (rvi_mon_fire_w) begin
-                rvi_beat_count <= rvi_beat_count + 1;
-                if (!rvi_active_cmd_valid) begin
-                    if (rvi_start_direct_w) begin
-                        if (masked_axi_word_mismatch(rvi_mon_data_w,
-                                                     rvi_mon_mask_w,
-                                                     pack_expected_tile_axi_word(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
-                                                                                 dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
-                                                                                 dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
-                                                                                 0))) begin
-                            rvi_data_mismatch_count <= rvi_data_mismatch_count + 1;
-                            if (!first_rvi_data_mismatch_seen) begin
-                                first_rvi_data_mismatch_seen <= 1'b1;
-                                first_rvi_data_fmt           <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
-                                first_rvi_data_x             <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
-                                first_rvi_data_y             <= dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
-                                first_rvi_data_beat          <= 0;
-                                first_rvi_data_expected      <= pack_expected_tile_axi_word(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
-                                                                                              dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
-                                                                                              dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
-                                                                                              0);
-                                first_rvi_data_actual        <= rvi_mon_data_w;
-                            end
-                        end
-                        rvi_active_cmd_valid <= 1'b1;
-                        rvi_active_cmd_fmt   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
-                        rvi_active_cmd_x     <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
-                        rvi_active_cmd_y     <= dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
-                        rvi_beat_idx         <= 1;
-                    end else if (rvi_cmd_rd_ptr >= rvi_cmd_wr_ptr) begin
-                        rvi_data_mismatch_count <= rvi_data_mismatch_count + 1;
-                        if (!first_rvi_data_mismatch_seen) begin
-                            first_rvi_data_mismatch_seen <= 1'b1;
-                            first_rvi_data_fmt           <= 5'd0;
-                            first_rvi_data_x             <= 16'd0;
-                            first_rvi_data_y             <= 16'd0;
-                            first_rvi_data_beat          <= 0;
-                            first_rvi_data_expected      <= {AXI_DW{1'b0}};
-                            first_rvi_data_actual        <= rvi_mon_data_w;
-                        end
-                    end else begin
-                        if (masked_axi_word_mismatch(rvi_mon_data_w,
-                                                     rvi_mon_mask_w,
-                                                     pack_expected_tile_axi_word(rvi_fmt_queue[rvi_cmd_rd_ptr],
-                                                                                 rvi_x_queue[rvi_cmd_rd_ptr],
-                                                                                 rvi_y_queue[rvi_cmd_rd_ptr],
-                                                                                 0))) begin
-                            rvi_data_mismatch_count <= rvi_data_mismatch_count + 1;
-                            if (!first_rvi_data_mismatch_seen) begin
-                                first_rvi_data_mismatch_seen <= 1'b1;
-                                first_rvi_data_fmt           <= rvi_fmt_queue[rvi_cmd_rd_ptr];
-                                first_rvi_data_x             <= rvi_x_queue[rvi_cmd_rd_ptr];
-                                first_rvi_data_y             <= rvi_y_queue[rvi_cmd_rd_ptr];
-                                first_rvi_data_beat          <= 0;
-                                first_rvi_data_expected      <= pack_expected_tile_axi_word(rvi_fmt_queue[rvi_cmd_rd_ptr],
-                                                                                              rvi_x_queue[rvi_cmd_rd_ptr],
-                                                                                              rvi_y_queue[rvi_cmd_rd_ptr],
-                                                                                              0);
-                                first_rvi_data_actual        <= rvi_mon_data_w;
-                            end
-                        end
-                        rvi_active_cmd_valid <= 1'b1;
-                        rvi_active_cmd_fmt   <= rvi_fmt_queue[rvi_cmd_rd_ptr];
-                        rvi_active_cmd_x     <= rvi_x_queue[rvi_cmd_rd_ptr];
-                        rvi_active_cmd_y     <= rvi_y_queue[rvi_cmd_rd_ptr];
-                        rvi_cmd_rd_ptr       <= rvi_cmd_rd_ptr + 1;
-                        rvi_beat_idx         <= 1;
-                    end
-                end else begin
-                    if (masked_axi_word_mismatch(rvi_mon_data_w,
-                                                 rvi_mon_mask_w,
-                                                 pack_expected_tile_axi_word(rvi_active_cmd_fmt,
-                                                                             rvi_active_cmd_x,
-                                                                             rvi_active_cmd_y,
-                                                                             rvi_beat_idx))) begin
-                        rvi_data_mismatch_count <= rvi_data_mismatch_count + 1;
-                        if (!first_rvi_data_mismatch_seen) begin
-                            first_rvi_data_mismatch_seen <= 1'b1;
-                            first_rvi_data_fmt           <= rvi_active_cmd_fmt;
-                            first_rvi_data_x             <= rvi_active_cmd_x;
-                            first_rvi_data_y             <= rvi_active_cmd_y;
-                            first_rvi_data_beat          <= rvi_beat_idx;
-                            first_rvi_data_expected      <= pack_expected_tile_axi_word(rvi_active_cmd_fmt,
-                                                                                          rvi_active_cmd_x,
-                                                                                          rvi_active_cmd_y,
-                                                                                          rvi_beat_idx);
-                            first_rvi_data_actual        <= rvi_mon_data_w;
-                        end
-                    end
-                    if (rvi_beat_idx == 7) begin
-                        rvi_active_cmd_valid <= 1'b0;
-                        rvi_beat_idx         <= 0;
-                    end else begin
-                        rvi_beat_idx         <= rvi_beat_idx + 1;
-                    end
                 end
             end
 
             if (dut.enc_cvo_valid && dut.enc_cvo_ready) begin
                 cvo_beat_count <= cvo_beat_count + 1;
-                if (!cvo_active_cmd_valid) begin
-                    if (cvo_start_direct_w) begin
-                        if (tb_fake_mode_en) begin
-                            if (masked_axi_word_mismatch(dut.enc_cvo_data,
-                                                         dut.enc_cvo_mask,
-                                                         pack_expected_tile_axi_word(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
-                                                                                     dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
-                                                                                     dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
-                                                                                     0))) begin
-                                cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
-                                if (!first_cvo_data_mismatch_seen) begin
-                                    first_cvo_data_mismatch_seen <= 1'b1;
-                                    first_cvo_data_fmt           <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
-                                    first_cvo_data_x             <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
-                                    first_cvo_data_y             <= dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
-                                    first_cvo_data_beat          <= 0;
-                                    first_cvo_data_expected      <= pack_expected_tile_axi_word(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
-                                                                                                  dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
-                                                                                                  dut.ubwc_enc_otf_to_tile_inst.line_tile_y,
-                                                                                                  0);
-                                    first_cvo_data_actual        <= dut.enc_cvo_data;
-                                end
-                            end
-                            cvo_active_cmd_fmt   <= dut.ubwc_enc_otf_to_tile_inst.line_tile_format;
-                            cvo_active_cmd_x     <= dut.ubwc_enc_otf_to_tile_inst.line_tile_x;
-                            cvo_active_cmd_y     <= dut.ubwc_enc_otf_to_tile_inst.line_tile_y;
-                            cvo_active_cmd_addr  <= expected_tile_addr(dut.ubwc_enc_otf_to_tile_inst.line_tile_format,
-                                                                        dut.ubwc_enc_otf_to_tile_inst.line_tile_x,
-                                                                        dut.ubwc_enc_otf_to_tile_inst.line_tile_y);
-                            cvo_active_cmd_beats <= 4'd8;
-                        end else begin
-                            if (masked_axi_word_mismatch(dut.enc_cvo_data,
-                                                         dut.enc_cvo_mask,
-                                                         pack_main_ref_axi_word(dut.enc_axi_awaddr))) begin
-                                cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
-                                if (!first_cvo_data_mismatch_seen) begin
-                                    first_cvo_data_mismatch_seen <= 1'b1;
-                                    first_cvo_data_fmt           <= 5'd0;
-                                    first_cvo_data_x             <= 16'd0;
-                                    first_cvo_data_y             <= 16'd0;
-                                    first_cvo_data_beat          <= 0;
-                                    first_cvo_data_expected      <= pack_main_ref_axi_word(dut.enc_axi_awaddr);
-                                    first_cvo_data_actual        <= dut.enc_cvo_data;
-                                end
-                            end
-                            cvo_active_cmd_fmt   <= 5'd0;
-                            cvo_active_cmd_x     <= 16'd0;
-                            cvo_active_cmd_y     <= 16'd0;
-                            cvo_active_cmd_addr  <= dut.enc_axi_awaddr;
-                            cvo_active_cmd_beats <= {1'b0, dut.enc_axi_awlen} + 4'd1;
-                        end
-                        cvo_active_cmd_valid <= 1'b1;
-                        cvo_beat_idx         <= 1;
-                    end else if (cvo_cmd_rd_ptr >= cvo_cmd_wr_ptr) begin
-                        cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
-                        if (!first_cvo_data_mismatch_seen) begin
-                            first_cvo_data_mismatch_seen <= 1'b1;
+                if (!cvo_expect_valid_w) begin
+                    cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
+                    if (!first_cvo_data_mismatch_seen) begin
+                        first_cvo_data_mismatch_seen <= 1'b1;
                             first_cvo_data_fmt           <= 5'd0;
                             first_cvo_data_x             <= 16'd0;
                             first_cvo_data_y             <= 16'd0;
                             first_cvo_data_beat          <= 0;
                             first_cvo_data_expected      <= {AXI_DW{1'b0}};
                             first_cvo_data_actual        <= dut.enc_cvo_data;
-                        end
-                    end else begin
-                        if (tb_fake_mode_en) begin
-                            if (masked_axi_word_mismatch(dut.enc_cvo_data,
-                                                         dut.enc_cvo_mask,
-                                                         pack_expected_tile_axi_word(cvo_fmt_queue[cvo_cmd_rd_ptr],
-                                                                                     cvo_x_queue[cvo_cmd_rd_ptr],
-                                                                                     cvo_y_queue[cvo_cmd_rd_ptr],
-                                                                                     0))) begin
-                                cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
-                                if (!first_cvo_data_mismatch_seen) begin
-                                    first_cvo_data_mismatch_seen <= 1'b1;
-                                    first_cvo_data_fmt           <= cvo_fmt_queue[cvo_cmd_rd_ptr];
-                                    first_cvo_data_x             <= cvo_x_queue[cvo_cmd_rd_ptr];
-                                    first_cvo_data_y             <= cvo_y_queue[cvo_cmd_rd_ptr];
-                                    first_cvo_data_beat          <= 0;
-                                    first_cvo_data_expected      <= pack_expected_tile_axi_word(cvo_fmt_queue[cvo_cmd_rd_ptr],
-                                                                                                  cvo_x_queue[cvo_cmd_rd_ptr],
-                                                                                                  cvo_y_queue[cvo_cmd_rd_ptr],
-                                                                                                  0);
-                                    first_cvo_data_actual        <= dut.enc_cvo_data;
-                                end
-                            end
-                        end else begin
-                            if (masked_axi_word_mismatch(dut.enc_cvo_data,
-                                                         dut.enc_cvo_mask,
-                                                         pack_main_ref_axi_word(cvo_addr_queue[cvo_cmd_rd_ptr]))) begin
-                                cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
-                                if (!first_cvo_data_mismatch_seen) begin
-                                    first_cvo_data_mismatch_seen <= 1'b1;
-                                    first_cvo_data_fmt           <= cvo_fmt_queue[cvo_cmd_rd_ptr];
-                                    first_cvo_data_x             <= cvo_x_queue[cvo_cmd_rd_ptr];
-                                    first_cvo_data_y             <= cvo_y_queue[cvo_cmd_rd_ptr];
-                                    first_cvo_data_beat          <= 0;
-                                    first_cvo_data_expected      <= pack_main_ref_axi_word(cvo_addr_queue[cvo_cmd_rd_ptr]);
-                                    first_cvo_data_actual        <= dut.enc_cvo_data;
-                                end
-                            end
-                        end
-                        cvo_active_cmd_valid <= 1'b1;
-                        cvo_active_cmd_fmt   <= cvo_fmt_queue[cvo_cmd_rd_ptr];
-                        cvo_active_cmd_x     <= cvo_x_queue[cvo_cmd_rd_ptr];
-                        cvo_active_cmd_y     <= cvo_y_queue[cvo_cmd_rd_ptr];
-                        cvo_active_cmd_addr  <= cvo_addr_queue[cvo_cmd_rd_ptr];
-                        cvo_active_cmd_beats <= cvo_beats_queue[cvo_cmd_rd_ptr];
-                        cvo_cmd_rd_ptr       <= cvo_cmd_rd_ptr + 1;
-                        cvo_beat_idx         <= 1;
+                            report_first_mismatch_header("ENC_CVO_QUEUE_UNDERFLOW",
+                                                         "u_core.dut.enc_cvo_*");
+                            $display("[TB][FIRST_MISMATCH]   CVO data arrived with no queued command, mask=0x%08x",
+                                     dut.enc_cvo_mask);
+                        $display("[TB][FIRST_MISMATCH]   actual=0x%064x", dut.enc_cvo_data);
                     end
                 end else begin
-                    if (tb_fake_mode_en) begin
-                        if (masked_axi_word_mismatch(dut.enc_cvo_data,
-                                                     dut.enc_cvo_mask,
-                                                     pack_expected_tile_axi_word(cvo_active_cmd_fmt,
-                                                                                 cvo_active_cmd_x,
-                                                                                 cvo_active_cmd_y,
-                                                                                 cvo_beat_idx))) begin
-                            cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
-                            if (!first_cvo_data_mismatch_seen) begin
-                                first_cvo_data_mismatch_seen <= 1'b1;
-                                first_cvo_data_fmt           <= cvo_active_cmd_fmt;
-                                first_cvo_data_x             <= cvo_active_cmd_x;
-                                first_cvo_data_y             <= cvo_active_cmd_y;
-                                first_cvo_data_beat          <= cvo_beat_idx;
-                                first_cvo_data_expected      <= pack_expected_tile_axi_word(cvo_active_cmd_fmt,
-                                                                                              cvo_active_cmd_x,
-                                                                                              cvo_active_cmd_y,
-                                                                                              cvo_beat_idx);
-                                first_cvo_data_actual        <= dut.enc_cvo_data;
-                            end
-                        end
-                    end else begin
-                        if (masked_axi_word_mismatch(dut.enc_cvo_data,
-                                                     dut.enc_cvo_mask,
-                                                     pack_main_ref_axi_word(cvo_active_cmd_addr + (cvo_beat_idx * (AXI_DW/8))))) begin
-                            cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
-                            if (!first_cvo_data_mismatch_seen) begin
-                                first_cvo_data_mismatch_seen <= 1'b1;
-                                first_cvo_data_fmt           <= cvo_active_cmd_fmt;
-                                first_cvo_data_x             <= cvo_active_cmd_x;
-                                first_cvo_data_y             <= cvo_active_cmd_y;
-                                first_cvo_data_beat          <= cvo_beat_idx;
-                                first_cvo_data_expected      <= pack_main_ref_axi_word(cvo_active_cmd_addr + (cvo_beat_idx * (AXI_DW/8)));
-                                first_cvo_data_actual        <= dut.enc_cvo_data;
-                            end
+                    if (masked_axi_word_mismatch(dut.enc_cvo_data,
+                                                 dut.enc_cvo_mask,
+                                                 cvo_expect_data_w)) begin
+                        cvo_data_mismatch_count <= cvo_data_mismatch_count + 1;
+                        if (!first_cvo_data_mismatch_seen) begin
+                            first_cvo_data_mismatch_seen <= 1'b1;
+                            first_cvo_data_fmt           <= cvo_expect_fmt_w;
+                            first_cvo_data_x             <= cvo_expect_x_w;
+                            first_cvo_data_y             <= cvo_expect_y_w;
+                            first_cvo_data_beat          <= cvo_expect_beat_w;
+                            first_cvo_data_expected      <= cvo_expect_data_w;
+                            first_cvo_data_actual        <= dut.enc_cvo_data;
+                            report_first_mismatch_header("ENC_CVO_DATA",
+                                                         "u_core.dut.ubwc_enc_vivo_top_inst.o_cvo_* / u_core.dut.enc_cvo_*");
+                            $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d addr=0x%016x beat=%0d mask=0x%08x",
+                                     cvo_expect_fmt_w,
+                                     cvo_expect_x_w,
+                                     cvo_expect_y_w,
+                                     cvo_expect_addr_w,
+                                     cvo_expect_beat_w,
+                                     dut.enc_cvo_mask);
+                            $display("[TB][FIRST_MISMATCH]   expected=0x%064x", cvo_expect_data_w);
+                            $display("[TB][FIRST_MISMATCH]   actual  =0x%064x", dut.enc_cvo_data);
                         end
                     end
-                    if (cvo_beat_idx == (cvo_active_cmd_beats - 1)) begin
+                    if (dut.enc_cvo_mask !== cvo_expect_mask_w) begin
+                        cvo_mask_mismatch_count <= cvo_mask_mismatch_count + 1;
+                        if (!first_cvo_mask_mismatch_seen) begin
+                            first_cvo_mask_mismatch_seen <= 1'b1;
+                            first_cvo_mask_fmt           <= cvo_expect_fmt_w;
+                            first_cvo_mask_x             <= cvo_expect_x_w;
+                            first_cvo_mask_y             <= cvo_expect_y_w;
+                            first_cvo_mask_beat          <= cvo_expect_beat_w;
+                            first_cvo_mask_expected      <= cvo_expect_mask_w;
+                            first_cvo_mask_actual        <= dut.enc_cvo_mask;
+                            report_first_mismatch_header("ENC_CVO_MASK",
+                                                         "u_core.dut.ubwc_enc_vivo_top_inst.o_cvo_mask / u_core.dut.enc_cvo_mask");
+                            $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d addr=0x%016x beat=%0d mask exp=0x%08x act=0x%08x",
+                                     cvo_expect_fmt_w,
+                                     cvo_expect_x_w,
+                                     cvo_expect_y_w,
+                                     cvo_expect_addr_w,
+                                     cvo_expect_beat_w,
+                                     cvo_expect_mask_w,
+                                     dut.enc_cvo_mask);
+                        end
+                    end
+                    if (dut.enc_cvo_last !== cvo_expect_last_w) begin
+                        cvo_last_mismatch_count <= cvo_last_mismatch_count + 1;
+                        if (!first_cvo_last_mismatch_seen) begin
+                            first_cvo_last_mismatch_seen <= 1'b1;
+                            first_cvo_last_fmt           <= cvo_expect_fmt_w;
+                            first_cvo_last_x             <= cvo_expect_x_w;
+                            first_cvo_last_y             <= cvo_expect_y_w;
+                            first_cvo_last_beat          <= cvo_expect_beat_w;
+                            first_cvo_last_expected      <= cvo_expect_last_w;
+                            first_cvo_last_actual        <= dut.enc_cvo_last;
+                            report_first_mismatch_header("ENC_CVO_LAST",
+                                                         "u_core.dut.ubwc_enc_vivo_top_inst.o_cvo_last / u_core.dut.enc_cvo_last");
+                            $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d addr=0x%016x beat=%0d last exp=%0d act=%0d",
+                                     cvo_expect_fmt_w,
+                                     cvo_expect_x_w,
+                                     cvo_expect_y_w,
+                                     cvo_expect_addr_w,
+                                     cvo_expect_beat_w,
+                                     cvo_expect_last_w,
+                                     dut.enc_cvo_last);
+                        end
+                    end
+
+                    if (!cvo_active_cmd_valid) begin
+                        if (cvo_expect_queue_w)
+                            cvo_cmd_rd_ptr <= cvo_cmd_rd_ptr + 1;
+                        if (cvo_expect_last_w) begin
+                            cvo_active_cmd_valid <= 1'b0;
+                            cvo_beat_idx         <= 0;
+                        end else begin
+                            cvo_active_cmd_valid <= 1'b1;
+                            cvo_active_cmd_fmt   <= cvo_expect_fmt_w;
+                            cvo_active_cmd_x     <= cvo_expect_x_w;
+                            cvo_active_cmd_y     <= cvo_expect_y_w;
+                            cvo_active_cmd_addr  <= cvo_expect_base_addr_w;
+                            cvo_active_cmd_beats <= cvo_expect_beats_w;
+                            cvo_active_valid_beats <= cvo_expect_valid_beats_w;
+                            cvo_beat_idx         <= 1;
+                        end
+                    end else if (cvo_expect_last_w) begin
                         cvo_active_cmd_valid <= 1'b0;
                         cvo_beat_idx         <= 0;
                     end else begin
@@ -3011,32 +4049,112 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             if (tb_fake_mode_en) begin
                 if (dut.enc_axi_awvalid && dut.enc_axi_awready) begin
                     aw_count <= aw_count + 1;
-                    if (cmd_rd_ptr >= cmd_wr_ptr) begin
-                        queue_underflow_count <= queue_underflow_count + 1;
-                    end else begin
-                        main_burst_active      <= 1'b1;
-                        main_burst_addr        <= dut.enc_axi_awaddr;
-                        main_burst_beats_total <= {{AXI_LENW{1'b0}}, 1'b1} + dut.enc_axi_awlen;
-                        main_burst_beat_idx    <= {(AXI_LENW+1){1'b0}};
-                        active_cmd_valid    <= 1'b1;
-                        active_cmd_fmt      <= cmd_fmt_queue[cmd_rd_ptr];
-                        active_cmd_x        <= cmd_x_queue[cmd_rd_ptr];
-                        active_cmd_y        <= cmd_y_queue[cmd_rd_ptr];
-                        active_cmd_beat_idx <= 0;
-                        if (dut.enc_axi_awlen !== 8'd7)
-                            aw_mismatch_count <= aw_mismatch_count + 1;
-                        if (CASE_ADDR_CHECK_EN && (dut.enc_axi_awaddr !== expected_tile_addr(cmd_fmt_queue[cmd_rd_ptr], cmd_x_queue[cmd_rd_ptr], cmd_y_queue[cmd_rd_ptr]))) begin
-                            aw_mismatch_count <= aw_mismatch_count + 1;
-                            if (!first_aw_mismatch_seen) begin
-                                first_aw_mismatch_seen <= 1'b1;
-                                first_aw_actual       <= dut.enc_axi_awaddr;
-                                first_aw_expected     <= expected_tile_addr(cmd_fmt_queue[cmd_rd_ptr], cmd_x_queue[cmd_rd_ptr], cmd_y_queue[cmd_rd_ptr]);
-                                first_aw_fmt          <= cmd_fmt_queue[cmd_rd_ptr];
-                                first_aw_x            <= cmd_x_queue[cmd_rd_ptr];
-                                first_aw_y            <= cmd_y_queue[cmd_rd_ptr];
+                    if (CASE_IS_LOSSY_RGBA_2_1 != 0) begin
+                        if (!lossy_aw_expected_valid_w) begin
+                            queue_underflow_count <= queue_underflow_count + 1;
+                        end else begin
+                            main_burst_active      <= 1'b1;
+                            main_burst_addr        <= dut.enc_axi_awaddr;
+                            main_burst_beats_total <= {{AXI_LENW{1'b0}}, 1'b1} + dut.enc_axi_awlen;
+                            main_burst_beat_idx    <= {(AXI_LENW+1){1'b0}};
+                            active_cmd_valid       <= 1'b1;
+                            active_cmd_fmt         <= lossy_aw_expected_fmt_w;
+                            active_cmd_x           <= lossy_aw_expected_x_w;
+                            active_cmd_y           <= lossy_aw_expected_y_w;
+                            active_cmd_beat_idx    <= 0;
+                            if (dut.enc_axi_awlen !== lossy_aw_expected_len_w) begin
+                                aw_mismatch_count <= aw_mismatch_count + 1;
+                                if (!first_aw_mismatch_seen) begin
+                                    first_aw_mismatch_seen <= 1'b1;
+                                    first_aw_actual        <= dut.enc_axi_awaddr;
+                                    first_aw_expected      <= lossy_aw_expected_addr_w;
+                                    first_aw_fmt           <= lossy_aw_expected_fmt_w;
+                                    first_aw_x             <= lossy_aw_expected_x_w;
+                                    first_aw_y             <= lossy_aw_expected_y_w;
+                                    report_first_mismatch_header("ENC_TILE_AW_LEN",
+                                                                 "u_core.dut.enc_axi_aw*");
+                                    $display("[TB][FIRST_MISMATCH]   lossy fmt=%0d x=%0d y=%0d awlen exp=%0d act=%0d awaddr exp=0x%016x act=0x%016x",
+                                             lossy_aw_expected_fmt_w,
+                                             lossy_aw_expected_x_w,
+                                             lossy_aw_expected_y_w,
+                                             lossy_aw_expected_len_w,
+                                             dut.enc_axi_awlen,
+                                             lossy_aw_expected_addr_w,
+                                             dut.enc_axi_awaddr);
+                                end
+                            end
+                            if (CASE_ADDR_CHECK_EN &&
+                                (dut.enc_axi_awaddr !== lossy_aw_expected_addr_w)) begin
+                                aw_mismatch_count <= aw_mismatch_count + 1;
+                                if (!first_aw_mismatch_seen) begin
+                                    first_aw_mismatch_seen <= 1'b1;
+                                    first_aw_actual        <= dut.enc_axi_awaddr;
+                                    first_aw_expected      <= lossy_aw_expected_addr_w;
+                                    first_aw_fmt           <= lossy_aw_expected_fmt_w;
+                                    first_aw_x             <= lossy_aw_expected_x_w;
+                                    first_aw_y             <= lossy_aw_expected_y_w;
+                                    report_first_mismatch_header("ENC_TILE_AW_ADDR",
+                                                                 "u_core.dut.enc_axi_aw*");
+                                    $display("[TB][FIRST_MISMATCH]   lossy fmt=%0d x=%0d y=%0d awaddr exp=0x%016x act=0x%016x awlen exp=%0d act=%0d",
+                                             lossy_aw_expected_fmt_w,
+                                             lossy_aw_expected_x_w,
+                                             lossy_aw_expected_y_w,
+                                             lossy_aw_expected_addr_w,
+                                             dut.enc_axi_awaddr,
+                                             lossy_aw_expected_len_w,
+                                             dut.enc_axi_awlen);
+                                end
+                            end
+                            if (lossy_aw_split_pending) begin
+                                lossy_aw_split_pending <= 1'b0;
+                            end else begin
+                                cmd_rd_ptr <= cmd_rd_ptr + 1;
+                                if (lossy_aw_expected_split_w) begin
+                                    lossy_aw_split_pending <= 1'b1;
+                                    lossy_aw_split_addr    <= lossy_aw_second_addr_w;
+                                    lossy_aw_split_beats   <= lossy_aw_second_beats_w;
+                                    lossy_aw_split_fmt     <= lossy_aw_expected_fmt_w;
+                                    lossy_aw_split_x       <= lossy_aw_expected_x_w;
+                                    lossy_aw_split_y       <= lossy_aw_expected_y_w;
+                                end
                             end
                         end
-                        cmd_rd_ptr <= cmd_rd_ptr + 1;
+                    end else begin
+                        if (cmd_rd_ptr >= cmd_wr_ptr) begin
+                            queue_underflow_count <= queue_underflow_count + 1;
+                        end else begin
+                            main_burst_active      <= 1'b1;
+                            main_burst_addr        <= dut.enc_axi_awaddr;
+                            main_burst_beats_total <= {{AXI_LENW{1'b0}}, 1'b1} + dut.enc_axi_awlen;
+                            main_burst_beat_idx    <= {(AXI_LENW+1){1'b0}};
+                            active_cmd_valid       <= 1'b1;
+                            active_cmd_fmt         <= cmd_fmt_queue[cmd_rd_ptr];
+                            active_cmd_x           <= cmd_x_queue[cmd_rd_ptr];
+                            active_cmd_y           <= cmd_y_queue[cmd_rd_ptr];
+                            active_cmd_beat_idx    <= 0;
+                            if (dut.enc_axi_awlen !== {{(AXI_LENW-3){1'b0}}, cmd_alen_queue[cmd_rd_ptr]})
+                                aw_mismatch_count <= aw_mismatch_count + 1;
+                            if (CASE_ADDR_CHECK_EN && (dut.enc_axi_awaddr !== cmd_addr_queue[cmd_rd_ptr])) begin
+                                aw_mismatch_count <= aw_mismatch_count + 1;
+                                if (!first_aw_mismatch_seen) begin
+                                    first_aw_mismatch_seen <= 1'b1;
+                                    first_aw_actual       <= dut.enc_axi_awaddr;
+                                    first_aw_expected     <= cmd_addr_queue[cmd_rd_ptr];
+                                    first_aw_fmt          <= cmd_fmt_queue[cmd_rd_ptr];
+                                    first_aw_x            <= cmd_x_queue[cmd_rd_ptr];
+                                    first_aw_y            <= cmd_y_queue[cmd_rd_ptr];
+                                    report_first_mismatch_header("ENC_TILE_AW_ADDR",
+                                                                 "u_core.dut.enc_axi_aw*");
+                                    $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d awaddr exp=0x%016x act=0x%016x",
+                                             cmd_fmt_queue[cmd_rd_ptr],
+                                             cmd_x_queue[cmd_rd_ptr],
+                                             cmd_y_queue[cmd_rd_ptr],
+                                             cmd_addr_queue[cmd_rd_ptr],
+                                             dut.enc_axi_awaddr);
+                                end
+                            end
+                            cmd_rd_ptr <= cmd_rd_ptr + 1;
+                        end
                     end
                     if (!main_word_addr_valid(dut.enc_axi_awaddr)) begin
                         out_range_mismatch_count <= out_range_mismatch_count + 1;
@@ -3052,7 +4170,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
                 if (dut.enc_axi_wvalid && dut.enc_axi_wready) begin
                     w_count <= w_count + 1;
-                    if (!active_cmd_valid || !main_burst_active) begin
+                    if ((!main_burst_active) || !active_cmd_valid) begin
                         queue_underflow_count <= queue_underflow_count + 1;
                     end else begin
                         if (!main_word_addr_valid(main_burst_addr + (main_burst_beat_idx * (AXI_DW/8)))) begin
@@ -3065,8 +4183,46 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                 first_out_range_beats_total <= main_burst_beats_total;
                             end
                         end
-                        if (dut.enc_axi_wstrb !== 32'hFFFF_FFFF)
-                            strb_mismatch_count <= strb_mismatch_count + 1;
+                        compare_ref_beat(0,
+                                         main_burst_addr + (main_burst_beat_idx * (AXI_DW/8)),
+                                         dut.enc_axi_wdata,
+                                         dut.enc_axi_wstrb,
+                                         ref_cmp_mismatch,
+                                         ref_cmp_range_error,
+                                         ref_cmp_expected_word);
+                        if (ref_cmp_range_error) begin
+                            out_range_mismatch_count <= out_range_mismatch_count + 1;
+                            if (!first_out_range_seen) begin
+                                first_out_range_seen        <= 1'b1;
+                                first_out_range_kind        <= 3'd2;
+                                first_out_range_addr        <= main_burst_addr + (main_burst_beat_idx * (AXI_DW/8));
+                                first_out_range_beat_idx    <= main_burst_beat_idx;
+                                first_out_range_beats_total <= main_burst_beats_total;
+                            end
+                        end
+                        if (ref_cmp_mismatch) begin
+                            main_mem_mismatch_count <= main_mem_mismatch_count + 1;
+                            if (CASE_HAS_PLANE1 && ((main_burst_addr + (main_burst_beat_idx * (AXI_DW/8))) >= CASE_TILE_BASE_UV_ADDR))
+                                main_plane1_mem_mismatch_count <= main_plane1_mem_mismatch_count + 1;
+                            else
+                                main_plane0_mem_mismatch_count <= main_plane0_mem_mismatch_count + 1;
+                            if (!first_main_mem_mismatch_seen) begin
+                                first_main_mem_mismatch_seen <= 1'b1;
+                                first_main_mem_addr          <= main_burst_addr + (main_burst_beat_idx * (AXI_DW/8));
+                                first_main_mem_expected      <= ref_cmp_expected_word;
+                                first_main_mem_actual        <= dut.enc_axi_wdata;
+                                first_main_mem_strb          <= dut.enc_axi_wstrb;
+                                report_first_mismatch_header("ENC_TILE_AXI_WDATA",
+                                                             "u_core.dut.enc_axi_w*");
+                                $display("[TB][FIRST_MISMATCH]   addr=0x%016x beat=%0d/%0d strb=0x%08x",
+                                         main_burst_addr + (main_burst_beat_idx * (AXI_DW/8)),
+                                         main_burst_beat_idx,
+                                         main_burst_beats_total,
+                                         dut.enc_axi_wstrb);
+                                $display("[TB][FIRST_MISMATCH]   expected=0x%064x", ref_cmp_expected_word);
+                                $display("[TB][FIRST_MISMATCH]   actual  =0x%064x", dut.enc_axi_wdata);
+                            end
+                        end
                         if (dut.enc_axi_wlast !== (main_burst_beat_idx == (main_burst_beats_total - 1'b1)))
                             wlast_mismatch_count <= wlast_mismatch_count + 1;
                         if (main_burst_beat_idx == (main_burst_beats_total - 1'b1)) begin
@@ -3125,6 +4281,45 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                         end
                         if (!meta_v2_strb_valid(dut.meta_axi_wstrb))
                             strb_mismatch_count <= strb_mismatch_count + 1;
+                        compare_ref_beat(1,
+                                         meta_write_beat_addr_w,
+                                         dut.meta_axi_wdata,
+                                         dut.meta_axi_wstrb,
+                                         ref_cmp_mismatch,
+                                         ref_cmp_range_error,
+                                         ref_cmp_expected_word);
+                        if (ref_cmp_range_error) begin
+                            out_range_mismatch_count <= out_range_mismatch_count + 1;
+                            if (!first_out_range_seen) begin
+                                first_out_range_seen        <= 1'b1;
+                                first_out_range_kind        <= 3'd4;
+                                first_out_range_addr        <= meta_write_beat_addr_w;
+                                first_out_range_beat_idx    <= {(AXI_LENW+1){1'b0}};
+                                first_out_range_beats_total <= {{AXI_LENW{1'b0}}, 1'b1};
+                            end
+                        end
+                        if (ref_cmp_mismatch) begin
+                            meta_mem_mismatch_count <= meta_mem_mismatch_count + 1;
+                            if (CASE_HAS_PLANE1 && (meta_write_beat_addr_w >= CASE_META_BASE_UV_ADDR))
+                                meta_plane1_mem_mismatch_count <= meta_plane1_mem_mismatch_count + 1;
+                            else
+                                meta_plane0_mem_mismatch_count <= meta_plane0_mem_mismatch_count + 1;
+                            if (!first_meta_mem_mismatch_seen) begin
+                                first_meta_mem_mismatch_seen <= 1'b1;
+                                first_meta_mem_addr          <= meta_write_beat_addr_w;
+                                first_meta_mem_expected      <= ref_cmp_expected_word;
+                                first_meta_mem_actual        <= dut.meta_axi_wdata;
+                                first_meta_mem_strb          <= dut.meta_axi_wstrb;
+                                report_first_mismatch_header("ENC_META_AXI_WDATA",
+                                                             "u_core.dut.meta_axi_w*");
+                                $display("[TB][FIRST_MISMATCH]   addr=0x%016x strb=0x%08x sel_uv=%0d",
+                                         meta_write_beat_addr_w,
+                                         dut.meta_axi_wstrb,
+                                         CASE_HAS_PLANE1 && (meta_write_beat_addr_w >= CASE_META_BASE_UV_ADDR));
+                                $display("[TB][FIRST_MISMATCH]   expected=0x%064x", ref_cmp_expected_word);
+                                $display("[TB][FIRST_MISMATCH]   actual  =0x%064x", dut.meta_axi_wdata);
+                            end
+                        end
                         if (dut.meta_axi_wlast !== 1'b1)
                             out_wlast_mismatch_count <= out_wlast_mismatch_count + 1;
                     end
@@ -3133,7 +4328,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 end
                 if ((coord_count == expected_tiles_total) &&
                     (aw_count == expected_tiles_total) &&
-                    (w_count == expected_beats_total) &&
+                    (w_count == fake_expected_beats_total) &&
                     (meta_aw_count == expected_meta_aw_total) &&
                     (meta_w_count == expected_meta_w_total) &&
                     !tb_output_activity)
@@ -3171,6 +4366,11 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                             first_main_mem_expected      <= {AXI_DW{1'b0}};
                             first_main_mem_actual        <= dut.enc_axi_wdata;
                             first_main_mem_strb          <= dut.enc_axi_wstrb;
+                            report_first_mismatch_header("ENC_TILE_AXI_WDATA_UNDERFLOW",
+                                                         "u_core.dut.enc_axi_w*");
+                            $display("[TB][FIRST_MISMATCH]   W data arrived without active AW burst, strb=0x%08x",
+                                     dut.enc_axi_wstrb);
+                            $display("[TB][FIRST_MISMATCH]   actual=0x%064x", dut.enc_axi_wdata);
                         end
                     end else begin
                         compare_ref_beat(0,
@@ -3202,6 +4402,15 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                 first_main_mem_expected      <= ref_cmp_expected_word;
                                 first_main_mem_actual        <= dut.enc_axi_wdata;
                                 first_main_mem_strb          <= dut.enc_axi_wstrb;
+                                report_first_mismatch_header("ENC_TILE_AXI_WDATA",
+                                                             "u_core.dut.enc_axi_w*");
+                                $display("[TB][FIRST_MISMATCH]   addr=0x%016x beat=%0d/%0d strb=0x%08x",
+                                         main_burst_addr + (main_burst_beat_idx * (AXI_DW/8)),
+                                         main_burst_beat_idx,
+                                         main_burst_beats_total,
+                                         dut.enc_axi_wstrb);
+                                $display("[TB][FIRST_MISMATCH]   expected=0x%064x", ref_cmp_expected_word);
+                                $display("[TB][FIRST_MISMATCH]   actual  =0x%064x", dut.enc_axi_wdata);
                             end
                         end
                         if (dut.enc_axi_wlast !== (main_burst_beat_idx == (main_burst_beats_total - 1'b1)))
@@ -3260,6 +4469,11 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                             first_meta_mem_expected      <= {AXI_DW{1'b0}};
                             first_meta_mem_actual        <= dut.meta_axi_wdata;
                             first_meta_mem_strb          <= dut.meta_axi_wstrb;
+                            report_first_mismatch_header("ENC_META_AXI_WDATA_UNDERFLOW",
+                                                         "u_core.dut.meta_axi_w*");
+                            $display("[TB][FIRST_MISMATCH]   meta W data arrived without active AW burst, strb=0x%08x",
+                                     dut.meta_axi_wstrb);
+                            $display("[TB][FIRST_MISMATCH]   actual=0x%064x", dut.meta_axi_wdata);
                         end
                     end else begin
                         compare_ref_beat(1,
@@ -3291,6 +4505,14 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                                 first_meta_mem_expected      <= ref_cmp_expected_word;
                                 first_meta_mem_actual        <= dut.meta_axi_wdata;
                                 first_meta_mem_strb          <= dut.meta_axi_wstrb;
+                                report_first_mismatch_header("ENC_META_AXI_WDATA",
+                                                             "u_core.dut.meta_axi_w*");
+                                $display("[TB][FIRST_MISMATCH]   addr=0x%016x strb=0x%08x sel_uv=%0d",
+                                         meta_write_beat_addr_w,
+                                         dut.meta_axi_wstrb,
+                                         CASE_HAS_PLANE1 && (meta_write_beat_addr_w >= CASE_META_BASE_UV_ADDR));
+                                $display("[TB][FIRST_MISMATCH]   expected=0x%064x", ref_cmp_expected_word);
+                                $display("[TB][FIRST_MISMATCH]   actual  =0x%064x", dut.meta_axi_wdata);
                             end
                         end
                         if (dut.meta_axi_wlast !== 1'b1)
@@ -3352,7 +4574,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 $display("  otf_done_count      : %0d", otf_done_count);
                 $display("  coord_count         : %0d / %0d", coord_count, expected_tiles_total);
                 $display("  aw_count            : %0d / %0d", aw_count, expected_tiles_total);
-                $display("  w_count             : %0d / %0d", w_count, expected_beats_total);
+                $display("  w_count             : %0d / %0d", w_count,
+                         tb_fake_mode_en ? fake_expected_beats_total : expected_beats_total);
 
                 $display("  dut top handshake   : rvi_mon_fire=%0b ci_cmd_fire=%0b",
                          rvi_mon_fire_w, ci_cmd_fire_w);
@@ -3431,13 +4654,22 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 fail_count = fail_count + 1;
                 $display("[TB][ERROR] tile_coord count mismatch: got=%0d exp=%0d", coord_count, expected_tiles_total);
             end
-            if (aw_count != expected_tiles_total) begin
+            if ((CASE_IS_LOSSY_RGBA_2_1 == 0) &&
+                (aw_count != expected_tiles_total)) begin
                 fail_count = fail_count + 1;
                 $display("[TB][ERROR] tile AW count mismatch: got=%0d exp=%0d", aw_count, expected_tiles_total);
             end
-            if (w_count != expected_beats_total) begin
+            if ((CASE_IS_LOSSY_RGBA_2_1 != 0) &&
+                ((cmd_rd_ptr != cmd_wr_ptr) || lossy_aw_split_pending)) begin
                 fail_count = fail_count + 1;
-                $display("[TB][ERROR] tile W beat count mismatch: got=%0d exp=%0d", w_count, expected_beats_total);
+                $display("[TB][ERROR] lossy tile AW command queue not drained: rd=%0d wr=%0d split_pending=%0d",
+                         cmd_rd_ptr,
+                         cmd_wr_ptr,
+                         lossy_aw_split_pending);
+            end
+            if (w_count != fake_expected_beats_total) begin
+                fail_count = fail_count + 1;
+                $display("[TB][ERROR] compressed W beat count mismatch: got=%0d exp=%0d", w_count, fake_expected_beats_total);
             end
             if (meta_aw_count != expected_meta_aw_total) begin
                 fail_count = fail_count + 1;
@@ -3474,6 +4706,16 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             if (strb_mismatch_count != 0) begin
                 $display("[TB][WARN] strb mismatches observed in fake mode: %0d", strb_mismatch_count);
             end
+            if (main_mem_mismatch_count != 0) begin
+                fail_count = fail_count + 1;
+                $display("[TB][ERROR] compressed-data mismatches: %0d", main_mem_mismatch_count);
+                if (first_main_mem_mismatch_seen) begin
+                    $display("[TB][ERROR] first compressed-data mismatch addr=0x%016x strb=0x%08x",
+                             first_main_mem_addr, first_main_mem_strb);
+                    $display("[TB][ERROR]   expected=0x%064x", first_main_mem_expected);
+                    $display("[TB][ERROR]   actual  =0x%064x", first_main_mem_actual);
+                end
+            end
             if (wlast_mismatch_count != 0) begin
                 fail_count = fail_count + 1;
                 $display("[TB][ERROR] tile wlast mismatches: %0d", wlast_mismatch_count);
@@ -3498,6 +4740,17 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                              first_out_range_addr,
                              first_out_range_beat_idx,
                              first_out_range_beats_total);
+                end
+            end
+            if (meta_mem_mismatch_count != 0) begin
+                fail_count = fail_count + 1;
+                $display("[TB][ERROR] metadata mismatches: %0d", meta_mem_mismatch_count);
+                if (first_meta_mem_mismatch_seen) begin
+                    $display("[TB][ERROR] first metadata mismatch addr=0x%016x strb=0x%08x",
+                             first_meta_mem_addr,
+                             first_meta_mem_strb);
+                    $display("[TB][ERROR]   expected=0x%064x", first_meta_mem_expected);
+                    $display("[TB][ERROR]   actual  =0x%064x", first_meta_mem_actual);
                 end
             end
         end else begin
@@ -3571,12 +4824,14 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
         compare_meta_dump_file_to_ref(meta_dump_file,
                                       CASE_META_BASE_Y_ADDR,
-                                      (meta_ref_words_plane0 != 0) ? meta_ref_words_plane0 : CASE_META0_WORDS64,
+                                      tb_fake_mode_en ? CASE_FAKE_ACTIVE_META0_WORDS64 :
+                                      ((meta_ref_words_plane0 != 0) ? meta_ref_words_plane0 : CASE_META0_WORDS64),
                                       0);
         if (CASE_HAS_PLANE1) begin
             compare_meta_dump_file_to_ref(meta_dump_file_plane1,
                                           CASE_META_BASE_UV_ADDR,
-                                          (meta_ref_words_plane1 != 0) ? meta_ref_words_plane1 : CASE_META1_WORDS64,
+                                          tb_fake_mode_en ? CASE_FAKE_ACTIVE_META1_WORDS64 :
+                                          ((meta_ref_words_plane1 != 0) ? meta_ref_words_plane1 : CASE_META1_WORDS64),
                                           1);
         end
 
@@ -3592,15 +4847,23 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         $display("  dut.irq             : %0d", o_irq);
         $display("  coord_count         : %0d", coord_count);
         $display("  rvi_beat_count      : %0d", rvi_beat_count);
+        $display("  vivo_ci_mismatch    : %0d", vivo_ci_mismatch_count);
         $display("  rvi_data_mismatch   : %0d", rvi_data_mismatch_count);
+        $display("  rvi_mask_mismatch   : %0d", rvi_mask_mismatch_count);
+        $display("  rvi_last_mismatch   : %0d", rvi_last_mismatch_count);
+        $display("  rvi_coord_mismatch  : %0d", rvi_coord_mismatch_count);
         $display("  cvo_beat_count      : %0d", cvo_beat_count);
         $display("  cvo_data_mismatch   : %0d", cvo_data_mismatch_count);
+        $display("  cvo_mask_mismatch   : %0d", cvo_mask_mismatch_count);
+        $display("  cvo_last_mismatch   : %0d", cvo_last_mismatch_count);
         if (tb_fake_mode_en) begin
             $display("  tile_aw_count       : %0d", aw_count);
             $display("  tile_w_count        : %0d", w_count);
             $display("  meta_aw_count       : %0d", meta_aw_count);
             $display("  meta_w_count        : %0d", meta_w_count);
             $display("  aw_mismatch_count   : %0d", aw_mismatch_count);
+            $display("  main_mem_mismatch   : %0d", main_mem_mismatch_count);
+            $display("  meta_mem_mismatch   : %0d", meta_mem_mismatch_count);
             $display("  range_mismatch_cnt  : %0d", out_range_mismatch_count);
             $display("  strb_mismatch_count : %0d", strb_mismatch_count);
             $display("  tile_wlast_mismatch : %0d", wlast_mismatch_count);
@@ -3662,20 +4925,19 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         end
 
         if (meta_dump_mismatch_count != 0) begin
-            if (!tb_fake_mode_en)
-                fail_count = fail_count + 1;
+            fail_count = fail_count + 1;
             $display("%s dumped meta/golden mismatches: %0d",
-                     tb_fake_mode_en ? "[TB][WARN]" : "[TB][ERROR]",
+                     "[TB][ERROR]",
                      meta_dump_mismatch_count);
             if (first_meta_dump_mismatch_seen) begin
                 $display("%s first dumped meta mismatch addr=0x%016x",
-                         tb_fake_mode_en ? "[TB][WARN]" : "[TB][ERROR]",
+                         "[TB][ERROR]",
                          first_meta_dump_addr);
                 $display("%s   expected=0x%016x",
-                         tb_fake_mode_en ? "[TB][WARN]" : "[TB][ERROR]",
+                         "[TB][ERROR]",
                          first_meta_dump_expected);
                 $display("%s   actual  =0x%016x",
-                         tb_fake_mode_en ? "[TB][WARN]" : "[TB][ERROR]",
+                         "[TB][ERROR]",
                          first_meta_dump_actual);
             end
         end
@@ -3683,10 +4945,30 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             fail_count = fail_count + 1;
             $display("[TB][ERROR] dumped meta word-count/base errors: %0d", meta_dump_word_count_error_count);
         end
-        if (rvi_beat_count != expected_beats_total) begin
+        if (vivo_ci_mismatch_count != 0) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] vivo CI input metadata/alen/pcm mismatches: %0d",
+                     vivo_ci_mismatch_count);
+            if (first_vivo_ci_mismatch_seen) begin
+                $display("[TB][ERROR] first vivo CI mismatch: fmt=%0d x=%0d y=%0d",
+                         first_vivo_ci_mismatch_fmt,
+                         first_vivo_ci_mismatch_x,
+                         first_vivo_ci_mismatch_y);
+                $display("[TB][ERROR]   metadata exp=0x%02x act=0x%02x",
+                         first_vivo_ci_expected_metadata,
+                         first_vivo_ci_actual_metadata);
+                $display("[TB][ERROR]   alen     exp=%0d act=%0d",
+                         first_vivo_ci_expected_alen,
+                         first_vivo_ci_actual_alen);
+                $display("[TB][ERROR]   pcm      exp=%0d act=%0d",
+                         first_vivo_ci_expected_pcm,
+                         first_vivo_ci_actual_pcm);
+            end
+        end
+        if (rvi_beat_count != expected_rvi_beats_total) begin
             fail_count = fail_count + 1;
             $display("[TB][ERROR] rvi beat count mismatch: got=%0d exp=%0d",
-                     rvi_beat_count, expected_beats_total);
+                     rvi_beat_count, expected_rvi_beats_total);
         end
         if (rvi_data_mismatch_count != 0) begin
             fail_count = fail_count + 1;
@@ -3702,11 +4984,58 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                 $display("[TB][ERROR]   actual  =0x%064x", first_rvi_data_actual);
             end
         end
+        if (rvi_mask_mismatch_count != 0) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] rvi/tiled-uncompressed mask mismatches: %0d",
+                     rvi_mask_mismatch_count);
+            if (first_rvi_mask_mismatch_seen) begin
+                $display("[TB][ERROR] first rvi mask mismatch: fmt=%0d x=%0d y=%0d beat=%0d",
+                         first_rvi_mask_fmt,
+                         first_rvi_mask_x,
+                         first_rvi_mask_y,
+                         first_rvi_mask_beat);
+                $display("[TB][ERROR]   expected=0x%08x actual=0x%08x",
+                         first_rvi_mask_expected,
+                         first_rvi_mask_actual);
+            end
+        end
+        if (rvi_last_mismatch_count != 0) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] rvi/tiled-uncompressed last mismatches: %0d",
+                     rvi_last_mismatch_count);
+            if (first_rvi_last_mismatch_seen) begin
+                $display("[TB][ERROR] first rvi last mismatch: fmt=%0d x=%0d y=%0d beat=%0d",
+                         first_rvi_last_fmt,
+                         first_rvi_last_x,
+                         first_rvi_last_y,
+                         first_rvi_last_beat);
+                $display("[TB][ERROR]   expected=%0d actual=%0d",
+                         first_rvi_last_expected,
+                         first_rvi_last_actual);
+            end
+        end
+        if (rvi_coord_mismatch_count != 0) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] rvi/tiled-uncompressed coord mismatches: %0d",
+                     rvi_coord_mismatch_count);
+            if (first_rvi_coord_mismatch_seen) begin
+                $display("[TB][ERROR] first rvi coord mismatch: beat=%0d",
+                         first_rvi_coord_beat);
+                $display("[TB][ERROR]   expected fmt=%0d x=%0d y=%0d",
+                         first_rvi_coord_exp_fmt,
+                         first_rvi_coord_exp_x,
+                         first_rvi_coord_exp_y);
+                $display("[TB][ERROR]   actual   fmt=%0d x=%0d y=%0d",
+                         first_rvi_coord_act_fmt,
+                         first_rvi_coord_act_x,
+                         first_rvi_coord_act_y);
+            end
+        end
         if (tb_fake_mode_en) begin
-            if (cvo_beat_count != expected_beats_total) begin
+            if (cvo_beat_count != fake_expected_beats_total) begin
                 fail_count = fail_count + 1;
                 $display("[TB][ERROR] fake cvo beat count mismatch: got=%0d exp=%0d",
-                         cvo_beat_count, expected_beats_total);
+                         cvo_beat_count, fake_expected_beats_total);
             end
         end else begin
             if (cvo_beat_count != w_count) begin
@@ -3725,8 +5054,40 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          first_cvo_data_x,
                          first_cvo_data_y,
                          first_cvo_data_beat);
-                $display("[TB][ERROR]   expected=0x%064x", first_cvo_data_expected);
-                $display("[TB][ERROR]   actual  =0x%064x", first_cvo_data_actual);
+                $display("[TB][ERROR]   expected=0x%064x",
+                         first_cvo_data_expected);
+                $display("[TB][ERROR]   actual  =0x%064x",
+                         first_cvo_data_actual);
+            end
+        end
+        if (cvo_mask_mismatch_count != 0) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] cvo mask mismatches: %0d",
+                     cvo_mask_mismatch_count);
+            if (first_cvo_mask_mismatch_seen) begin
+                $display("[TB][ERROR] first cvo mask mismatch: fmt=%0d x=%0d y=%0d beat=%0d",
+                         first_cvo_mask_fmt,
+                         first_cvo_mask_x,
+                         first_cvo_mask_y,
+                         first_cvo_mask_beat);
+                $display("[TB][ERROR]   expected=0x%08x actual=0x%08x",
+                         first_cvo_mask_expected,
+                         first_cvo_mask_actual);
+            end
+        end
+        if (cvo_last_mismatch_count != 0) begin
+            fail_count = fail_count + 1;
+            $display("[TB][ERROR] cvo last mismatches: %0d",
+                     cvo_last_mismatch_count);
+            if (first_cvo_last_mismatch_seen) begin
+                $display("[TB][ERROR] first cvo last mismatch: fmt=%0d x=%0d y=%0d beat=%0d",
+                         first_cvo_last_fmt,
+                         first_cvo_last_x,
+                         first_cvo_last_y,
+                         first_cvo_last_beat);
+                $display("[TB][ERROR]   expected=%0d actual=%0d",
+                         first_cvo_last_expected,
+                         first_cvo_last_actual);
             end
         end
 
@@ -3783,11 +5144,121 @@ endmodule
 
 module tb_ubwc_enc_wrapper_top_tajmahal_cases #(
     parameter integer CASE_ID = 0,
-    parameter integer COM_BUF_AW = 12
+    parameter integer IMG_W = 4096,
+    parameter integer RGBA_ACTIVE_H = 600,
+    parameter integer RGBA_STORED_H = 608,
+    parameter integer RGBA_TILE_PITCH = 16384,
+    parameter integer RGBA_TILE_COLS = 256,
+    parameter integer RGBA_TILE_ROWS = 152,
+    parameter integer RGBA_META_WORDS64 = 5120,
+    parameter integer CFG_NV12_ACTIVE_H = 600,
+    parameter integer CFG_NV12_Y_STORED_H = 640,
+    parameter integer CFG_NV12_UV_STORED_H = 320,
+    parameter integer CFG_NV12_TILE_PITCH = 4096,
+    parameter integer CFG_NV12_Y_TILE_COLS = 128,
+    parameter integer CFG_NV12_UV_TILE_COLS = 128,
+    parameter integer CFG_NV12_Y_TILE_ROWS = 80,
+    parameter integer CFG_NV12_UV_TILE_ROWS = 40,
+    parameter integer CFG_NV12_COMP_Y_WORDS64 = 311296,
+    parameter integer CFG_NV12_COMP_UV_WORDS64 = 163840,
+    parameter integer CFG_NV12_META_Y_WORDS64 = 1536,
+    parameter integer CFG_NV12_META_UV_WORDS64 = 1024,
+    parameter integer CFG_G016_ACTIVE_H = 600,
+    parameter integer CFG_G016_Y_STORED_H = 608,
+    parameter integer CFG_G016_UV_STORED_H = 304,
+    parameter integer CFG_G016_TILE_PITCH = 8192,
+    parameter integer CFG_G016_Y_TILE_COLS = 128,
+    parameter integer CFG_G016_UV_TILE_COLS = 128,
+    parameter integer CFG_G016_Y_TILE_ROWS = 152,
+    parameter integer CFG_G016_UV_TILE_ROWS = 76,
+    parameter integer CFG_G016_COMP_Y_WORDS64 = 622592,
+    parameter integer CFG_G016_COMP_UV_WORDS64 = 311296,
+    parameter integer CFG_G016_META_Y_WORDS64 = 2560,
+    parameter integer CFG_G016_META_UV_WORDS64 = 1536,
+    parameter [63:0] CFG_RGBA_TILE_BASE_Y_ADDR = 64'h0000_0000_8000_A000,
+    parameter [63:0] CFG_RGBA_META_BASE_Y_ADDR = 64'h0000_0000_8000_0000,
+    parameter [63:0] CFG_NV12_TILE_BASE_Y_ADDR = 64'h0000_0000_8000_3000,
+    parameter [63:0] CFG_NV12_TILE_BASE_UV_ADDR = 64'h0000_0000_8028_5000,
+    parameter [63:0] CFG_NV12_META_BASE_Y_ADDR = 64'h0000_0000_8000_0000,
+    parameter [63:0] CFG_NV12_META_BASE_UV_ADDR = 64'h0000_0000_8028_3000,
+    parameter [63:0] CFG_G016_TILE_BASE_Y_ADDR = 64'h0000_0000_8000_5000,
+    parameter [63:0] CFG_G016_TILE_BASE_UV_ADDR = 64'h0000_0000_804C_8000,
+    parameter [63:0] CFG_G016_META_BASE_Y_ADDR = 64'h0000_0000_8000_0000,
+    parameter [63:0] CFG_G016_META_BASE_UV_ADDR = 64'h0000_0000_804C_5000,
+    parameter integer COM_BUF_AW = 12,
+    parameter integer CASE_TILE_EXPECT_LINEAR = 0,
+    parameter integer CASE_CI_LOSSY = 0,
+    parameter integer CASE_UBWC_CFG_0 = 0,
+    parameter integer CASE_UBWC_CFG_1 = 0,
+    parameter integer CASE_UBWC_CFG_2 = 0,
+    parameter integer CASE_UBWC_CFG_3 = 0,
+    parameter integer CASE_UBWC_CFG_4 = 0,
+    parameter integer CASE_UBWC_CFG_5 = 0,
+    parameter integer CASE_UBWC_CFG_6 = 0,
+    parameter integer CASE_UBWC_CFG_7 = 0,
+    parameter integer CASE_UBWC_CFG_8 = 0,
+    parameter integer CASE_UBWC_CFG_9 = 0,
+    parameter integer CASE_UBWC_CFG_10 = 0,
+    parameter integer CASE_UBWC_CFG_11 = 0
 ) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .CASE_ID(CASE_ID),
-        .COM_BUF_AW(COM_BUF_AW)
+        .IMG_W(IMG_W),
+        .RGBA_ACTIVE_H(RGBA_ACTIVE_H),
+        .RGBA_STORED_H(RGBA_STORED_H),
+        .RGBA_TILE_PITCH(RGBA_TILE_PITCH),
+        .RGBA_TILE_COLS(RGBA_TILE_COLS),
+        .RGBA_TILE_ROWS(RGBA_TILE_ROWS),
+        .RGBA_META_WORDS64(RGBA_META_WORDS64),
+        .CFG_NV12_ACTIVE_H(CFG_NV12_ACTIVE_H),
+        .CFG_NV12_Y_STORED_H(CFG_NV12_Y_STORED_H),
+        .CFG_NV12_UV_STORED_H(CFG_NV12_UV_STORED_H),
+        .CFG_NV12_TILE_PITCH(CFG_NV12_TILE_PITCH),
+        .CFG_NV12_Y_TILE_COLS(CFG_NV12_Y_TILE_COLS),
+        .CFG_NV12_UV_TILE_COLS(CFG_NV12_UV_TILE_COLS),
+        .CFG_NV12_Y_TILE_ROWS(CFG_NV12_Y_TILE_ROWS),
+        .CFG_NV12_UV_TILE_ROWS(CFG_NV12_UV_TILE_ROWS),
+        .CFG_NV12_COMP_Y_WORDS64(CFG_NV12_COMP_Y_WORDS64),
+        .CFG_NV12_COMP_UV_WORDS64(CFG_NV12_COMP_UV_WORDS64),
+        .CFG_NV12_META_Y_WORDS64(CFG_NV12_META_Y_WORDS64),
+        .CFG_NV12_META_UV_WORDS64(CFG_NV12_META_UV_WORDS64),
+        .CFG_G016_ACTIVE_H(CFG_G016_ACTIVE_H),
+        .CFG_G016_Y_STORED_H(CFG_G016_Y_STORED_H),
+        .CFG_G016_UV_STORED_H(CFG_G016_UV_STORED_H),
+        .CFG_G016_TILE_PITCH(CFG_G016_TILE_PITCH),
+        .CFG_G016_Y_TILE_COLS(CFG_G016_Y_TILE_COLS),
+        .CFG_G016_UV_TILE_COLS(CFG_G016_UV_TILE_COLS),
+        .CFG_G016_Y_TILE_ROWS(CFG_G016_Y_TILE_ROWS),
+        .CFG_G016_UV_TILE_ROWS(CFG_G016_UV_TILE_ROWS),
+        .CFG_G016_COMP_Y_WORDS64(CFG_G016_COMP_Y_WORDS64),
+        .CFG_G016_COMP_UV_WORDS64(CFG_G016_COMP_UV_WORDS64),
+        .CFG_G016_META_Y_WORDS64(CFG_G016_META_Y_WORDS64),
+        .CFG_G016_META_UV_WORDS64(CFG_G016_META_UV_WORDS64),
+        .CFG_RGBA_TILE_BASE_Y_ADDR(CFG_RGBA_TILE_BASE_Y_ADDR),
+        .CFG_RGBA_META_BASE_Y_ADDR(CFG_RGBA_META_BASE_Y_ADDR),
+        .CFG_NV12_TILE_BASE_Y_ADDR(CFG_NV12_TILE_BASE_Y_ADDR),
+        .CFG_NV12_TILE_BASE_UV_ADDR(CFG_NV12_TILE_BASE_UV_ADDR),
+        .CFG_NV12_META_BASE_Y_ADDR(CFG_NV12_META_BASE_Y_ADDR),
+        .CFG_NV12_META_BASE_UV_ADDR(CFG_NV12_META_BASE_UV_ADDR),
+        .CFG_G016_TILE_BASE_Y_ADDR(CFG_G016_TILE_BASE_Y_ADDR),
+        .CFG_G016_TILE_BASE_UV_ADDR(CFG_G016_TILE_BASE_UV_ADDR),
+        .CFG_G016_META_BASE_Y_ADDR(CFG_G016_META_BASE_Y_ADDR),
+        .CFG_G016_META_BASE_UV_ADDR(CFG_G016_META_BASE_UV_ADDR),
+        .COM_BUF_AW(COM_BUF_AW),
+        .CASE_TILE_EXPECT_LINEAR(CASE_TILE_EXPECT_LINEAR),
+        .CASE_CI_LOSSY(CASE_CI_LOSSY),
+        .CASE_UBWC_CFG_0(CASE_UBWC_CFG_0),
+        .CASE_UBWC_CFG_1(CASE_UBWC_CFG_1),
+        .CASE_UBWC_CFG_2(CASE_UBWC_CFG_2),
+        .CASE_UBWC_CFG_3(CASE_UBWC_CFG_3),
+        .CASE_UBWC_CFG_4(CASE_UBWC_CFG_4),
+        .CASE_UBWC_CFG_5(CASE_UBWC_CFG_5),
+        .CASE_UBWC_CFG_6(CASE_UBWC_CFG_6),
+        .CASE_UBWC_CFG_7(CASE_UBWC_CFG_7),
+        .CASE_UBWC_CFG_8(CASE_UBWC_CFG_8),
+        .CASE_UBWC_CFG_9(CASE_UBWC_CFG_9),
+        .CASE_UBWC_CFG_10(CASE_UBWC_CFG_10),
+        .CASE_UBWC_CFG_11(CASE_UBWC_CFG_11)
     ) u_core ();
 endmodule
 

@@ -27,7 +27,7 @@ RTL_FLIST_DIR := $(PROJECT_ROOT)/src/flist
 
 BUILD_ROOT ?= build
 BUILD_VARIANT_SUFFIX :=
-ifneq ($(findstring wrapper_top,$(TOP)),)
+ifneq ($(findstring wrapper_top,$(TOP))$(findstring dec_to_enc_loop,$(TOP)),)
 ifneq ($(findstring +tb_non_fake_mode,$(RUN_ARGS)),)
 BUILD_VARIANT_SUFFIX := _nonfake
 else ifneq ($(strip $(TB_REAL_VIVO_MODE)),)
@@ -141,10 +141,10 @@ WRAPPER_NV12_FORCE_FULL_PAYLOAD_CASE := 0
 else
 WRAPPER_RGBA8888_TILE_SRC := $(TAJMAHAL_TILED_SRC)
 WRAPPER_RGBA1010102_TILE_SRC := $(TAJMAHAL_RGBA1010102_TILED_SRC)
-WRAPPER_NV12_TILE_Y_SRC := $(TAJMAHAL_NV12_Y_TILED_UNCOMP_SRC)
-WRAPPER_NV12_TILE_UV_SRC := $(TAJMAHAL_NV12_UV_TILED_UNCOMP_SRC)
+WRAPPER_NV12_TILE_Y_SRC := $(TAJMAHAL_NV12_Y_TILED_COMP_SRC)
+WRAPPER_NV12_TILE_UV_SRC := $(TAJMAHAL_NV12_UV_TILED_COMP_SRC)
 WRAPPER_NV12_TB_REAL_VIVO_MODE := 0
-WRAPPER_NV12_FORCE_FULL_PAYLOAD_CASE := 1
+WRAPPER_NV12_FORCE_FULL_PAYLOAD_CASE := 0
 endif
 
 ifeq ($(WRAPPER_CASES_VIVO_MODE),real)
@@ -158,13 +158,13 @@ WRAPPER_CASES_G016_Y_AXI_TILE_SRC := $(K_OUTDOOR61_G016_Y_TILED_COMP_SRC)
 WRAPPER_CASES_G016_UV_AXI_TILE_SRC := $(K_OUTDOOR61_G016_UV_TILED_COMP_SRC)
 else
 WRAPPER_CASES_TB_REAL_VIVO_MODE := 0
-WRAPPER_CASES_FORCE_FULL_PAYLOAD_CASE := 1
-WRAPPER_CASES_RGBA8888_AXI_TILE_SRC := $(TAJMAHAL_TILED_SRC)
-WRAPPER_CASES_RGBA1010102_AXI_TILE_SRC := $(TAJMAHAL_RGBA1010102_TILED_SRC)
-WRAPPER_CASES_NV12_Y_AXI_TILE_SRC := $(TAJMAHAL_NV12_Y_TILED_UNCOMP_SRC)
-WRAPPER_CASES_NV12_UV_AXI_TILE_SRC := $(TAJMAHAL_NV12_UV_TILED_UNCOMP_SRC)
-WRAPPER_CASES_G016_Y_AXI_TILE_SRC := $(K_OUTDOOR61_G016_Y_TILED_UNCOMP_SRC)
-WRAPPER_CASES_G016_UV_AXI_TILE_SRC := $(K_OUTDOOR61_G016_UV_TILED_UNCOMP_SRC)
+WRAPPER_CASES_FORCE_FULL_PAYLOAD_CASE := 0
+WRAPPER_CASES_RGBA8888_AXI_TILE_SRC := $(TAJMAHAL_TILED_COMP_SRC)
+WRAPPER_CASES_RGBA1010102_AXI_TILE_SRC := $(TAJMAHAL_RGBA1010102_TILED_COMP_SRC)
+WRAPPER_CASES_NV12_Y_AXI_TILE_SRC := $(TAJMAHAL_NV12_Y_TILED_COMP_SRC)
+WRAPPER_CASES_NV12_UV_AXI_TILE_SRC := $(TAJMAHAL_NV12_UV_TILED_COMP_SRC)
+WRAPPER_CASES_G016_Y_AXI_TILE_SRC := $(K_OUTDOOR61_G016_Y_TILED_COMP_SRC)
+WRAPPER_CASES_G016_UV_AXI_TILE_SRC := $(K_OUTDOOR61_G016_UV_TILED_COMP_SRC)
 endif
 # Metadata always comes from the TajMahal "Metadata" vectors in both fake/real modes.
 WRAPPER_CASES_RGBA8888_META_SRC := $(TAJMAHAL_RGBA_META_SRC)
@@ -220,6 +220,7 @@ TB_SRC_tb_ubwc_enc_wrapper_top_rgba8888_128x128 := $(VRF_ENC_SRC_DIR)/tb_ubwc_en
 TB_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 := $(VRF_ENC_SRC_DIR)/tb_ubwc_enc_wrapper_top_tajmahal_cases.sv
+TB_SRC_tb_ubwc_dec_to_enc_loop_tajmahal_cases := $(VRF_DEC_SRC_DIR)/tb_ubwc_dec_wrapper_top_tajmahal_cases.sv
 TB_SRC_tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 := $(VRF_DEC_SRC_DIR)/tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12.sv
 
 ENC_WRAPPER_MONITOR_SRC := $(VRF_ENC_SRC_DIR)/monitor.sv
@@ -251,13 +252,14 @@ FILELIST_tb_ubwc_enc_wrapper_top_rgba8888_128x128 := $(RTL_FLIST_DIR)/filelist_e
 FILELIST_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 := $(RTL_FLIST_DIR)/filelist_enc.f
 FILELIST_tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 := $(RTL_FLIST_DIR)/filelist_enc.f
 FILELIST_tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 := $(RTL_FLIST_DIR)/filelist_enc.f
+FILELIST_tb_ubwc_dec_to_enc_loop_tajmahal_cases := $(RTL_FLIST_DIR)/filelist_encdec.f
 FILELIST_tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 := $(RTL_FLIST_DIR)/filelist_encdec.f
 
 DEFAULT_FILELIST := $(RTL_FLIST_DIR)/filelist.f
 FILELIST ?= $(if $(FILELIST_$(TOP)),$(FILELIST_$(TOP)),$(DEFAULT_FILELIST))
 
 ifeq ($(strip $(TB_SRC)),)
-$(error Unsupported TOP '$(TOP)'. Please choose one of: tb_ubwc_dec_meta_data_gen_41x29, tb_ubwc_dec_meta_data_gen, tb_ubwc_dec_meta_data_gen_tajmahal_cases, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_rgba8888, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_rgba1010102, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_nv12, tb_ubwc_dec_meta, tb_ubwc_dec_axi_rdata_to_sram, tb_ubwc_enc_meta_get_cmd_gen, tb_ubwc_dec_tile_arcmd_gen, tb_ubwc_dec_tile_to_line_path, tb_ubwc_dec_tile_to_line_image_formats, tb_ubwc_dec_tile_to_line_hd_formats, tb_ubwc_dec_tile_to_otf_1080p_rgba, tb_ubwc_dec_tile_to_otf_1920x1080_nv12, tb_ubwc_dec_tile_to_otf_1960x1080_nv12, tb_ubwc_dec_tile_to_otf_tajmahal_cases, tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba8888, tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102, tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888, tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12, tb_ubwc_dec_wrapper_top_tajmahal_cases, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba8888, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba1010102, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12, tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016, tb_ubwc_dec_wrapper_top_tajmahal_rgba8888, tb_ubwc_enc_wrapper_top_tajmahal_cases, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12, tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016, tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12)
+$(error Unsupported TOP '$(TOP)'. Please choose one of: tb_ubwc_dec_meta_data_gen_41x29, tb_ubwc_dec_meta_data_gen, tb_ubwc_dec_meta_data_gen_tajmahal_cases, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_rgba8888, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_rgba1010102, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_nv12, tb_ubwc_dec_meta, tb_ubwc_dec_axi_rdata_to_sram, tb_ubwc_enc_meta_get_cmd_gen, tb_ubwc_dec_tile_arcmd_gen, tb_ubwc_dec_tile_to_line_path, tb_ubwc_dec_tile_to_line_image_formats, tb_ubwc_dec_tile_to_line_hd_formats, tb_ubwc_dec_tile_to_otf_1080p_rgba, tb_ubwc_dec_tile_to_otf_1920x1080_nv12, tb_ubwc_dec_tile_to_otf_1960x1080_nv12, tb_ubwc_dec_tile_to_otf_tajmahal_cases, tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba8888, tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102, tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888, tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12, tb_ubwc_dec_wrapper_top_tajmahal_cases, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba8888, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba1010102, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12, tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016, tb_ubwc_dec_wrapper_top_tajmahal_rgba8888, tb_ubwc_enc_wrapper_top_tajmahal_cases, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12, tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016, tb_ubwc_dec_to_enc_loop_tajmahal_cases, tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12)
 endif
 
 TB_PARAM_FLAGS :=
@@ -277,6 +279,7 @@ COM_BUF_AW_PARAM_TOPS := \
 	tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 \
 	tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 \
 	tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 \
+	tb_ubwc_dec_to_enc_loop_tajmahal_cases \
 	tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12
 
 ifneq ($(filter $(TOP),$(COM_BUF_AW_PARAM_TOPS)),)
@@ -738,24 +741,24 @@ prepare_otf_tajmahal_cases:
 		0) \
 			grep -v '^@' $(TAJMAHAL_TILED_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/input_rgba_tiled.memh; \
 			grep -v '^@' $(TAJMAHAL_LINEAR_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format rgba8888 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --width 4096 --stored-height 608 --out build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format rgba8888 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --width 4096 --stored-height 600 --out build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/expected_otf_stream.txt; \
 			;; \
 		1) \
 			grep -v '^@' $(TAJMAHAL_RGBA1010102_TILED_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/input_rgba_tiled.memh; \
 			grep -v '^@' $(TAJMAHAL_RGBA1010102_LINEAR_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format rgba1010102 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --width 4096 --stored-height 608 --out build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format rgba1010102 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --width 4096 --stored-height 600 --out build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/expected_otf_stream.txt; \
 			;; \
 		2) \
 			grep -v '^@' $(TAJMAHAL_LINEAR_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/input_rgba_linear.memh; \
 			grep -v '^@' $(TAJMAHAL_LINEAR_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format rgba8888 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --width 4096 --stored-height 608 --out build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format rgba8888 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --width 4096 --stored-height 600 --out build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/expected_otf_stream.txt; \
 			;; \
 		3) \
 			grep -v '^@' $(TAJMAHAL_NV12_Y_TILED_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/input_nv12_y_tiled.memh; \
 			grep -v '^@' $(TAJMAHAL_NV12_UV_TILED_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/input_nv12_uv_tiled.memh; \
 			grep -v '^@' $(TAJMAHAL_NV12_Y_LINEAR_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_y_linear.memh; \
 			grep -v '^@' $(TAJMAHAL_NV12_UV_LINEAR_SRC) > build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_uv_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format nv12 --expected-y build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_y_linear.memh --expected-uv build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_uv_linear.memh --width 4096 --stored-y-height 640 --stored-uv-height 320 --out build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format nv12 --expected-y build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_y_linear.memh --expected-uv build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_uv_linear.memh --width 4096 --stored-y-height 600 --stored-uv-height 300 --out build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/expected_otf_stream.txt; \
 			;; \
 		*) \
 			echo "Unsupported CASE_ID=$(EFFECTIVE_CASE_ID) for tb_ubwc_dec_tile_to_otf_tajmahal_cases"; \
@@ -766,16 +769,16 @@ prepare_otf_tajmahal_cases:
 compare_otf_tajmahal_cases:
 	@case "$(EFFECTIVE_CASE_ID)" in \
 		0) \
-			$(OTF_CASE_TOOL) compare --format rgba8888 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --actual build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/actual_otf_stream.txt --width 4096 --active-height 600 --stored-height 608 --out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/compare; \
+			$(OTF_CASE_TOOL) compare --format rgba8888 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --actual build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/actual_otf_stream.txt --width 4096 --active-height 600 --stored-height 600 --out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/compare; \
 			;; \
 		1) \
-			$(OTF_CASE_TOOL) compare --format rgba1010102 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --actual build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/actual_otf_stream.txt --width 4096 --active-height 600 --stored-height 608 --out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/compare; \
+			$(OTF_CASE_TOOL) compare --format rgba1010102 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --actual build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/actual_otf_stream.txt --width 4096 --active-height 600 --stored-height 600 --out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/compare; \
 			;; \
 		2) \
-			$(OTF_CASE_TOOL) compare --format rgba8888 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --actual build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/actual_otf_stream.txt --width 4096 --active-height 600 --stored-height 608 --out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/compare; \
+			$(OTF_CASE_TOOL) compare --format rgba8888 --expected build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_rgba_linear.memh --actual build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/actual_otf_stream.txt --width 4096 --active-height 600 --stored-height 600 --out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/compare; \
 			;; \
 		3) \
-			$(OTF_CASE_TOOL) compare --format nv12 --expected-y build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_y_linear.memh --expected-uv build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_uv_linear.memh --actual build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/actual_otf_stream.txt --width 4096 --active-height 600 --stored-y-height 640 --stored-uv-height 320 --out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/compare; \
+			$(OTF_CASE_TOOL) compare --format nv12 --expected-y build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_y_linear.memh --expected-uv build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/golden_nv12_uv_linear.memh --actual build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/actual_otf_stream.txt --width 4096 --active-height 600 --stored-y-height 600 --stored-uv-height 300 --out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_cases/compare; \
 			;; \
 		*) \
 			echo "Unsupported CASE_ID=$(EFFECTIVE_CASE_ID) for tb_ubwc_dec_tile_to_otf_tajmahal_cases"; \
@@ -809,7 +812,7 @@ prepare_otf_tajmahal_4096x608_rgba8888:
 		--format rgba8888 \
 		--expected build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba8888/golden_rgba_linear.memh \
 		--width 4096 \
-		--stored-height 608 \
+		--stored-height 600 \
 		--out build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba8888/expected_otf_stream.txt
 
 compare_otf_tajmahal_4096x608_rgba8888:
@@ -819,7 +822,7 @@ compare_otf_tajmahal_4096x608_rgba8888:
 		--actual build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba8888/actual_otf_stream.txt \
 		--width 4096 \
 		--active-height 600 \
-		--stored-height 608 \
+		--stored-height 600 \
 		--out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba8888/compare
 
 otf_tajmahal_4096x608_rgba8888_comp:
@@ -846,7 +849,7 @@ prepare_otf_tajmahal_4096x608_rgba1010102:
 		--format rgba1010102 \
 		--expected build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102/golden_rgba_linear.memh \
 		--width 4096 \
-		--stored-height 608 \
+		--stored-height 600 \
 		--out build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102/expected_otf_stream.txt
 
 compare_otf_tajmahal_4096x608_rgba1010102:
@@ -856,7 +859,7 @@ compare_otf_tajmahal_4096x608_rgba1010102:
 		--actual build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102/actual_otf_stream.txt \
 		--width 4096 \
 		--active-height 600 \
-		--stored-height 608 \
+		--stored-height 600 \
 		--out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102/compare
 
 otf_tajmahal_4096x608_rgba1010102_comp:
@@ -883,7 +886,7 @@ prepare_otf_tajmahal_linear_in_rgba8888:
 		--format rgba8888 \
 		--expected build/tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888/golden_rgba_linear.memh \
 		--width 4096 \
-		--stored-height 608 \
+		--stored-height 600 \
 		--out build/tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888/expected_otf_stream.txt
 
 compare_otf_tajmahal_linear_in_rgba8888:
@@ -893,7 +896,7 @@ compare_otf_tajmahal_linear_in_rgba8888:
 		--actual build/tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888/actual_otf_stream.txt \
 		--width 4096 \
 		--active-height 600 \
-		--stored-height 608 \
+		--stored-height 600 \
 		--out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888/compare
 
 otf_tajmahal_linear_in_rgba8888_comp:
@@ -923,8 +926,8 @@ prepare_otf_tajmahal_4096x640_nv12:
 		--expected-y build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12/golden_nv12_y_linear.memh \
 		--expected-uv build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12/golden_nv12_uv_linear.memh \
 		--width 4096 \
-		--stored-y-height 640 \
-		--stored-uv-height 320 \
+		--stored-y-height 600 \
+		--stored-uv-height 300 \
 		--out build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12/expected_otf_stream.txt
 
 compare_otf_tajmahal_4096x640_nv12:
@@ -935,8 +938,8 @@ compare_otf_tajmahal_4096x640_nv12:
 		--actual build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12/actual_otf_stream.txt \
 		--width 4096 \
 		--active-height 600 \
-		--stored-y-height 640 \
-		--stored-uv-height 320 \
+		--stored-y-height 600 \
+		--stored-uv-height 300 \
 		--out-dir build/tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12/compare
 
 otf_tajmahal_4096x640_nv12_comp:
@@ -963,7 +966,7 @@ wrapper_tajmahal_cases_prepare:
 			grep -v '^@' $(WRAPPER_CASES_RGBA8888_AXI_TILE_SRC) > $(BUILD_DIR)/input_tile_plane0.txt; \
 			grep -v '^@' $(WRAPPER_CASES_RGBA8888_REF_TILE_SRC) > $(BUILD_DIR)/inject_tile_plane0.txt; \
 			grep -v '^@' $(TAJMAHAL_LINEAR_SRC) > $(BUILD_DIR)/golden_rgba_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format rgba8888 --expected $(BUILD_DIR)/golden_rgba_linear.memh --width 4096 --stored-height 608 --out $(BUILD_DIR)/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format rgba8888 --expected $(BUILD_DIR)/golden_rgba_linear.memh --width 4096 --stored-height 600 --out $(BUILD_DIR)/expected_otf_stream.txt; \
 			: > $(BUILD_DIR)/input_meta_plane1.txt; \
 			: > $(BUILD_DIR)/input_tile_plane1.txt; \
 			: > $(BUILD_DIR)/inject_tile_plane1.txt; \
@@ -973,7 +976,7 @@ wrapper_tajmahal_cases_prepare:
 			grep -v '^@' $(WRAPPER_CASES_RGBA1010102_AXI_TILE_SRC) > $(BUILD_DIR)/input_tile_plane0.txt; \
 			grep -v '^@' $(WRAPPER_CASES_RGBA1010102_REF_TILE_SRC) > $(BUILD_DIR)/inject_tile_plane0.txt; \
 			grep -v '^@' $(TAJMAHAL_RGBA1010102_LINEAR_SRC) > $(BUILD_DIR)/golden_rgba_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format rgba1010102 --expected $(BUILD_DIR)/golden_rgba_linear.memh --width 4096 --stored-height 608 --out $(BUILD_DIR)/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format rgba1010102 --expected $(BUILD_DIR)/golden_rgba_linear.memh --width 4096 --stored-height 600 --out $(BUILD_DIR)/expected_otf_stream.txt; \
 			: > $(BUILD_DIR)/input_meta_plane1.txt; \
 			: > $(BUILD_DIR)/input_tile_plane1.txt; \
 			: > $(BUILD_DIR)/inject_tile_plane1.txt; \
@@ -987,7 +990,7 @@ wrapper_tajmahal_cases_prepare:
 			grep -v '^@' $(WRAPPER_CASES_NV12_UV_REF_TILE_SRC) > $(BUILD_DIR)/inject_tile_plane1.txt; \
 			grep -v '^@' $(TAJMAHAL_NV12_Y_LINEAR_SRC) > $(BUILD_DIR)/golden_nv12_y_linear.memh; \
 			grep -v '^@' $(TAJMAHAL_NV12_UV_LINEAR_SRC) > $(BUILD_DIR)/golden_nv12_uv_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format nv12 --expected-y $(BUILD_DIR)/golden_nv12_y_linear.memh --expected-uv $(BUILD_DIR)/golden_nv12_uv_linear.memh --width 4096 --stored-y-height 640 --stored-uv-height 320 --out $(BUILD_DIR)/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format nv12 --expected-y $(BUILD_DIR)/golden_nv12_y_linear.memh --expected-uv $(BUILD_DIR)/golden_nv12_uv_linear.memh --width 4096 --stored-y-height 600 --stored-uv-height 300 --out $(BUILD_DIR)/expected_otf_stream.txt; \
 			;; \
 		3) \
 			grep -v '^@' $(K_OUTDOOR61_G016_META_Y_SRC) > $(BUILD_DIR)/input_meta_plane0.txt; \
@@ -998,7 +1001,7 @@ wrapper_tajmahal_cases_prepare:
 			grep -v '^@' $(K_OUTDOOR61_G016_UV_TILED_UNCOMP_SRC) > $(BUILD_DIR)/inject_tile_plane1.txt; \
 			grep -v '^@' $(K_OUTDOOR61_G016_Y_LINEAR_SRC) > $(BUILD_DIR)/golden_p010_y_linear.memh; \
 			grep -v '^@' $(K_OUTDOOR61_G016_UV_LINEAR_SRC) > $(BUILD_DIR)/golden_p010_uv_linear.memh; \
-			$(OTF_CASE_TOOL) gen-stream --format p010 --expected-y $(BUILD_DIR)/golden_p010_y_linear.memh --expected-uv $(BUILD_DIR)/golden_p010_uv_linear.memh --width 4096 --stored-y-height 608 --stored-uv-height 304 --p010-uv-phase even --out $(BUILD_DIR)/expected_otf_stream.txt; \
+			$(OTF_CASE_TOOL) gen-stream --format p010 --expected-y $(BUILD_DIR)/golden_p010_y_linear.memh --expected-uv $(BUILD_DIR)/golden_p010_uv_linear.memh --width 4096 --stored-y-height 600 --stored-uv-height 300 --p010-uv-phase even --out $(BUILD_DIR)/expected_otf_stream.txt; \
 			;; \
 		*) \
 			echo "Unsupported CASE_ID=$(EFFECTIVE_CASE_ID) for wrapper TajMahal cases"; \
@@ -1224,8 +1227,8 @@ compare_wrapper_tajmahal_4096x600_nv12_otf_inner:
 		--actual $(BUILD_DIR)/actual_otf_stream.txt \
 		--width 4096 \
 		--active-height 600 \
-		--stored-y-height 640 \
-		--stored-uv-height 320 \
+		--stored-y-height 600 \
+		--stored-uv-height 300 \
 		--frame-repeat $(TB_FRAME_REPEAT) \
 		--out-dir $(BUILD_DIR)/compare
 
@@ -1285,20 +1288,32 @@ enc_wrapper_tajmahal_cases_prepare:
 			;; \
 		tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888) \
 			grep -v '^@' $(TAJMAHAL_TILED_SRC) > $(BUILD_DIR)/expected_tile_plane0.memh; \
+			grep -v '^@' $(TAJMAHAL_RGBA_META_SRC) > $(BUILD_DIR)/expected_meta_plane0.memh; \
+			grep -v '^@' $(TAJMAHAL_TILED_COMP_SRC) > $(BUILD_DIR)/expected_cmp_plane0.memh; \
 			$(OTF_CASE_TOOL) gen-stream --format rgba8888 --expected $(TAJMAHAL_LINEAR_SRC) --width 4096 --stored-height 608 --out $(BUILD_DIR)/input_otf_stream.txt; \
 			;; \
 		tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102) \
 			grep -v '^@' $(TAJMAHAL_RGBA1010102_TILED_SRC) > $(BUILD_DIR)/expected_tile_plane0.memh; \
+			grep -v '^@' $(TAJMAHAL_RGBA1010102_META_SRC) > $(BUILD_DIR)/expected_meta_plane0.memh; \
+			grep -v '^@' $(TAJMAHAL_RGBA1010102_TILED_COMP_SRC) > $(BUILD_DIR)/expected_cmp_plane0.memh; \
 			$(OTF_CASE_TOOL) gen-stream --format rgba1010102 --expected $(TAJMAHAL_RGBA1010102_LINEAR_SRC) --width 4096 --stored-height 608 --out $(BUILD_DIR)/input_otf_stream.txt; \
 			;; \
 		tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12) \
 			grep -v '^@' $(TAJMAHAL_NV12_Y_TILED_UNCOMP_SRC) > $(BUILD_DIR)/expected_tile_plane0.memh; \
 			grep -v '^@' $(TAJMAHAL_NV12_UV_TILED_UNCOMP_SRC) > $(BUILD_DIR)/expected_tile_plane1.memh; \
+			grep -v '^@' $(TAJMAHAL_NV12_META_Y_SRC) > $(BUILD_DIR)/expected_meta_plane0.memh; \
+			grep -v '^@' $(TAJMAHAL_NV12_META_UV_SRC) > $(BUILD_DIR)/expected_meta_plane1.memh; \
+			grep -v '^@' $(TAJMAHAL_NV12_Y_TILED_COMP_SRC) > $(BUILD_DIR)/expected_cmp_plane0.memh; \
+			grep -v '^@' $(TAJMAHAL_NV12_UV_TILED_COMP_SRC) > $(BUILD_DIR)/expected_cmp_plane1.memh; \
 			$(OTF_CASE_TOOL) gen-stream --format nv12 --expected-y $(TAJMAHAL_NV12_Y_LINEAR_SRC) --expected-uv $(TAJMAHAL_NV12_UV_LINEAR_SRC) --width 4096 --stored-y-height 640 --stored-uv-height 320 --nv12-uv-phase even --out $(BUILD_DIR)/input_otf_stream.txt; \
 			;; \
 		tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016) \
 			grep -v '^@' $(K_OUTDOOR61_G016_Y_TILED_UNCOMP_SRC) > $(BUILD_DIR)/expected_tile_plane0.memh; \
 			grep -v '^@' $(K_OUTDOOR61_G016_UV_TILED_UNCOMP_SRC) > $(BUILD_DIR)/expected_tile_plane1.memh; \
+			grep -v '^@' $(K_OUTDOOR61_G016_META_Y_SRC) > $(BUILD_DIR)/expected_meta_plane0.memh; \
+			grep -v '^@' $(K_OUTDOOR61_G016_META_UV_SRC) > $(BUILD_DIR)/expected_meta_plane1.memh; \
+			grep -v '^@' $(K_OUTDOOR61_G016_Y_TILED_COMP_SRC) > $(BUILD_DIR)/expected_cmp_plane0.memh; \
+			grep -v '^@' $(K_OUTDOOR61_G016_UV_TILED_COMP_SRC) > $(BUILD_DIR)/expected_cmp_plane1.memh; \
 			$(OTF_CASE_TOOL) gen-stream --format p010 --expected-y $(K_OUTDOOR61_G016_Y_LINEAR_SRC) --expected-uv $(K_OUTDOOR61_G016_UV_LINEAR_SRC) --width 4096 --stored-y-height 608 --stored-uv-height 304 --out $(BUILD_DIR)/input_otf_stream.txt; \
 			;; \
 		*) \

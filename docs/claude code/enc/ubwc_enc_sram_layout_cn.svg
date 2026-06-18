@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480 1240" font-family="Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="13">
+  <defs>
+    <pattern id="diag" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#fed7aa" stroke-width="6"/>
+    </pattern>
+  </defs>
+
+  <!-- ============ HEADER ============ -->
+  <text x="40" y="44" font-size="22" font-weight="bold" fill="#111">UBWC 外部工作 SRAM：4096 像素宽度下的容量与布局关系</text>
+  <text x="40" y="74" font-size="13" fill="#444">bank0 / bank1 是同规格外部工作 SRAM。单 bank = 4096 word × 128 bit = 64 KiB；两 bank 合计 128 KiB。</text>
+  <text x="40" y="94" font-size="13" fill="#444">SRAM 容量主要由最大支持宽度决定；图像高度通过多次行组处理复用同一组 SRAM。</text>
+
+  <!-- ============ SECTION 1: RGBA ============ -->
+  <rect x="40" y="120" width="1400" height="200" rx="14" ry="14" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+  <text x="64" y="152" font-size="16" font-weight="bold" fill="#111">1. RGBA8888 / RGBA10：4096 宽时，一个行组占满一个 bank</text>
+  <text x="64" y="176" font-size="12" fill="#555">4096 px × 4 Byte = 16384 Byte/line = 1024 word/line；4 行共 4096 word。</text>
+
+  <!-- Bank layout for RGBA: 4 equal rows -->
+  <g>
+    <rect x="80" y="200" width="320" height="60" rx="4" ry="4" fill="#dbeafe" stroke="#60a5fa"/>
+    <text x="240" y="225" text-anchor="middle" font-size="13" font-weight="bold">Row 0</text>
+    <text x="240" y="245" text-anchor="middle" font-size="11" fill="#555">1024w</text>
+
+    <rect x="400" y="200" width="320" height="60" rx="4" ry="4" fill="#bfdbfe" stroke="#3b82f6"/>
+    <text x="560" y="225" text-anchor="middle" font-size="13" font-weight="bold">Row 1</text>
+    <text x="560" y="245" text-anchor="middle" font-size="11" fill="#555">1024w</text>
+
+    <rect x="720" y="200" width="320" height="60" rx="4" ry="4" fill="#93c5fd" stroke="#2563eb"/>
+    <text x="880" y="225" text-anchor="middle" font-size="13" font-weight="bold">Row 2</text>
+    <text x="880" y="245" text-anchor="middle" font-size="11" fill="#555">1024w</text>
+
+    <rect x="1040" y="200" width="320" height="60" rx="4" ry="4" fill="#60a5fa" stroke="#1d4ed8"/>
+    <text x="1200" y="225" text-anchor="middle" font-size="13" font-weight="bold">Row 3</text>
+    <text x="1200" y="245" text-anchor="middle" font-size="11" fill="#555">1024w</text>
+
+    <!-- axis -->
+    <line x1="80" y1="270" x2="1360" y2="270" stroke="#94a3b8"/>
+    <line x1="80" y1="266" x2="80" y2="274" stroke="#94a3b8"/>
+    <line x1="400" y1="266" x2="400" y2="274" stroke="#94a3b8"/>
+    <line x1="720" y1="266" x2="720" y2="274" stroke="#94a3b8"/>
+    <line x1="1040" y1="266" x2="1040" y2="274" stroke="#94a3b8"/>
+    <line x1="1360" y1="266" x2="1360" y2="274" stroke="#94a3b8"/>
+    <text x="80" y="288" text-anchor="middle" font-size="11" fill="#555">0</text>
+    <text x="400" y="288" text-anchor="middle" font-size="11" fill="#555">1024</text>
+    <text x="720" y="288" text-anchor="middle" font-size="11" fill="#555">2048</text>
+    <text x="1040" y="288" text-anchor="middle" font-size="11" fill="#555">3072</text>
+    <text x="1360" y="288" text-anchor="middle" font-size="11" fill="#555">4095</text>
+  </g>
+  <text x="64" y="308" font-size="11" fill="#6b7280">bank0 和 bank1 轮流作为当前行组写入/读出工作区；bank 不是固定 plane。</text>
+
+  <!-- ============ SECTION 2: YUV420_8 ============ -->
+  <rect x="40" y="340" width="1400" height="270" rx="14" ry="14" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+  <text x="64" y="372" font-size="16" font-weight="bold" fill="#111">2. YUV420_8：4096 宽时，Y 固定区 + UV_A/UV_B 双区交替</text>
+  <text x="64" y="394" font-size="12" fill="#555">每个 bank 存储 8 行 Y 和 4 行 UV；Y 固定使用 0..2048，UV_A 为 2048..3072，UV_B 为 3072..4096。</text>
+  <text x="64" y="412" font-size="12" fill="#555">UV_A 读出按 tile 进行，需要 BANK0.UV_A 与 BANK1.UV_A 配对同时读；UV_B 写入在两个 bank 间交替推进。</text>
+
+  <!-- Row 1: UV_A tile pair read -->
+  <text x="64" y="438" font-size="12" font-weight="bold" fill="#374151">UV_A tile 读出：BANK0.UV_A 与 BANK1.UV_A 同时读，拼成完整 UV tile</text>
+  <g>
+    <rect x="80" y="448" width="640" height="60" rx="4" ry="4" fill="#bbf7d0" stroke="#16a34a"/>
+    <text x="400" y="473" text-anchor="middle" font-size="13" font-weight="bold">Y</text>
+    <text x="400" y="491" text-anchor="middle" font-size="11" fill="#555">row 0..7</text>
+    <text x="400" y="504" text-anchor="middle" font-size="11" fill="#555">2048w</text>
+
+    <rect x="720" y="448" width="320" height="60" rx="4" ry="4" fill="#fed7aa" stroke="#ea580c"/>
+    <text x="880" y="471" text-anchor="middle" font-size="13" font-weight="bold">UV_A</text>
+    <text x="880" y="489" text-anchor="middle" font-size="11" fill="#7c2d12">BANK0/1 pair read</text>
+    <text x="880" y="502" text-anchor="middle" font-size="11" fill="#555">1024w</text>
+
+    <rect x="1040" y="448" width="320" height="60" rx="4" ry="4" fill="#ffedd5" stroke="#ea580c" stroke-dasharray="4,3"/>
+    <text x="1200" y="471" text-anchor="middle" font-size="13" font-weight="bold">UV_B</text>
+    <text x="1200" y="489" text-anchor="middle" font-size="11" fill="#7c2d12">write slot</text>
+    <text x="1200" y="502" text-anchor="middle" font-size="11" fill="#555">1024w</text>
+
+    <line x1="80" y1="518" x2="1360" y2="518" stroke="#94a3b8"/>
+    <text x="80" y="535" text-anchor="middle" font-size="11" fill="#555">0</text>
+    <text x="720" y="535" text-anchor="middle" font-size="11" fill="#555">2048</text>
+    <text x="1040" y="535" text-anchor="middle" font-size="11" fill="#555">3072</text>
+    <text x="1360" y="535" text-anchor="middle" font-size="11" fill="#555">4095</text>
+  </g>
+
+  <!-- Row 2: UV_B alternate write -->
+  <text x="64" y="558" font-size="12" font-weight="bold" fill="#374151">UV_B 写入：写侧在 BANK0.UV_B / BANK1.UV_B 间交替写入下一组 UV</text>
+  <g>
+    <rect x="80" y="568" width="640" height="32" rx="4" ry="4" fill="#bbf7d0" stroke="#16a34a"/>
+    <text x="400" y="588" text-anchor="middle" font-size="11" font-weight="bold">Y · next 8 rows · 2048w</text>
+
+    <rect x="720" y="568" width="320" height="32" rx="4" ry="4" fill="#ffedd5" stroke="#ea580c" stroke-dasharray="4,3"/>
+    <text x="880" y="588" text-anchor="middle" font-size="11">UV_A · tile read pair · 1024w</text>
+
+    <rect x="1040" y="568" width="320" height="32" rx="4" ry="4" fill="#fed7aa" stroke="#ea580c"/>
+    <text x="1200" y="588" text-anchor="middle" font-size="11" font-weight="bold">UV_B · BANK0/1 alternate write · 1024w</text>
+  </g>
+
+  <!-- ============ SECTION 3: YUV420_10 (NEW) ============ -->
+  <rect x="40" y="630" width="1400" height="290" rx="14" ry="14" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+  <text x="64" y="662" font-size="16" font-weight="bold" fill="#111">3. YUV420_10 (P010 / G016)：tile 尺寸 Y = UV = 16 × 4 行；区域划分同 YUV420_8</text>
+  <text x="64" y="684" font-size="12" fill="#555">10-bit 像素按 16-bit 打包：Y 用 2 Byte/px → 512 word/line（× 4 行 = 2048w）；UV 用 4 Byte/pair × 2048 pairs → 512 word/line（× 2 行 = 1024w）。</text>
+  <text x="64" y="702" font-size="12" fill="#555">每个 bank 存 4 行 Y + 2 行 UV；Y tile = 16 × 4 行（一 bank 一组完整 Y tile）；UV tile = 16 × 4 行（cross-bank：每 bank 贡献 2 行）。</text>
+
+  <!-- Row 1: UV_A tile pair read -->
+  <text x="64" y="728" font-size="12" font-weight="bold" fill="#374151">UV_A tile 读出（与 YUV420_8 等价）：BANK0.UV_A 与 BANK1.UV_A 同时读</text>
+  <g>
+    <rect x="80" y="738" width="640" height="60" rx="4" ry="4" fill="#bbf7d0" stroke="#16a34a"/>
+    <text x="400" y="763" text-anchor="middle" font-size="13" font-weight="bold">Y</text>
+    <text x="400" y="781" text-anchor="middle" font-size="11" fill="#555">row 0..3 (4 行 × 512w/行)</text>
+    <text x="400" y="794" text-anchor="middle" font-size="11" fill="#555">2048w</text>
+
+    <rect x="720" y="738" width="320" height="60" rx="4" ry="4" fill="#fed7aa" stroke="#ea580c"/>
+    <text x="880" y="761" text-anchor="middle" font-size="13" font-weight="bold">UV_A</text>
+    <text x="880" y="779" text-anchor="middle" font-size="11" fill="#7c2d12">BANK0/1 pair read</text>
+    <text x="880" y="792" text-anchor="middle" font-size="11" fill="#555">1024w (2 行 × 512w/行)</text>
+
+    <rect x="1040" y="738" width="320" height="60" rx="4" ry="4" fill="#ffedd5" stroke="#ea580c" stroke-dasharray="4,3"/>
+    <text x="1200" y="761" text-anchor="middle" font-size="13" font-weight="bold">UV_B</text>
+    <text x="1200" y="779" text-anchor="middle" font-size="11" fill="#7c2d12">write slot</text>
+    <text x="1200" y="792" text-anchor="middle" font-size="11" fill="#555">1024w</text>
+
+    <line x1="80" y1="808" x2="1360" y2="808" stroke="#94a3b8"/>
+    <text x="80" y="825" text-anchor="middle" font-size="11" fill="#555">0</text>
+    <text x="720" y="825" text-anchor="middle" font-size="11" fill="#555">2048</text>
+    <text x="1040" y="825" text-anchor="middle" font-size="11" fill="#555">3072</text>
+    <text x="1360" y="825" text-anchor="middle" font-size="11" fill="#555">4095</text>
+  </g>
+
+  <!-- Row 2: UV_B alternate write -->
+  <text x="64" y="848" font-size="12" font-weight="bold" fill="#374151">UV_B 写入：写侧在 BANK0.UV_B / BANK1.UV_B 间交替写入下一组 UV</text>
+  <g>
+    <rect x="80" y="858" width="640" height="32" rx="4" ry="4" fill="#bbf7d0" stroke="#16a34a"/>
+    <text x="400" y="878" text-anchor="middle" font-size="11" font-weight="bold">Y · next 4 rows · 2048w</text>
+
+    <rect x="720" y="858" width="320" height="32" rx="4" ry="4" fill="#ffedd5" stroke="#ea580c" stroke-dasharray="4,3"/>
+    <text x="880" y="878" text-anchor="middle" font-size="11">UV_A · tile read pair · 1024w</text>
+
+    <rect x="1040" y="858" width="320" height="32" rx="4" ry="4" fill="#fed7aa" stroke="#ea580c"/>
+    <text x="1200" y="878" text-anchor="middle" font-size="11" font-weight="bold">UV_B · BANK0/1 alternate write · 1024w</text>
+  </g>
+
+  <!-- Difference vs YUV420_8 note -->
+  <rect x="64" y="900" width="1352" height="14" fill="none"/>
+  <text x="64" y="912" font-size="11" fill="#6b7280">⚠ P010 tile 尺寸：Y tile = 16 × 4 行 · UV tile = 16 × 4 行（cross-bank 拼读后）。Per-bank UV 存 2 行；UV tile 由 BANK0+BANK1 各贡献 2 行拼成。</text>
+
+  <!-- ============ SECTION 4: READING NOTES ============ -->
+  <rect x="40" y="940" width="1400" height="170" rx="14" ry="14" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+  <text x="64" y="972" font-size="16" font-weight="bold" fill="#7c2d12">4. 读图说明</text>
+  <text x="64" y="998" font-size="12" fill="#374151">• YUV420_8 / YUV420_10 下，UV 读出按 tile 粒度配对访问两个 bank；UV 写入按行组在两个 bank 的 UV_A/UV_B 区域交替推进。</text>
+  <text x="64" y="1020" font-size="12" fill="#374151">• 软件不需要配置 UV_A/UV_B，只需要配置每帧 UBWC base address；配对读和交替写由硬件 line_to_otf / SRAM 调度完成。</text>
+  <text x="64" y="1042" font-size="12" fill="#374151">• RGBA 与 YUV420_10 的"行组 Y 子区"大小都是 2048w（4 行 ×512w 或 4 行 ×1024w 等），可见 SRAM 容量由"行组 × 字节/行"上限决定。</text>
+  <text x="64" y="1064" font-size="12" fill="#374151">• 备注：ENC/DEC 内部调度细节不同，但外部 SRAM 容量边界一致 — 单 bank 64 KiB，两 bank 合计 128 KiB，支持最大 4096 px 宽度。</text>
+  <text x="64" y="1086" font-size="12" fill="#7c2d12" font-weight="bold">• 与之前 SRAM 布局图保持一致；本图新增 YUV420_10 (P010/G016) 一栏。</text>
+
+  <!-- ============ FOOTER: CAPACITY TABLE ============ -->
+  <rect x="40" y="1130" width="1400" height="90" rx="10" ry="10" fill="#f3f4f6" stroke="#d1d5db"/>
+  <text x="60" y="1154" font-size="13" font-weight="bold" fill="#111">格式 × 行组 × SRAM 利用率（4096 px 宽度）</text>
+  <text x="60" y="1176" font-size="11" fill="#374151">  · RGBA8888/RGBA10：4 行 × 1024w/行 = 4096w/bank → 占满一个 bank（无 UV 子区）</text>
+  <text x="60" y="1194" font-size="11" fill="#374151">  · YUV420_8       ：Y 8 行 ×256w/行 = 2048w  +  UV 4 行 ×256w/行 = 1024w/slot  ×2 slot (UV_A+UV_B) = 4096w/bank → 占满</text>
+  <text x="60" y="1212" font-size="11" fill="#374151">  · YUV420_10      ：Y 4 行 ×512w/行 = 2048w  +  UV 2 行 ×512w/行 = 1024w/slot  ×2 slot (UV_A+UV_B) = 4096w/bank → 占满 (与 YUV8 区域大小完全一致)</text>
+
+</svg>

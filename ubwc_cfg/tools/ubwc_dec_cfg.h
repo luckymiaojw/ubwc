@@ -182,6 +182,11 @@ static inline uint32_t ubwc_dec_uv_tile_y_numbers(uint32_t format, uint32_t heig
     return ubwc_dec_stored_uv_height_px(format, height_px) / ubwc_dec_tile_h(format);
 }
 
+static inline uint32_t ubwc_dec_active_tile_y_numbers(uint32_t format, uint32_t height_px)
+{
+    return ubwc_dec_ceil_div_u32(height_px, ubwc_dec_tile_h(format));
+}
+
 static inline uint32_t ubwc_dec_surface_pitch_bytes(uint32_t format, uint32_t width_px)
 {
     uint32_t tile_w = ubwc_dec_tile_w(format);
@@ -314,12 +319,13 @@ static inline uint32_t ubwc_dec_reg_vivo_cfg(uint32_t ubwc_en, uint32_t sreset)
 static inline uint32_t ubwc_dec_reg_meta_cfg0(uint32_t format, uint32_t width_px, uint32_t height_px)
 {
     return (ubwc_dec_tile_x_numbers(format, width_px) & 0xffffu) |
-           ((ubwc_dec_tile_y_numbers(format, height_px) & 0xffffu) << 16);
+           ((ubwc_dec_active_tile_y_numbers(format, height_px) & 0xffffu) << 16);
 }
 
 static inline uint32_t ubwc_dec_reg_otf_cfg0(uint32_t format, uint32_t width_px)
 {
-    return (width_px & 0xffffu) | ((ubwc_dec_base_format(format) & 0x1fu) << 16);
+    (void)width_px;
+    return ((ubwc_dec_base_format(format) & 0x1fu) << 16);
 }
 
 static inline uint32_t ubwc_dec_reg_otf_cfg1(uint32_t h_total, uint32_t h_sync)
@@ -407,7 +413,7 @@ static inline size_t ubwc_dec_make_reg_writes_ex(const ubwc_dec_config_t *cfg,
     uint32_t lossy = (c->format == UBWC_DEC_FMT_RGBA8888_L_2_1) ? 1u : 0u;
     ubwc_dec_reg_write_t regs[] = {
         {UBWC_DEC_REG_TILE_CFG0, ubwc_dec_reg_tile_cfg0(c->lvl1_bank_swizzle_en, c->lvl2_bank_swizzle_en, c->lvl3_bank_swizzle_en, c->highest_bank_bit, c->bank_spread_en, four_line, lossy), "APB_ADDR_TILE_CFG0"},
-        {UBWC_DEC_REG_TILE_CFG1, ubwc_dec_reg_tile_cfg1(c->format, c->width_px), "APB_ADDR_TILE_CFG1"},
+        {UBWC_DEC_REG_TILE_CFG1, ubwc_dec_reg_tile_cfg1(c->format, c->h_act), "APB_ADDR_TILE_CFG1"},
         {UBWC_DEC_REG_TILE_CFG2, ubwc_dec_reg_tile_cfg2(c->ci_input_type, c->ci_lossy, c->ci_alpha_mode), "APB_ADDR_TILE_CFG2"},
         {UBWC_DEC_REG_VIVO_CFG,  ubwc_dec_reg_vivo_cfg(c->vivo_ubwc_en, c->vivo_sreset), "APB_ADDR_VIVO_CFG"},
         {UBWC_DEC_REG_OTF_CFG0,  ubwc_dec_reg_otf_cfg0(c->format, c->width_px), "APB_ADDR_OTF_CFG0"},
@@ -415,7 +421,7 @@ static inline size_t ubwc_dec_make_reg_writes_ex(const ubwc_dec_config_t *cfg,
         {UBWC_DEC_REG_OTF_CFG2,  ubwc_dec_reg_otf_cfg2(c->h_bp, c->h_act), "APB_ADDR_OTF_CFG2"},
         {UBWC_DEC_REG_OTF_CFG3,  ubwc_dec_reg_otf_cfg3(c->v_total, c->v_sync), "APB_ADDR_OTF_CFG3"},
         {UBWC_DEC_REG_OTF_CFG4,  ubwc_dec_reg_otf_cfg4(c->v_bp, c->v_act), "APB_ADDR_OTF_CFG4"},
-        {UBWC_DEC_REG_META_CFG0, ubwc_dec_reg_meta_cfg0(c->format, c->width_px, c->height_px), "APB_ADDR_META_CFG0"},
+        {UBWC_DEC_REG_META_CFG0, ubwc_dec_reg_meta_cfg0(c->format, c->h_act, c->v_act), "APB_ADDR_META_CFG0"},
         {UBWC_DEC_REG_META_BASE_Y_LO, ubwc_dec_reg_base_lo(c->base.meta_base_rgba_y), "REG_META_BASE_Y_LO"},
         {UBWC_DEC_REG_META_BASE_Y_HI, ubwc_dec_reg_base_hi(c->base.meta_base_rgba_y), "REG_META_BASE_Y_HI"},
         {UBWC_DEC_REG_TILE_BASE_Y_LO, ubwc_dec_reg_base_lo(c->base.tile_base_rgba_y), "REG_TILE_BASE_Y_LO"},

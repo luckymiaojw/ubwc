@@ -253,6 +253,54 @@ u_fifo
 );
 ```
 
+## FIFO 选型
+
+自有 RTL 中所有 FIFO 必须使用项目内已有的 FIFO IP，禁止新增其他 FIFO 实现或修改这两个 IP：
+
+- 跨时钟域 FIFO：**必须使用 `mg_async_fifo`**
+- 同时钟域 FIFO：**必须使用 `mg_sync_fifo`**
+
+约束：
+
+- `mg_async_fifo` / `mg_sync_fifo` 源码**不允许改动**。
+- 不允许自己写一份 FIFO，也不允许引入第三方 FIFO IP 作为替代。
+- 如果现有 FIFO 接口不满足需求，使用时在外部加包装（如 skid、计数器、深度调整 parameter），但不修改 FIFO 本体。
+- async FIFO 的 `wr_clk / rd_clk` 接到各自时钟域，`wr_rst_n / rd_rst_n` 接到对应时钟域的复位；写侧和读侧的握手信号严格保持在对应时钟域内。
+- sync FIFO 的 `clk` / `rst_n` 必须接干净时钟与干净复位（参见复位规则）。
+- 实例化必须遵守"子模块实例化"一节的对齐和接口展开要求（不在 port map 写组合表达式）。
+
+推荐：
+
+```verilog
+wire                                                fifo_wr_en              ;
+wire                                                fifo_rd_en              ;
+wire        [FIFO_W              -1 :0]             fifo_din                ;
+wire        [FIFO_W              -1 :0]             fifo_dout               ;
+wire                                                fifo_full               ;
+wire                                                fifo_empty              ;
+
+assign fifo_wr_en                    = up_valid && up_ready;
+assign fifo_rd_en                    = dn_valid && dn_ready;
+assign fifo_din                      = up_data;
+
+mg_sync_fifo
+#(
+    .DWIDTH                         ( FIFO_W                        ),
+    .DEPTH                          ( FIFO_DEPTH                    )
+)
+u_payload_fifo
+(
+    .clk                            ( clk                           ),
+    .rst_n                          ( rst_n                         ),
+    .wr_en                          ( fifo_wr_en                    ),
+    .din                            ( fifo_din                      ),
+    .full                           ( fifo_full                     ),
+    .rd_en                          ( fifo_rd_en                    ),
+    .dout                           ( fifo_dout                     ),
+    .empty                          ( fifo_empty                    )
+);
+```
+
 ## 时序 always 规则
 
 ### 一变量一 always

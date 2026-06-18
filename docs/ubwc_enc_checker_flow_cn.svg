@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1580" height="980" viewBox="0 0 1580 980">
+  <defs>
+    <style>
+      .bg { fill: #f6f8fb; }
+      .lane { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .title { font: 700 28px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 16px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #475569; }
+      .h2 { font: 700 20px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #172033; }
+      .txt { font: 500 15px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #334155; }
+      .small { font: 500 13px "PingFang SC", "Microsoft YaHei", Arial, sans-serif; fill: #475569; }
+      .mono { font: 600 13px "SFMono-Regular", Consolas, monospace; fill: #1e293b; }
+      .box { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.8; rx: 14; }
+      .gold { fill: #fff7ed; stroke: #fb923c; }
+      .dut { fill: #eff6ff; stroke: #3b82f6; }
+      .chk { fill: #ecfdf5; stroke: #10b981; }
+      .err { fill: #fff1f2; stroke: #fb7185; }
+      .note { fill: #f8fafc; stroke: #cbd5e1; stroke-dasharray: 7 5; }
+      .arrow { fill: none; stroke: #334155; stroke-width: 2.2; marker-end: url(#arrow); }
+      .arrowBlue { fill: none; stroke: #2563eb; stroke-width: 2.2; marker-end: url(#arrowBlue); }
+      .arrowGreen { fill: none; stroke: #059669; stroke-width: 2.2; marker-end: url(#arrowGreen); }
+      .arrowOrange { fill: none; stroke: #ea580c; stroke-width: 2.2; marker-end: url(#arrowOrange); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#059669"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#ea580c"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1580" height="980"/>
+  <text class="title" x="50" y="58">ENC Checker 数据流</text>
+  <text class="subtitle" x="50" y="88">采样点在 ubwc_enc_wrapper_top 内部 VIVO 接口和 AXI 输出端；checker 不引用 enc_vivo_top 内部状态。</text>
+
+  <rect class="lane" x="40" y="120" width="430" height="820" rx="18"/>
+  <rect class="lane" x="510" y="120" width="500" height="820" rx="18"/>
+  <rect class="lane" x="1050" y="120" width="500" height="820" rx="18"/>
+
+  <text class="h2" x="70" y="158">Golden / Reference</text>
+  <text class="h2" x="540" y="158">DUT Wrapper 采样点</text>
+  <text class="h2" x="1080" y="158">TB Checker / Summary</text>
+
+  <rect class="box gold" x="70" y="195" width="370" height="145"/>
+  <text class="h2" x="95" y="232">输入 tile golden</text>
+  <text class="mono" x="95" y="262">expected_tile_plane0.memh</text>
+  <text class="mono" x="95" y="286">expected_tile_plane1.memh</text>
+  <text class="small" x="95" y="315">用于 RVI 输入 data/mask/last/coord 检查</text>
+
+  <rect class="box gold" x="70" y="385" width="370" height="145"/>
+  <text class="h2" x="95" y="422">压缩输出 golden</text>
+  <text class="mono" x="95" y="452">expected_cmp_plane0.memh</text>
+  <text class="mono" x="95" y="476">expected_cmp_plane1.memh</text>
+  <text class="small" x="95" y="505">用于 fake CVO 和 AXI main memory 比对</text>
+
+  <rect class="box gold" x="70" y="575" width="370" height="145"/>
+  <text class="h2" x="95" y="612">metadata golden</text>
+  <text class="mono" x="95" y="642">expected_meta_plane0.memh</text>
+  <text class="mono" x="95" y="666">expected_meta_plane1.memh</text>
+  <text class="small" x="95" y="695">用于最终 meta memory dump 比对</text>
+
+  <rect class="box note" x="70" y="770" width="370" height="120"/>
+  <text class="h2" x="95" y="808">重要约定</text>
+  <text class="txt" x="95" y="838">ENC CI 的 alen 是固定配置值 7。</text>
+  <text class="txt" x="95" y="866">不再用 golden meta 的 alen 判错。</text>
+
+  <rect class="box dut" x="545" y="195" width="420" height="135"/>
+  <text class="h2" x="570" y="232">CI 输入到 enc_vivo_top</text>
+  <text class="mono" x="570" y="262">enc_ci_metadata / enc_ci_alen</text>
+  <text class="mono" x="570" y="286">enc_ci_forced_pcm</text>
+  <text class="mono" x="570" y="310">tile_format / tile_x / tile_y</text>
+
+  <rect class="box dut" x="545" y="382" width="420" height="155"/>
+  <text class="h2" x="570" y="419">RVI 输入到 enc_vivo_top</text>
+  <text class="mono" x="570" y="449">rvi_valid &amp; rvi_ready</text>
+  <text class="mono" x="570" y="473">rvi_data[255:0] / rvi_mask[31:0]</text>
+  <text class="mono" x="570" y="497">rvi_last</text>
+  <text class="mono" x="570" y="521">rvi_format / rvi_x / rvi_y</text>
+
+  <rect class="box dut" x="545" y="590" width="420" height="145"/>
+  <text class="h2" x="570" y="627">CVO / AXI 输出</text>
+  <text class="mono" x="570" y="657">enc_cvo_valid/data/mask/last</text>
+  <text class="mono" x="570" y="681">tile_axi_aw/w</text>
+  <text class="mono" x="570" y="705">meta_axi_aw/w</text>
+
+  <rect class="box chk" x="1085" y="185" width="420" height="170"/>
+  <text class="h2" x="1110" y="222">CI Checker</text>
+  <text class="txt" x="1110" y="252">期望 metadata = {4'h1, 3'd7, 1'b0}</text>
+  <text class="txt" x="1110" y="280">期望 alen = 7</text>
+  <text class="txt" x="1110" y="308">期望 pcm = partial tile 规则</text>
+  <text class="small" x="1110" y="335">输出 vivo_ci_mismatch_count</text>
+
+  <rect class="box chk" x="1085" y="395" width="420" height="190"/>
+  <text class="h2" x="1110" y="432">RVI Checker</text>
+  <text class="txt" x="1110" y="462">按 format/x/y/beat 从 uncompressed tile golden 取数</text>
+  <text class="mono" x="1110" y="490">pack_expected_tile_axi_word()</text>
+  <text class="mono" x="1110" y="514">expected_tile_axi_mask()</text>
+  <text class="txt" x="1110" y="542">last = beat_idx == 7，坐标需整 tile 保持</text>
+  <text class="small" x="1110" y="568">输出 rvi_data/mask/last/coord mismatch</text>
+
+  <rect class="box chk" x="1085" y="635" width="420" height="175"/>
+  <text class="h2" x="1110" y="672">CVO / AXI Checker</text>
+  <text class="txt" x="1110" y="702">fake CVO beat 数量和压缩数据路径一致</text>
+  <text class="txt" x="1110" y="730">AXI sink 收 tile/meta 写入并 dump memory</text>
+  <text class="txt" x="1110" y="758">main/meta dump 与 golden 逐 word 比对</text>
+  <text class="small" x="1110" y="786">输出 cvo/main/meta mismatch 与 wlast/strb 统计</text>
+
+  <rect class="box err" x="1085" y="850" width="420" height="80"/>
+  <text class="h2" x="1110" y="884">PASS 条件</text>
+  <text class="txt" x="1110" y="912">所有 mismatch 计数为 0，frame_done/IRQ 正常。</text>
+
+  <path class="arrowOrange" d="M440 268 H545"/>
+  <path class="arrowGreen" d="M965 262 H1085"/>
+  <path class="arrowOrange" d="M440 458 H520 V462 H545"/>
+  <path class="arrowBlue" d="M965 462 H1085"/>
+  <path class="arrowOrange" d="M440 650 H500 V690 H545"/>
+  <path class="arrowBlue" d="M965 690 H1085"/>
+  <path class="arrowGreen" d="M755 330 V382"/>
+  <path class="arrowGreen" d="M755 537 V590"/>
+
+  <text class="small" x="490" y="248">CI fixed rule</text>
+  <text class="small" x="990" y="246">采样比较</text>
+  <text class="small" x="485" y="442">uncompressed tile</text>
+  <text class="small" x="990" y="442">采样比较</text>
+  <text class="small" x="485" y="626">compressed/meta ref</text>
+  <text class="small" x="990" y="668">dump 比对</text>
+</svg>

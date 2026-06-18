@@ -25,7 +25,39 @@ module ubwc_enc_wrapper_top
         parameter                                       AXI_LENW                        = 5,
         parameter                                       AXI_IDW                         = 4,
         parameter                                       COM_BUF_AW                      = 12,
-        parameter                                       COM_BUF_DW                      = 128
+        parameter                                       COM_BUF_DW                      = 128,
+        parameter integer                               ENC_VIVO_FAKE_MODEL_EN          = 0,
+        parameter integer                               ENC_VIVO_FAKE_TILE_EXPECT_LINEAR= 0,
+        parameter integer                               ENC_VIVO_FAKE_IMG_W             = 4096,
+        parameter integer                               ENC_VIVO_FAKE_RGBA_ACTIVE_H     = 600,
+        parameter integer                               ENC_VIVO_FAKE_RGBA_TILE_PITCH   = 16384,
+        parameter integer                               ENC_VIVO_FAKE_RGBA_TILE_COLS    = 256,
+        parameter integer                               ENC_VIVO_FAKE_RGBA_TILE_ROWS    = 152,
+        parameter integer                               ENC_VIVO_FAKE_NV12_ACTIVE_H     = 600,
+        parameter integer                               ENC_VIVO_FAKE_NV12_UV_ACTIVE_H  = 300,
+        parameter integer                               ENC_VIVO_FAKE_NV12_TILE_PITCH   = 4096,
+        parameter integer                               ENC_VIVO_FAKE_NV12_Y_TILE_COLS  = 128,
+        parameter integer                               ENC_VIVO_FAKE_NV12_UV_TILE_COLS = 128,
+        parameter integer                               ENC_VIVO_FAKE_NV12_Y_TILE_ROWS  = 80,
+        parameter integer                               ENC_VIVO_FAKE_NV12_UV_TILE_ROWS = 40,
+        parameter integer                               ENC_VIVO_FAKE_G016_ACTIVE_H     = 600,
+        parameter integer                               ENC_VIVO_FAKE_G016_UV_ACTIVE_H  = 300,
+        parameter integer                               ENC_VIVO_FAKE_G016_TILE_PITCH   = 8192,
+        parameter integer                               ENC_VIVO_FAKE_G016_Y_TILE_COLS  = 128,
+        parameter integer                               ENC_VIVO_FAKE_G016_UV_TILE_COLS = 128,
+        parameter integer                               ENC_VIVO_FAKE_G016_Y_TILE_ROWS  = 152,
+        parameter integer                               ENC_VIVO_FAKE_G016_UV_TILE_ROWS = 76,
+        parameter integer                               ENC_VIVO_FAKE_META_PITCH_BYTES  = 512,
+        parameter [63                     :0]           ENC_VIVO_FAKE_TILE_BASE_Y_ADDR  = 64'h0000_0000_8000_0000,
+        parameter [63                     :0]           ENC_VIVO_FAKE_TILE_BASE_UV_ADDR = 64'h0000_0000_8020_0000,
+        parameter [63                     :0]           ENC_VIVO_FAKE_META_BASE_Y_ADDR  = 64'h0000_0000_8000_0000,
+        parameter [63                     :0]           ENC_VIVO_FAKE_META_BASE_UV_ADDR = 64'h0000_0000_8020_0000,
+        parameter integer                               ENC_VIVO_FAKE_TILE0_WORDS64     = 1,
+        parameter integer                               ENC_VIVO_FAKE_TILE1_WORDS64     = 1,
+        parameter integer                               ENC_VIVO_FAKE_CMP0_WORDS64      = 1,
+        parameter integer                               ENC_VIVO_FAKE_CMP1_WORDS64      = 1,
+        parameter integer                               ENC_VIVO_FAKE_META0_WORDS64     = 1,
+        parameter integer                               ENC_VIVO_FAKE_META1_WORDS64     = 1
     )(
         input   wire                                        PCLK                            ,
         input   wire                                        PRESETn                         ,
@@ -105,10 +137,11 @@ module ubwc_enc_wrapper_top
     localparam  integer                             COORD_FIFO_DEPTH                = 32;
     localparam  integer                             TH_DW                           = 13;
     localparam  integer                             TW_DW                           = 8;
-    localparam  integer                             ENC_CO_FIFO_W                   = 3;
+    localparam  integer                             ENC_CO_FIFO_W                   = 4;
     localparam  integer                             ENC_CVO_FIFO_W                  = 256 + 32 + 1;
     localparam  integer                             ENC_CO_FIFO_DEPTH_BITS          = 4;
     localparam  integer                             ENC_CVO_FIFO_DEPTH_BITS         = 4;
+    localparam  [5                   -1 :0]         FMT_RGBA8888                    = 5'd0;
 
     wire        [3                   -1 :0]         otf_cfg_format                  ;
     wire        [16                  -1 :0]         otf_cfg_width                   ;
@@ -198,6 +231,10 @@ module ubwc_enc_wrapper_top
     wire                                            rvi_stat_valid                  ;
     wire                                            rvi_stat_last                   ;
     wire                                            rvi_stat_slot                   ;
+    wire        [16                  -1 :0]         rvi_tile_xcoord                ;
+    wire        [16                  -1 :0]         rvi_tile_ycoord                ;
+    wire        [4                   -1 :0]         rvi_tile_fcnt                  ;
+    wire        [5                   -1 :0]         rvi_tile_format                ;
     wire        [5                   -1 :0]         b_tile_format                   ;
     wire        [4                   -1 :0]         b_tile_fcnt                     ;
     wire        [TH_DW               -1 :0]         b_tile_ycoord                   ;
@@ -207,15 +244,22 @@ module ubwc_enc_wrapper_top
     wire        [3                   -1 :0]         tile_alen                       ;
     wire        [4                   -1 :0]         tile_addr_fcnt                  ;
     wire                                            tile_addr_vld                   ;
+    wire                                            rvi_last                        ;
+    wire        [16                  -1 :0]         enc_ci_tile_xcoord              ;
+    wire        [16                  -1 :0]         enc_ci_tile_ycoord              ;
+    wire        [4                   -1 :0]         enc_ci_tile_fcnt                ;
+    wire        [8                   -1 :0]         enc_ci_metadata                 ;
     wire                                            enc_co_valid                    ;
     wire                                            enc_co_ready                    ;
     wire                                            enc_co_fire                     ;
     wire        [3                   -1 :0]         enc_co_alen                     ;
+    wire                                            enc_co_pcm                      ;
     wire        [SB_WIDTH            -1 :0]         enc_co_sb                       ;
     wire                                            enc_coord_fifo_rd_en            ;
     wire                                            enc_vivo_co_valid               ;
     wire                                            enc_vivo_co_ready               ;
     wire        [3                   -1 :0]         enc_vivo_co_alen                ;
+    wire                                            enc_vivo_co_pcm                 ;
     wire                                            enc_co_fifo_full                ;
     wire                                            enc_co_fifo_empty               ;
     wire        [ENC_CO_FIFO_W       -1 :0]         enc_co_fifo_din                 ;
@@ -362,12 +406,14 @@ module ubwc_enc_wrapper_top
     assign enc_axi_awlock_bit   = enc_axi_awlock[0];
     assign meta_axi_awlock_bit  = meta_axi_awlock[0];
     assign enc_co_fire          = enc_coord_fifo_rd_en;
-    assign enc_co_fifo_din      = enc_vivo_co_alen;
+    assign enc_ci_metadata      = {4'h1, enc_ci_alen, 1'b0};
+    assign enc_co_fifo_din      = {enc_vivo_co_pcm, enc_vivo_co_alen};
     assign enc_co_fifo_wr_en    = enc_vivo_co_valid & enc_vivo_co_ready;
     assign enc_co_fifo_rd_en    = enc_coord_fifo_rd_en;
     assign enc_vivo_co_ready    = !enc_co_fifo_full;
     assign enc_co_valid         = !enc_co_fifo_empty;
     assign enc_co_alen          = enc_co_fifo_dout[0 +: 3];
+    assign enc_co_pcm           = enc_co_fifo_dout[3];
     assign enc_co_sb            = {{(SB_WIDTH-1){1'b0}}, b_tile_fcnt[0]};
     assign enc_cvo_fifo_din     = {enc_vivo_cvo_last, enc_vivo_cvo_mask, enc_vivo_cvo_data};
     assign enc_cvo_fifo_wr_en   = enc_vivo_cvo_valid & enc_vivo_cvo_ready;
@@ -757,18 +803,22 @@ module ubwc_enc_wrapper_top
         .i_tile_rdy                      ( rvi_ready                       ),
         .o_tile_data                     ( rvi_data                        ),
         .o_tile_keep                     ( rvi_mask                        ),
-        .o_tile_last                     (                                 ),
+        .o_tile_last                     ( rvi_last                         ),
         .o_tile_stat_valid               ( rvi_stat_valid                  ),
         .o_tile_stat_last                ( rvi_stat_last                   ),
         .o_tile_stat_slot                ( rvi_stat_slot                   ),
+        .o_rvi_tile_x                    ( rvi_tile_xcoord                 ),
+        .o_rvi_tile_y                    ( rvi_tile_ycoord                 ),
+        .o_rvi_tile_fcnt                 ( rvi_tile_fcnt                   ),
+        .o_rvi_tile_format               ( rvi_tile_format                 ),
 
         .o_ci_valid                      ( enc_ci_valid                    ),
         .i_ci_ready                      ( enc_ci_ready                    ),
         .o_ci_forced_pcm                 ( enc_ci_forced_pcm               ),
         .o_ci_sb                         (                                 ),
-        .o_tile_x                        (                                 ),
-        .o_tile_y                        (                                 ),
-        .o_tile_fcnt                     (                                 ),
+        .o_tile_x                        ( enc_ci_tile_xcoord              ),
+        .o_tile_y                        ( enc_ci_tile_ycoord              ),
+        .o_tile_fcnt                     ( enc_ci_tile_fcnt                ),
         .o_tile_format                   ( tile_format                     ),
 
         .i_co_valid                      ( enc_co_valid                    ),
@@ -790,6 +840,40 @@ module ubwc_enc_wrapper_top
     );
 
     ubwc_enc_vivo_top
+    #(
+        .FAKE_MODEL_EN                  ( ENC_VIVO_FAKE_MODEL_EN           ),
+        .FAKE_TILE_EXPECT_LINEAR        ( ENC_VIVO_FAKE_TILE_EXPECT_LINEAR ),
+        .FAKE_IMG_W                     ( ENC_VIVO_FAKE_IMG_W              ),
+        .FAKE_RGBA_ACTIVE_H             ( ENC_VIVO_FAKE_RGBA_ACTIVE_H      ),
+        .FAKE_RGBA_TILE_PITCH           ( ENC_VIVO_FAKE_RGBA_TILE_PITCH    ),
+        .FAKE_RGBA_TILE_COLS            ( ENC_VIVO_FAKE_RGBA_TILE_COLS     ),
+        .FAKE_RGBA_TILE_ROWS            ( ENC_VIVO_FAKE_RGBA_TILE_ROWS     ),
+        .FAKE_NV12_ACTIVE_H             ( ENC_VIVO_FAKE_NV12_ACTIVE_H      ),
+        .FAKE_NV12_UV_ACTIVE_H          ( ENC_VIVO_FAKE_NV12_UV_ACTIVE_H   ),
+        .FAKE_NV12_TILE_PITCH           ( ENC_VIVO_FAKE_NV12_TILE_PITCH    ),
+        .FAKE_NV12_Y_TILE_COLS          ( ENC_VIVO_FAKE_NV12_Y_TILE_COLS   ),
+        .FAKE_NV12_UV_TILE_COLS         ( ENC_VIVO_FAKE_NV12_UV_TILE_COLS  ),
+        .FAKE_NV12_Y_TILE_ROWS          ( ENC_VIVO_FAKE_NV12_Y_TILE_ROWS   ),
+        .FAKE_NV12_UV_TILE_ROWS         ( ENC_VIVO_FAKE_NV12_UV_TILE_ROWS  ),
+        .FAKE_G016_ACTIVE_H             ( ENC_VIVO_FAKE_G016_ACTIVE_H      ),
+        .FAKE_G016_UV_ACTIVE_H          ( ENC_VIVO_FAKE_G016_UV_ACTIVE_H   ),
+        .FAKE_G016_TILE_PITCH           ( ENC_VIVO_FAKE_G016_TILE_PITCH    ),
+        .FAKE_G016_Y_TILE_COLS          ( ENC_VIVO_FAKE_G016_Y_TILE_COLS   ),
+        .FAKE_G016_UV_TILE_COLS         ( ENC_VIVO_FAKE_G016_UV_TILE_COLS  ),
+        .FAKE_G016_Y_TILE_ROWS          ( ENC_VIVO_FAKE_G016_Y_TILE_ROWS   ),
+        .FAKE_G016_UV_TILE_ROWS         ( ENC_VIVO_FAKE_G016_UV_TILE_ROWS  ),
+        .FAKE_META_PITCH_BYTES          ( ENC_VIVO_FAKE_META_PITCH_BYTES   ),
+        .FAKE_TILE_BASE_Y_ADDR          ( ENC_VIVO_FAKE_TILE_BASE_Y_ADDR   ),
+        .FAKE_TILE_BASE_UV_ADDR         ( ENC_VIVO_FAKE_TILE_BASE_UV_ADDR  ),
+        .FAKE_META_BASE_Y_ADDR          ( ENC_VIVO_FAKE_META_BASE_Y_ADDR   ),
+        .FAKE_META_BASE_UV_ADDR         ( ENC_VIVO_FAKE_META_BASE_UV_ADDR  ),
+        .FAKE_TILE0_WORDS64             ( ENC_VIVO_FAKE_TILE0_WORDS64      ),
+        .FAKE_TILE1_WORDS64             ( ENC_VIVO_FAKE_TILE1_WORDS64      ),
+        .FAKE_CMP0_WORDS64              ( ENC_VIVO_FAKE_CMP0_WORDS64       ),
+        .FAKE_CMP1_WORDS64              ( ENC_VIVO_FAKE_CMP1_WORDS64       ),
+        .FAKE_META0_WORDS64             ( ENC_VIVO_FAKE_META0_WORDS64      ),
+        .FAKE_META1_WORDS64             ( ENC_VIVO_FAKE_META1_WORDS64      )
+    )
     ubwc_enc_vivo_top_inst
     (
         .i_clk                           ( i_vivo_clk                      ),
@@ -800,7 +884,11 @@ module ubwc_enc_wrapper_top
         .i_ubwc_en                       ( enc_ubwc_en_vivo                ),
         .i_ci_alen                       ( enc_ci_alen                     ),
         .i_ci_input_type                 ( enc_ci_input_type               ),
+        .i_ci_metadata                   ( enc_ci_metadata                 ),
         .i_ci_forced_pcm                 ( enc_ci_forced_pcm               ),
+        .i_ci_xcoord                     ( enc_ci_tile_xcoord              ),
+        .i_ci_ycoord                     ( enc_ci_tile_ycoord              ),
+        .i_ci_fcnt                       ( enc_ci_tile_fcnt                ),
         .i_ci_lossy                      ( enc_ci_lossy                    ),
         .i_ci_ubwc_cfg_0                 ( enc_ci_ubwc_cfg_0               ),
         .i_ci_ubwc_cfg_1                 ( enc_ci_ubwc_cfg_1               ),
@@ -823,11 +911,16 @@ module ubwc_enc_wrapper_top
         .o_rvi_ready                     ( rvi_ready                       ),
         .i_rvi_data                      ( rvi_data                        ),
         .i_rvi_mask                      ( rvi_mask                        ),
+        .i_rvi_last                      ( rvi_last                        ),
+        .i_rvi_format                    ( rvi_tile_format                 ),
+        .i_rvi_xcoord                    ( rvi_tile_xcoord                 ),
+        .i_rvi_ycoord                    ( rvi_tile_ycoord                 ),
+        .i_rvi_fcnt                      ( rvi_tile_fcnt                   ),
 
         .o_co_valid                      ( enc_vivo_co_valid               ),
         .i_co_ready                      ( enc_vivo_co_ready               ),
         .o_co_alen                       ( enc_vivo_co_alen                ),
-        .o_co_pcm                        (                                 ),
+        .o_co_pcm                        ( enc_vivo_co_pcm                 ),
 
         .o_cvo_valid                     ( enc_vivo_cvo_valid              ),
         .i_cvo_ready                     ( enc_vivo_cvo_ready              ),
@@ -953,6 +1046,7 @@ module ubwc_enc_wrapper_top
 
         .i_co_valid                      ( enc_co_fire                    ),
         .i_co_alen                       ( enc_co_alen                     ),
+        .i_co_pcm                        ( enc_co_pcm                      ),
         .i_co_sb                         ( enc_co_sb                       ),
         .i_format                        ( b_tile_format                   ),
         .i_fcnt                          ( b_tile_fcnt                     ),

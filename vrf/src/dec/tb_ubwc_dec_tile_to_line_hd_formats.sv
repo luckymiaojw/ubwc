@@ -587,6 +587,7 @@ module tb_ubwc_dec_tile_to_line_hd_formats;
         .rst_n          (rst_n),
         .i_frame_start  (1'b0),
         .cfg_img_width  (cfg_img_width),
+        .cfg_img_height (16'hffff),
         .cfg_format     (cfg_format),
         .i_buffer_vld   (writer_vld),
         .i_writer_bank  (writer_bank),

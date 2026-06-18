@@ -23,6 +23,7 @@ module sram_read_fetcher #(
     input   wire                                        rst_n                           ,
     input   wire                                        i_frame_start                   ,
     input   wire    [15                     :0]         cfg_img_width                   ,
+    input   wire    [15                     :0]         cfg_img_height                  ,
     input   wire    [4                      :0]         cfg_format                      ,
     input   wire                                        i_buffer_vld                    ,
     input   wire                                        i_writer_bank                   ,
@@ -54,14 +55,13 @@ module sram_read_fetcher #(
     output  reg                                         o_fetcher_done                  ,
     output  reg                                         o_fetcher_bank                  ,
     output  reg     [3                      :0]         o_fetcher_fcnt                  ,
+    output  reg                                         o_fetcher_uv_slot               ,
     output  reg                                         o_fetcher_bank0_done            ,
     output  reg                                         o_fetcher_bank1_done
 );
 
-    localparam  integer                             SRAM_Y_LOWER_BASE_WORDS_LE2048 = 1024;
-    localparam  integer                             SRAM_Y_LOWER_BASE_WORDS_GT2048 = 2048;
-    localparam  integer                             SRAM_UV_BASE_WORDS_LE2048      = 2048;
-    localparam  integer                             SRAM_UV_BASE_WORDS_GT2048      = 4096;
+    localparam  integer                             SRAM_Y_REGION_WORDS            = 2048;
+    localparam  integer                             SRAM_UV_SLOT_WORDS             = 1024;
     localparam  integer                             ENTRY_DEPTH                     = 8;
     localparam  integer                             ENTRY_PTR_W                     = 3;
     localparam  integer                             ENTRY_CNT_W                     = 4;
@@ -112,6 +112,16 @@ module sram_read_fetcher #(
     wire        [13                     :0]         issue_pair_next_word_sum        ;
     wire                                            pair_line_done                  ;
     wire                                            pair_bank_done                  ;
+    wire        [16                     :0]         cfg_img_height_full             ;
+    wire        [16                     :0]         frame_line_base_full            ;
+    wire        [16                     :0]         remaining_lines_full            ;
+    wire        [4                      :0]         remaining_lines_clip            ;
+    wire                                            remaining_lines_valid           ;
+    wire        [4                      :0]         first_half_lines                ;
+    wire                                            target_uses_second_bank         ;
+    wire                                            target_first_bank_done          ;
+    wire                                            start_fetch_drop_fire           ;
+    wire                                            final_done_bank_sel             ;
     wire        [4                      :0]         next_line_idx                   ;
     wire        [12                     :0]         next_word_idx                   ;
     wire        [2                      :0]         next_y_line_in_group            ;
@@ -166,6 +176,8 @@ module sram_read_fetcher #(
     reg                                             is_yuv420                       ;
     reg                                             is_y_stride_1k                  ;
     reg                                             is_p010                         ;
+    reg         [15                     :0]         frame_line_base                 ;
+    reg         [4                      :0]         target_tot_lines                ;
     reg         [4                      :0]         line_idx                        ;
     reg         [12                     :0]         word_idx                        ;
     reg                                             target_bank                     ;
@@ -228,24 +240,28 @@ module sram_read_fetcher #(
                                         (is_p010 ? line_idx[2] : line_idx[3]);
     assign next_y_second_half         = wide_yuv420_profile &&
                                         (is_p010 ? next_line_idx[2] : next_line_idx[3]);
-    assign y_lower_base_full          = wide_profile ? 17'(SRAM_Y_LOWER_BASE_WORDS_GT2048) :
-                                                       17'(SRAM_Y_LOWER_BASE_WORDS_LE2048);
-    assign uv_slot_size_full          = wide_profile ? 17'd1024 :
-                                                       17'd512;
+    assign y_lower_base_full          = wide_yuv420_profile ? 17'(SRAM_Y_REGION_WORDS) :
+                                        (wide_profile ? 17'd2048 :
+                                                        17'd1024);
+    assign uv_slot_size_full          = wide_yuv420_profile ? 17'(SRAM_UV_SLOT_WORDS) :
+                                        (wide_profile ? 17'd1024 :
+                                                        17'd512);
     assign uv_slot_base_full          = target_uv_slot ? (y_lower_base_full + uv_slot_size_full) :
                                                          y_lower_base_full;
     assign uv_base_full               = wide_yuv420_profile ? uv_slot_base_full :
-                                        (wide_profile ? 17'(SRAM_UV_BASE_WORDS_GT2048) :
-                                                        17'(SRAM_UV_BASE_WORDS_LE2048));
+                                        (wide_profile ? 17'd4096 :
+                                                        17'd2048);
     assign y_group_off_full           = wide_yuv420_profile ? 17'd0 :
                                         (is_p010 ? (line_idx[2] ? y_lower_base_full : 17'd0) :
                                                    (line_idx[3] ? y_lower_base_full : 17'd0));
     assign y_off_rgba_full            = wide_profile ? {4'd0, y_line_in_group, 10'd0} :
                                                        {5'd0, y_line_in_group, 9'd0};
-    assign y_off_yuv8_full            = wide_profile ? {6'd0, y_line_in_group, 8'd0} :
-                                                       {7'd0, y_line_in_group, 7'd0};
-    assign y_off_p010_full            = wide_profile ? {5'd0, y_line_in_group, 9'd0} :
-                                                       {6'd0, y_line_in_group, 8'd0};
+    assign y_off_yuv8_full            = (wide_profile || wide_yuv420_profile) ?
+                                        {6'd0, y_line_in_group, 8'd0} :
+                                        {7'd0, y_line_in_group, 7'd0};
+    assign y_off_p010_full            = (wide_profile || wide_yuv420_profile) ?
+                                        {5'd0, y_line_in_group, 9'd0} :
+                                        {6'd0, y_line_in_group, 8'd0};
     assign y_off_full                 = is_y_stride_1k ? y_off_rgba_full :
                                         (is_p010 ? y_off_p010_full : y_off_yuv8_full);
     assign addr_y_full                = y_group_off_full + y_off_full + {4'd0, word_idx};
@@ -261,10 +277,12 @@ module sram_read_fetcher #(
     assign y_bank_sel                 = y_second_half ? ~target_bank : target_bank;
     assign uv_bank_sel                = uv_second_half ? ~target_bank : target_bank;
     assign next_y_bank_sel            = next_y_second_half ? ~target_bank : target_bank;
-    assign uv_row_off_yuv8_full       = wide_profile ? {6'd0, uv_l_addr, 8'd0} :
-                                                       {7'd0, uv_l_addr, 7'd0};
-    assign uv_row_off_p010_full       = wide_profile ? {5'd0, uv_l_addr, 9'd0} :
-                                                       {6'd0, uv_l_addr, 8'd0};
+    assign uv_row_off_yuv8_full       = (wide_profile || wide_yuv420_profile) ?
+                                        {6'd0, uv_l_addr, 8'd0} :
+                                        {7'd0, uv_l_addr, 7'd0};
+    assign uv_row_off_p010_full       = (wide_profile || wide_yuv420_profile) ?
+                                        {5'd0, uv_l_addr, 9'd0} :
+                                        {6'd0, uv_l_addr, 8'd0};
     assign uv_row_off_full            = is_p010 ? uv_row_off_p010_full : uv_row_off_yuv8_full;
     assign addr_uv_full               = uv_base_full + uv_row_off_full + {4'd0, word_idx};
     assign addr_uv                    = addr_uv_full[SRAM_ADDR_W-1:0];
@@ -274,7 +292,26 @@ module sram_read_fetcher #(
     assign frame_start                = (i_frame_start == 1'b1);
     assign issue_pair_next_word_sum   = {1'b0, word_idx} + {12'd0, current_pair_step};
     assign pair_line_done             = (issue_pair_next_word_sum >= {1'b0, w_limit});
-    assign pair_bank_done             = pair_line_done && (line_idx == (tot_lines - 5'd1));
+    assign pair_bank_done             = pair_line_done && (target_tot_lines != 5'd0) &&
+                                        (line_idx == (target_tot_lines - 5'd1));
+    assign cfg_img_height_full        = {1'b0, cfg_img_height};
+    assign frame_line_base_full       = {1'b0, frame_line_base};
+    assign remaining_lines_full       = (cfg_img_height_full > frame_line_base_full) ?
+                                        (cfg_img_height_full - frame_line_base_full) :
+                                        17'd0;
+    assign remaining_lines_clip       = (remaining_lines_full > {12'd0, tot_lines}) ?
+                                        tot_lines :
+                                        remaining_lines_full[4:0];
+    assign remaining_lines_valid      = (remaining_lines_full != 17'd0);
+    assign first_half_lines           = is_p010 ? 5'd4 : 5'd8;
+    assign target_uses_second_bank    = wide_yuv420_profile &&
+                                        (target_tot_lines > first_half_lines);
+    assign target_first_bank_done     = pair_line_done &&
+                                        target_uses_second_bank &&
+                                        (line_idx == (first_half_lines - 5'd1));
+    assign start_fetch_drop_fire      = !fetch_active && i_buffer_vld &&
+                                        ((w_limit == 13'd0) || !remaining_lines_valid);
+    assign final_done_bank_sel        = target_uses_second_bank ? ~target_bank : target_bank;
     assign next_line_idx              = pair_line_done ? (line_idx + 5'd1) : line_idx;
     assign next_word_idx              = pair_line_done ? 13'd0 : issue_pair_next_word_sum[12:0];
     assign next_y_line_in_group       = is_p010 ? {1'b0, next_line_idx[1:0]} : next_line_idx[2:0];
@@ -283,10 +320,12 @@ module sram_read_fetcher #(
                                                    (next_line_idx[3] ? y_lower_base_full : 17'd0));
     assign next_y_off_rgba_full       = wide_profile ? {4'd0, next_y_line_in_group, 10'd0} :
                                                        {5'd0, next_y_line_in_group, 9'd0};
-    assign next_y_off_yuv8_full       = wide_profile ? {6'd0, next_y_line_in_group, 8'd0} :
-                                                       {7'd0, next_y_line_in_group, 7'd0};
-    assign next_y_off_p010_full       = wide_profile ? {5'd0, next_y_line_in_group, 9'd0} :
-                                                       {6'd0, next_y_line_in_group, 8'd0};
+    assign next_y_off_yuv8_full       = (wide_profile || wide_yuv420_profile) ?
+                                        {6'd0, next_y_line_in_group, 8'd0} :
+                                        {7'd0, next_y_line_in_group, 7'd0};
+    assign next_y_off_p010_full       = (wide_profile || wide_yuv420_profile) ?
+                                        {5'd0, next_y_line_in_group, 9'd0} :
+                                        {6'd0, next_y_line_in_group, 8'd0};
     assign next_y_off_full            = is_y_stride_1k ? next_y_off_rgba_full :
                                         (is_p010 ? next_y_off_p010_full : next_y_off_yuv8_full);
     assign next_addr_y_full           = next_y_group_off_full + next_y_off_full + {4'd0, next_word_idx};
@@ -297,7 +336,9 @@ module sram_read_fetcher #(
     assign entry_empty                = (entry_count == {ENTRY_CNT_W{1'b0}});
     assign entry_full                 = (entry_count == ENTRY_CNT_W'(ENTRY_DEPTH));
     assign entry_can_alloc            = !entry_full;
-    assign start_fetch_fire           = !fetch_active && i_buffer_vld && (w_limit != 13'd0);
+    assign start_fetch_fire           = !fetch_active && i_buffer_vld &&
+                                        (w_limit != 13'd0) &&
+                                        remaining_lines_valid;
     assign first_wait_y_lower         = wide_yuv420_profile && y_second_half &&
                                         !target_y_lower_ready;
     assign first_issue_req            = fetch_active && !issue_done &&
@@ -350,7 +391,7 @@ module sram_read_fetcher #(
                                         (head_final_bank_done && (entry_final_done_bank[head_ptr] == 1'b0));
     assign head_bank1_done            = (head_first_bank_done && (target_bank == 1'b1)) ||
                                         (head_final_bank_done && (entry_final_done_bank[head_ptr] == 1'b1));
-    assign final_bank_done            = wide_yuv420_profile ? ~target_bank : target_bank;
+    assign final_bank_done            = wide_yuv420_profile ? final_done_bank_sel : target_bank;
 
     always @(*) begin
         second_cand_a_vld = 1'b0;
@@ -418,6 +459,24 @@ module sram_read_fetcher #(
             fetch_active <= 1'b1;
         else if (push_fire && entry_final_bank_done[head_ptr])
             fetch_active <= 1'b0;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            frame_line_base <= 16'd0;
+        else if (frame_start)
+            frame_line_base <= 16'd0;
+        else if (push_fire && head_final_bank_done)
+            frame_line_base <= frame_line_base + {11'd0, target_tot_lines};
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            target_tot_lines <= 5'd0;
+        else if (frame_start)
+            target_tot_lines <= 5'd0;
+        else if (start_fetch_fire)
+            target_tot_lines <= remaining_lines_clip;
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
@@ -690,9 +749,7 @@ module sram_read_fetcher #(
                 entry_second_wait_uv[alloc_ptr]  <= has_uv && current_line_has_uv;
                 entry_second_addr[alloc_ptr]     <= has_uv ? addr_uv : addr_y_p1;
                 entry_second_data[alloc_ptr]     <= 128'd0;
-                entry_first_bank_done[alloc_ptr] <= pair_line_done && wide_yuv420_profile &&
-                                                    (is_p010 ? (line_idx == 5'd3) :
-                                                               (line_idx == 5'd7));
+                entry_first_bank_done[alloc_ptr] <= target_first_bank_done;
                 entry_final_bank_done[alloc_ptr] <= pair_bank_done;
                 entry_final_done_bank[alloc_ptr] <= final_bank_done;
             end
@@ -777,7 +834,8 @@ module sram_read_fetcher #(
         else if (frame_start)
             o_fetcher_done <= 1'b0;
         else
-            o_fetcher_done <= push_fire && head_final_bank_done;
+            o_fetcher_done <= (push_fire && head_final_bank_done) ||
+                              start_fetch_drop_fire;
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
@@ -787,6 +845,8 @@ module sram_read_fetcher #(
             o_fetcher_bank <= 1'b0;
         else if (push_fire && head_final_bank_done)
             o_fetcher_bank <= target_bank;
+        else if (start_fetch_drop_fire)
+            o_fetcher_bank <= i_writer_bank;
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
@@ -796,6 +856,17 @@ module sram_read_fetcher #(
             o_fetcher_fcnt <= 4'd0;
         else if (push_fire && head_final_bank_done)
             o_fetcher_fcnt <= target_fcnt;
+        else if (start_fetch_drop_fire)
+            o_fetcher_fcnt <= i_buffer_fcnt;
+    end
+
+    always @(posedge clk_sram or negedge rst_n) begin
+        if (!rst_n)
+            o_fetcher_uv_slot <= 1'b0;
+        else if (frame_start)
+            o_fetcher_uv_slot <= 1'b0;
+        else if (start_fetch_fire)
+            o_fetcher_uv_slot <= i_buffer_uv_slot;
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
@@ -804,7 +875,8 @@ module sram_read_fetcher #(
         else if (frame_start)
             o_fetcher_bank0_done <= 1'b0;
         else
-            o_fetcher_bank0_done <= push_fire && head_bank0_done;
+            o_fetcher_bank0_done <= (push_fire && head_bank0_done) ||
+                                    (start_fetch_drop_fire && !i_writer_bank);
     end
 
     always @(posedge clk_sram or negedge rst_n) begin
@@ -813,6 +885,7 @@ module sram_read_fetcher #(
         else if (frame_start)
             o_fetcher_bank1_done <= 1'b0;
         else
-            o_fetcher_bank1_done <= push_fire && head_bank1_done;
+            o_fetcher_bank1_done <= (push_fire && head_bank1_done) ||
+                                    (start_fetch_drop_fire && i_writer_bank);
     end
 endmodule

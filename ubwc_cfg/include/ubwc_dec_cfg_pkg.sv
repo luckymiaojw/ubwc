@@ -130,6 +130,11 @@ package ubwc_dec_cfg_pkg;
         end
     endfunction
 
+    function automatic int unsigned ubwc_dec_active_tile_y_numbers(input int unsigned format,
+                                                                   input int unsigned height_px);
+        ubwc_dec_active_tile_y_numbers = ubwc_dec_ceil_div(height_px, ubwc_dec_tile_h(format));
+    endfunction
+
     function automatic int unsigned ubwc_dec_surface_pitch_bytes(input int unsigned format,
                                                                 input int unsigned width_px);
         ubwc_dec_surface_pitch_bytes =
@@ -255,7 +260,7 @@ package ubwc_dec_cfg_pkg;
         int unsigned tile_x;
         int unsigned tile_y;
         tile_x = ubwc_dec_tile_x_numbers(format, width_px);
-        tile_y = ubwc_dec_tile_y_numbers(format, height_px);
+        tile_y = ubwc_dec_active_tile_y_numbers(format, height_px);
         ubwc_dec_reg_meta_cfg0 = {tile_y[15:0], tile_x[15:0]};
     endfunction
 
@@ -263,7 +268,7 @@ package ubwc_dec_cfg_pkg;
                                                          input int unsigned width_px);
         int unsigned base_format;
         base_format = ubwc_dec_base_format(format);
-        ubwc_dec_reg_otf_cfg0 = {11'd0, base_format[4:0], width_px[15:0]};
+        ubwc_dec_reg_otf_cfg0 = {11'd0, base_format[4:0], 16'd0};
     endfunction
 
     function automatic logic [31:0] ubwc_dec_reg_otf_cfg1(input int unsigned h_total,

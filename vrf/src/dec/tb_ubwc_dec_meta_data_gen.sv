@@ -47,13 +47,13 @@ module tb_ubwc_dec_meta_data_gen;
     wire [4:0]                  dec_format;
     wire [3:0]                  dec_flag;
     wire [2:0]                  dec_alen;
-    wire                        dec_has_payload;
     wire [11:0]                 dec_x;
     wire [9:0]                  dec_y;
 
     wire [31:0]                 error_cnt;
     wire [31:0]                 cmd_ok_cnt;
     wire [31:0]                 cmd_fail_cnt;
+    wire                        dut_busy;
 
     integer                     cycle_cnt;
     integer                     dec_out_cnt;
@@ -96,11 +96,10 @@ module tb_ubwc_dec_meta_data_gen;
         .o_dec_format           (dec_format),
         .o_dec_flag             (dec_flag),
         .o_dec_alen             (dec_alen),
-        .o_dec_has_payload      (dec_has_payload),
         .o_dec_x                (dec_x),
         .o_dec_y                (dec_y),
         .o_dec_fcnt             (),
-        .o_busy                 (),
+        .o_busy                 (dut_busy),
         .error_cnt              (error_cnt),
         .cmd_ok_cnt             (cmd_ok_cnt),
         .cmd_fail_cnt           (cmd_fail_cnt)
@@ -151,12 +150,21 @@ module tb_ubwc_dec_meta_data_gen;
         integer timeout;
         begin
             timeout = 0;
-            while ((dut.u_meta_get_cmd_gen.frame_done != 1'b1) && (timeout < 5000)) begin
+            while ((dut_busy != 1'b1) && (timeout < 5000)) begin
                 @(posedge clk);
                 timeout = timeout + 1;
             end
             if (timeout >= 5000) begin
-                $fatal(1, "Timeout waiting frame done.");
+                $fatal(1, "Timeout waiting metadata engine busy.");
+            end
+
+            timeout = 0;
+            while (((dut_busy != 1'b0) || (dec_out_cnt == 0)) && (timeout < 5000)) begin
+                @(posedge clk);
+                timeout = timeout + 1;
+            end
+            if (timeout >= 5000) begin
+                $fatal(1, "Timeout waiting metadata engine idle.");
             end
             repeat (120) @(posedge clk);
         end
@@ -178,12 +186,11 @@ module tb_ubwc_dec_meta_data_gen;
             dec_out_cnt <= 0;
         end else if (dec_valid && dec_ready) begin
             dec_out_cnt <= dec_out_cnt + 1;
-            $display("[%0t] DEC: fmt=%0h flag=%0h alen=%0d payload=%0b x=%03h y=%03h",
+            $display("[%0t] DEC: fmt=%0h flag=%0h alen=%0d x=%03h y=%03h",
                      $time,
                      dec_format,
                      dec_flag,
                      dec_alen,
-                     dec_has_payload,
                      dec_x,
                      dec_y);
         end

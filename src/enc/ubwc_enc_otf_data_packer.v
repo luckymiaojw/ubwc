@@ -34,6 +34,8 @@ module ubwc_enc_otf_data_packer
         input   wire    [2                      :0]         cfg_format                      ,
         input   wire    [15                     :0]         cfg_width                       ,
         input   wire    [15                     :0]         cfg_height                      ,
+        input   wire    [15                     :0]         cfg_active_width                ,
+        input   wire    [15                     :0]         cfg_active_height               ,
 
         // error flags
         output  wire                                        err_bline                       ,
@@ -77,13 +79,23 @@ module ubwc_enc_otf_data_packer
     wire                                            in_fifo_full                    ;
     wire                                            otf_fire                        ;
     wire                                            in_fifo_wr_en                   ;
+    wire                                            pending_flush_req               ;
+    wire                                            pending_flush_last              ;
+    wire                                            pending_line_done               ;
+    wire                                            pending_lcnt_switch             ;
+    wire                                            current_line_new                ;
+    wire        [15                     :0]         current_pixel_base              ;
+    wire        [15                     :0]         current_pixel_rem               ;
+    wire        [2                      :0]         current_valid_pix               ;
+    wire                                            current_last_by_width           ;
+    wire        [15                     :0]         cfg_rx_width                    ;
+    wire        [15                     :0]         cfg_rx_height                   ;
     wire                                            locked_lcnt_load_vsync          ;
     wire                                            locked_lcnt_load_hsync          ;
     wire        [11                     :0]         locked_lcnt_hsync_value         ;
     wire                                            line_cnt_clear                  ;
     wire                                            line_cnt_inc                    ;
-    wire                                            pixel_cnt_clear                 ;
-    wire                                            pixel_cnt_inc                   ;
+    wire        [15                     :0]         line_cnt_done_value             ;
     wire                                            otf_stall                       ;
     wire        [146                    :0]         otf_stall_sig                   ;
     wire                                            otf_stall_sig_changed           ;
@@ -97,8 +109,6 @@ module ubwc_enc_otf_data_packer
     wire                                            err_bline_event_sys             ;
     wire                                            err_bframe_event_sys            ;
     wire                                            err_fifo_ovf_event_sys          ;
-    wire        [15                     :0]         effective_pixel_cnt             ;
-    wire                                            otf_last_beat                   ;
     wire                                            otf_frame_done_pulse            ;
     wire                                            din_vsync                       ;
     wire                                            din_hsync                       ;
@@ -106,13 +116,15 @@ module ubwc_enc_otf_data_packer
     wire        [11                     :0]         din_lcnt                        ;
     wire                                            in_fifo_empty                   ;
     wire                                            in_fifo_rd                      ;
-    wire        [146                    :0]         in_fifo_din                     ;
-    wire        [146                    :0]         in_fifo_dout                    ;
+    wire        [149                    :0]         in_fifo_din                     ;
+    wire        [149                    :0]         in_fifo_dout                    ;
     wire                                            inf_last_beat                   ;
+    wire        [2                      :0]         inf_valid_pix                   ;
     wire        [17                     :0]         inf_sideband                    ;
     wire        [11                     :0]         inf_lcnt                        ;
     wire        [127                    :0]         inf_data                        ;
     wire                                            is_odd_line                     ;
+    wire                                            line_has_uv                     ;
     wire                                            fifo_a_empty                    ;
     wire                                            fifo_b_empty                    ;
     wire                                            fifo_a_rd_en                    ;
@@ -123,11 +135,18 @@ module ubwc_enc_otf_data_packer
     wire        [127                    :0]         ext_a_data128                   ;
     wire        [31                     :0]         ext_a_data32                    ;
     wire        [63                     :0]         ext_a_data64                    ;
+    wire        [15                     :0]         ext_a_keep128                   ;
+    wire        [15                     :0]         ext_a_keep32                    ;
+    wire        [15                     :0]         ext_a_keep64                    ;
+    wire        [15                     :0]         ext_a_keep                      ;
     wire                                            ext_a_vld_128                   ;
     wire                                            ext_a_vld_32                    ;
     wire                                            ext_a_vld_64                    ;
     wire        [31                     :0]         ext_b_data32                    ;
     wire        [63                     :0]         ext_b_data64                    ;
+    wire        [15                     :0]         ext_b_keep32                    ;
+    wire        [15                     :0]         ext_b_keep64                    ;
+    wire        [15                     :0]         ext_b_keep                      ;
     wire                                            ext_b_vld_32                    ;
     wire                                            ext_b_vld_64                    ;
     wire                                            a_take_128                      ;
@@ -160,6 +179,14 @@ module ubwc_enc_otf_data_packer
     reg         [11                     :0]         locked_lcnt                     ;
     reg         [15                     :0]         pixel_cnt_in                    ;
     reg         [15                     :0]         line_cnt_in                     ;
+    reg                                             pending_valid                   ;
+    reg                                             pending_vsync                   ;
+    reg                                             pending_hsync                   ;
+    reg                                             pending_last                    ;
+    reg         [2                      :0]         pending_valid_pix               ;
+    reg         [3                      :0]         pending_fcnt                    ;
+    reg         [11                     :0]         pending_lcnt                    ;
+    reg         [127                    :0]         pending_data                    ;
     reg                                             err_bline_pending_otf           ;
     reg                                             err_bframe_pending_otf          ;
     reg                                             err_fifo_ovf_pending_otf        ;
@@ -184,12 +211,16 @@ module ubwc_enc_otf_data_packer
     reg         [162                    :0]         out_fifo_b_din                  ;
     reg         [127                    :0]         a_pack32_data                   ;
     reg         [127                    :0]         a_pack64_data                   ;
+    reg         [15                     :0]         a_pack32_keep                   ;
+    reg         [15                     :0]         a_pack64_keep                   ;
     reg         [1                      :0]         a_pack32_cnt                    ;
     reg                                             a_pack64_cnt                    ;
     reg         [17                     :0]         a_pack32_sb                     ;
     reg         [17                     :0]         a_pack64_sb                     ;
     reg         [127                    :0]         b_pack32_data                   ;
     reg         [127                    :0]         b_pack64_data                   ;
+    reg         [15                     :0]         b_pack32_keep                   ;
+    reg         [15                     :0]         b_pack64_keep                   ;
     reg         [1                      :0]         b_pack32_cnt                    ;
     reg                                             b_pack64_cnt                    ;
     reg         [17                     :0]         b_pack32_sb                     ;
@@ -209,27 +240,46 @@ module ubwc_enc_otf_data_packer
     assign is_yuv_10                  = (cfg_format == FMT_YUV420_10);
     assign need_b                     = is_yuv_8 || is_yuv_10;
     assign format_supported           = is_rgba || need_b;
+    assign cfg_rx_width               = (cfg_active_width  != 16'd0) ? cfg_active_width  : cfg_width;
+    assign cfg_rx_height              = (cfg_active_height != 16'd0) ? cfg_active_height : cfg_height;
     assign vsync_rising               = otf_vsync & ~otf_vsync_d1;
     assign hsync_rising               = otf_hsync & ~otf_hsync_d1;
     assign otf_ready                  = format_supported && ~in_fifo_full;
     assign otf_fire                   = otf_de && otf_ready;
-    assign in_fifo_wr_en              = otf_fire;
+    assign pending_lcnt_switch        = pending_valid && otf_fire &&
+                                        (otf_lcnt != pending_lcnt);
+    assign pending_flush_req          = pending_valid &&
+                                        (otf_fire || hsync_rising ||
+                                         vsync_rising || pending_last);
+    assign pending_flush_last         = pending_last || pending_lcnt_switch ||
+                                        hsync_rising || vsync_rising;
+    assign pending_line_done          = in_fifo_wr_en && pending_flush_last;
+    assign current_line_new           = !pending_valid || pending_last ||
+                                        pending_lcnt_switch || hsync_rising ||
+                                        vsync_rising;
+    assign current_pixel_base         = current_line_new ? 16'd0 : pixel_cnt_in;
+    assign current_pixel_rem          = (cfg_rx_width > current_pixel_base) ?
+                                        (cfg_rx_width - current_pixel_base) :
+                                        16'd0;
+    assign current_valid_pix          = (current_pixel_rem >= 16'd4) ? 3'd4 :
+                                        current_pixel_rem[2:0];
+    assign current_last_by_width      = (current_pixel_base + 16'd4 >= cfg_rx_width);
+    assign in_fifo_wr_en              = pending_flush_req && !in_fifo_full;
     assign locked_lcnt_load_vsync     = vsync_rising && !hsync_rising;
     assign locked_lcnt_load_hsync     = hsync_rising;
     assign locked_lcnt_hsync_value    = vsync_rising ? 12'd0 : otf_lcnt;
     assign line_cnt_clear             = vsync_rising && !hsync_rising;
-    assign line_cnt_inc               = hsync_rising;
-    assign pixel_cnt_clear            = hsync_rising;
-    assign pixel_cnt_inc              = !hsync_rising && otf_fire;
+    assign line_cnt_inc               = pending_line_done;
+    assign line_cnt_done_value        = line_cnt_in + 16'd1;
     assign otf_stall                  = otf_de && !otf_ready;
     assign otf_stall_sig              = {otf_vsync, otf_hsync, otf_de, otf_fcnt, otf_lcnt, otf_data};
     assign otf_stall_sig_changed      = otf_stall_hold_valid &&
                                         otf_stall &&
                                         (otf_stall_sig != otf_stall_hold_sig);
-    assign err_bline_set_otf          = hsync_rising && (pixel_cnt_in > 0) &&
-                                        (pixel_cnt_in != cfg_width);
+    assign err_bline_set_otf          = pending_line_done &&
+                                        (current_pixel_base > cfg_rx_width);
     assign err_bframe_set_otf         = vsync_rising && (line_cnt_in > 0) &&
-                                        (line_cnt_in != cfg_height);
+                                        (line_cnt_in != cfg_rx_height);
     assign err_fifo_ovf_set_otf       = otf_stall_sig_changed;
     assign err_clear_otf              = err_clear_otf_ff2 ^ err_clear_otf_ff3;
     assign err_bline_new_otf          = err_bline_set_otf &&
@@ -247,24 +297,27 @@ module ubwc_enc_otf_data_packer
     assign err_bline                  = err_bline_sticky_sys;
     assign err_bframe                 = err_bframe_sticky_sys;
     assign err_fifo_ovf               = err_fifo_ovf_sticky_sys;
-    assign effective_pixel_cnt        = (otf_hsync || hsync_rising) ? 16'd0 : pixel_cnt_in;
-    assign otf_last_beat              = (effective_pixel_cnt + 16'd4 >= cfg_width);
-    assign otf_frame_done_pulse       = otf_fire && otf_last_beat &&
-                                        (line_cnt_in == cfg_height);
+    assign otf_frame_done_pulse       = pending_line_done &&
+                                        (line_cnt_done_value == cfg_rx_height);
     assign otf_frame_done             = otf_frame_done_pulse;
     assign din_vsync                  = sticky_vsync | otf_vsync;
     assign din_hsync                  = sticky_hsync | otf_hsync;
     assign din_fcnt                   = otf_vsync ? otf_fcnt : locked_fcnt;
     assign din_lcnt                   = otf_hsync ? otf_lcnt : locked_lcnt;
-    assign in_fifo_din                = {otf_last_beat, din_fcnt, din_lcnt, din_vsync, din_hsync, otf_data};
-    assign inf_last_beat              = in_fifo_dout[146];
+    assign in_fifo_din                = {pending_flush_last, pending_valid_pix,
+                                         pending_fcnt, pending_lcnt,
+                                         pending_vsync, pending_hsync,
+                                         pending_data};
+    assign inf_last_beat              = in_fifo_dout[149];
+    assign inf_valid_pix              = in_fifo_dout[148:146];
     assign inf_sideband               = in_fifo_dout[145:128];
     assign inf_lcnt                   = in_fifo_dout[141:130];
     assign inf_data                   = in_fifo_dout[127:0];
     assign is_odd_line                = inf_lcnt[0];
+    assign line_has_uv                = !is_odd_line;
     assign fifo_a_rd_en               = fifo_a_vld && fifo_a_rdy;
     assign fifo_b_rd_en               = fifo_b_vld && fifo_b_rdy;
-    assign pipe_stall                 = out_fifo_a_afull | (need_b && is_odd_line && out_fifo_b_afull);
+    assign pipe_stall                 = out_fifo_a_afull | (need_b && line_has_uv && out_fifo_b_afull);
     assign in_fifo_rd                 = !in_fifo_empty && !pipe_stall;
     assign ext_a_data128              = is_rgba ? inf_data : 128'd0;
     assign ext_a_data32               = is_yuv_8 ?
@@ -277,21 +330,49 @@ module ubwc_enc_otf_data_packer
                                                     inf_data[51:42],   6'b0,
                                                     inf_data[19:10],   6'b0} :
                                                     64'd0;
+    assign ext_a_keep128              = (inf_valid_pix == 3'd1) ? 16'h000f :
+                                        (inf_valid_pix == 3'd2) ? 16'h00ff :
+                                        (inf_valid_pix == 3'd3) ? 16'h0fff :
+                                        (inf_valid_pix == 3'd4) ? 16'hffff :
+                                                                  16'h0000;
+    assign ext_a_keep32               = (inf_valid_pix == 3'd1) ? 16'h0001 :
+                                        (inf_valid_pix == 3'd2) ? 16'h0003 :
+                                        (inf_valid_pix == 3'd3) ? 16'h0007 :
+                                        (inf_valid_pix == 3'd4) ? 16'h000f :
+                                                                  16'h0000;
+    assign ext_a_keep64               = (inf_valid_pix == 3'd1) ? 16'h0003 :
+                                        (inf_valid_pix == 3'd2) ? 16'h000f :
+                                        (inf_valid_pix == 3'd3) ? 16'h003f :
+                                        (inf_valid_pix == 3'd4) ? 16'h00ff :
+                                                                  16'h0000;
+    assign ext_a_keep                 = is_rgba   ? ext_a_keep128 :
+                                        is_yuv_8  ? ext_a_keep32  :
+                                        is_yuv_10 ? ext_a_keep64  :
+                                                     16'h0000;
     assign ext_a_vld_128              = is_rgba;
     assign ext_a_vld_32               = is_yuv_8;
     assign ext_a_vld_64               = is_yuv_10;
-    assign ext_b_data32               = (is_yuv_8 && is_odd_line) ?
+    assign ext_b_data32               = (is_yuv_8 && line_has_uv) ?
                                                                      {inf_data[71:64], inf_data[87:80],
                                                                      inf_data[7:0],   inf_data[23:16]} :
                                                                      32'd0;
-    assign ext_b_data64               = (is_yuv_10 && is_odd_line) ?
+    assign ext_b_data64               = (is_yuv_10 && line_has_uv) ?
                                                                       {inf_data[73:64], 6'b0,
                                                                       inf_data[93:84], 6'b0,
                                                                       inf_data[9:0],   6'b0,
                                                                       inf_data[29:20], 6'b0} :
                                                                       64'd0;
-    assign ext_b_vld_32               = is_yuv_8 && is_odd_line;
-    assign ext_b_vld_64               = is_yuv_10 && is_odd_line;
+    assign ext_b_keep32               = (inf_valid_pix == 3'd0) ? 16'h0000 :
+                                        (inf_valid_pix <= 3'd2) ? 16'h0003 :
+                                                                  16'h000f;
+    assign ext_b_keep64               = (inf_valid_pix == 3'd0) ? 16'h0000 :
+                                        (inf_valid_pix <= 3'd2) ? 16'h000f :
+                                                                  16'h00ff;
+    assign ext_b_keep                 = is_yuv_8  ? ext_b_keep32 :
+                                        is_yuv_10 ? ext_b_keep64 :
+                                                     16'h0000;
+    assign ext_b_vld_32               = is_yuv_8 && line_has_uv;
+    assign ext_b_vld_64               = is_yuv_10 && line_has_uv;
     assign a_take_128                 = in_fifo_rd && ext_a_vld_128;
     assign a_take_32                  = in_fifo_rd && ext_a_vld_32;
     assign a_take_64                  = in_fifo_rd && ext_a_vld_64;
@@ -352,19 +433,67 @@ module ubwc_enc_otf_data_packer
     always @(posedge i_otf_clk or negedge rst_n_otf) begin
         if (!rst_n_otf)
             pixel_cnt_in <= 16'd0;
-        else if (pixel_cnt_clear)
+        else if (vsync_rising)
             pixel_cnt_in <= 16'd0;
-        else if (pixel_cnt_inc)
-            pixel_cnt_in <= pixel_cnt_in + 16'd4;
+        else if (otf_fire) begin
+            if (current_last_by_width)
+                pixel_cnt_in <= 16'd0;
+            else
+                pixel_cnt_in <= current_pixel_base + 16'd4;
+        end
     end
 
     always @(posedge i_otf_clk or negedge rst_n_otf) begin
         if (!rst_n_otf)
             line_cnt_in <= 16'd0;
-        else if (line_cnt_inc)
-            line_cnt_in <= line_cnt_in + 16'd1;
         else if (line_cnt_clear)
             line_cnt_in <= 16'd0;
+        else if (line_cnt_inc)
+            line_cnt_in <= line_cnt_done_value;
+    end
+
+    always @(posedge i_otf_clk or negedge rst_n_otf) begin
+        if (!rst_n_otf)
+            pending_valid <= 1'b0;
+        else if (otf_fire)
+            pending_valid <= 1'b1;
+        else if (in_fifo_wr_en)
+            pending_valid <= 1'b0;
+    end
+
+    always @(posedge i_otf_clk) begin
+        if (otf_fire)
+            pending_vsync <= din_vsync;
+    end
+
+    always @(posedge i_otf_clk) begin
+        if (otf_fire)
+            pending_hsync <= din_hsync;
+    end
+
+    always @(posedge i_otf_clk) begin
+        if (otf_fire)
+            pending_last <= current_last_by_width;
+    end
+
+    always @(posedge i_otf_clk) begin
+        if (otf_fire)
+            pending_valid_pix <= current_valid_pix;
+    end
+
+    always @(posedge i_otf_clk) begin
+        if (otf_fire)
+            pending_fcnt <= din_fcnt;
+    end
+
+    always @(posedge i_otf_clk) begin
+        if (otf_fire)
+            pending_lcnt <= otf_lcnt;
+    end
+
+    always @(posedge i_otf_clk) begin
+        if (otf_fire)
+            pending_data <= otf_data;
     end
 
     always @(posedge i_clk or negedge rst_n_sys) begin
@@ -568,7 +697,7 @@ module ubwc_enc_otf_data_packer
     mg_async_fifo
     #(
         .AF                         ( 1                             ),
-        .DATA_BITS                  ( 147                           ),
+        .DATA_BITS                  ( 150                           ),
         .DEPTH_BITS                 ( 4                             ),
         .SHOW_AHEAD                 ( 1                             ),
         .RAM_STYLE                  ( "block"                       )
@@ -645,28 +774,35 @@ module ubwc_enc_otf_data_packer
 
     always @(posedge i_clk) begin
         if (a_take_128)
-            out_fifo_a_din <= {inf_sideband, inf_last_beat, 16'hFFFF,
+            out_fifo_a_din <= {inf_sideband, inf_last_beat, ext_a_keep,
                                ext_a_data128};
         else if (a_pack32_full)
-            out_fifo_a_din <= {a_pack32_sb, inf_last_beat, 16'hFFFF,
+            out_fifo_a_din <= {a_pack32_sb, inf_last_beat,
+                               {ext_a_keep32[3:0], a_pack32_keep[11:0]},
                                {ext_a_data32, a_pack32_data[95:0]}};
         else if (a_pack32_flush) begin
             case (a_pack32_cnt)
-                2'd0: out_fifo_a_din <= {a_pack32_sb_out, 1'b1, 16'h000F,
+                2'd0: out_fifo_a_din <= {a_pack32_sb_out, 1'b1,
+                                          ext_a_keep32,
                                           {96'd0, ext_a_data32}};
-                2'd1: out_fifo_a_din <= {a_pack32_sb_out, 1'b1, 16'h00FF,
+                2'd1: out_fifo_a_din <= {a_pack32_sb_out, 1'b1,
+                                          {8'd0, ext_a_keep32[3:0],
+                                           a_pack32_keep[3:0]},
                                           {64'd0, ext_a_data32,
                                            a_pack32_data[31:0]}};
-                2'd2: out_fifo_a_din <= {a_pack32_sb_out, 1'b1, 16'h0FFF,
+                2'd2: out_fifo_a_din <= {a_pack32_sb_out, 1'b1,
+                                          {4'd0, ext_a_keep32[3:0],
+                                           a_pack32_keep[7:0]},
                                           {32'd0, ext_a_data32,
                                            a_pack32_data[63:0]}};
                 default: ;
             endcase
         end else if (a_pack64_full)
-            out_fifo_a_din <= {a_pack64_sb, inf_last_beat, 16'hFFFF,
+            out_fifo_a_din <= {a_pack64_sb, inf_last_beat,
+                               {ext_a_keep64[7:0], a_pack64_keep[7:0]},
                                {ext_a_data64, a_pack64_data[63:0]}};
         else if (a_pack64_flush)
-            out_fifo_a_din <= {a_pack64_sb_out, 1'b1, 16'h00FF,
+            out_fifo_a_din <= {a_pack64_sb_out, 1'b1, ext_a_keep64,
                                {64'd0, ext_a_data64}};
     end
 
@@ -700,6 +836,21 @@ module ubwc_enc_otf_data_packer
             a_pack32_sb <= inf_sideband;
     end
 
+    always @(posedge i_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            a_pack32_keep <= 16'd0;
+        else if (a_take_32) begin
+            case (a_pack32_cnt)
+                2'd0: a_pack32_keep <= {12'd0, ext_a_keep32[3:0]};
+                2'd1: a_pack32_keep <= {8'd0, ext_a_keep32[3:0],
+                                         a_pack32_keep[3:0]};
+                2'd2: a_pack32_keep <= {4'd0, ext_a_keep32[3:0],
+                                         a_pack32_keep[7:0]};
+                default: a_pack32_keep <= 16'd0;
+            endcase
+        end
+    end
+
     always @(posedge i_clk) begin
         if (a_take_64) begin
             if (a_pack64_cnt == 1'b0)
@@ -729,6 +880,17 @@ module ubwc_enc_otf_data_packer
 
     always @(posedge i_clk or negedge rst_n_sys) begin
         if (!rst_n_sys)
+            a_pack64_keep <= 16'd0;
+        else if (a_take_64) begin
+            if (a_pack64_cnt == 1'b0)
+                a_pack64_keep <= {8'd0, ext_a_keep64[7:0]};
+            else
+                a_pack64_keep <= 16'd0;
+        end
+    end
+
+    always @(posedge i_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
             out_fifo_b_wr <= 1'b0;
         else
             out_fifo_b_wr <= b_out_fifo_wr_next;
@@ -736,25 +898,32 @@ module ubwc_enc_otf_data_packer
 
     always @(posedge i_clk) begin
         if (b_pack32_full)
-            out_fifo_b_din <= {b_pack32_sb, inf_last_beat, 16'hFFFF,
+            out_fifo_b_din <= {b_pack32_sb, inf_last_beat,
+                               {ext_b_keep32[3:0], b_pack32_keep[11:0]},
                                {ext_b_data32, b_pack32_data[95:0]}};
         else if (b_pack32_flush) begin
             case (b_pack32_cnt)
-                2'd0: out_fifo_b_din <= {b_pack32_sb_out, 1'b1, 16'h000F,
+                2'd0: out_fifo_b_din <= {b_pack32_sb_out, 1'b1,
+                                          ext_b_keep32,
                                           {96'd0, ext_b_data32}};
-                2'd1: out_fifo_b_din <= {b_pack32_sb_out, 1'b1, 16'h00FF,
+                2'd1: out_fifo_b_din <= {b_pack32_sb_out, 1'b1,
+                                          {8'd0, ext_b_keep32[3:0],
+                                           b_pack32_keep[3:0]},
                                           {64'd0, ext_b_data32,
                                            b_pack32_data[31:0]}};
-                2'd2: out_fifo_b_din <= {b_pack32_sb_out, 1'b1, 16'h0FFF,
+                2'd2: out_fifo_b_din <= {b_pack32_sb_out, 1'b1,
+                                          {4'd0, ext_b_keep32[3:0],
+                                           b_pack32_keep[7:0]},
                                           {32'd0, ext_b_data32,
                                            b_pack32_data[63:0]}};
                 default: ;
             endcase
         end else if (b_pack64_full)
-            out_fifo_b_din <= {b_pack64_sb, inf_last_beat, 16'hFFFF,
+            out_fifo_b_din <= {b_pack64_sb, inf_last_beat,
+                               {ext_b_keep64[7:0], b_pack64_keep[7:0]},
                                {ext_b_data64, b_pack64_data[63:0]}};
         else if (b_pack64_flush)
-            out_fifo_b_din <= {b_pack64_sb_out, 1'b1, 16'h00FF,
+            out_fifo_b_din <= {b_pack64_sb_out, 1'b1, ext_b_keep64,
                                {64'd0, ext_b_data64}};
     end
 
@@ -788,6 +957,21 @@ module ubwc_enc_otf_data_packer
             b_pack32_sb <= inf_sideband;
     end
 
+    always @(posedge i_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            b_pack32_keep <= 16'd0;
+        else if (b_take_32) begin
+            case (b_pack32_cnt)
+                2'd0: b_pack32_keep <= {12'd0, ext_b_keep32[3:0]};
+                2'd1: b_pack32_keep <= {8'd0, ext_b_keep32[3:0],
+                                         b_pack32_keep[3:0]};
+                2'd2: b_pack32_keep <= {4'd0, ext_b_keep32[3:0],
+                                         b_pack32_keep[7:0]};
+                default: b_pack32_keep <= 16'd0;
+            endcase
+        end
+    end
+
     always @(posedge i_clk) begin
         if (b_take_64) begin
             if (b_pack64_cnt == 1'b0)
@@ -813,6 +997,17 @@ module ubwc_enc_otf_data_packer
             b_pack64_sb <= 18'd0;
         else if (b_take_64 && (b_pack64_cnt == 1'b0))
             b_pack64_sb <= inf_sideband;
+    end
+
+    always @(posedge i_clk or negedge rst_n_sys) begin
+        if (!rst_n_sys)
+            b_pack64_keep <= 16'd0;
+        else if (b_take_64) begin
+            if (b_pack64_cnt == 1'b0)
+                b_pack64_keep <= {8'd0, ext_b_keep64[7:0]};
+            else
+                b_pack64_keep <= 16'd0;
+        end
     end
 
 endmodule

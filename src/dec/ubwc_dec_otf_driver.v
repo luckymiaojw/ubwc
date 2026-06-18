@@ -80,7 +80,6 @@ module otf_driver (
     wire                                            frame_start_idle                ;
     wire                                            stream_wait_start               ;
     wire                                            otf_step_fire                   ;
-    wire                                            otf_frame_end_fire              ;
     wire                                            otf_output_de_fire              ;
     wire                                            otf_output_last_col             ;
     wire                                            otf_output_last_row             ;
@@ -92,6 +91,8 @@ module otf_driver (
     wire                                            need_data                       ;
     wire                                            underflow_event                 ;
     wire        [1                      :0]         phase_out                       ;
+    wire                                            p010_last_lower_half            ;
+    wire                                            p010_lower_half                 ;
     wire        [9                      :0]         Y0_10                           ;
     wire        [9                      :0]         Y1_10                           ;
     wire        [9                      :0]         Y2_10                           ;
@@ -171,7 +172,6 @@ module otf_driver (
     assign frame_start_idle           = frame_start && !stream_started;
     assign stream_wait_start          = frame_start_pending && !stream_started;
     assign otf_step_fire              = stream_started && !active_data_stall && i_otf_ready;
-    assign otf_frame_end_fire         = otf_step_fire && h_last && v_last;
     assign otf_output_de_fire         = o_otf_de && i_otf_ready;
     assign otf_output_last_col        = (h_act_beats != 16'd0) &&
                                         (otf_out_x_cnt == (h_act_beats - 16'd1));
@@ -191,6 +191,8 @@ module otf_driver (
     assign o_active_fcnt              = stream_started ? otf_fcnt_core : pending_frame_fcnt;
     assign o_busy                     = stream_busy | fifo_busy | phase_busy;
     assign phase_out                  = phase - 2'd1;
+    assign p010_last_lower_half       = otf_de_core && !is_act && h_act_beats[0];
+    assign p010_lower_half            = (phase == 2'd1) || p010_last_lower_half;
     assign Y0                         = cur_y[7:0];
     assign Y1                         = cur_y[15:8];
     assign Y2                         = cur_y[23:16];
@@ -199,14 +201,14 @@ module otf_driver (
     assign V0                         = cur_u[15:8];
     assign U1                         = cur_u[23:16];
     assign V1                         = cur_u[31:24];
-    assign Y0_10                      = (phase == 2'd1) ? compact_data[15:6]    : compact_data[79:70];
-    assign Y1_10                      = (phase == 2'd1) ? compact_data[31:22]   : compact_data[95:86];
-    assign Y2_10                      = (phase == 2'd1) ? compact_data[47:38]   : compact_data[111:102];
-    assign Y3_10                      = (phase == 2'd1) ? compact_data[63:54]   : compact_data[127:118];
-    assign U0_10                      = (phase == 2'd1) ? compact_data[143:134] : compact_data[207:198];
-    assign V0_10                      = (phase == 2'd1) ? compact_data[159:150] : compact_data[223:214];
-    assign U1_10                      = (phase == 2'd1) ? compact_data[175:166] : compact_data[239:230];
-    assign V1_10                      = (phase == 2'd1) ? compact_data[191:182] : compact_data[255:246];
+    assign Y0_10                      = p010_lower_half ? compact_data[15:6]    : compact_data[79:70];
+    assign Y1_10                      = p010_lower_half ? compact_data[31:22]   : compact_data[95:86];
+    assign Y2_10                      = p010_lower_half ? compact_data[47:38]   : compact_data[111:102];
+    assign Y3_10                      = p010_lower_half ? compact_data[63:54]   : compact_data[127:118];
+    assign U0_10                      = p010_lower_half ? compact_data[143:134] : compact_data[207:198];
+    assign V0_10                      = p010_lower_half ? compact_data[159:150] : compact_data[223:214];
+    assign U1_10                      = p010_lower_half ? compact_data[175:166] : compact_data[239:230];
+    assign V1_10                      = p010_lower_half ? compact_data[191:182] : compact_data[255:246];
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
@@ -238,7 +240,7 @@ module otf_driver (
             stream_started <= 1'b0;
         else if (stream_wait_start && i_fifo_start_ready)
             stream_started <= 1'b1;
-        else if (otf_frame_end_fire)
+        else if (otf_output_last_de_fire)
             stream_started <= 1'b0;
     end
 

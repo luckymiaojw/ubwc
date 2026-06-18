@@ -31,3 +31,4 @@ LOSSY                                   : 0
 DDR mem channel                         : 8
 Source                                  : 20260522_UBWC_for_R7130_v2
 Note                                    : Text files are 64-bit hex words with an @base address line. The last linear active word is zero padded when the plane byte count is not 8-byte aligned.
+Note                                    : Linear/tiled-uncompressed files keep active payload only; compressed/meta files follow aligned UBWC storage layout.

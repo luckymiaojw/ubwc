@@ -27,15 +27,30 @@ def parse_otf_beats(path: Path) -> list[int]:
 
 
 def rgba_beats_from_words(words64: list[int], width: int, stored_height: int) -> list[int]:
-    words_per_line = width // 2
+    plane = words_to_linear_bytes(words64, width * stored_height * 4)
     beats: list[int] = []
     for y in range(stored_height):
-        base = y * words_per_line
-        for x in range(0, words_per_line, 2):
-            lo = words64[base + x]
-            hi = words64[base + x + 1]
-            beats.append((hi << 64) | lo)
+        for x in range(0, width, 4):
+            beat = 0
+            for pixel_idx in range(4):
+                if x + pixel_idx < width:
+                    byte_idx = ((y * width) + x + pixel_idx) * 4
+                    pixel = load_u32_le(plane, byte_idx)
+                else:
+                    pixel = 0
+                beat |= pixel << (pixel_idx * 32)
+            beats.append(beat)
     return beats
+
+
+def words_to_linear_bytes(words64: list[int], total_bytes: int) -> bytearray:
+    plane = bytearray(total_bytes)
+    for byte_idx in range(total_bytes):
+        word_idx = byte_idx // 8
+        byte_lane = byte_idx % 8
+        if word_idx < len(words64):
+            plane[byte_idx] = (words64[word_idx] >> (byte_lane * 8)) & 0xFF
+    return plane
 
 
 def words_to_plane(words64: list[int], width_bytes: int, height: int) -> bytearray:
@@ -51,16 +66,29 @@ def words_to_plane(words64: list[int], width_bytes: int, height: int) -> bytearr
     return plane
 
 
+def load_u8_safe(plane: bytes, byte_index: int) -> int:
+    if 0 <= byte_index < len(plane):
+        return plane[byte_index]
+    return 0
+
+
+def load_u32_le(plane: bytes, byte_index: int) -> int:
+    return (load_u8_safe(plane, byte_index + 0) |
+            (load_u8_safe(plane, byte_index + 1) << 8) |
+            (load_u8_safe(plane, byte_index + 2) << 16) |
+            (load_u8_safe(plane, byte_index + 3) << 24))
+
+
 def nv12_expected_beats(y_plane: bytes, uv_plane: bytes, width: int, y_height: int, uv_phase: str = "even") -> list[int]:
     beats: list[int] = []
     for y in range(y_height):
         y_base = y * width
         uv_base = (y >> 1) * width
         for x in range(0, width, 4):
-            y0 = y_plane[y_base + x + 0]
-            y1 = y_plane[y_base + x + 1]
-            y2 = y_plane[y_base + x + 2]
-            y3 = y_plane[y_base + x + 3]
+            y0 = load_u8_safe(y_plane, y_base + x + 0) if x + 0 < width else 0
+            y1 = load_u8_safe(y_plane, y_base + x + 1) if x + 1 < width else 0
+            y2 = load_u8_safe(y_plane, y_base + x + 2) if x + 2 < width else 0
+            y3 = load_u8_safe(y_plane, y_base + x + 3) if x + 3 < width else 0
 
             beat = 0
             beat |= y0 << 8
@@ -69,10 +97,10 @@ def nv12_expected_beats(y_plane: bytes, uv_plane: bytes, width: int, y_height: i
             beat |= y3 << 104
 
             if ((uv_phase == "odd") and (y & 1)) or ((uv_phase == "even") and ((y & 1) == 0)):
-                u0 = uv_plane[uv_base + x + 0]
-                v0 = uv_plane[uv_base + x + 1]
-                u1 = uv_plane[uv_base + x + 2]
-                v1 = uv_plane[uv_base + x + 3]
+                u0 = load_u8_safe(uv_plane, uv_base + x + 0) if x + 0 < width else 0
+                v0 = load_u8_safe(uv_plane, uv_base + x + 1) if x + 1 < width else 0
+                u1 = load_u8_safe(uv_plane, uv_base + x + 2) if x + 2 < width else 0
+                v1 = load_u8_safe(uv_plane, uv_base + x + 3) if x + 3 < width else 0
                 beat |= v0 << 0
                 beat |= u0 << 16
                 beat |= v1 << 64
@@ -84,6 +112,8 @@ def nv12_expected_beats(y_plane: bytes, uv_plane: bytes, width: int, y_height: i
 
 def load_u16_sample_le(plane: bytes, sample_index: int) -> int:
     byte_index = sample_index * 2
+    if byte_index + 1 >= len(plane):
+        return 0
     return plane[byte_index] | (plane[byte_index + 1] << 8)
 
 
@@ -99,10 +129,10 @@ def p010_expected_beats(y_plane: bytes, uv_plane: bytes, width: int, y_height: i
         y_base = y * width
         uv_base = (y >> 1) * width
         for x in range(0, width, 4):
-            y0 = load_u16_sample_le(y_plane, y_base + x + 0) >> 6
-            y1 = load_u16_sample_le(y_plane, y_base + x + 1) >> 6
-            y2 = load_u16_sample_le(y_plane, y_base + x + 2) >> 6
-            y3 = load_u16_sample_le(y_plane, y_base + x + 3) >> 6
+            y0 = (load_u16_sample_le(y_plane, y_base + x + 0) >> 6) if x + 0 < width else 0
+            y1 = (load_u16_sample_le(y_plane, y_base + x + 1) >> 6) if x + 1 < width else 0
+            y2 = (load_u16_sample_le(y_plane, y_base + x + 2) >> 6) if x + 2 < width else 0
+            y3 = (load_u16_sample_le(y_plane, y_base + x + 3) >> 6) if x + 3 < width else 0
 
             beat = 0
             beat |= y0 << 10
@@ -111,10 +141,10 @@ def p010_expected_beats(y_plane: bytes, uv_plane: bytes, width: int, y_height: i
             beat |= y3 << 106
 
             if ((uv_phase == "odd") and (y & 1)) or ((uv_phase == "even") and ((y & 1) == 0)):
-                u0 = load_u16_sample_le(uv_plane, uv_base + x + 0) >> 6
-                v0 = load_u16_sample_le(uv_plane, uv_base + x + 1) >> 6
-                u1 = load_u16_sample_le(uv_plane, uv_base + x + 2) >> 6
-                v1 = load_u16_sample_le(uv_plane, uv_base + x + 3) >> 6
+                u0 = (load_u16_sample_le(uv_plane, uv_base + x + 0) >> 6) if x + 0 < width else 0
+                v0 = (load_u16_sample_le(uv_plane, uv_base + x + 1) >> 6) if x + 1 < width else 0
+                u1 = (load_u16_sample_le(uv_plane, uv_base + x + 2) >> 6) if x + 2 < width else 0
+                v1 = (load_u16_sample_le(uv_plane, uv_base + x + 3) >> 6) if x + 3 < width else 0
                 beat |= v0 << 0
                 beat |= u0 << 20
                 beat |= v1 << 64
@@ -610,12 +640,16 @@ def main() -> int:
         if not args.expected_y or not args.expected_uv or args.stored_y_height is None or args.stored_uv_height is None:
             raise SystemExit("--expected-y/--expected-uv and stored heights are required for NV12/P010")
         if args.format == "p010":
-            expected_y_plane = words_to_plane(parse_memh_words(Path(args.expected_y)), args.width * 2, args.stored_y_height)
-            expected_uv_plane = words_to_plane(parse_memh_words(Path(args.expected_uv)), args.width * 2, args.stored_uv_height)
+            expected_y_plane = words_to_linear_bytes(parse_memh_words(Path(args.expected_y)),
+                                                     args.width * args.stored_y_height * 2)
+            expected_uv_plane = words_to_linear_bytes(parse_memh_words(Path(args.expected_uv)),
+                                                      args.width * args.stored_uv_height * 2)
             expected_beats = p010_expected_beats(expected_y_plane, expected_uv_plane, args.width, args.stored_y_height, args.p010_uv_phase)
         else:
-            expected_y_plane = words_to_plane(parse_memh_words(Path(args.expected_y)), args.width, args.stored_y_height)
-            expected_uv_plane = words_to_plane(parse_memh_words(Path(args.expected_uv)), args.width, args.stored_uv_height)
+            expected_y_plane = words_to_linear_bytes(parse_memh_words(Path(args.expected_y)),
+                                                     args.width * args.stored_y_height)
+            expected_uv_plane = words_to_linear_bytes(parse_memh_words(Path(args.expected_uv)),
+                                                      args.width * args.stored_uv_height)
             expected_beats = nv12_expected_beats(expected_y_plane, expected_uv_plane, args.width, args.stored_y_height, args.nv12_uv_phase)
         write_otf_stream(out_path, expected_beats, args.width)
         print(f"Generated expected OTF stream: {out_path}")

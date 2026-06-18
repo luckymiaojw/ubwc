@@ -732,6 +732,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <div class="note">计算说明：硬件统计 metadata AXI W beat，只用于 debug。</div>
 
           <h3 id="enc-diagram">ENC 4. Diagram</h3>
+          <figure><img src="ubwc_microarchitecture_compression.svg" alt="UBWC Compression 系统架构图"><figcaption>ENC/Compression 系统架构图。</figcaption></figure>
           <figure><img src="ubwc_enc_module_dataflow_cn.svg" alt="ENC 模块数据流图"><figcaption>ENC 模块数据流图。</figcaption></figure>
           <figure><img src="ubwc_bank_layout_4096_cn.svg" alt="UBWC SRAM bank 存储示意图"><figcaption>4096 px 最大宽度下 bank0/bank1 容量边界和 YUV420 调度关系；每个 bank 包含 Y 区、UV_A 区和 UV_B 区，UV tile 读出按 tile 粒度配对读取两个 bank，UV 写入在 UV_A/UV_B 间交替推进。</figcaption></figure>
           <table>
@@ -752,12 +753,46 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
 7. 软件读 STATUS/COUNT 处理状态，写 REG_IRQ_CTRL[1]=1 清中断。</code></pre>
 
           <h3 id="enc-debug">ENC 6. Debug</h3>
+          <p>ENC debug 建议先按中断类型分流，再按错误分类读取状态寄存器。正常完成类中断重点看 <code>frame_done</code>、slot 计数和 AXI 写计数；错误类中断重点看地址配置、OTF 输入、metadata 生成、AXI 写 drain 四类状态。读取并保存状态后，再写 <code>REG_IRQ_CTRL[1]=1</code> 清中断和 sticky 状态。</p>
+          <h4>ENC 状态寄存器定位用途</h4>
           <table>
-            <tr><th>现象</th><th>建议读取</th><th>判断方向</th></tr>
-            <tr><td>没有中断</td><td><code>REG_IRQ_CTRL[2]</code>，<code>REG_STATUS0[8]</code></td><td>判断 IRQ pending 和 frame_done 是否产生</td></tr>
-            <tr><td>立即报错</td><td><code>REG_STATUS0[9]</code>，<code>REG_STATUS0[10:13]</code></td><td>检查当前 <code>fcnt[0]</code> 对应地址 slot 是否有效、地址 FIFO 是否溢出、软复位 drain 是否超时</td></tr>
-            <tr><td>OTF 输入异常</td><td><code>REG_STATUS0[4:5]</code>，<code>REG_OTF_DE_COUNT0/1</code>，<code>REG_OTF_LINE_COUNT0/1</code></td><td>检查输入行像素数和帧行数</td></tr>
-            <tr><td>AXI 写异常</td><td><code>REG_TILE_AXI_W_CNT0/1</code>，<code>REG_META_AXI_W_CNT0/1</code></td><td>区分 tile 数据与 metadata 写路径</td></tr>
+            <tr><th>寄存器/字段</th><th>定位的问题</th><th>调试含义</th></tr>
+            <tr><td><code>REG_IRQ_CTRL[2]</code><br><code>REG_STATUS2[0]</code></td><td>是否存在中断</td><td>两者均为 any IRQ mirror。若 <code>o_irq</code> 没有拉高，先确认 <code>irq_enable</code> 是否置 1，再确认 pending 是否产生。</td></tr>
+            <tr><td><code>REG_IRQ_CTRL[3]</code><br><code>REG_STATUS2[1]</code></td><td>正常完成中断</td><td>表示本帧按硬件定义完成。若该 bit 置 1，应继续读取 <code>REG_STATUS0[8]</code> 和各 slot 计数，确认 frame done 与实际写出数量一致。</td></tr>
+            <tr><td><code>REG_IRQ_CTRL[4]</code><br><code>REG_STATUS2[2]</code></td><td>错误中断</td><td>表示至少一个错误源被锁存。后续按 <code>REG_STATUS0[3:7]</code>、<code>REG_STATUS0[9]</code>、<code>REG_STATUS0[12:13]</code> 分类定位。</td></tr>
+            <tr><td><code>REG_STATUS0[0]</code> <code>enc_idle</code></td><td>ENC 是否空闲</td><td>用于判断清中断或重新配置前流水是否已经停稳。若 frame done 已产生但 idle 长时间为 0，需要检查 AXI 写响应或下游 ready。</td></tr>
+            <tr><td><code>REG_STATUS0[1]</code> <code>enc_error</code></td><td>ENC 综合错误</td><td>来自 ENC 内部错误汇总。该 bit 置 1 时，需要结合更细的 OTF、metadata、地址配置和 reset drain 状态继续拆分。</td></tr>
+            <tr><td><code>REG_STATUS0[2]</code> <code>otf_to_tile_busy</code></td><td>OTF-to-tile 是否仍在处理</td><td>用于判断输入打包、跨域 FIFO、line-to-tile、tile 输出是否仍有数据在途。若长时间为 1 且计数不再变化，优先看 SRAM/AXI 写侧反压。</td></tr>
+            <tr><td><code>REG_STATUS0[3]</code> <code>otf_to_tile_overflow</code></td><td>OTF 输入侧 FIFO overflow</td><td>表示 OTF 输入快于内部消耗，或内部被 AXI/VIVO/地址错误反压。需要同时看 <code>REG_OTF_DE_COUNT0/1</code> 和 tile/meta AXI 写计数是否停住。</td></tr>
+            <tr><td><code>REG_STATUS0[4]</code> <code>otf_err_bline</code></td><td>单行像素数量错误</td><td>用于定位输入一行的 <code>de</code> 数与配置宽度不一致。常见原因是上游没有按 active width 送数、行尾 <code>lcnt</code> 异常或 padding/mask 策略不一致。</td></tr>
+            <tr><td><code>REG_STATUS0[5]</code> <code>otf_err_bframe</code></td><td>帧行数错误</td><td>用于定位一帧有效行数与配置高度不一致。若该 bit 置 1，检查 <code>REG_OTF_CFG1.height</code>、输入 vsync/lcnt 以及 <code>REG_OTF_LINE_COUNT0/1</code>。</td></tr>
+            <tr><td><code>REG_STATUS0[6]</code> <code>meta_err_0</code></td><td>metadata co-buffer overflow</td><td>表示 metadata 输出缓存溢出，只作为错误状态上报。通常说明 metadata 生成快于后级写出，或 metadata AXI 写路径长时间被阻塞。</td></tr>
+            <tr><td><code>REG_STATUS0[7]</code> <code>meta_err_1</code></td><td>metadata tile 顺序错误</td><td>用于定位 tile 坐标、plane 顺序或 metadata 地址递增异常。若只在 YUV420/NV12/P010 出现，优先检查 Y/UV plane 切换、UV pitch 和 slot/fcnt 对齐。</td></tr>
+            <tr><td><code>REG_STATUS0[8]</code> <code>frame_done</code></td><td>帧完成状态</td><td>正常完成的主判断位。该 bit 不是由统计计数推导，而是由真实 frame done 事件锁存。</td></tr>
+            <tr><td><code>REG_STATUS0[9]</code> <code>addr_cfg_invalid</code></td><td>当前 slot 地址未配置</td><td>硬件按 <code>fcnt[0]</code> 选择 slot0/slot1。若被选 slot 没有地址组，该 bit 置 1。软件应检查每帧地址提交顺序和 <code>start</code> 之前是否至少准备好对应 slot 地址。</td></tr>
+            <tr><td><code>REG_STATUS0[10]</code><br><code>REG_STATUS0[11]</code></td><td>slot0/slot1 地址有效性</td><td>用于判断两个地址 slot 是否已有可用地址组。连续帧调试时，这两个 bit 可确认地址 FIFO 消耗和软件补地址节奏是否匹配。</td></tr>
+            <tr><td><code>REG_STATUS0[12]</code> <code>addr_cfg_overflow</code></td><td>地址 FIFO 溢出</td><td>表示软件提交地址组过快，当前地址组没有进入对应 slot FIFO。发生后必须重新确认软件 buffer 队列与硬件 slot 队列是否错位。</td></tr>
+            <tr><td><code>REG_STATUS0[13]</code> <code>rst_drain_timeout</code></td><td>soft reset 等待 AXI drain 超时</td><td>用于定位复位期间 AXI write outstanding 长时间不清空。常见原因是外部 AXI slave/interconnect 不返回 ready/response，或 reset 前仍有上游数据持续进入。</td></tr>
+            <tr><td><code>REG_STATUS1[7:0]</code> <code>stage_done</code></td><td>阶段完成 bitmap</td><td>用于判断哪一级曾经完成。若 <code>frame_done</code> 没有产生，可结合各计数器判断卡在 OTF-to-tile、tile address、metadata、AXI write 哪一级。</td></tr>
+            <tr><td><code>REG_META_COUNT0/1</code></td><td>metadata tile 数量</td><td>按 slot 统计 metadata 生成数量。用于确认 metadata path 是否随着 tile 输出推进；slot0/slot1 应与当前 <code>fcnt[0]</code> 对应。</td></tr>
+            <tr><td><code>REG_TILEADDR_COUNT0/1</code></td><td>tile address 数量</td><td>按 slot 统计 tile address 生成数量。若 OTF tile 数增长但 tile address 数不增长，问题在 tile address 生成或地址配置。</td></tr>
+            <tr><td><code>REG_OTF_TILE_COUNT0/1</code></td><td>OTF-to-tile 输出 tile 数量</td><td>确认输入数据是否已经被切成 tile。若 DE/line count 增长但 tile count 不增长，重点看 line-to-tile 边界、SRAM 调度和 tile 完整性。</td></tr>
+            <tr><td><code>REG_OTF_DE_COUNT0/1</code></td><td>OTF 有效输入 beat 数量</td><td>统计 <code>i_otf_de && o_otf_ready</code>。用于判断上游是否真的把有效像素送进 ENC，以及是否出现 ready 长时间拉低。</td></tr>
+            <tr><td><code>REG_OTF_LINE_COUNT0/1</code></td><td>OTF 输入行数量</td><td>用于核对输入有效行数。若 bad frame 置位，该计数是首要定位依据。</td></tr>
+            <tr><td><code>REG_TILE_AXI_W_CNT0/1</code></td><td>compressed tile AXI 写数量</td><td>用于判断 compressed tile 写通路是否推进。若 tile count 增长但该计数停住，问题在 tile AXI 写命令、数据 FIFO、interconnect ready 或 B response。</td></tr>
+            <tr><td><code>REG_META_AXI_W_CNT0/1</code></td><td>metadata AXI 写数量</td><td>用于判断 metadata 写通路是否推进。若 metadata count 增长但该计数停住，问题在 metadata AXI 写路径。</td></tr>
+          </table>
+
+          <h4>ENC 错误分类定位流程</h4>
+          <table>
+            <tr><th>错误分类</th><th>优先读取</th><th>判断方法</th><th>常见处理</th></tr>
+            <tr><td>没有中断或中断不符合预期</td><td><code>REG_IRQ_CTRL[0]</code>、<code>[4:2]</code>、<code>REG_STATUS2[2:0]</code></td><td>先确认中断使能，再区分 correct/error pending。若 pending 已置但外部 IRQ 无输出，检查中断连线；若 pending 未置，继续看 <code>frame_done</code> 与各 stage 计数。</td><td>使能 IRQ；确认 start 已写入；确认输入 vsync/de 到达。</td></tr>
+            <tr><td>地址配置类错误</td><td><code>REG_STATUS0[9:12]</code></td><td><code>addr_cfg_invalid</code> 表示当前帧 slot 没地址；<code>addr_cfg_overflow</code> 表示软件地址组提交过快。<code>addr_cfg_valid0/1</code> 可判断当前两个 slot 是否可用。</td><td>按 META_Y、TILE_Y、META_UV、TILE_UV 顺序写完整地址组；先准备地址再 start；overflow 后重新同步 buffer 队列。</td></tr>
+            <tr><td>OTF 输入格式/行列错误</td><td><code>REG_STATUS0[4:5]</code>、<code>REG_OTF_DE_COUNT0/1</code>、<code>REG_OTF_LINE_COUNT0/1</code></td><td>bad line 对应单行像素数不一致，bad frame 对应有效行数不一致。DE count 和 line count 可反推上游实际送入的 active 区域。</td><td>核对 <code>REG_OTF_CFG1</code>、<code>REG_META_ACTIVE_SIZE</code>、上游 lcnt/vsync/de；确认 NV12/P010 第一行 UV 排列与 RTL 配置一致。</td></tr>
+            <tr><td>OTF-to-tile 或 SRAM 调度阻塞</td><td><code>REG_STATUS0[2:3]</code>、<code>REG_OTF_TILE_COUNT0/1</code></td><td>busy 长时间为 1 且 tile count 不动，说明 OTF-to-tile 内部被反压；overflow 置位说明上游仍在送入但内部无法消耗。</td><td>看波形中的 line-to-tile FIFO ready、bank read/write 仲裁、AXI 写 ready；确认 YUV420 UV_A/UV_B 调度没有浪费 SRAM 带宽。</td></tr>
+            <tr><td>metadata 生成错误</td><td><code>REG_STATUS0[6:7]</code>、<code>REG_META_COUNT0/1</code>、<code>REG_META_AXI_W_CNT0/1</code></td><td><code>meta_err_0</code> 偏向 buffer overflow；<code>meta_err_1</code> 偏向坐标/顺序/地址递增错误。meta count 与 meta AXI W count 的差距可判断是生成端还是写出端异常。</td><td>检查 metadata pitch、Y/UV plane 切换、slot/fcnt、tile 坐标和 AXI 写 ready。</td></tr>
+            <tr><td>AXI 写通路错误或性能不足</td><td><code>REG_TILE_AXI_W_CNT0/1</code>、<code>REG_META_AXI_W_CNT0/1</code>、<code>REG_STATUS0[13]</code></td><td>OTF/tile/meta 计数增长但 AXI W 计数停住，说明写通路被 AXI ready 或 response 阻塞。soft reset 时若 drain timeout 置位，说明 outstanding 长时间无法排空。</td><td>检查 interconnect/slave ready、B response、AXI ID/len/size 配置；复位前尽量停止上游输入并等待 idle。</td></tr>
+            <tr><td>正常完成但输出数据不符合预期</td><td>全部 slot count、<code>frame_done</code></td><td>先确认 correct IRQ 和 frame done，再比对每个 slot 的 OTF DE/line、tile、metadata、tile AXI、meta AXI 数量是否匹配预期。数量匹配但内容错，优先看 base address、pitch、format 配置。</td><td>核对 ubwc_cfg 生成结果、vector ReadMe 中的 stored layout、metadata pitch 和压缩数据地址。</td></tr>
           </table>
 
           <h3 id="enc-ppa">ENC 7. PPA</h3>
@@ -1142,6 +1177,7 @@ REG_TILE_BASE_UV_HI = tile_uv_base[63:32]</code></pre>
           <div class="note">计算说明：硬件统计 OTF output 有效 beat，只用于 debug 和吞吐量核对。</div>
 
           <h3 id="dec-diagram">DEC 4. Diagram</h3>
+          <figure><img src="UBWC_microarchitecture-Decompression.svg" alt="UBWC Decompression 系统架构图"><figcaption>DEC/Decompression 系统架构图。</figcaption></figure>
           <figure><img src="ubwc_dec_microarchitecture_cn.svg" alt="DEC 总体微架构图"><figcaption>DEC 当前 RTL 微架构。</figcaption></figure>
           <figure><img src="ubwc_bank_layout_4096_cn.svg" alt="UBWC SRAM bank 存储示意图"><figcaption>4096 px 最大宽度下 bank0/bank1 容量边界和 YUV420 调度关系；每个 bank 包含 Y 区、UV_A 区和 UV_B 区，UV tile 读出按 tile 粒度配对读取两个 bank，UV 写入在 UV_A/UV_B 间交替推进。</figcaption></figure>
           <table>
@@ -1172,13 +1208,42 @@ REG_TILE_BASE_UV_HI = tile_uv_base[63:32]</code></pre>
           </table>
 
           <h3 id="dec-debug">DEC 6. Debug</h3>
+          <p>DEC debug 建议按“start 是否被接收、metadata 是否读到、tile 是否读到、VIVO 是否消耗、OTF 是否输出”五级流水定位。错误中断先区分 metadata/tile AXI read、VIVO、tile-to-OTF/ready 三类；正常完成但图像异常时，优先用 OTF line/de 计数和 metadata/tile 计数核对配置。</p>
+          <h4>DEC 状态寄存器定位用途</h4>
           <table>
-            <tr><th>现象</th><th>建议读取</th><th>判断方向</th></tr>
-            <tr><td>start 后无输出</td><td><code>APB_ADDR_STATUS0</code>，<code>APB_ADDR_IRQ_CTRL[2]</code></td><td>看 frame_active、meta/tile/vivo/otf busy 是否推进</td></tr>
-            <tr><td>metadata 阶段异常</td><td><code>APB_ADDR_STAT_META</code>，AXI R response</td><td>检查 metadata 地址、RID/fcnt、metadata decode</td></tr>
-            <tr><td>tile read 异常</td><td><code>APB_ADDR_STAT_TILE</code>，AXI AR/R handshake</td><td>检查 tile base、tile_arcmd_gen、AXI read</td></tr>
-            <tr><td>VIVO 异常</td><td><code>APB_ADDR_STATUS2[0]</code>，<code>APB_ADDR_STATUS3[6:0]</code></td><td>检查模块级 VIVO idle 与 7 bit error bitmap</td></tr>
-            <tr><td>OTF 输出异常</td><td><code>APB_ADDR_STAT_OTF_TILE</code>，<code>APB_ADDR_STAT_OTF_LINE</code>，<code>APB_ADDR_STAT_OTF_DE</code></td><td>检查 tile-to-OTF 和 downstream ready</td></tr>
+            <tr><th>寄存器/字段</th><th>定位的问题</th><th>调试含义</th></tr>
+            <tr><td><code>APB_ADDR_IRQ_CTRL[2]</code><br><code>APB_ADDR_STATUS4[0]</code></td><td>是否存在中断</td><td>两者均为 any IRQ mirror。若外部 <code>o_irq</code> 没有拉高，先确认 <code>irq_enable</code> 是否置 1，再确认 pending 是否产生。</td></tr>
+            <tr><td><code>APB_ADDR_IRQ_CTRL[3]</code><br><code>APB_ADDR_STATUS4[1]</code></td><td>错误中断</td><td>表示 DEC 至少一个错误源被锁存。后续按 metadata read、tile read、VIVO、OTF 输出分类读取对应状态和计数。</td></tr>
+            <tr><td><code>APB_ADDR_IRQ_CTRL[4]</code><br><code>APB_ADDR_STATUS4[2]</code></td><td>正常完成中断</td><td>表示本帧按 OTF 输出完成事件结束。若该 bit 置 1，应继续读取 OTF line/de 计数确认输出行列数量正确。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS0[0]</code> <code>frame_active</code></td><td>frame 是否已经启动并仍在途</td><td>start 后该 bit 应进入 active。若 start 已写但始终为 0，检查 <code>APB_ADDR_IRQ_CTRL[5]</code> 写入、地址组是否完整、reset 是否释放。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS0[1]</code> <code>meta_busy</code></td><td>metadata read stage 是否忙</td><td>用于确认 metadata AR/R 请求是否被发起和消耗。若一直 busy，优先看 AXI AR ready/R valid、metadata FIFO almost full 和 metadata base address。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS0[2]</code> <code>tile_busy</code></td><td>tile read stage 是否忙</td><td>用于定位 tile address generator、tile AXI read、tile-to-line 写入是否还在推进。若 tile busy 长时间为 1 且 tile count 不变，重点看 AXI read ready/response 或 SRAM 写入仲裁。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS0[3]</code> <code>vivo_busy</code></td><td>VIVO 解压核是否忙</td><td>用于判断 metadata/tile 已进入解压核但未被消耗完成。若 VIVO busy 不退，结合 <code>vivo_idle</code> 和 <code>vivo_error</code> bitmap 定位。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS0[4]</code> <code>otf_busy</code></td><td>tile-to-OTF 是否仍在输出</td><td>用于判断 line buffer、CDC FIFO、OTF timing driver 是否仍有数据在途。若 otf busy 为 1 但 de/line count 不增长，优先检查 <code>i_otf_ready</code> 和 OTF FIFO。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS0[5]</code> <code>all_stage_idle</code></td><td>所有 busy 输入是否为 0</td><td>用于软件判断是否可以安全重新配置静态寄存器。该 bit 只是实时 idle 汇总，不等同于 frame done。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS0[6]</code> <code>frame_idle_done</code></td><td>frame active 已结束且所有 stage idle</td><td>用于确认最后一帧数据已经从内部流水排空。若 correct IRQ 已产生但该 bit 不为 1，说明还有尾部数据或状态未 drain。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS1[4:0]</code> <code>stage_done</code></td><td>各 stage 完成 bitmap</td><td>用于判断 metadata、tile、VIVO、OTF、frame 哪一级已经产生完成事件。若 frame 未完成，可用该字段定位最后完成到哪一级。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS1[8:5]</code> <code>stage_seen</code></td><td>各 stage 是否曾经进入 busy</td><td>用于区分“没启动”和“启动后卡住”。例如 <code>meta_seen=0</code> 表示 metadata 阶段从未开始；<code>meta_seen=1</code> 但 <code>meta_done=0</code> 表示 metadata 阶段卡住。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS2[0]</code> <code>vivo_idle</code></td><td>VIVO 子模块实时 idle</td><td>用于判断 VIVO 内部是否空闲。它是实时状态，不参与中断分类；调试 VIVO 卡死时与 <code>vivo_busy</code> 交叉确认。</td></tr>
+            <tr><td><code>APB_ADDR_STATUS3[6:0]</code> <code>vivo_error</code></td><td>VIVO 子模块错误 bitmap</td><td>用于定位解压核内部错误。若该字段非 0，即使 AXI 和 OTF 计数正常，也需要优先排查 metadata 内容、tile payload、format/lossy 配置。</td></tr>
+            <tr><td><code>APB_ADDR_STAT_META</code></td><td>metadata valid tile 数量</td><td>用于判断 metadata decode 是否按预期产生 tile 信息。若 metadata count 为 0，优先看 metadata base address、AXI read、R response 和 metadata FIFO。</td></tr>
+            <tr><td><code>APB_ADDR_STAT_TILE</code></td><td>tile address generator 数量</td><td>用于判断 metadata 是否成功驱动 tile read。若 metadata count 增长但 tile count 不增长，问题在 metadata decode 到 tile AR 之间。</td></tr>
+            <tr><td><code>APB_ADDR_STAT_OTF_TILE</code></td><td>tile-to-OTF accepted tile 数量</td><td>用于判断解压后的 tile 是否进入 OTF 输出路径。若 tile count 增长但 OTF tile 不增长，问题在 VIVO 输出、line buffer 或 tile-to-OTF 接收。</td></tr>
+            <tr><td><code>APB_ADDR_STAT_OTF_LINE</code></td><td>OTF 输出行数量</td><td>用于核对最终输出行数。正常情况下应对应 <code>OTF_CFG4.v_act</code> 的 active 行数；若少行，检查 OTF ready 和 line buffer drain。</td></tr>
+            <tr><td><code>APB_ADDR_STAT_OTF_DE</code></td><td>OTF 有效输出 beat 数量</td><td>统计 <code>o_otf_de && i_otf_ready</code>。用于核对最终输出像素/beat 数，也可定位下游 ready 拉低导致的输出停顿。</td></tr>
+          </table>
+
+          <h4>DEC 错误分类定位流程</h4>
+          <table>
+            <tr><th>错误分类</th><th>优先读取</th><th>判断方法</th><th>常见处理</th></tr>
+            <tr><td>start 后无任何推进</td><td><code>APB_ADDR_IRQ_CTRL[5]</code>、<code>APB_ADDR_STATUS0[0]</code>、<code>APB_ADDR_STATUS1[8:5]</code></td><td>如果 <code>frame_active=0</code> 且 <code>stage_seen=0</code>，说明 start token 没有进入数据链路或地址配置不完整。若 frame active 为 1 但 stage_seen 不变，检查 reset、clock 和 start CDC。</td><td>确认每帧地址组已写完；写 <code>APB_ADDR_IRQ_CTRL[5]=1</code>；确认 AXI/OTF/VIVO 复位释放。</td></tr>
+            <tr><td>metadata read 类错误</td><td><code>APB_ADDR_STATUS0[1]</code>、<code>APB_ADDR_STAT_META</code>、AXI AR/R handshake</td><td>metadata busy 长时间为 1 且 stat_meta 不增长，说明 metadata AXI read 或 metadata decode 卡住。若 AR valid 长时间等待 ready，说明 interconnect/slave 侧反压；若 R response 为 SLVERR/DECERR，应归类为地址或 memory error。</td><td>检查 <code>REG_META_BASE_Y/UV</code>、metadata pitch/layout、AXI read ready/response；确认 metadata 接收 FIFO 未满。</td></tr>
+            <tr><td>tile read 类错误</td><td><code>APB_ADDR_STATUS0[2]</code>、<code>APB_ADDR_STAT_TILE</code>、AXI AR/R handshake</td><td>metadata count 增长但 tile count 不增长，说明 metadata 到 tile AR 之间异常；tile count 增长但后级不动，说明 tile data read 或 SRAM 写入被阻塞。</td><td>检查 <code>REG_TILE_BASE_Y/UV</code>、tile address 计算、AXI R response、SRAM write/read 仲裁。</td></tr>
+            <tr><td>VIVO 解压类错误</td><td><code>APB_ADDR_STATUS0[3]</code>、<code>APB_ADDR_STATUS2[0]</code>、<code>APB_ADDR_STATUS3[6:0]</code></td><td><code>vivo_error</code> 非 0 表示解压核内部错误；<code>vivo_busy=1</code> 且 <code>vivo_idle=0</code> 长时间不退，说明输入 tile 或 metadata 被 VIVO 接收后未完成。</td><td>核对 format/lossy/4-line 配置，检查 metadata alen/payload、tile 数据内容，以及 VIVO ready/valid。</td></tr>
+            <tr><td>OTF 输出类错误</td><td><code>APB_ADDR_STATUS0[4]</code>、<code>APB_ADDR_STAT_OTF_TILE</code>、<code>APB_ADDR_STAT_OTF_LINE</code>、<code>APB_ADDR_STAT_OTF_DE</code></td><td>OTF tile 增长但 line/de 不增长，说明 tile-to-OTF 或 OTF driver 被下游 ready 阻塞；line count 少于 <code>v_act</code>，说明最后几行未 drain；de count 少于 <code>h_act * v_act</code> 对应 beat，说明 active 区输出不足。</td><td>检查 <code>i_otf_ready</code>、OTF timing 配置、CDC FIFO 深度、line buffer 读出状态。</td></tr>
+            <tr><td>正常完成但图像尺寸或内容异常</td><td><code>APB_ADDR_STATUS4[2]</code>、<code>APB_ADDR_STAT_OTF_LINE</code>、<code>APB_ADDR_STAT_OTF_DE</code>、metadata/tile count</td><td>先确认 correct IRQ，再核对 OTF 行数和 DE beat 数是否符合 <code>h_act/v_act</code>。若数量正确但内容异常，重点检查 base address、stored layout、metadata tile count、Y/UV 地址顺序。</td><td>按 ubwc_cfg 重新生成配置；对照 vector ReadMe 检查 metadata、compressed tile 和 line data 地址排列。</td></tr>
+            <tr><td>性能或 AXI 延迟导致断流</td><td><code>APB_ADDR_STATUS0[1:4]</code>、<code>APB_ADDR_STAT_*</code>、波形中的 AR/R ready</td><td>如果 metadata/tile 阶段周期性停住，通常是 AXI read latency 或 SRAM 调度造成。若 OTF de count 出现间断，说明 tile-to-OTF 没有提前准备足够 line data。</td><td>增大 CDC/line buffer 深度，提前发 AR，检查 metadata AR outstanding 限流；P010 对 AXI read 带宽更敏感。</td></tr>
+            <tr><td>清中断后状态未恢复</td><td><code>APB_ADDR_IRQ_CTRL[1]</code>、<code>APB_ADDR_STATUS0</code>、<code>APB_ADDR_STATUS1</code></td><td>IRQ clear 只清 pending/sticky，不等同于强制清空仍在途数据。若 busy 仍为 1，说明硬件仍在处理或等待下游 ready。</td><td>清中断前先保存状态；若需要重新开始，应等待 <code>frame_idle_done</code> 或执行系统级 reset 流程。</td></tr>
           </table>
 
           <h3 id="dec-ppa">DEC 7. PPA</h3>

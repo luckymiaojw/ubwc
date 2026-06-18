@@ -8,7 +8,7 @@ Linear Image Y-plane                    : visual_from_r7130_pattern_1888x1624_r7
 Linear Image UV-plane                   : visual_from_r7130_pattern_1888x1624_r7130_nv12_verify_pack10_out1.txt
 Image format                            : NV12
 Actual Image size(Pixels)               : 1888x1624  WxH in (pixels/line x lines)  (Actual image size without padding)
-Aligned Height for Pixel Data P0        : 1632       Single plane mode or dual plane mode Y plane height in lines
+Aligned Height for Pixel Data P0        : 1664       Single plane mode or dual plane mode Y plane height in lines
 Aligned Height for Pixel Data P1        : 832       Dual plane mode UV plane height in lines
 Pitch for Pixel Data P0                 : 1920      Single plane mode or dual plane mode Y plane pitch in bytes
 Pitch for Pixel Data P1                 : 1920      Dual plane mode UV plane pitch in bytes
@@ -18,8 +18,8 @@ Pitch for Meta Data P1                  : 64       Dual plane mode UV meta plane
 Height for Meta Data P1                 : 112       Dual plane mode UV meta plane pitch in lines
 Base Address Meta RGB/Y-plane              : 0x0000000080000000
 Base Address Tile RGB/Y-plane              : 0x0000000080004000
-Base Address Meta UV-plane               : 0x0000000080301000
-Base Address Tile UV-plane               : 0x0000000080303000
+Base Address Meta UV-plane               : 0x0000000080310000
+Base Address Tile UV-plane               : 0x0000000080312000
 Highest bank bit                        : 16
 Mal size                                : 32
 Level1 bank swizzle bit                 : 0
@@ -31,3 +31,4 @@ LOSSY                                   : 0
 DDR mem channel                         : 8
 Source                                  : 20260522_UBWC_for_R7130_v2
 Note                                    : Text files are 64-bit hex words with an @base address line. The last linear active word is zero padded when the plane byte count is not 8-byte aligned.
+Note                                    : Linear/tiled-uncompressed files keep active payload only; compressed/meta files follow aligned UBWC storage layout.
