@@ -2157,6 +2157,19 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         end
     endtask
 
+    task automatic program_enc_addr_cfg_once;
+        begin
+            enc_apb_write(16'h0030, CASE_META_BASE_ADDR_Y[31:0]);
+            enc_apb_write(16'h0034, CASE_META_BASE_ADDR_Y[63:32]);
+            enc_apb_write(16'h0038, CASE_TILE_BASE_ADDR_Y[31:0]);
+            enc_apb_write(16'h003c, CASE_TILE_BASE_ADDR_Y[63:32]);
+            enc_apb_write(16'h0040, CASE_META_BASE_ADDR_UV[31:0]);
+            enc_apb_write(16'h0044, CASE_META_BASE_ADDR_UV[63:32]);
+            enc_apb_write(16'h0048, CASE_TILE_BASE_ADDR_UV[31:0]);
+            enc_apb_write(16'h004c, CASE_TILE_BASE_ADDR_UV[63:32]);
+        end
+    endtask
+
     task automatic program_enc_wrapper_regs;
         reg [31:0] reg_tile_cfg0;
         reg [31:0] reg_tile_cfg1;
@@ -2223,15 +2236,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
             enc_apb_write(16'h000c, reg_tile_cfg1);
             enc_apb_write(16'h0008, reg_tile_cfg0);
-            for (addr_cfg_idx = 0; addr_cfg_idx < tb_frame_repeat; addr_cfg_idx = addr_cfg_idx + 1) begin
-                enc_apb_write(16'h0030, CASE_META_BASE_ADDR_Y[31:0]);
-                enc_apb_write(16'h0034, CASE_META_BASE_ADDR_Y[63:32]);
-                enc_apb_write(16'h0038, CASE_TILE_BASE_ADDR_Y[31:0]);
-                enc_apb_write(16'h003c, CASE_TILE_BASE_ADDR_Y[63:32]);
-                enc_apb_write(16'h0040, CASE_META_BASE_ADDR_UV[31:0]);
-                enc_apb_write(16'h0044, CASE_META_BASE_ADDR_UV[63:32]);
-                enc_apb_write(16'h0048, CASE_TILE_BASE_ADDR_UV[31:0]);
-                enc_apb_write(16'h004c, CASE_TILE_BASE_ADDR_UV[63:32]);
+            for (addr_cfg_idx = 0;
+                 addr_cfg_idx < ((tb_frame_repeat < 8) ? tb_frame_repeat : 8);
+                 addr_cfg_idx = addr_cfg_idx + 1) begin
+                program_enc_addr_cfg_once();
             end
             enc_apb_write(16'h0014, reg_ci_cfg1);
             enc_apb_write(16'h0018, reg_ci_cfg2);
@@ -3874,6 +3882,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
     initial begin
         integer init_idx;
+        integer enc_addr_cfg_programmed;
         case (CASE_ID)
             CASE_RGBA1010102: begin
                 case_name            = "TajMahal RGBA1010102";
@@ -4230,6 +4239,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
         if (LOOP_TO_ENC != 0) begin
             program_enc_wrapper_regs();
+            enc_addr_cfg_programmed = (tb_frame_repeat < 8) ? tb_frame_repeat : 8;
             program_enc_frame_start();
         end
         program_wrapper_regs();
@@ -4256,6 +4266,10 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             if (LOOP_TO_ENC != 0) begin
                 enc_apb_write(16'h0060, 32'h0000_0003);
                 repeat (8) @(posedge i_axi_clk);
+                if (enc_addr_cfg_programmed < tb_frame_repeat) begin
+                    program_enc_addr_cfg_once();
+                    enc_addr_cfg_programmed = enc_addr_cfg_programmed + 1;
+                end
                 program_enc_frame_start();
                 repeat (32) @(posedge i_axi_clk);
             end

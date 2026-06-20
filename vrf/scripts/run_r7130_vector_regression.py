@@ -611,7 +611,7 @@ def load_case(path: Path) -> VectorCase:
 def make_param_flags(top: str, case: VectorCase, dec: bool) -> str:
     h_total = case.width + 304
     v_total = case.height + 60
-    cfg_tile_cols = case.tile_cols
+    cfg_tile_cols = case.stored_tile_cols if dec else case.tile_cols
     cfg_y_stored_h = max(case.stored_y, case.height) if dec else case.stored_y
     cfg_uv_stored_h = max(case.stored_uv, case.active_uv_height) if (dec and case.has_uv) else case.stored_uv
     cfg_y_tile_rows = case.active_y_tile_rows if dec else case.y_tile_rows

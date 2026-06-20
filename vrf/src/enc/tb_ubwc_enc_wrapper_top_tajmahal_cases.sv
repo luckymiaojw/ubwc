@@ -2597,6 +2597,19 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         end
     endtask
 
+    task automatic program_addr_cfg_once;
+        begin
+            apb_write(16'h0030, CASE_META_BASE_Y_ADDR[31:0]);
+            apb_write(16'h0034, CASE_META_BASE_Y_ADDR[63:32]);
+            apb_write(16'h0038, CASE_TILE_BASE_Y_ADDR[31:0]);
+            apb_write(16'h003c, CASE_TILE_BASE_Y_ADDR[63:32]);
+            apb_write(16'h0040, CASE_META_BASE_UV_ADDR[31:0]);
+            apb_write(16'h0044, CASE_META_BASE_UV_ADDR[63:32]);
+            apb_write(16'h0048, CASE_TILE_BASE_UV_ADDR[31:0]);
+            apb_write(16'h004c, CASE_TILE_BASE_UV_ADDR[63:32]);
+        end
+    endtask
+
     task automatic program_wrapper_regs;
         reg [31:0] reg2_data;
         reg [31:0] reg3_data;
@@ -2663,15 +2676,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
             apb_write(16'h000c, reg3_data);
             apb_write(16'h0008, reg2_data);
-            for (addr_cfg_idx = 0; addr_cfg_idx < tb_frame_repeat; addr_cfg_idx = addr_cfg_idx + 1) begin
-                apb_write(16'h0030, CASE_META_BASE_Y_ADDR[31:0]);
-                apb_write(16'h0034, CASE_META_BASE_Y_ADDR[63:32]);
-                apb_write(16'h0038, CASE_TILE_BASE_Y_ADDR[31:0]);
-                apb_write(16'h003c, CASE_TILE_BASE_Y_ADDR[63:32]);
-                apb_write(16'h0040, CASE_META_BASE_UV_ADDR[31:0]);
-                apb_write(16'h0044, CASE_META_BASE_UV_ADDR[63:32]);
-                apb_write(16'h0048, CASE_TILE_BASE_UV_ADDR[31:0]);
-                apb_write(16'h004c, CASE_TILE_BASE_UV_ADDR[63:32]);
+            for (addr_cfg_idx = 0;
+                 addr_cfg_idx < ((tb_frame_repeat < 8) ? tb_frame_repeat : 8);
+                 addr_cfg_idx = addr_cfg_idx + 1) begin
+                program_addr_cfg_once();
             end
             apb_write(16'h0014, reg5_data);
             apb_write(16'h0018, reg6_data);
@@ -3346,6 +3354,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
     initial begin
         integer frame_idx;
+        integer addr_cfg_programmed;
         $display("[TB] encoder wrapper bench start, CASE_ID=%0d", CASE_ID);
         PSEL     = 1'b0;
         PENABLE  = 1'b0;
@@ -3661,6 +3670,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         rst_n = 1'b1;
         repeat (4) @(posedge clk);
         program_wrapper_regs();
+        addr_cfg_programmed = (tb_frame_repeat < 8) ? tb_frame_repeat : 8;
         repeat (64) @(posedge clk);
         frames_started = 1;
         program_frame_start();
@@ -3669,6 +3679,10 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             wait_frame_idle(frame_idx);
             frames_completed = frame_idx;
             $display("[TB] frame %0d / %0d complete, scheduling next frame.", frame_idx, tb_frame_repeat);
+            if (addr_cfg_programmed < tb_frame_repeat) begin
+                program_addr_cfg_once();
+                addr_cfg_programmed = addr_cfg_programmed + 1;
+            end
             repeat (8) @(posedge clk);
             frames_started = frame_idx + 1;
             program_frame_start();

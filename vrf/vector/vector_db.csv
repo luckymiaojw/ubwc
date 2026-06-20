@@ -68,3 +68,4 @@ cnum,label,format,width,height,stored_y,stored_uv,source,case_dir,modes
 0067,0067_nv12_lossy_dec_2048x1536,nv12,2048,1536,1536,768,NV12_Lossy/decoder,vrf/vector/cases/0067_nv12_lossy_dec_2048x1536,dec
 0068,0068_p010_lossless_ubwc4p0_1920x1080,p010,1920,1080,1088,544,P010_1920x1080_vectors/ubwc4p0,vrf/vector/cases/0068_p010_lossless_ubwc4p0_1920x1080,"enc,dec,loop"
 0069,0069_p010_lossless_ubwc7p1_1920x1080,p010,1920,1080,1088,544,P010_1920x1080_vectors/ubwc7p1_new,vrf/vector/cases/0069_p010_lossless_ubwc7p1_1920x1080,"enc,dec,loop"
+0070,0070_rgba8888_144x132,rgba8888,144,132,144,0,enc_from_cm_magic_pattern_144x132_rgba8888,vrf/vector/cases/0070_rgba8888_144x132,"enc,dec,loop"

@@ -297,6 +297,163 @@ def clear_inactive_meta_rows(
     return bytes(patched)
 
 
+def macro_tile_slot(tile_x_mod8: int, tile_y_mod8: int) -> int:
+    table = [
+        [0, 6, 3, 5, 4, 2, 7, 1],
+        [7, 1, 4, 2, 3, 5, 0, 6],
+        [10, 12, 9, 15, 14, 8, 13, 11],
+        [13, 11, 14, 8, 9, 15, 10, 12],
+        [4, 2, 7, 1, 0, 6, 3, 5],
+        [3, 5, 0, 6, 7, 1, 4, 2],
+        [14, 8, 13, 11, 10, 12, 9, 15],
+        [9, 15, 10, 12, 13, 11, 14, 8],
+    ]
+    return table[tile_x_mod8 & 7][tile_y_mod8 & 7]
+
+
+def rgba_tile_base_byte(tile_x: int, tile_y: int, pitch_bytes: int) -> int:
+    macro_tile_x = tile_x // 4
+    macro_tile_y = tile_y // 4
+    temp_tile_x = tile_x % 8
+    temp_tile_y = tile_y % 8
+    addr = (pitch_bytes * (macro_tile_y * 4) * 4) + \
+           (macro_tile_x * 4096) + \
+           (macro_tile_slot(temp_tile_x, temp_tile_y) * 256)
+
+    if (16 * pitch_bytes) % (1 << 16) == 0:
+        tile_row_pixels = tile_y * 4
+        bit_val = ((addr >> 15) & 1) ^ ((tile_row_pixels >> 4) & 1)
+        addr = (addr | (1 << 15)) if bit_val else (addr & ~(1 << 15))
+
+    if (16 * pitch_bytes) % (1 << 17) == 0:
+        tile_row_pixels = tile_y * 4
+        bit_val = ((addr >> 16) & 1) ^ ((tile_row_pixels >> 5) & 1)
+        addr = (addr | (1 << 16)) if bit_val else (addr & ~(1 << 16))
+
+    return addr
+
+
+def plane_tile_base_byte(
+    tile_x: int,
+    tile_y: int,
+    tile_width: int,
+    tile_height: int,
+    pitch_bytes: int,
+    bpp: int,
+) -> int:
+    macro_tile_x = tile_x // 4
+    macro_tile_y = tile_y // 4
+    temp_tile_x = tile_x % 8
+    temp_tile_y = tile_y % 8
+    addr = (pitch_bytes * (macro_tile_y * 4) * tile_height) + \
+           (macro_tile_x * 4096) + \
+           (macro_tile_slot(temp_tile_x, temp_tile_y) * 256)
+
+    if (16 * pitch_bytes) % (1 << 16) == 0:
+        if ((bpp == 1) and (tile_width == 32) and (tile_height == 8)) or \
+           ((bpp == 2) and (tile_width == 16) and (tile_height == 8)):
+            tile_row_pixels = (tile_y * tile_height) >> 5
+        else:
+            tile_row_pixels = (tile_y * tile_height) >> 4
+        bit_val = ((addr >> 15) & 1) ^ (tile_row_pixels & 1)
+        addr = (addr | (1 << 15)) if bit_val else (addr & ~(1 << 15))
+
+    if (16 * pitch_bytes) % (1 << 17) == 0:
+        if ((bpp == 1) and (tile_width == 32) and (tile_height == 8)) or \
+           ((bpp == 2) and (tile_width == 16) and (tile_height == 8)):
+            tile_row_pixels = (tile_y * tile_height) >> 6
+        else:
+            tile_row_pixels = (tile_y * tile_height) >> 5
+        bit_val = ((addr >> 16) & 1) ^ (tile_row_pixels & 1)
+        addr = (addr | (1 << 16)) if bit_val else (addr & ~(1 << 16))
+
+    return addr
+
+
+def tiled_uncompressed_from_linear(linear: bytes, layout: Layout, plane: str) -> bytes:
+    if plane == "rgba":
+        active_height = layout.height
+        active_stride = layout.width * layout.bpp
+        tile_cols = (layout.stored_width + 15) // 16
+        active_tile_rows = (layout.height + 3) // 4
+        tile_width_bytes = 16 * layout.bpp
+        tile_height = 4
+        out = bytearray(layout.tile_size_y)
+        for tile_y in range(active_tile_rows):
+            for tile_x in range(tile_cols):
+                base = rgba_tile_base_byte(tile_x, tile_y, layout.pitch_y)
+                for row in range(tile_height):
+                    src_y = tile_y * tile_height + row
+                    if src_y >= active_height:
+                        continue
+                    src_x = tile_x * tile_width_bytes
+                    copy_len = min(tile_width_bytes, max(0, active_stride - src_x))
+                    if copy_len <= 0:
+                        continue
+                    src = src_y * active_stride + src_x
+                    dst = base + row * tile_width_bytes
+                    out[dst:dst + copy_len] = linear[src:src + copy_len]
+        return bytes(out)
+
+    if plane == "y":
+        active_height = layout.height
+        active_stride = layout.width * layout.bpp
+        tile_cols = (layout.stored_width + layout.tile_w - 1) // layout.tile_w
+        active_tile_rows = (active_height + layout.tile_h - 1) // layout.tile_h
+        tile_width = 32
+        tile_height = layout.tile_h
+        tile_width_bytes = tile_width * layout.bpp
+        out = bytearray(layout.tile_size_y)
+        for tile_y in range(active_tile_rows):
+            for tile_x in range(tile_cols):
+                base = plane_tile_base_byte(tile_x, tile_y, tile_width, tile_height,
+                                            layout.pitch_y, layout.bpp)
+                for row in range(tile_height):
+                    src_y = tile_y * tile_height + row
+                    if src_y >= active_height:
+                        continue
+                    src_x = tile_x * tile_width_bytes
+                    copy_len = min(tile_width_bytes, max(0, active_stride - src_x))
+                    if copy_len <= 0:
+                        continue
+                    src = src_y * active_stride + src_x
+                    dst = base + row * tile_width_bytes
+                    out[dst:dst + copy_len] = linear[src:src + copy_len]
+        return bytes(out)
+
+    active_height = (layout.height + 1) // 2
+    active_stride = layout.width * layout.bpp
+    tile_cols = (layout.stored_width + layout.tile_w - 1) // layout.tile_w
+    active_tile_rows = (active_height + layout.tile_h - 1) // layout.tile_h
+    if layout.fmt == "nv12":
+        addr_tile_width = 16
+        addr_bpp = 2
+        tile_width_bytes = 32
+        tile_height = 8
+    else:
+        addr_tile_width = 32
+        addr_bpp = 2
+        tile_width_bytes = 64
+        tile_height = 4
+    out = bytearray(layout.tile_size_uv)
+    for tile_y in range(active_tile_rows):
+        for tile_x in range(tile_cols):
+            base = plane_tile_base_byte(tile_x, tile_y, addr_tile_width, tile_height,
+                                        layout.pitch_uv, addr_bpp)
+            for row in range(tile_height):
+                src_y = tile_y * tile_height + row
+                if src_y >= active_height:
+                    continue
+                src_x = tile_x * tile_width_bytes
+                copy_len = min(tile_width_bytes, max(0, active_stride - src_x))
+                if copy_len <= 0:
+                    continue
+                src = src_y * active_stride + src_x
+                dst = base + row * tile_width_bytes
+                out[dst:dst + copy_len] = linear[src:src + copy_len]
+    return bytes(out)
+
+
 def require_size(path: Path, actual: int, expected: int, label: str) -> None:
     if actual != expected:
         raise ValueError(f"{path}: {label} size {actual} != expected {expected}")
@@ -441,6 +598,11 @@ def convert_one(raw_path: Path, dst_root: Path, source_tag: str, source_note: st
 
     linear_y, linear_uv = split_raw(raw_path, layout)
     meta_y, tile_y, meta_uv, tile_uv = split_ubwc(ubwc_path, layout)
+    tile_uncomp_y = tiled_uncompressed_from_linear(
+        linear_y,
+        layout,
+        "rgba" if layout.fmt.startswith("rgba") else "y",
+    )
     tile_cols = (layout.stored_width + layout.tile_w - 1) // layout.tile_w
     active_y_tile_rows = (layout.height + layout.tile_h - 1) // layout.tile_h
     stored_y_tile_rows = layout.stored_y // layout.tile_h
@@ -460,9 +622,10 @@ def convert_one(raw_path: Path, dst_root: Path, source_tag: str, source_note: st
     write_hex64(out_dir / files["meta_y"], layout.meta_base_y, meta_y)
     write_hex64(out_dir / files["tile_y"], layout.tile_base_y, tile_y)
     write_hex64(out_dir / files["linear_y"], layout.tile_base_y, linear_y)
-    shutil.copy2(out_dir / files["linear_y"], out_dir / files["tile_uncomp_y"])
+    write_hex64(out_dir / files["tile_uncomp_y"], layout.tile_base_y, tile_uncomp_y)
 
     if layout.has_uv:
+        tile_uncomp_uv = tiled_uncompressed_from_linear(linear_uv, layout, "uv")
         active_uv_height = (layout.height + 1) // 2
         active_uv_tile_rows = (active_uv_height + layout.tile_h - 1) // layout.tile_h
         stored_uv_tile_rows = layout.stored_uv // layout.tile_h
@@ -480,7 +643,7 @@ def convert_one(raw_path: Path, dst_root: Path, source_tag: str, source_note: st
         write_hex64(out_dir / files["meta_uv"], layout.meta_base_uv, meta_uv)
         write_hex64(out_dir / files["tile_uv"], layout.tile_base_uv, tile_uv)
         write_hex64(out_dir / files["linear_uv"], layout.tile_base_uv, linear_uv)
-        shutil.copy2(out_dir / files["linear_uv"], out_dir / files["tile_uncomp_uv"])
+        write_hex64(out_dir / files["tile_uncomp_uv"], layout.tile_base_uv, tile_uncomp_uv)
     else:
         files["meta_uv"] = ""
         files["tile_uv"] = ""
