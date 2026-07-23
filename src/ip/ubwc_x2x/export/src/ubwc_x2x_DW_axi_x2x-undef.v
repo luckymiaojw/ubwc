@@ -437,7 +437,7 @@
    `undef ubwc_x2x_X2X_R_SBW
    `undef ubwc_x2x_X2X_SEED
    `undef ubwc_x2x_X2X_SINGLE_CLK
-   `undef ubwc_x2x_X2X_SPDW64
+   `undef ubwc_x2x_X2X_SPDW128
    `undef ubwc_x2x_X2X_SP_AW
    `undef ubwc_x2x_X2X_SP_BLW
    `undef ubwc_x2x_X2X_SP_DW

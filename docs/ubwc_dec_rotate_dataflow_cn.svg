@@ -1,0 +1,191 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1240" viewBox="0 0 1920 1240">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 32px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #475569; }
+      .section { font-size: 22px; font-weight: 700; }
+      .lane-label { font-size: 17px; font-weight: 700; fill: #334155; }
+      .box-title { font-size: 17px; font-weight: 700; }
+      .box-text { font-size: 13px; fill: #334155; }
+      .sig { font-size: 12px; fill: #334155; font-weight: 600; }
+      .note { font-size: 13px; fill: #64748b; }
+      .formula { font-size: 13px; fill: #0f172a; font-family: Consolas, "SFMono-Regular", monospace; }
+      .lane-apb { fill: #fff7ed; opacity: 0.85; }
+      .lane-axi { fill: #ecfdf5; opacity: 0.85; }
+      .lane-vivo { fill: #f5f3ff; opacity: 0.85; }
+      .lane-otf { fill: #eff6ff; opacity: 0.85; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 10; }
+      .box-cfg { fill: #fffbeb; stroke: #d97706; stroke-width: 2; rx: 10; }
+      .box-meta { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 10; }
+      .box-rot { fill: #eef2ff; stroke: #4f46e5; stroke-width: 2; rx: 10; }
+      .box-tile { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 10; }
+      .box-fifo { fill: #f8fafc; stroke: #64748b; stroke-width: 2; rx: 10; }
+      .box-vivo { fill: #faf5ff; stroke: #9333ea; stroke-width: 2; rx: 10; }
+      .box-otf { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 10; }
+      .box-stat { fill: #fef2f2; stroke: #dc2626; stroke-width: 2; rx: 10; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.4; marker-end: url(#arrow); }
+      .rot-flow { fill: none; stroke: #2563eb; stroke-width: 2.4; marker-end: url(#arrow-blue); }
+      .cfg-flow { fill: none; stroke: #d97706; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow-orange); }
+      .dash { fill: none; stroke: #64748b; stroke-width: 1.8; stroke-dasharray: 7 6; }
+      .cell { fill: #ffffff; stroke: #94a3b8; stroke-width: 1; }
+      .cell-src { fill: #e0f2fe; stroke: #0284c7; stroke-width: 1; }
+      .cell-dst { fill: #ede9fe; stroke: #7c3aed; stroke-width: 1; }
+      .cell-hot { fill: #fed7aa; stroke: #ea580c; stroke-width: 1.5; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1240" fill="#f8fafc"/>
+  <rect width="1920" height="1240" fill="url(#grid)" opacity="0.55"/>
+
+  <text x="56" y="58" class="title">DEC 旋转模式数据流图</text>
+  <text x="56" y="88" class="subtitle">目标：第一版仅支持 NV12 90° / 270°；AXI 仍按 source 坐标读 metadata / compressed tile，独立 rotate tile_to_otf 按 destination 坐标写入完整 32 行 stripe。</text>
+
+  <rect x="48" y="120" width="1824" height="105" class="lane-apb"/>
+  <rect x="48" y="245" width="1824" height="360" class="lane-axi"/>
+  <rect x="48" y="625" width="1824" height="160" class="lane-vivo"/>
+  <rect x="48" y="805" width="1824" height="205" class="lane-otf"/>
+  <text x="66" y="150" class="lane-label">APB / PCLK</text>
+  <text x="66" y="275" class="lane-label">AXI-core / i_axi_clk</text>
+  <text x="66" y="655" class="lane-label">VIVO / i_vivo_clk</text>
+  <text x="66" y="835" class="lane-label">OTF / i_otf_clk</text>
+
+  <rect x="120" y="145" width="260" height="58" class="box-cfg"/>
+  <text x="250" y="170" text-anchor="middle" class="box-title">APB 配置</text>
+  <text x="250" y="192" text-anchor="middle" class="box-text">src size / out timing / rotate_mode / start</text>
+
+  <rect x="470" y="145" width="250" height="58" class="box-cfg"/>
+  <text x="595" y="170" text-anchor="middle" class="box-title">Frame Context</text>
+  <text x="595" y="192" text-anchor="middle" class="box-text">fcnt + source base + output size</text>
+
+  <rect x="800" y="145" width="270" height="58" class="box-cfg"/>
+  <text x="935" y="170" text-anchor="middle" class="box-title">rotate_mode</text>
+  <text x="935" y="192" text-anchor="middle" class="box-text">0: normal, 1: rot90, 3: rot270</text>
+
+  <rect x="1380" y="145" width="300" height="58" class="box-stat"/>
+  <text x="1530" y="170" text-anchor="middle" class="box-title">Status / IRQ</text>
+  <text x="1530" y="192" text-anchor="middle" class="box-text">done / underflow / coord error / rotate error</text>
+
+  <rect x="120" y="305" width="260" height="92" class="box-meta"/>
+  <text x="250" y="334" text-anchor="middle" class="box-title">1. Meta Block-Row Reader</text>
+  <text x="250" y="360" text-anchor="middle" class="box-text">一次读完整 8-tile-row 高度</text>
+  <text x="250" y="382" text-anchor="middle" class="box-text">rowbuf[ceil(cols/8)][8][8]</text>
+
+  <rect x="455" y="305" width="280" height="92" class="box-rot"/>
+  <text x="595" y="334" text-anchor="middle" class="box-title">2. Rotate Scheduler</text>
+  <text x="595" y="360" text-anchor="middle" class="box-text">PING/PANG rowbuf 交替重排</text>
+  <text x="595" y="382" text-anchor="middle" class="box-text">生成 src_x/src_y + dst_x/dst_y</text>
+
+  <rect x="820" y="305" width="250" height="92" class="box-meta"/>
+  <text x="945" y="334" text-anchor="middle" class="box-title">3. Meta Decode</text>
+  <text x="945" y="360" text-anchor="middle" class="box-text">meta byte → alen / flag / alpha</text>
+  <text x="945" y="382" text-anchor="middle" class="box-text">dst coord 旁路透传</text>
+
+  <rect x="1160" y="305" width="260" height="92" class="box-tile"/>
+  <text x="1290" y="334" text-anchor="middle" class="box-title">4. Tile AR Cmd Gen</text>
+  <text x="1290" y="360" text-anchor="middle" class="box-text">用 src_x/src_y 计算 compressed 地址</text>
+  <text x="1290" y="382" text-anchor="middle" class="box-text">CI/CVI 同步携带 dst_x/dst_y</text>
+
+  <rect x="1500" y="305" width="260" height="92" class="box"/>
+  <text x="1630" y="334" text-anchor="middle" class="box-title">AXI Read</text>
+  <text x="1630" y="360" text-anchor="middle" class="box-text">metadata / compressed tile</text>
+  <text x="1630" y="382" text-anchor="middle" class="box-text">读地址不旋转，仍是 source layout</text>
+
+  <rect x="520" y="460" width="250" height="86" class="box-fifo"/>
+  <text x="645" y="490" text-anchor="middle" class="box-title">CI FIFO</text>
+  <text x="645" y="514" text-anchor="middle" class="box-text">metadata / alen / src coord / dst coord</text>
+
+  <rect x="860" y="460" width="250" height="86" class="box-fifo"/>
+  <text x="985" y="490" text-anchor="middle" class="box-title">CVI FIFO</text>
+  <text x="985" y="514" text-anchor="middle" class="box-text">compressed payload + src/dst coord tag</text>
+
+  <rect x="1190" y="655" width="270" height="86" class="box-vivo"/>
+  <text x="1325" y="687" text-anchor="middle" class="box-title">5. dec_vivo_top</text>
+  <text x="1325" y="711" text-anchor="middle" class="box-text">只做 source tile 解压，不做旋转</text>
+  <text x="1325" y="733" text-anchor="middle" class="box-text">输出 raw tile + dst coord tag</text>
+
+  <rect x="760" y="845" width="310" height="112" class="box-otf"/>
+  <text x="915" y="876" text-anchor="middle" class="box-title">6. Rotate Tile-to-OTF</text>
+  <text x="915" y="902" text-anchor="middle" class="box-text">独立文件：ubwc_dec_tile_to_otf_rot_nv12</text>
+  <text x="915" y="926" text-anchor="middle" class="box-text">完整 tile 写完整 32 行 stripe</text>
+
+  <rect x="1180" y="845" width="290" height="112" class="box-otf"/>
+  <text x="1325" y="876" text-anchor="middle" class="box-title">7. Full-Stripe SRAM</text>
+  <text x="1325" y="902" text-anchor="middle" class="box-text">single bank: Y 0..2175, UV 2176..3263</text>
+  <text x="1325" y="926" text-anchor="middle" class="box-text">bank0 / bank1 完整 stripe ping-pong</text>
+
+  <rect x="1570" y="845" width="230" height="112" class="box-otf"/>
+  <text x="1685" y="876" text-anchor="middle" class="box-title">8. OTF Driver</text>
+  <text x="1685" y="902" text-anchor="middle" class="box-text">输出 rotated H_ACT / V_ACT</text>
+  <text x="1685" y="926" text-anchor="middle" class="box-text">vsync / hsync / de / data</text>
+
+  <path class="cfg-flow" d="M380 174 H470"/>
+  <path class="cfg-flow" d="M720 174 H800"/>
+  <path class="cfg-flow" d="M935 203 V270 H595 V305"/>
+  <text x="960" y="258" class="sig">rotate mode controls scheduler + writer</text>
+  <path class="cfg-flow" d="M595 203 V280 H250 V305"/>
+  <text x="285" y="265" class="sig">source tile rows/cols + base addr</text>
+  <path class="cfg-flow" d="M1070 174 H1380"/>
+
+  <path class="flow" d="M380 351 H455"/>
+  <text x="397" y="339" class="sig">meta rowbuf ping/pang</text>
+  <path class="rot-flow" d="M735 351 H820"/>
+  <text x="750" y="338" class="sig">src/dst coord stream</text>
+  <path class="rot-flow" d="M1070 351 H1160"/>
+  <text x="1085" y="338" class="sig">decoded meta + dst</text>
+  <path class="flow" d="M1420 351 H1500"/>
+  <text x="1435" y="338" class="sig">source AR</text>
+
+  <path class="flow" d="M1290 397 V430 H645 V460"/>
+  <text x="700" y="424" class="sig">CI: meta/alen/source/destination</text>
+  <path class="flow" d="M1630 397 V430 H985 V460"/>
+  <text x="1060" y="424" class="sig">CVI: compressed tile payload</text>
+
+  <path class="flow" d="M770 503 H900"/>
+  <path class="flow" d="M1110 503 H1325 V655"/>
+  <path class="flow" d="M645 546 V620 H1325 V655"/>
+  <text x="690" y="606" class="sig">metadata command path</text>
+  <text x="1010" y="528" class="sig">compressed data path</text>
+
+  <path class="rot-flow" d="M1325 741 V805 H915 V845"/>
+  <text x="990" y="790" class="sig">raw tile + dst coord</text>
+  <path class="rot-flow" d="M1070 901 H1180"/>
+  <text x="1082" y="888" class="sig">rotated line write</text>
+  <path class="flow" d="M1470 901 H1570"/>
+  <text x="1485" y="888" class="sig">row scan read</text>
+
+  <rect x="70" y="1045" width="830" height="150" class="box"/>
+  <text x="92" y="1078" class="section">A. Metadata Block-Row Ping-Pong</text>
+  <text x="92" y="1106" class="note">读取：一整条 block-row = ceil(tile_cols/8) 个 8x8 block；PING/PANG 交替预取和调度。</text>
+  <g transform="translate(96,1128)">
+    <rect x="0" y="0" width="160" height="40" class="box-meta"/>
+    <text x="80" y="25" text-anchor="middle" class="box-text">source block-row</text>
+    <path class="rot-flow" d="M180 20 H300"/>
+    <rect x="320" y="0" width="170" height="40" class="box-rot"/>
+    <text x="405" y="25" text-anchor="middle" class="box-text">rotate reorder</text>
+    <path class="rot-flow" d="M510 20 H630"/>
+    <rect x="650" y="0" width="155" height="40" class="box-tile"/>
+    <text x="728" y="17" text-anchor="middle" class="box-text">src_x/src_y</text>
+    <text x="728" y="33" text-anchor="middle" class="box-text">dst_x/dst_y</text>
+  </g>
+
+  <rect x="960" y="1045" width="860" height="150" class="box"/>
+  <text x="982" y="1078" class="section">B. 旋转坐标公式</text>
+  <text x="982" y="1106" class="note">source 坐标用于 AXI 读；destination 坐标用于 tile_to_otf 写入和 OTF 输出。</text>
+  <text x="1000" y="1138" class="formula">rot90 : dst_x = src_rows - 1 - src_y, dst_y = src_x</text>
+  <text x="1000" y="1166" class="formula">rot270: dst_x = src_y,                 dst_y = src_cols - 1 - src_x</text>
+
+  <text x="74" y="1020" class="note">边界说明：非旋转路径继续使用原 ubwc_dec_tile_to_otf；NV12 rotation 使用独立 tile_to_otf_rot_nv12；RGBA/P010 不进入 rotation 路径。</text>
+</svg>

@@ -25,7 +25,8 @@ task automatic ubwc_dec_apb_program_full(
     input bit vivo_ubwc_en,
     input bit vivo_sreset,
     input bit irq_enable,
-    input bit do_start
+    input bit do_start,
+    input logic [3:0] ubwc_ver = 4'd7
 );
     bit four_line_format;
     bit lossy_rgba_2_1;
@@ -43,9 +44,10 @@ task automatic ubwc_dec_apb_program_full(
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_TILE_CFG1,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg1(format, width_px));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_TILE_CFG2,
-              ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg2(ci_input_type,
-                                                       ci_lossy,
-                                                       ci_alpha_mode));
+              ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg2_fields(ci_input_type,
+                                                              ci_lossy,
+                                                              ci_alpha_mode,
+                                                              ubwc_ver));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_VIVO_CFG,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_vivo_cfg(vivo_ubwc_en, vivo_sreset));
 
@@ -97,7 +99,8 @@ task automatic ubwc_dec_apb_program(
     input int unsigned v_total,
     input int unsigned v_sync,
     input int unsigned v_bp,
-    input int unsigned v_act
+    input int unsigned v_act,
+    input logic [3:0] ubwc_ver = 4'd7
 );
     bit lossy_rgba_2_1;
 
@@ -128,7 +131,8 @@ task automatic ubwc_dec_apb_program(
                               1'b1,
                               1'b0,
                               1'b1,
-                              1'b1);
+                              1'b1,
+                              ubwc_ver);
 endtask
 
 task automatic ubwc_dec_apb_program_simple(
@@ -167,7 +171,8 @@ task automatic ubwc_dec_apb_program_simple_full(
     input int unsigned v_act,
     input bit ci_lossy,
     input bit irq_enable,
-    input bit do_start
+    input bit do_start,
+    input logic [3:0] ubwc_ver = 4'd7
 );
     ubwc_dec_cfg_pkg::ubwc_dec_base_cfg_t base;
 
@@ -199,5 +204,6 @@ task automatic ubwc_dec_apb_program_simple_full(
                               1'b1,
                               1'b0,
                               irq_enable,
-                              do_start);
+                              do_start,
+                              ubwc_ver);
 endtask

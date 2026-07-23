@@ -18,6 +18,7 @@
  * DEC active Y tile rows    : ceil(1548 / 8) = 194
  * Metadata pitch            : align(24, 64) = 64 bytes
  * Tile data pitch register  : 768 / 16 = 48
+ * DEC META_CFG0             : read-only, derived from OTF H_ACT/V_ACT/format/rotate_mode
  *
  * Layout order:
  *   meta Y -> compressed tile Y -> meta UV -> compressed tile UV
@@ -61,7 +62,7 @@ static const ubwc_enc_reg_write_t ubwc_nv12_720x1548_enc_reg_writes[] = {
     {0x004c, 0x00000000u, "REG_TILE_BASE_UV_HI"},
     {0x0014, 0x00000000u, "REG_ENC_CI_CFG1"},
     {0x0018, 0x00000000u, "REG_ENC_CI_CFG2"},
-    {0x001c, 0x00000000u, "REG_ENC_CI_CFG3"},
+    {0x001c, 0x00070000u, "REG_ENC_CI_CFG3"},
     {0x0010, 0x00000701u, "REG_ENC_CI_CFG0"},
     {0x0024, 0x060c02d0u, "REG_OTF_CFG1"},
     {0x0028, 0x00080020u, "REG_OTF_CFG2"},
@@ -73,16 +74,15 @@ static const ubwc_enc_reg_write_t ubwc_nv12_720x1548_enc_reg_writes[] = {
 };
 
 static const ubwc_dec_reg_write_t ubwc_nv12_720x1548_dec_reg_writes[] = {
-    {0x0008, 0x00000306u, "APB_ADDR_TILE_CFG0"},
+    {0x0008, 0x00070306u, "APB_ADDR_TILE_CFG0"},
     {0x000c, 0x00000030u, "APB_ADDR_TILE_CFG1"},
     {0x0010, 0x00000001u, "APB_ADDR_TILE_CFG2"},
     {0x0014, 0x00000001u, "APB_ADDR_VIVO_CFG"},
-    {0x0018, 0x00020000u, "APB_ADDR_OTF_CFG0"},
+    {0x0018, 0x000202d0u, "APB_ADDR_OTF_CFG0"},
     {0x001c, 0x000002d0u, "APB_ADDR_OTF_CFG1"},
     {0x0020, 0x02d00000u, "APB_ADDR_OTF_CFG2"},
     {0x0024, 0x0000060cu, "APB_ADDR_OTF_CFG3"},
     {0x0028, 0x060c0000u, "APB_ADDR_OTF_CFG4"},
-    {0x002c, 0x00c20018u, "APB_ADDR_META_CFG0"},
     {0x0030, 0x80000000u, "REG_META_BASE_Y_LO"},
     {0x0034, 0x00000000u, "REG_META_BASE_Y_HI"},
     {0x0038, 0x80004000u, "REG_TILE_BASE_Y_LO"},

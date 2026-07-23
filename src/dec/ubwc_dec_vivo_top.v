@@ -50,6 +50,7 @@ module ubwc_dec_vivo_top
         input   wire    [3                      :0]         i_ci_metadata                   ,
         input   wire                                        i_ci_lossy                      ,
         input   wire    [1                      :0]         i_ci_alpha_mode                 ,
+        input   wire    [3                      :0]         i_ci_ubwc_ver                   ,
         input   wire    [SB_WIDTH-1             :0]         i_ci_sb                         ,
         input   wire    [12                  -1 :0]         i_ci_xcoord                     ,
         input   wire    [10                  -1 :0]         i_ci_ycoord                     ,
@@ -114,6 +115,7 @@ module ubwc_dec_vivo_top
     reg         [2                      :0]         r_ci_alen                       ;
     reg         [4                      :0]         r_ci_format                     ;
     reg         [3                      :0]         r_ci_metadata                   ;
+    reg         [3                      :0]         r_ci_ubwc_ver                   ;
     reg         [SB_WIDTH-1             :0]         r_ci_sb                         ;
     reg         [12                  -1 :0]         r_ci_xcoord                     ;
     reg         [10                  -1 :0]         r_ci_ycoord                     ;
@@ -658,6 +660,15 @@ module ubwc_dec_vivo_top
             r_ci_metadata <= 4'd0;
         else if (ci_fire)
             r_ci_metadata <= i_ci_metadata;
+    end
+
+    always @(posedge i_clk or posedge i_reset) begin
+        if (i_reset)
+            r_ci_ubwc_ver <= 4'd0;
+        else if (r_reset_sync || !i_ubwc_en)
+            r_ci_ubwc_ver <= 4'd0;
+        else if (ci_fire)
+            r_ci_ubwc_ver <= i_ci_ubwc_ver;
     end
 
     always @(posedge i_clk or posedge i_reset) begin

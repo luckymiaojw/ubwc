@@ -21,10 +21,10 @@ module ubwc_enc_wrapper_top
         parameter                                       APB_DW                          = 32,
         parameter                                       APB_BLK_NREG                    = 64,
         parameter                                       AXI_AW                          = 64,
-        parameter                                       AXI_DW                          = 64,
-        parameter                                       AXI_LENW                        = 5,
+        parameter                                       AXI_DW                          = 128,
+        parameter                                       AXI_LENW                        = 8,
         parameter                                       AXI_IDW                         = 4,
-        parameter                                       COM_BUF_AW                      = 12,
+        parameter                                       COM_BUF_AW                      = 11,
         parameter                                       COM_BUF_DW                      = 128,
         parameter integer                               ENC_VIVO_FAKE_MODEL_EN          = 0,
         parameter integer                               ENC_VIVO_FAKE_TILE_EXPECT_LINEAR= 0,
@@ -133,11 +133,10 @@ module ubwc_enc_wrapper_top
     );
 
     localparam  integer                             CORE_AXI_DW                     = 256;
-    localparam  integer                             IP_AXI_LENW                     = 8;
     localparam  integer                             COORD_FIFO_DEPTH                = 32;
     localparam  integer                             TH_DW                           = 13;
     localparam  integer                             TW_DW                           = 8;
-    localparam  integer                             ENC_CO_FIFO_W                   = 4;
+    localparam  integer                             ENC_CO_FIFO_W                   = SB_WIDTH + 4;
     localparam  integer                             ENC_CVO_FIFO_W                  = 256 + 32 + 1;
     localparam  integer                             ENC_CO_FIFO_DEPTH_BITS          = 4;
     localparam  integer                             ENC_CVO_FIFO_DEPTH_BITS         = 4;
@@ -173,6 +172,7 @@ module ubwc_enc_wrapper_top
     wire        [3                   -1 :0]         enc_ci_ubwc_cfg_9               ;
     wire        [6                   -1 :0]         enc_ci_ubwc_cfg_10              ;
     wire        [6                   -1 :0]         enc_ci_ubwc_cfg_11              ;
+    wire        [4                   -1 :0]         enc_ci_ubwc_ver                 ;
     wire                                            lvl1_bank_swizzle_en            ;
     wire                                            lvl2_bank_swizzle_en            ;
     wire                                            lvl3_bank_swizzle_en            ;
@@ -249,6 +249,7 @@ module ubwc_enc_wrapper_top
     wire        [16                  -1 :0]         enc_ci_tile_ycoord              ;
     wire        [4                   -1 :0]         enc_ci_tile_fcnt                ;
     wire        [8                   -1 :0]         enc_ci_metadata                 ;
+    wire        [SB_WIDTH            -1 :0]         enc_ci_sb                       ;
     wire                                            enc_co_valid                    ;
     wire                                            enc_co_ready                    ;
     wire                                            enc_co_fire                     ;
@@ -260,6 +261,7 @@ module ubwc_enc_wrapper_top
     wire                                            enc_vivo_co_ready               ;
     wire        [3                   -1 :0]         enc_vivo_co_alen                ;
     wire                                            enc_vivo_co_pcm                 ;
+    wire        [SB_WIDTH            -1 :0]         enc_vivo_co_sb                  ;
     wire                                            enc_co_fifo_full                ;
     wire                                            enc_co_fifo_empty               ;
     wire        [ENC_CO_FIFO_W       -1 :0]         enc_co_fifo_din                 ;
@@ -318,7 +320,7 @@ module ubwc_enc_wrapper_top
     wire        [AXI_IDW             -1 :0]         axi_id_zero                     ;
     wire        [AXI_IDW                :0]         axi_id_ext_zero                 ;
     wire        [AXI_AW              -1 :0]         axi_aw_zero                     ;
-    wire        [IP_AXI_LENW         -1 :0]         axi_len_zero                    ;
+    wire        [AXI_LENW            -1 :0]         axi_len_zero                    ;
     wire        [3                      :0]         axi_cache_zero                  ;
     wire        [2                      :0]         axi_size_zero                   ;
     wire        [2                      :0]         axi_prot_zero                   ;
@@ -327,7 +329,7 @@ module ubwc_enc_wrapper_top
     wire        [AXI_DW              -1 :0]         axi_data_zero                   ;
     wire        [AXI_IDW                :0]         core_m_axi_awid                 ;
     wire        [AXI_AW              -1 :0]         core_m_axi_awaddr               ;
-    wire        [IP_AXI_LENW         -1 :0]         core_m_axi_awlen                ;
+    wire        [AXI_LENW            -1 :0]         core_m_axi_awlen                ;
     wire        [2                   -1 :0]         core_m_axi_awburst              ;
     wire        [2                   -1 :0]         core_m_axi_awlock               ;
     wire                                            core_m_axi_awlock_int           ;
@@ -348,7 +350,6 @@ module ubwc_enc_wrapper_top
     wire        [AXI_IDW             -1 :0]         enc_axi_awid                    ;
     wire        [AXI_AW              -1 :0]         enc_axi_awaddr                  ;
     wire        [AXI_LENW            -1 :0]         enc_axi_awlen                   ;
-    wire        [IP_AXI_LENW         -1 :0]         enc_axi_awlen_ip                ;
     wire        [3                   -1 :0]         enc_axi_awsize                  ;
     wire        [2                   -1 :0]         enc_axi_awburst                 ;
     wire        [2                   -1 :0]         enc_axi_awlock                  ;
@@ -368,7 +369,6 @@ module ubwc_enc_wrapper_top
     wire        [AXI_IDW             -1 :0]         meta_axi_awid                   ;
     wire        [AXI_AW              -1 :0]         meta_axi_awaddr                 ;
     wire        [AXI_LENW            -1 :0]         meta_axi_awlen                  ;
-    wire        [IP_AXI_LENW         -1 :0]         meta_axi_awlen_ip               ;
     wire        [3                   -1 :0]         meta_axi_awsize                 ;
     wire        [2                   -1 :0]         meta_axi_awburst                ;
     wire        [2                   -1 :0]         meta_axi_awlock                 ;
@@ -385,7 +385,7 @@ module ubwc_enc_wrapper_top
     wire        [2                   -1 :0]         meta_axi_bresp                  ;
     wire                                            meta_axi_bvalid                 ;
     wire                                            meta_axi_bready                 ;
-    wire        [IP_AXI_LENW         -1 :0]         x2x_m_axi_awlen                 ;
+    wire        [AXI_LENW            -1 :0]         x2x_m_axi_awlen                 ;
 
     wire        [256                 -1 :0]         rvi_data                        ;
     wire        [32                  -1 :0]         rvi_mask                        ;
@@ -407,14 +407,14 @@ module ubwc_enc_wrapper_top
     assign meta_axi_awlock_bit  = meta_axi_awlock[0];
     assign enc_co_fire          = enc_coord_fifo_rd_en;
     assign enc_ci_metadata      = {4'h1, enc_ci_alen, 1'b0};
-    assign enc_co_fifo_din      = {enc_vivo_co_pcm, enc_vivo_co_alen};
+    assign enc_co_fifo_din      = {enc_vivo_co_sb, enc_vivo_co_pcm, enc_vivo_co_alen};
     assign enc_co_fifo_wr_en    = enc_vivo_co_valid & enc_vivo_co_ready;
     assign enc_co_fifo_rd_en    = enc_coord_fifo_rd_en;
     assign enc_vivo_co_ready    = !enc_co_fifo_full;
     assign enc_co_valid         = !enc_co_fifo_empty;
     assign enc_co_alen          = enc_co_fifo_dout[0 +: 3];
     assign enc_co_pcm           = enc_co_fifo_dout[3];
-    assign enc_co_sb            = {{(SB_WIDTH-1){1'b0}}, b_tile_fcnt[0]};
+    assign enc_co_sb            = enc_co_fifo_dout[4 +: SB_WIDTH];
     assign enc_cvo_fifo_din     = {enc_vivo_cvo_last, enc_vivo_cvo_mask, enc_vivo_cvo_data};
     assign enc_cvo_fifo_wr_en   = enc_vivo_cvo_valid & enc_vivo_cvo_ready;
     assign enc_cvo_fifo_rd_en   = enc_cvo_valid & enc_cvo_ready;
@@ -427,7 +427,7 @@ module ubwc_enc_wrapper_top
     assign axi_id_zero          = {AXI_IDW{1'b0}};
     assign axi_id_ext_zero      = {(AXI_IDW+1){1'b0}};
     assign axi_aw_zero          = {AXI_AW{1'b0}};
-    assign axi_len_zero         = {IP_AXI_LENW{1'b0}};
+    assign axi_len_zero         = {AXI_LENW{1'b0}};
     assign axi_cache_zero       = 4'd0;
     assign axi_size_zero        = 3'd0;
     assign axi_prot_zero        = 3'd0;
@@ -441,9 +441,7 @@ module ubwc_enc_wrapper_top
     assign m_axi_b_fire         = i_m_axi_bvalid & o_m_axi_bready;
     assign enc_ubwc_en_axi      = enc_ubwc_en_axi_sync_r;
     assign enc_ubwc_en_vivo     = enc_ubwc_en_vivo_sync_r;
-    assign enc_axi_awlen_ip     = {{(IP_AXI_LENW-AXI_LENW){1'b0}}, enc_axi_awlen};
-    assign meta_axi_awlen_ip    = {{(IP_AXI_LENW-AXI_LENW){1'b0}}, meta_axi_awlen};
-    assign o_m_axi_awlen        = x2x_m_axi_awlen[AXI_LENW-1:0];
+    assign o_m_axi_awlen        = x2x_m_axi_awlen;
     assign enc_axi_idle         = (m_axi_aw_outstanding_count == 16'd0) &&
                                   (m_axi_w_outstanding_count == 16'd0) &&
                                   !m_axi_w_burst_active &&
@@ -684,6 +682,7 @@ module ubwc_enc_wrapper_top
         .o_enc_ci_ubwc_cfg_9             ( enc_ci_ubwc_cfg_9               ),
         .o_enc_ci_ubwc_cfg_10            ( enc_ci_ubwc_cfg_10              ),
         .o_enc_ci_ubwc_cfg_11            ( enc_ci_ubwc_cfg_11              ),
+        .o_enc_ci_ubwc_ver               ( enc_ci_ubwc_ver                 ),
 
         .i_enc_idle                      ( enc_vivo_idle_sys               ),
         .i_enc_error                     ( enc_vivo_error_sys              ),
@@ -815,7 +814,7 @@ module ubwc_enc_wrapper_top
         .o_ci_valid                      ( enc_ci_valid                    ),
         .i_ci_ready                      ( enc_ci_ready                    ),
         .o_ci_forced_pcm                 ( enc_ci_forced_pcm               ),
-        .o_ci_sb                         (                                 ),
+        .o_ci_sb                         ( enc_ci_sb                       ),
         .o_tile_x                        ( enc_ci_tile_xcoord              ),
         .o_tile_y                        ( enc_ci_tile_ycoord              ),
         .o_tile_fcnt                     ( enc_ci_tile_fcnt                ),
@@ -841,6 +840,7 @@ module ubwc_enc_wrapper_top
 
     ubwc_enc_vivo_top
     #(
+        .SB_DW                          ( SB_WIDTH                         ),
         .FAKE_MODEL_EN                  ( ENC_VIVO_FAKE_MODEL_EN           ),
         .FAKE_TILE_EXPECT_LINEAR        ( ENC_VIVO_FAKE_TILE_EXPECT_LINEAR ),
         .FAKE_IMG_W                     ( ENC_VIVO_FAKE_IMG_W              ),
@@ -890,6 +890,7 @@ module ubwc_enc_wrapper_top
         .i_ci_ycoord                     ( enc_ci_tile_ycoord              ),
         .i_ci_fcnt                       ( enc_ci_tile_fcnt                ),
         .i_ci_lossy                      ( enc_ci_lossy                    ),
+        .i_ci_sb                         ( enc_ci_sb                       ),
         .i_ci_ubwc_cfg_0                 ( enc_ci_ubwc_cfg_0               ),
         .i_ci_ubwc_cfg_1                 ( enc_ci_ubwc_cfg_1               ),
         .i_ci_ubwc_cfg_2                 ( enc_ci_ubwc_cfg_2               ),
@@ -902,6 +903,7 @@ module ubwc_enc_wrapper_top
         .i_ci_ubwc_cfg_9                 ( enc_ci_ubwc_cfg_9               ),
         .i_ci_ubwc_cfg_10                ( enc_ci_ubwc_cfg_10              ),
         .i_ci_ubwc_cfg_11                ( enc_ci_ubwc_cfg_11              ),
+        .i_ci_ubwc_ver                   ( enc_ci_ubwc_ver                 ),
 
         .i_ci_valid                      ( enc_ci_valid                    ),
         .o_ci_ready                      ( enc_ci_ready                    ),
@@ -921,6 +923,7 @@ module ubwc_enc_wrapper_top
         .i_co_ready                      ( enc_vivo_co_ready               ),
         .o_co_alen                       ( enc_vivo_co_alen                ),
         .o_co_pcm                        ( enc_vivo_co_pcm                 ),
+        .o_co_sb                         ( enc_vivo_co_sb                  ),
 
         .o_cvo_valid                     ( enc_vivo_cvo_valid              ),
         .i_cvo_ready                     ( enc_vivo_cvo_ready              ),
@@ -1165,7 +1168,7 @@ module ubwc_enc_wrapper_top
         .awvalid_m1                      ( enc_axi_awvalid                 ),
         .awaddr_m1                       ( enc_axi_awaddr                  ),
         .awid_m1                         ( enc_axi_awid                    ),
-        .awlen_m1                        ( enc_axi_awlen_ip                ),
+        .awlen_m1                        ( enc_axi_awlen                   ),
         .awsize_m1                       ( enc_axi_awsize                  ),
         .awburst_m1                      ( enc_axi_awburst                 ),
         .awlock_m1                       ( enc_axi_awlock_bit              ),
@@ -1202,7 +1205,7 @@ module ubwc_enc_wrapper_top
         .awvalid_m2                      ( meta_axi_awvalid                ),
         .awaddr_m2                       ( meta_axi_awaddr                 ),
         .awid_m2                         ( meta_axi_awid                   ),
-        .awlen_m2                        ( meta_axi_awlen_ip               ),
+        .awlen_m2                        ( meta_axi_awlen                  ),
         .awsize_m2                       ( meta_axi_awsize                 ),
         .awburst_m2                      ( meta_axi_awburst                ),
         .awlock_m2                       ( meta_axi_awlock_bit             ),

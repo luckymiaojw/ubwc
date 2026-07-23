@@ -1,0 +1,887 @@
+//////////////////////////////////////////////////////////////////////////////////
+// -------------------------------------------------------------------------------
+// Copyright (c) 2014-2026 All rights reserved
+// -------------------------------------------------------------------------------
+// Company           : MagicIP
+// Engineer          : jiawang.miao magic.jw@magicip.com.cn
+// Create Date       : 2026-04-01  23:15:14
+// Design Name       :
+// Module Name       : ubwc_dec_tile_to_otf.v
+// Editor            : Gvim, tab size (4)
+// Revision          : 1.00
+//		Revision 1.00 - File Created by		: MiaoJiawang
+//		Description							:
+// Additional Comments:
+//
+//////////////////////////////////////////////////////////////////////////////////
+`timescale 1ns / 1ps
+
+module ubwc_dec_tile_to_otf #(
+    parameter   integer                             SRAM_ADDR_W                     = 12
+)(
+    // --- Clocks and reset ---
+    input   wire                                        clk_sram                        , // Write and memory-read clock, for example 200 MHz
+    input   wire                                        clk_otf                         , // Pixel output clock, for example 148.5 MHz for 1080p60
+    input   wire                                        rst_sram_n                      ,
+    input   wire                                        rst_otf_n                       ,
+    input   wire                                        i_frame_start                   ,
+    input   wire    [3                      :0]         i_frame_fcnt                    ,
+
+    // --- Frame config, keep stable for one frame ---
+    input   wire    [15                     :0]         cfg_img_width                   , // For example 1920
+    input   wire    [4                      :0]         cfg_format                      , // Base frame format: RGBA / YUV420
+    input   wire    [1                      :0]         i_rotate_mode                   ,
+    input   wire    [15                     :0]         cfg_otf_h_total                 ,
+    input   wire    [15                     :0]         cfg_otf_h_sync                  ,
+    input   wire    [15                     :0]         cfg_otf_h_bp                    ,
+    input   wire    [15                     :0]         cfg_otf_h_act                   ,
+    input   wire    [15                     :0]         cfg_otf_v_total                 ,
+    input   wire    [15                     :0]         cfg_otf_v_sync                  ,
+    input   wire    [15                     :0]         cfg_otf_v_bp                    ,
+    input   wire    [15                     :0]         cfg_otf_v_act                   ,
+
+    // --- Tile header input (clk_sram) ---
+    // These ports can be driven either by the wrapper internal path or by a
+    // standalone testbench that feeds tile headers directly.
+    input   wire    [4                      :0]         s_axis_format                   , // Current tile or plane format for writer address mapping
+    input   wire    [15                     :0]         s_axis_tile_x                   , // Tile x index in the current frame scan order
+    input   wire    [15                     :0]         s_axis_tile_y                   , // Slice index; YUV420 expects full-width Y upper, then Y lower, then UV
+    input   wire    [3                      :0]         s_axis_tile_fcnt                ,
+    input   wire                                        s_axis_tile_valid               , // One header beat per tile
+    output  wire                                        s_axis_tile_ready               ,
+
+    // --- Tile data input (clk_sram) ---
+    // These ports can be driven either by the wrapper internal path or by a
+    // standalone testbench that feeds tile payload data directly.
+    input   wire    [255                    :0]         s_axis_tdata                    ,
+    input   wire                                        s_axis_tlast                    , // End of one tile in the current full-width pass
+    input   wire                                        s_axis_tvalid                   ,
+    output  wire                                        s_axis_tready                   ,
+
+    // --- External SRAM bank interface (clk_sram) ---
+    // The ping-pong SRAM instances are provided by the wrapper or testbench.
+    output  wire                                        sram_a_wen                      ,
+    output  wire    [SRAM_ADDR_W         -1 :0]         sram_a_waddr                    ,
+    output  wire    [127                    :0]         sram_a_wdata                    ,
+    output  wire                                        sram_a_ren                      ,
+    output  wire    [SRAM_ADDR_W         -1 :0]         sram_a_raddr                    ,
+    input   wire    [127                    :0]         sram_a_rdata                    ,
+    input   wire                                        sram_a_rvalid                   ,
+    output  wire                                        sram_b_wen                      ,
+    output  wire    [SRAM_ADDR_W         -1 :0]         sram_b_waddr                    ,
+    output  wire    [127                    :0]         sram_b_wdata                    ,
+    output  wire                                        sram_b_ren                      ,
+    output  wire    [SRAM_ADDR_W         -1 :0]         sram_b_raddr                    ,
+    input   wire    [127                    :0]         sram_b_rdata                    ,
+    input   wire                                        sram_b_rvalid                   ,
+
+    // --- OTF Output (clk_otf) ---
+    output  wire                                        o_otf_vsync                     ,
+    output  wire                                        o_otf_hsync                     ,
+    output  wire                                        o_otf_de                        ,
+    output  wire    [127                    :0]         o_otf_data                      ,
+    output  wire    [3                      :0]         o_otf_fcnt                      ,
+    output  wire    [11                     :0]         o_otf_lcnt                      ,
+    input   wire                                        i_otf_ready                     ,
+
+    output  wire                                        o_busy                          ,
+    output  wire                                        o_correct_irq_pulse             ,
+    output  wire                                        o_underflow                     ,
+    output  wire    [31                     :0]         o_otf_line_count                ,
+    output  wire    [31                     :0]         o_otf_de_count
+);
+
+    localparam  integer                                 OTF_FIFO_DEPTH_BITS             = 2;
+    localparam  [OTF_FIFO_DEPTH_BITS       :0]          OTF_FIFO_START_LEVEL_YUV8       = 3'd4;
+    localparam  [OTF_FIFO_DEPTH_BITS       :0]          OTF_FIFO_START_LEVEL_DEFAULT    = 3'd4;
+
+    wire                                            writer_vld                      ;
+    wire                                            writer_bank                     ;
+    wire        [3                      :0]         writer_fcnt                     ;
+    wire                                            writer_uv_slot                  ;
+    wire                                            writer_y_lower_done             ;
+    wire                                            writer_uv_done                  ;
+    wire                                            fetcher_req                     ;
+    wire                                            fetcher_done                    ;
+    wire                                            fetcher_bank                    ;
+    wire                                            fetcher_uv_slot                 ;
+    wire                                            fifo_wr_en                      ;
+    wire                                            fifo_rd_en0                     ;
+    wire                                            fifo_rd_en1                     ;
+    wire        [255                    :0]         fifo_wdata                      ;
+    wire        [255                    :0]         fifo_rdata0                     ;
+    wire                                            fifo_full0                      ;
+    wire                                            fifo_empty0                     ;
+    wire                                            fifo_empty1                     ;
+    wire        [OTF_FIFO_DEPTH_BITS       :0]      fifo_wr_count0                  ;
+    wire        [OTF_FIFO_DEPTH_BITS       :0]      fifo_rd_count0                  ;
+    wire                                            fifo_wr_empty0                  ;
+    wire        [OTF_FIFO_DEPTH_BITS       :0]      fifo_start_level                ;
+    wire                                            fifo_start_ready                ;
+    wire                                            otf_driver_busy                 ;
+    wire                                            otf_frame_start_ready           ;
+    wire                                            otf_frame_done_pulse            ;
+    wire                                            otf_correct_irq_pulse           ;
+    wire                                            otf_underflow_otf               ;
+    wire                                            otf_underflow_event_otf         ;
+    wire        [31                     :0]         otf_line_count_otf              ;
+    wire        [31                     :0]         otf_de_count_otf                ;
+    wire                                            frame_start_sram                ;
+    wire                                            frame_start_otf                 ;
+    wire                                            frame_start_fifo_wr_en          ;
+    wire                                            frame_start_fifo_rd_en          ;
+    wire                                            frame_start_fifo_full           ;
+    wire                                            frame_start_fifo_empty          ;
+    wire        [3                      :0]         frame_start_fifo_wdata          ;
+    wire        [3                      :0]         frame_start_fifo_rdata          ;
+    wire                                            frame_done_sram                 ;
+    wire                                            frame_done_sram_raw             ;
+    wire                                            correct_irq_sram_raw            ;
+    wire                                            tile_to_otf_idle_sram           ;
+    wire                                            frame_done_ready_sram           ;
+    wire                                            correct_irq_ready_sram          ;
+    wire                                            tile_fcnt_accept                ;
+    wire                                            writer_axis_tile_ready          ;
+    wire                                            fetcher_done_a                  ;
+    wire                                            fetcher_done_b                  ;
+    wire                                            cfg_yuv420_profile              ;
+    wire                                            cfg_yuv420_8_profile            ;
+    wire                                            cfg_wide_yuv420_profile         ;
+    wire                                            writer_uses_both_banks          ;
+    wire                                            fetcher_bank0_done              ;
+    wire                                            fetcher_bank1_done              ;
+    wire                                            pending_a_avail                 ;
+    wire                                            pending_b_avail                 ;
+    wire                                            pending_a_fifo_full             ;
+    wire                                            pending_b_fifo_full             ;
+    wire                                            writer_axis_tile_valid          ;
+    wire                                            pending_a_can_fetch             ;
+    wire                                            pending_b_can_fetch             ;
+    wire                                            fetcher_bank_sel                ;
+    wire        [3                      :0]         fetcher_req_fcnt                ;
+    wire                                            fetcher_req_uv_slot             ;
+    wire                                            fetcher_req_y_lower_ready       ;
+    wire                                            fetcher_req_uv_ready            ;
+    wire                                            fetcher_req_fifo_full           ;
+    wire                                            fetcher_sram_a_req              ;
+    wire                                            fetcher_sram_b_req              ;
+    wire                                            fetcher_sram_a_ren              ;
+    wire                                            fetcher_sram_b_ren              ;
+    wire        [SRAM_ADDR_W         -1 :0]         fetcher_sram_a_raddr            ;
+    wire        [SRAM_ADDR_W         -1 :0]         fetcher_sram_b_raddr            ;
+    wire                                            writer_vld_a                    ;
+    wire                                            writer_vld_b                    ;
+    wire                                            writer_y_lower_done_a           ;
+    wire                                            writer_y_lower_done_b           ;
+    wire                                            sram_a_read_fire                ;
+    wire                                            sram_b_read_fire                ;
+    wire                                            sram_a_rvalid_fire              ;
+    wire                                            sram_b_rvalid_fire              ;
+    wire                                            uv_slot0_free                   ;
+    wire                                            uv_slot1_free                   ;
+    wire                                            rotate_active                   ;
+    wire                                            rotate_format_ok                ;
+    wire                                            rotate_height_ok                ;
+    wire                                            nonrot_axis_tready              ;
+    wire                                            nonrot_busy                     ;
+    wire                                            nonrot_correct_irq_pulse        ;
+    wire                                            nonrot_underflow                ;
+    wire        [31                     :0]         nonrot_otf_line_count           ;
+    wire        [31                     :0]         nonrot_otf_de_count             ;
+    wire                                            nonrot_sram_a_wen               ;
+    wire        [SRAM_ADDR_W         -1 :0]         nonrot_sram_a_waddr             ;
+    wire        [127                    :0]         nonrot_sram_a_wdata             ;
+    wire                                            nonrot_sram_b_wen               ;
+    wire        [SRAM_ADDR_W         -1 :0]         nonrot_sram_b_waddr             ;
+    wire        [127                    :0]         nonrot_sram_b_wdata             ;
+    wire                                            nonrot_otf_vsync                ;
+    wire                                            nonrot_otf_hsync                ;
+    wire                                            nonrot_otf_de                   ;
+    wire        [127                    :0]         nonrot_otf_data                 ;
+    wire        [3                      :0]         nonrot_otf_fcnt                 ;
+    wire        [11                     :0]         nonrot_otf_lcnt                 ;
+    wire                                            rot_axis_tile_ready             ;
+    wire                                            rot_axis_tready                 ;
+    wire                                            rot_otf_vsync                   ;
+    wire                                            rot_otf_hsync                   ;
+    wire                                            rot_otf_de                      ;
+    wire        [127                    :0]         rot_otf_data                    ;
+    wire        [3                      :0]         rot_otf_fcnt                    ;
+    wire        [11                     :0]         rot_otf_lcnt                    ;
+    wire                                            rot_busy                        ;
+    wire                                            rot_correct_irq_pulse           ;
+    wire                                            rot_underflow                   ;
+    wire        [31                     :0]         rot_otf_line_count              ;
+    wire        [31                     :0]         rot_otf_de_count                ;
+    wire                                            rot_sram_a_wen                  ;
+    wire        [SRAM_ADDR_W         -1 :0]         rot_sram_a_waddr                ;
+    wire        [127                    :0]         rot_sram_a_wdata                ;
+    wire                                            rot_sram_a_ren                  ;
+    wire        [SRAM_ADDR_W         -1 :0]         rot_sram_a_raddr                ;
+    wire                                            rot_sram_b_wen                  ;
+    wire        [SRAM_ADDR_W         -1 :0]         rot_sram_b_waddr                ;
+    wire        [127                    :0]         rot_sram_b_wdata                ;
+    wire                                            rot_sram_b_ren                  ;
+    wire        [SRAM_ADDR_W         -1 :0]         rot_sram_b_raddr                ;
+
+    reg                                             sram_a_free                     ;
+    reg                                             sram_b_free                     ;
+    reg         [3                      :0]         sram_a_fcnt                     ;
+    reg         [3                      :0]         sram_b_fcnt                     ;
+    reg                                             sram_a_uv_slot                  ;
+    reg                                             sram_b_uv_slot                  ;
+    reg                                             uv_slot0_busy                   ;
+    reg                                             uv_slot1_busy                   ;
+    reg                                             pending_a                       ;
+    reg                                             pending_b                       ;
+    reg                                             pending_a_y_lower_ready         ;
+    reg                                             pending_b_y_lower_ready         ;
+    reg                                             pending_a_uv_ready              ;
+    reg                                             pending_b_uv_ready              ;
+    reg         [3                      :0]         frame_fcnt_otf_r                ;
+    reg                                             frame_start_otf_reg             ;
+    reg                                             frame_done_toggle_otf           ;
+    reg         [1                      :0]         frame_done_toggle_sram_sync     ;
+    reg                                             correct_irq_toggle_otf          ;
+    reg         [1                      :0]         correct_irq_toggle_sram_sync    ;
+    reg                                             otf_underflow_d_otf             ;
+    reg                                             underflow_toggle_otf            ;
+    reg         [1                      :0]         underflow_toggle_sram_sync      ;
+    reg                                             frame_done_wait_sram            ;
+    reg                                             correct_irq_wait_sram           ;
+    reg                                             frame_done_pulse_sram           ;
+    reg                                             correct_irq_pulse_sram          ;
+    reg         [31                     :0]         otf_line_count_sram             ;
+    reg         [31                     :0]         otf_de_count_sram               ;
+    reg                                             accept_fcnt_valid_sram          ;
+    reg         [3                      :0]         accept_fcnt_sram                ;
+    reg         [3                      :0]         sram_a_read_pending_cnt         ;
+    reg         [3                      :0]         sram_b_read_pending_cnt         ;
+
+    // =========================================================================
+    // Internal signals
+    // =========================================================================
+    // 1. Ping-pong buffer status
+
+    // 2. Async FIFO interface
+
+    assign rotate_format_ok           = (cfg_format == 5'b00010) ||
+                                         (cfg_format == 5'b01000) ||
+                                         (cfg_format == 5'b01001);
+    assign rotate_height_ok           = (cfg_otf_h_act <= 16'd1080);
+    assign rotate_active              = rotate_format_ok &&
+                                        rotate_height_ok &&
+                                        (|i_rotate_mode);
+    assign frame_start_sram           = (i_frame_start == 1'b1);
+    assign frame_start_otf            = frame_start_otf_reg;
+    assign frame_start_fifo_wr_en     = !rotate_active &&
+                                        frame_start_sram &&
+                                        !frame_start_fifo_full;
+    assign frame_start_fifo_rd_en     = !rotate_active &&
+                                        !frame_start_fifo_empty &&
+                                        otf_frame_start_ready &&
+                                        fifo_start_ready;
+    assign frame_start_fifo_wdata     = i_frame_fcnt;
+    assign fifo_rd_en1                = 1'b0;
+    assign fifo_empty1                = 1'b1;
+    assign fifo_wr_empty0             = (fifo_wr_count0 == {1'b0, {OTF_FIFO_DEPTH_BITS{1'b0}}});
+    assign frame_done_sram_raw        = frame_done_toggle_sram_sync[1] ^ frame_done_toggle_sram_sync[0];
+    assign correct_irq_sram_raw       = correct_irq_toggle_sram_sync[1] ^ correct_irq_toggle_sram_sync[0];
+    assign frame_done_sram            = frame_done_pulse_sram;
+    assign nonrot_correct_irq_pulse   = correct_irq_pulse_sram;
+    assign nonrot_underflow           = underflow_toggle_sram_sync[1] ^ underflow_toggle_sram_sync[0];
+    assign nonrot_otf_line_count      = otf_line_count_sram;
+    assign nonrot_otf_de_count        = otf_de_count_sram;
+    assign tile_fcnt_accept           = !accept_fcnt_valid_sram || (s_axis_tile_fcnt == accept_fcnt_sram);
+    assign s_axis_tile_ready          = rotate_active ? rot_axis_tile_ready :
+                                                        (writer_axis_tile_ready && tile_fcnt_accept);
+    assign cfg_yuv420_profile         = (cfg_format == 5'b00010) ||
+                                        (cfg_format == 5'b00011) ||
+                                        (cfg_format == 5'b01000) ||
+                                        (cfg_format == 5'b01001) ||
+                                        (cfg_format == 5'b01110) ||
+                                        (cfg_format == 5'b01111);
+    assign cfg_yuv420_8_profile       = (cfg_format == 5'b00010) ||
+                                        (cfg_format == 5'b01000) ||
+                                        (cfg_format == 5'b01001);
+    assign cfg_wide_yuv420_profile    = cfg_yuv420_profile;
+    assign fifo_start_level           = cfg_yuv420_8_profile ? OTF_FIFO_START_LEVEL_YUV8 :
+                                                              OTF_FIFO_START_LEVEL_DEFAULT;
+    assign fifo_start_ready           = fifo_rd_count0 >= fifo_start_level;
+    assign otf_underflow_event_otf    = otf_underflow_otf && !otf_underflow_d_otf;
+    assign writer_uses_both_banks     = 1'b0;
+    assign fetcher_done_a             = fetcher_bank0_done;
+    assign fetcher_done_b             = fetcher_bank1_done;
+    assign pending_a_avail            = pending_a && !fetcher_done_a;
+    assign pending_b_avail            = pending_b && !fetcher_done_b;
+    assign pending_a_fifo_full        = fifo_full0;
+    assign pending_b_fifo_full        = fifo_full0;
+    assign pending_a_can_fetch        = pending_a_avail && !pending_a_fifo_full;
+    assign pending_b_can_fetch        = pending_b_avail && !pending_b_fifo_full;
+    assign writer_axis_tile_valid     = !rotate_active && s_axis_tile_valid && tile_fcnt_accept;
+    assign fetcher_bank_sel           = pending_a_can_fetch ? 1'b0 : 1'b1;
+    assign fetcher_req_fcnt           = pending_a_can_fetch ? sram_a_fcnt : sram_b_fcnt;
+    assign fetcher_req_uv_slot        = pending_a_can_fetch ? sram_a_uv_slot : sram_b_uv_slot;
+    assign fetcher_req_y_lower_ready  = (pending_a_can_fetch ? pending_a_y_lower_ready :
+                                                               pending_b_y_lower_ready) |
+                                        writer_y_lower_done;
+    assign fetcher_req_uv_ready       = (pending_a_can_fetch ? pending_a_uv_ready :
+                                                               pending_b_uv_ready) |
+                                        writer_uv_done;
+    assign fetcher_req_fifo_full      = fifo_full0;
+    assign fetcher_req                = pending_a_can_fetch | pending_b_can_fetch;
+    assign writer_vld_a               = writer_vld && ((writer_bank == 1'b0) || writer_uses_both_banks);
+    assign writer_vld_b               = writer_vld && ((writer_bank == 1'b1) || writer_uses_both_banks);
+    assign writer_y_lower_done_a      = writer_y_lower_done && (writer_bank == 1'b1);
+    assign writer_y_lower_done_b      = writer_y_lower_done && (writer_bank == 1'b0);
+    assign sram_a_read_fire           = fetcher_sram_a_ren && !nonrot_sram_a_wen;
+    assign sram_b_read_fire           = fetcher_sram_b_ren && !nonrot_sram_b_wen;
+    assign sram_a_rvalid_fire         = sram_a_rvalid && (sram_a_read_pending_cnt != 4'd0);
+    assign sram_b_rvalid_fire         = sram_b_rvalid && (sram_b_read_pending_cnt != 4'd0);
+    assign uv_slot0_free              = !uv_slot0_busy;
+    assign uv_slot1_free              = !uv_slot1_busy;
+    assign sram_a_wen                 = rotate_active ? rot_sram_a_wen : nonrot_sram_a_wen;
+    assign sram_a_waddr               = rotate_active ? rot_sram_a_waddr : nonrot_sram_a_waddr;
+    assign sram_a_wdata               = rotate_active ? rot_sram_a_wdata : nonrot_sram_a_wdata;
+    assign sram_b_wen                 = rotate_active ? rot_sram_b_wen : nonrot_sram_b_wen;
+    assign sram_b_waddr               = rotate_active ? rot_sram_b_waddr : nonrot_sram_b_waddr;
+    assign sram_b_wdata               = rotate_active ? rot_sram_b_wdata : nonrot_sram_b_wdata;
+    assign sram_a_ren                 = rotate_active ? rot_sram_a_ren : sram_a_read_fire;
+    assign sram_b_ren                 = rotate_active ? rot_sram_b_ren : sram_b_read_fire;
+    assign sram_a_raddr               = rotate_active ? rot_sram_a_raddr : fetcher_sram_a_raddr;
+    assign sram_b_raddr               = rotate_active ? rot_sram_b_raddr : fetcher_sram_b_raddr;
+    assign tile_to_otf_idle_sram      = !s_axis_tile_valid && !s_axis_tvalid &&
+                                        !writer_vld && !fetcher_req &&
+                                        !pending_a && !pending_b &&
+                                        sram_a_free && sram_b_free &&
+                                        (sram_a_read_pending_cnt == 4'd0) &&
+                                        (sram_b_read_pending_cnt == 4'd0) &&
+                                        fifo_wr_empty0 && !fifo_wr_en;
+    assign frame_done_ready_sram      = (frame_done_sram_raw | frame_done_wait_sram) &&
+                                        tile_to_otf_idle_sram;
+    assign correct_irq_ready_sram     = (correct_irq_sram_raw | correct_irq_wait_sram) &&
+                                        tile_to_otf_idle_sram;
+    assign nonrot_busy                = s_axis_tile_valid | s_axis_tvalid | writer_vld | fetcher_req |
+                                        !fifo_wr_empty0 | pending_a | pending_b |
+                                        !sram_a_free | !sram_b_free | otf_driver_busy;
+    assign s_axis_tready              = rotate_active ? rot_axis_tready : nonrot_axis_tready;
+    assign o_busy                     = rotate_active ? rot_busy : nonrot_busy;
+    assign o_correct_irq_pulse        = rotate_active ? rot_correct_irq_pulse : nonrot_correct_irq_pulse;
+    assign o_underflow                = rotate_active ? rot_underflow : nonrot_underflow;
+    assign o_otf_line_count           = rotate_active ? rot_otf_line_count : nonrot_otf_line_count;
+    assign o_otf_de_count             = rotate_active ? rot_otf_de_count : nonrot_otf_de_count;
+    assign o_otf_vsync                = rotate_active ? rot_otf_vsync : nonrot_otf_vsync;
+    assign o_otf_hsync                = rotate_active ? rot_otf_hsync : nonrot_otf_hsync;
+    assign o_otf_de                   = rotate_active ? rot_otf_de : nonrot_otf_de;
+    assign o_otf_data                 = rotate_active ? rot_otf_data : nonrot_otf_data;
+    assign o_otf_fcnt                 = rotate_active ? rot_otf_fcnt : nonrot_otf_fcnt;
+    assign o_otf_lcnt                 = rotate_active ? rot_otf_lcnt : nonrot_otf_lcnt;
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n)
+            frame_fcnt_otf_r <= 4'd0;
+        else if (frame_start_fifo_rd_en)
+            frame_fcnt_otf_r <= frame_start_fifo_rdata;
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n)
+            frame_start_otf_reg <= 1'b0;
+        else
+            frame_start_otf_reg <= frame_start_fifo_rd_en;
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n) begin
+            frame_done_toggle_otf <= 1'b0;
+        end else if (otf_frame_done_pulse) begin
+            frame_done_toggle_otf <= ~frame_done_toggle_otf;
+        end
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n) begin
+            correct_irq_toggle_otf <= 1'b0;
+        end else if (otf_correct_irq_pulse) begin
+            correct_irq_toggle_otf <= ~correct_irq_toggle_otf;
+        end
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n)
+            otf_underflow_d_otf <= 1'b0;
+        else
+            otf_underflow_d_otf <= otf_underflow_otf;
+    end
+
+    always @(posedge clk_otf or negedge rst_otf_n) begin
+        if (!rst_otf_n)
+            underflow_toggle_otf <= 1'b0;
+        else if (otf_underflow_event_otf)
+            underflow_toggle_otf <= ~underflow_toggle_otf;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            frame_done_toggle_sram_sync <= 2'b00;
+        else
+            frame_done_toggle_sram_sync <= {frame_done_toggle_sram_sync[0],
+                                            frame_done_toggle_otf};
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            correct_irq_toggle_sram_sync <= 2'b00;
+        else
+            correct_irq_toggle_sram_sync <= {correct_irq_toggle_sram_sync[0],
+                                             correct_irq_toggle_otf};
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            underflow_toggle_sram_sync <= 2'b00;
+        else
+            underflow_toggle_sram_sync <= {underflow_toggle_sram_sync[0],
+                                           underflow_toggle_otf};
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            frame_done_wait_sram <= 1'b0;
+        else if (frame_done_ready_sram)
+            frame_done_wait_sram <= 1'b0;
+        else if (frame_done_sram_raw)
+            frame_done_wait_sram <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            correct_irq_wait_sram <= 1'b0;
+        else if (correct_irq_ready_sram)
+            correct_irq_wait_sram <= 1'b0;
+        else if (correct_irq_sram_raw)
+            correct_irq_wait_sram <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            frame_done_pulse_sram <= 1'b0;
+        else
+            frame_done_pulse_sram <= frame_done_ready_sram;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            correct_irq_pulse_sram <= 1'b0;
+        else
+            correct_irq_pulse_sram <= correct_irq_ready_sram;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            otf_line_count_sram <= 32'd0;
+        else
+            otf_line_count_sram <= otf_line_count_otf;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            otf_de_count_sram <= 32'd0;
+        else
+            otf_de_count_sram <= otf_de_count_otf;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            accept_fcnt_valid_sram <= 1'b0;
+        else if (!accept_fcnt_valid_sram && frame_start_sram)
+            accept_fcnt_valid_sram <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            accept_fcnt_sram <= 4'd0;
+        else if (!accept_fcnt_valid_sram && frame_start_sram)
+            accept_fcnt_sram <= i_frame_fcnt;
+        else if (frame_done_sram)
+            accept_fcnt_sram <= accept_fcnt_sram + 4'd1;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_a_read_pending_cnt <= 4'd0;
+        else begin
+            case ({sram_a_read_fire, sram_a_rvalid_fire})
+                2'b10:   sram_a_read_pending_cnt <= sram_a_read_pending_cnt + 4'd1;
+                2'b01:   sram_a_read_pending_cnt <= sram_a_read_pending_cnt - 4'd1;
+                default: sram_a_read_pending_cnt <= sram_a_read_pending_cnt;
+            endcase
+        end
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_b_read_pending_cnt <= 4'd0;
+        else begin
+            case ({sram_b_read_fire, sram_b_rvalid_fire})
+                2'b10:   sram_b_read_pending_cnt <= sram_b_read_pending_cnt + 4'd1;
+                2'b01:   sram_b_read_pending_cnt <= sram_b_read_pending_cnt - 4'd1;
+                default: sram_b_read_pending_cnt <= sram_b_read_pending_cnt;
+            endcase
+        end
+    end
+
+    // =========================================================================
+    // Module instances
+    // =========================================================================
+
+    mg_async_fifo #(
+        .AF                             ( 1                                     ),
+        .DATA_BITS                      ( 4                                     ),
+        .DEPTH_BITS                     ( 3                                     ),
+        .SHOW_AHEAD                     ( 1                                     ),
+        .RAM_STYLE                      ( "distributed"                         )
+    ) u_frame_start_fifo (
+        .wr_clk                         ( clk_sram                              ),
+        .wr_rstn                        ( rst_sram_n                            ),
+        .wr_en                          ( frame_start_fifo_wr_en                ),
+        .din                            ( frame_start_fifo_wdata                ),
+        .wr_data_count                  (                                       ),
+        .prog_full                      (                                       ),
+        .full                           ( frame_start_fifo_full                 ),
+        .rd_clk                         ( clk_otf                               ),
+        .rd_rstn                        ( rst_otf_n                             ),
+        .rd_en                          ( frame_start_fifo_rd_en                ),
+        .dout                           ( frame_start_fifo_rdata                ),
+        .valid                          (                                       ),
+        .rd_data_count                  (                                       ),
+        .pre_empty                      (                                       ),
+        .empty                          ( frame_start_fifo_empty                )
+    );
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_a_free <= 1'b1;
+        else if (writer_vld_a || writer_y_lower_done_a)
+            sram_a_free <= 1'b0;
+        else if (fetcher_done_a)
+            sram_a_free <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_b_free <= 1'b1;
+        else if (writer_vld_b || writer_y_lower_done_b)
+            sram_b_free <= 1'b0;
+        else if (fetcher_done_b)
+            sram_b_free <= 1'b1;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_a_fcnt <= 4'd0;
+        else if (writer_vld_a || writer_y_lower_done_a)
+            sram_a_fcnt <= writer_fcnt;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_b_fcnt <= 4'd0;
+        else if (writer_vld_b || writer_y_lower_done_b)
+            sram_b_fcnt <= writer_fcnt;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_a_uv_slot <= 1'b0;
+        else if (writer_vld_a || writer_y_lower_done_a)
+            sram_a_uv_slot <= writer_uv_slot;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            sram_b_uv_slot <= 1'b0;
+        else if (writer_vld_b || writer_y_lower_done_b)
+            sram_b_uv_slot <= writer_uv_slot;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            uv_slot0_busy <= 1'b0;
+        else begin
+            if (fetcher_done && !fetcher_uv_slot)
+                uv_slot0_busy <= 1'b0;
+            if (writer_uv_done && !writer_uv_slot)
+                uv_slot0_busy <= 1'b1;
+        end
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            uv_slot1_busy <= 1'b0;
+        else begin
+            if (fetcher_done && fetcher_uv_slot)
+                uv_slot1_busy <= 1'b0;
+            if (writer_uv_done && writer_uv_slot)
+                uv_slot1_busy <= 1'b1;
+        end
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            pending_a <= 1'b0;
+        else if (writer_vld_a || writer_y_lower_done_a)
+            pending_a <= 1'b1;
+        else if (fetcher_done_a)
+            pending_a <= 1'b0;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            pending_a_y_lower_ready <= 1'b0;
+        else if (writer_vld_a)
+            pending_a_y_lower_ready <= !cfg_wide_yuv420_profile;
+        else if (writer_y_lower_done && pending_a)
+            pending_a_y_lower_ready <= 1'b1;
+        else if (fetcher_done_a)
+            pending_a_y_lower_ready <= 1'b0;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            pending_a_uv_ready <= 1'b0;
+        else if (writer_vld_a)
+            pending_a_uv_ready <= 1'b1;
+        else if (writer_uv_done && pending_a)
+            pending_a_uv_ready <= 1'b1;
+        else if (fetcher_done_a)
+            pending_a_uv_ready <= 1'b0;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            pending_b <= 1'b0;
+        else if (writer_vld_b || writer_y_lower_done_b)
+            pending_b <= 1'b1;
+        else if (fetcher_done_b)
+            pending_b <= 1'b0;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            pending_b_y_lower_ready <= 1'b0;
+        else if (writer_vld_b)
+            pending_b_y_lower_ready <= !cfg_wide_yuv420_profile;
+        else if (writer_y_lower_done && pending_b)
+            pending_b_y_lower_ready <= 1'b1;
+        else if (fetcher_done_b)
+            pending_b_y_lower_ready <= 1'b0;
+    end
+
+    always @(posedge clk_sram or negedge rst_sram_n) begin
+        if (!rst_sram_n)
+            pending_b_uv_ready <= 1'b0;
+        else if (writer_vld_b)
+            pending_b_uv_ready <= 1'b1;
+        else if (writer_uv_done && pending_b)
+            pending_b_uv_ready <= 1'b1;
+        else if (fetcher_done_b)
+            pending_b_uv_ready <= 1'b0;
+    end
+
+    tile_to_line_writer #(
+        .SRAM_ADDR_W                   ( SRAM_ADDR_W                          )
+    ) u_writer (
+        .clk_sram                      ( clk_sram                              ),
+        .rst_n                         ( rst_sram_n                            ),
+        .i_frame_start                 ( frame_start_sram                      ),
+        .cfg_img_width                 ( cfg_img_width                         ),
+        .i_sram_a_free                 ( sram_a_free                           ),
+        .i_sram_b_free                 ( sram_b_free                           ),
+        .i_uv_slot0_free               ( uv_slot0_free                         ),
+        .i_uv_slot1_free               ( uv_slot1_free                         ),
+        .s_axis_format                 ( s_axis_format                         ),
+        .s_axis_tile_x                 ( s_axis_tile_x                         ),
+        .s_axis_tile_y                 ( s_axis_tile_y                         ),
+        .s_axis_tile_fcnt              ( s_axis_tile_fcnt                      ),
+        .s_axis_tile_valid             ( writer_axis_tile_valid                ),
+        .s_axis_tile_ready             ( writer_axis_tile_ready                ),
+        .s_axis_tdata                  ( s_axis_tdata                          ),
+        .s_axis_tlast                  ( s_axis_tlast                          ),
+        .s_axis_tvalid                 ( rotate_active ? 1'b0 : s_axis_tvalid  ),
+        .s_axis_tready                 ( nonrot_axis_tready                    ),
+        .sram_a_wen                    ( nonrot_sram_a_wen                     ),
+        .sram_a_waddr                  ( nonrot_sram_a_waddr                   ),
+        .sram_a_wdata                  ( nonrot_sram_a_wdata                   ),
+        .sram_b_wen                    ( nonrot_sram_b_wen                     ),
+        .sram_b_waddr                  ( nonrot_sram_b_waddr                   ),
+        .sram_b_wdata                  ( nonrot_sram_b_wdata                   ),
+        .o_writer_bank                 ( writer_bank                           ),
+        .o_writer_fcnt                 ( writer_fcnt                           ),
+        .o_writer_uv_slot              ( writer_uv_slot                        ),
+        .o_writer_y_lower_done         ( writer_y_lower_done                   ),
+        .o_writer_uv_done              ( writer_uv_done                        ),
+        .o_buffer_vld                  ( writer_vld                            )
+    );
+
+    sram_read_fetcher #(
+        .SRAM_ADDR_W                   ( SRAM_ADDR_W                          )
+    ) u_fetcher (
+        .clk_sram                      ( clk_sram                              ),
+        .rst_n                         ( rst_sram_n                            ),
+        .i_frame_start                 ( frame_start_sram                      ),
+        .cfg_img_width                 ( cfg_img_width                         ),
+        .cfg_img_height                ( cfg_otf_v_act                         ),
+        .cfg_format                    ( cfg_format                            ),
+        .i_buffer_vld                  ( fetcher_req                           ),
+        .i_writer_bank                 ( fetcher_bank_sel                      ),
+        .i_buffer_fcnt                 ( fetcher_req_fcnt                      ),
+        .i_buffer_uv_slot              ( fetcher_req_uv_slot                   ),
+        .i_buffer_y_lower_ready        ( fetcher_req_y_lower_ready             ),
+        .i_buffer_uv_ready             ( fetcher_req_uv_ready                  ),
+        .i_y_lower_done                ( writer_y_lower_done                   ),
+        .i_uv_done                     ( writer_uv_done                        ),
+        .i_sram_a_wbusy                ( nonrot_sram_a_wen                     ),
+        .i_sram_b_wbusy                ( nonrot_sram_b_wen                     ),
+        .o_sram_a_req                  ( fetcher_sram_a_req                    ),
+        .o_sram_a_ren                  ( fetcher_sram_a_ren                    ),
+        .o_sram_a_raddr                ( fetcher_sram_a_raddr                  ),
+        .i_sram_a_rdata                ( sram_a_rdata                          ),
+        .i_sram_a_rvalid               ( sram_a_rvalid_fire                    ),
+        .o_sram_b_req                  ( fetcher_sram_b_req                    ),
+        .o_sram_b_ren                  ( fetcher_sram_b_ren                    ),
+        .o_sram_b_raddr                ( fetcher_sram_b_raddr                  ),
+        .i_sram_b_rdata                ( sram_b_rdata                          ),
+        .i_sram_b_rvalid               ( sram_b_rvalid_fire                    ),
+        .o_fifo_wr_en                  ( fifo_wr_en                            ),
+        .o_fifo_wdata                  ( fifo_wdata                            ),
+        .o_fifo_fcnt                   (                                     ),
+        .i_fifo_full                   ( fetcher_req_fifo_full                 ),
+        .o_fetcher_done                ( fetcher_done                          ),
+        .o_fetcher_bank                ( fetcher_bank                          ),
+        .o_fetcher_fcnt                (                                     ),
+        .o_fetcher_uv_slot             ( fetcher_uv_slot                       ),
+        .o_fetcher_bank0_done          ( fetcher_bank0_done                    ),
+        .o_fetcher_bank1_done          ( fetcher_bank1_done                    )
+    );
+
+    // Async FIFO across clock domains.
+    mg_async_fifo #(
+        .AF                             ( 1                                     ),
+        .DATA_BITS                      ( 256                                   ),
+        .DEPTH_BITS                     ( OTF_FIFO_DEPTH_BITS                   ),
+        .SHOW_AHEAD                     ( 1                                     ),
+        .RAM_STYLE                      ( "block"                               )
+    ) u_cdc_fifo0 (
+        .wr_clk                         ( clk_sram                              ),
+        .wr_rstn                        ( rst_sram_n                            ),
+        .wr_en                          ( fifo_wr_en                            ),
+        .din                            ( fifo_wdata                            ),
+        .wr_data_count                  ( fifo_wr_count0                        ),
+        .prog_full                      (                                       ),
+        .full                           ( fifo_full0                            ),
+        .rd_clk                         ( clk_otf                               ),
+        .rd_rstn                        ( rst_otf_n                             ),
+        .rd_en                          ( fifo_rd_en0                           ),
+        .dout                           ( fifo_rdata0                           ),
+        .valid                          (                                       ),
+        .rd_data_count                  ( fifo_rd_count0                        ),
+        .pre_empty                      (                                       ),
+        .empty                          ( fifo_empty0                           )
+    );
+
+    otf_driver u_otf_driver (
+        .clk_otf                    ( clk_otf                    ),
+        .rst_n                      ( rst_otf_n                  ),
+        .i_frame_start              ( frame_start_otf            ),
+        .i_frame_fcnt               ( frame_fcnt_otf_r           ),
+        .cfg_format                 ( cfg_format                 ),
+        .cfg_otf_h_total            ( cfg_otf_h_total            ),
+        .cfg_otf_h_sync             ( cfg_otf_h_sync             ),
+        .cfg_otf_h_bp               ( cfg_otf_h_bp               ),
+        .cfg_otf_h_act              ( cfg_otf_h_act              ),
+        .cfg_otf_v_total            ( cfg_otf_v_total            ),
+        .cfg_otf_v_sync             ( cfg_otf_v_sync             ),
+        .cfg_otf_v_bp               ( cfg_otf_v_bp               ),
+        .cfg_otf_v_act              ( cfg_otf_v_act              ),
+        .i_otf_ready                ( i_otf_ready                ),
+        .i_fifo_empty0              ( fifo_empty0                ),
+        .i_fifo_rdata0              ( fifo_rdata0                ),
+        .i_fifo_start_ready         ( fifo_start_ready           ),
+        .o_fifo_rd_en0              ( fifo_rd_en0                ),
+        .o_busy                     ( otf_driver_busy            ),
+        .o_frame_start_ready        ( otf_frame_start_ready      ),
+        .o_active_fcnt              (                            ),
+        .o_frame_done_pulse         ( otf_frame_done_pulse       ),
+        .o_correct_irq_pulse        ( otf_correct_irq_pulse      ),
+        .o_underflow                ( otf_underflow_otf          ),
+        .o_otf_line_count           ( otf_line_count_otf         ),
+        .o_otf_de_count             ( otf_de_count_otf           ),
+        .o_otf_vsync                ( nonrot_otf_vsync           ),
+        .o_otf_hsync                ( nonrot_otf_hsync           ),
+        .o_otf_de                   ( nonrot_otf_de              ),
+        .o_otf_data                 ( nonrot_otf_data            ),
+        .o_otf_fcnt                 ( nonrot_otf_fcnt            ),
+        .o_otf_lcnt                 ( nonrot_otf_lcnt            )
+    );
+
+    ubwc_dec_tile_to_otf_rotate #(
+        .SRAM_ADDR_W                ( SRAM_ADDR_W                ),
+        .OTF_FIFO_DEPTH_BITS        ( 5                          )
+    ) u_rotate_ref (
+        .clk_sram                   ( clk_sram                   ),
+        .clk_otf                    ( clk_otf                    ),
+        .rst_sram_n                 ( rst_sram_n                 ),
+        .rst_otf_n                  ( rst_otf_n                  ),
+        .i_frame_start              ( frame_start_sram           ),
+        .i_frame_fcnt               ( i_frame_fcnt               ),
+        .i_rotate_mode              ( i_rotate_mode              ),
+        .cfg_format                 ( cfg_format                 ),
+        .cfg_img_width              ( cfg_img_width              ),
+        .cfg_otf_h_total            ( cfg_otf_h_total            ),
+        .cfg_otf_h_sync             ( cfg_otf_h_sync             ),
+        .cfg_otf_h_bp               ( cfg_otf_h_bp               ),
+        .cfg_otf_h_act              ( cfg_otf_h_act              ),
+        .cfg_otf_v_total            ( cfg_otf_v_total            ),
+        .cfg_otf_v_sync             ( cfg_otf_v_sync             ),
+        .cfg_otf_v_bp               ( cfg_otf_v_bp               ),
+        .cfg_otf_v_act              ( cfg_otf_v_act              ),
+        .s_axis_format              ( s_axis_format              ),
+        .s_axis_tile_x              ( s_axis_tile_x              ),
+        .s_axis_tile_y              ( s_axis_tile_y              ),
+        .s_axis_tile_fcnt           ( s_axis_tile_fcnt           ),
+        .s_axis_tile_valid          ( rotate_active ? s_axis_tile_valid : 1'b0 ),
+        .s_axis_tile_ready          ( rot_axis_tile_ready        ),
+        .s_axis_tdata               ( s_axis_tdata               ),
+        .s_axis_tlast               ( s_axis_tlast               ),
+        .s_axis_tvalid              ( rotate_active ? s_axis_tvalid : 1'b0 ),
+        .s_axis_tready              ( rot_axis_tready            ),
+        .sram_a_wen                 ( rot_sram_a_wen             ),
+        .sram_a_waddr               ( rot_sram_a_waddr           ),
+        .sram_a_wdata               ( rot_sram_a_wdata           ),
+        .sram_a_ren                 ( rot_sram_a_ren             ),
+        .sram_a_raddr               ( rot_sram_a_raddr           ),
+        .sram_a_rdata               ( sram_a_rdata               ),
+        .sram_a_rvalid              ( sram_a_rvalid              ),
+        .sram_b_wen                 ( rot_sram_b_wen             ),
+        .sram_b_waddr               ( rot_sram_b_waddr           ),
+        .sram_b_wdata               ( rot_sram_b_wdata           ),
+        .sram_b_ren                 ( rot_sram_b_ren             ),
+        .sram_b_raddr               ( rot_sram_b_raddr           ),
+        .sram_b_rdata               ( sram_b_rdata               ),
+        .sram_b_rvalid              ( sram_b_rvalid              ),
+        .o_otf_vsync                ( rot_otf_vsync              ),
+        .o_otf_hsync                ( rot_otf_hsync              ),
+        .o_otf_de                   ( rot_otf_de                 ),
+        .o_otf_data                 ( rot_otf_data               ),
+        .o_otf_fcnt                 ( rot_otf_fcnt               ),
+        .o_otf_lcnt                 ( rot_otf_lcnt               ),
+        .i_otf_ready                ( i_otf_ready                ),
+        .o_busy                     ( rot_busy                   ),
+        .o_correct_irq_pulse        ( rot_correct_irq_pulse      ),
+        .o_underflow                ( rot_underflow              ),
+        .o_otf_line_count           ( rot_otf_line_count         ),
+        .o_otf_de_count             ( rot_otf_de_count           )
+    );
+
+endmodule

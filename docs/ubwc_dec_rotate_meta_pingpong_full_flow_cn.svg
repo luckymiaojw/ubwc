@@ -1,0 +1,234 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2080" height="1680" viewBox="0 0 2080 1680">
+  <defs>
+    <style>
+      .bg { fill:#f7f9fc; }
+      .card { fill:#ffffff; stroke:#cbd5e1; stroke-width:2; }
+      .title { font-family:Arial, "Microsoft YaHei", sans-serif; font-size:34px; font-weight:700; fill:#0f172a; }
+      .h2 { font-family:Arial, "Microsoft YaHei", sans-serif; font-size:24px; font-weight:700; fill:#0f172a; }
+      .h3 { font-family:Arial, "Microsoft YaHei", sans-serif; font-size:19px; font-weight:700; fill:#111827; }
+      .txt { font-family:Arial, "Microsoft YaHei", sans-serif; font-size:17px; fill:#334155; }
+      .small { font-family:Arial, "Microsoft YaHei", sans-serif; font-size:14px; fill:#475569; }
+      .mono { font-family:"SFMono-Regular", Menlo, Consolas, monospace; font-size:15px; fill:#1f2937; }
+      .tiny { font-family:"SFMono-Regular", Menlo, Consolas, monospace; font-size:12px; fill:#334155; }
+      .stage { fill:#eef6ff; stroke:#2563eb; stroke-width:2; }
+      .ddr { fill:#fff7ed; stroke:#f97316; stroke-width:2; }
+      .slicer { fill:#f0fdf4; stroke:#16a34a; stroke-width:2; }
+      .sram { fill:#eef2ff; stroke:#4f46e5; stroke-width:2; }
+      .uvA { fill:#dff7ff; stroke:#0284c7; stroke-width:2; }
+      .uvB { fill:#ffe8cc; stroke:#ea580c; stroke-width:2; }
+      .y0 { fill:#dcfce7; stroke:#16a34a; stroke-width:2; }
+      .y1 { fill:#e9d5ff; stroke:#9333ea; stroke-width:2; }
+      .res { fill:#f1f5f9; stroke:#94a3b8; stroke-width:2; stroke-dasharray:7 6; }
+      .grid { fill:#ffffff; stroke:#94a3b8; stroke-width:1; }
+      .line { stroke:#334155; stroke-width:2.5; fill:none; }
+      .blue { stroke:#0284c7; stroke-width:3; fill:none; }
+      .orange { stroke:#ea580c; stroke-width:3; fill:none; }
+      .green { stroke:#16a34a; stroke-width:3; fill:none; }
+      .purple { stroke:#9333ea; stroke-width:3; fill:none; }
+      .gray { stroke:#64748b; stroke-width:2; fill:none; }
+      .dash { stroke-dasharray:8 6; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0284c7"/>
+    </marker>
+    <marker id="arrowOrange" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrowPurple" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9333ea"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2080" height="1680"/>
+  <text class="title" x="56" y="62">DEC Rotation Metadata：完整图像 Meta 搬入 Ping-Pong SRAM 与搬出流程</text>
+  <text class="txt" x="56" y="98">核心原则：完整图像 metadata 先按 8x8 block 切片；不旋转按行搬运，旋转按列搬运；SRAM0/SRAM1 同时承载 UV 半段与相邻 Y 行组。</text>
+
+  <g transform="translate(56,124)">
+    <rect class="uvA" x="0" y="0" width="132" height="34" rx="6"/>
+    <text class="small" x="16" y="23">UV_A half</text>
+    <rect class="y0" x="158" y="0" width="86" height="34" rx="6"/>
+    <text class="small" x="185" y="23">Y0</text>
+    <rect class="y1" x="270" y="0" width="86" height="34" rx="6"/>
+    <text class="small" x="297" y="23">Y1</text>
+    <rect class="uvB" x="382" y="0" width="132" height="34" rx="6"/>
+    <text class="small" x="398" y="23">UV_B half</text>
+    <text class="small" x="550" y="23">一个小格 = 一个 8x8 metadata block = 64 Byte</text>
+  </g>
+
+  <!-- Full source meta image -->
+  <rect class="card" x="48" y="184" width="1984" height="330" rx="16"/>
+  <text class="h2" x="80" y="224">1. DDR 中完整图像 Metadata Plane</text>
+  <text class="txt" x="80" y="258">Y plane 与 UV plane 在 DDR 中各自是完整 metadata tile 矩阵；下面只画逻辑 tile/block 关系，实际 base/pitch 由寄存器配置。</text>
+
+  <g transform="translate(88,292)">
+    <text class="h3" x="0" y="0">Y metadata plane</text>
+    <rect class="ddr" x="0" y="18" width="600" height="170" rx="8"/>
+    <g transform="translate(24,44)">
+      <rect class="grid" x="0" y="0" width="480" height="96"/>
+      <path class="grid" d="M60,0 V96 M120,0 V96 M180,0 V96 M240,0 V96 M300,0 V96 M360,0 V96 M420,0 V96"/>
+      <path class="grid" d="M0,24 H480 M0,48 H480 M0,72 H480"/>
+      <text class="tiny" x="8" y="16">Y(0,0)</text>
+      <text class="tiny" x="64" y="16">Y(1,0)</text>
+      <text class="tiny" x="424" y="16">...</text>
+      <text class="tiny" x="8" y="40">Y(0,1)</text>
+      <text class="tiny" x="8" y="88">...</text>
+    </g>
+    <text class="mono" x="24" y="166">tile_x = 0..Y_COLS-1, tile_y = 0..Y_ROWS-1</text>
+  </g>
+
+  <g transform="translate(760,292)">
+    <text class="h3" x="0" y="0">UV metadata plane</text>
+    <rect class="ddr" x="0" y="18" width="600" height="170" rx="8"/>
+    <g transform="translate(24,44)">
+      <rect class="grid" x="0" y="0" width="480" height="96"/>
+      <path class="grid" d="M60,0 V96 M120,0 V96 M180,0 V96 M240,0 V96 M300,0 V96 M360,0 V96 M420,0 V96"/>
+      <path class="grid" d="M0,24 H480 M0,48 H480 M0,72 H480"/>
+      <text class="tiny" x="8" y="16">UV(0,0)</text>
+      <text class="tiny" x="64" y="16">UV(1,0)</text>
+      <text class="tiny" x="424" y="16">...</text>
+      <text class="tiny" x="8" y="40">UV(0,1)</text>
+      <text class="tiny" x="8" y="88">...</text>
+    </g>
+    <text class="mono" x="24" y="166">tile_x = 0..UV_COLS-1, tile_y = 0..UV_ROWS-1</text>
+  </g>
+
+  <g transform="translate(1490,292)">
+    <rect class="slicer" x="0" y="18" width="470" height="170" rx="10"/>
+    <text class="h3" x="28" y="56">8x8 block slicer</text>
+    <text class="mono" x="28" y="90">block = 8 columns x 8 rows</text>
+    <text class="mono" x="28" y="120">no-rotate : row-major blocks</text>
+    <text class="mono" x="28" y="150">rotate    : column-major blocks</text>
+  </g>
+
+  <path class="green" marker-end="url(#arrowGreen)" d="M690,386 H760"/>
+  <path class="green" marker-end="url(#arrowGreen)" d="M1360,386 H1490"/>
+
+  <!-- Scan orders -->
+  <rect class="card" x="48" y="548" width="1984" height="330" rx="16"/>
+  <text class="h2" x="80" y="588">2. 从完整 Plane 中切出一批 8x8 block：不旋转按行，旋转按列</text>
+  <text class="txt" x="80" y="622">这里的“一批”会被写入当前 ping 或 pang。UV_A / UV_B 代表交替使用的 UV 存储区，支持读一半 UV 的同时写另一半 UV。</text>
+
+  <g transform="translate(100,664)">
+    <text class="h3" x="0" y="0">不旋转：按行组成 batch</text>
+    <rect class="grid" x="0" y="28" width="360" height="160"/>
+    <path class="grid" d="M45,28 V188 M90,28 V188 M135,28 V188 M180,28 V188 M225,28 V188 M270,28 V188 M315,28 V188"/>
+    <path class="grid" d="M0,68 H360 M0,108 H360 M0,148 H360"/>
+    <path class="blue" marker-end="url(#arrowBlue)" d="M20,48 H338"/>
+    <path class="blue" marker-end="url(#arrowBlue)" d="M20,88 H338"/>
+    <path class="blue" marker-end="url(#arrowBlue)" d="M20,128 H338"/>
+    <path class="blue" marker-end="url(#arrowBlue)" d="M20,168 H338"/>
+    <text class="mono" x="400" y="68">Y0/Y1/UV batch = block row stripe</text>
+    <text class="mono" x="400" y="102">适合 0 度输出，横向连续搬运</text>
+  </g>
+
+  <g transform="translate(1050,664)">
+    <text class="h3" x="0" y="0">旋转 90/270：按列组成 batch</text>
+    <rect class="grid" x="0" y="28" width="360" height="160"/>
+    <path class="grid" d="M45,28 V188 M90,28 V188 M135,28 V188 M180,28 V188 M225,28 V188 M270,28 V188 M315,28 V188"/>
+    <path class="grid" d="M0,68 H360 M0,108 H360 M0,148 H360"/>
+    <path class="orange" marker-end="url(#arrowOrange)" d="M22,46 V170"/>
+    <path class="orange" marker-end="url(#arrowOrange)" d="M67,46 V170"/>
+    <path class="orange" marker-end="url(#arrowOrange)" d="M112,46 V170"/>
+    <path class="orange" marker-end="url(#arrowOrange)" d="M157,46 V170"/>
+    <path class="orange" marker-end="url(#arrowOrange)" d="M202,46 V170"/>
+    <path class="orange" marker-end="url(#arrowOrange)" d="M247,46 V170"/>
+    <path class="orange" marker-end="url(#arrowOrange)" d="M292,46 V170"/>
+    <path class="orange" marker-end="url(#arrowOrange)" d="M337,46 V170"/>
+    <text class="mono" x="400" y="68">Y0/Y1/UV batch = block column stripe</text>
+    <text class="mono" x="400" y="102">适合旋转输出，纵向连续搬运</text>
+  </g>
+
+  <!-- Writer to ping-pong storage -->
+  <rect class="card" x="48" y="914" width="1984" height="470" rx="16"/>
+  <text class="h2" x="80" y="954">3. 当前 batch 写入两个 Metadata SRAM：完整分区与顺序</text>
+  <text class="txt" x="80" y="988">写入是整段写入；UV_A 与 UV_B 都拆成 half0/half1，分别写入 SRAM0/SRAM1；Y0 只进 SRAM0，Y1 只进 SRAM1。</text>
+
+  <g transform="translate(82,1032)">
+    <rect class="stage" x="0" y="0" width="280" height="78" rx="10"/>
+    <text class="h3" x="34" y="32">Batch writer</text>
+    <text class="mono" x="34" y="58">UV_A -> Y0/Y1 -> UV_B</text>
+
+    <path class="blue" marker-end="url(#arrowBlue)" d="M280,20 H410"/>
+    <path class="green" marker-end="url(#arrowGreen)" d="M280,58 H410"/>
+  </g>
+
+  <g transform="translate(500,1020)">
+    <text class="h3" x="0" y="0">SRAM0 / PING physical map</text>
+    <rect class="sram" x="0" y="28" width="1460" height="110" rx="10"/>
+    <rect class="uvA" x="20" y="50" width="260" height="66" rx="6"/>
+    <rect class="y0" x="280" y="50" width="520" height="66" rx="6"/>
+    <rect class="uvB" x="800" y="50" width="260" height="66" rx="6"/>
+    <rect class="res" x="1060" y="50" width="380" height="66" rx="6"/>
+    <text class="mono" x="52" y="80">UV_A half0</text>
+    <text class="tiny" x="62" y="102">block 0..Nuv/2-1</text>
+    <text class="mono" x="490" y="80">Y0 segment</text>
+    <text class="tiny" x="486" y="102">block 0..Ny-1</text>
+    <text class="mono" x="832" y="80">UV_B half0</text>
+    <text class="tiny" x="842" y="102">block 0..Nuv/2-1</text>
+    <text class="mono" x="1190" y="88">reserved</text>
+  </g>
+
+  <g transform="translate(500,1190)">
+    <text class="h3" x="0" y="0">SRAM1 / PANG physical map</text>
+    <rect class="sram" x="0" y="28" width="1460" height="110" rx="10"/>
+    <rect class="uvA" x="20" y="50" width="260" height="66" rx="6"/>
+    <rect class="y1" x="280" y="50" width="520" height="66" rx="6"/>
+    <rect class="uvB" x="800" y="50" width="260" height="66" rx="6"/>
+    <rect class="res" x="1060" y="50" width="380" height="66" rx="6"/>
+    <text class="mono" x="52" y="80">UV_A half1</text>
+    <text class="tiny" x="62" y="102">block Nuv/2..Nuv-1</text>
+    <text class="mono" x="490" y="80">Y1 segment</text>
+    <text class="tiny" x="486" y="102">block 0..Ny-1</text>
+    <text class="mono" x="832" y="80">UV_B half1</text>
+    <text class="tiny" x="842" y="102">block Nuv/2..Nuv-1</text>
+    <text class="mono" x="1190" y="88">reserved</text>
+  </g>
+
+  <g transform="translate(90,1144)">
+    <text class="h3" x="0" y="0">写入顺序</text>
+    <rect class="uvA" x="0" y="28" width="130" height="46" rx="6"/>
+    <text class="mono" x="24" y="57">UV_A</text>
+    <rect class="y0" x="170" y="28" width="100" height="46" rx="6"/>
+    <text class="mono" x="204" y="57">Y0</text>
+    <rect class="y1" x="310" y="28" width="100" height="46" rx="6"/>
+    <text class="mono" x="344" y="57">Y1</text>
+    <rect class="uvB" x="450" y="28" width="130" height="46" rx="6"/>
+    <text class="mono" x="474" y="57">UV_B</text>
+    <path class="line" marker-end="url(#arrow)" d="M130,51 H170"/>
+    <path class="line" marker-end="url(#arrow)" d="M270,51 H310"/>
+    <path class="line" marker-end="url(#arrow)" d="M410,51 H450"/>
+  </g>
+
+  <!-- Reader out -->
+  <rect class="card" x="48" y="1420" width="1984" height="210" rx="16"/>
+  <text class="h2" x="80" y="1460">4. 从两个 SRAM 搬出：旋转 NV12 按 UV、Y、UV、Y 送后级</text>
+  <text class="txt" x="80" y="1494">读出时 UV 需要两个 SRAM 同时提供 half0/half1，合成完整 UV meta；Y 在 SRAM0 的 Y0 与 SRAM1 的 Y1 之间按旋转坐标交替读取。</text>
+
+  <g transform="translate(90,1530)">
+    <rect class="uvA" x="0" y="0" width="190" height="46" rx="6"/>
+    <text class="mono" x="22" y="29">SRAM0 UV half</text>
+    <rect class="uvA" x="240" y="0" width="190" height="46" rx="6"/>
+    <text class="mono" x="262" y="29">SRAM1 UV half</text>
+    <path class="blue" marker-end="url(#arrowBlue)" d="M190,23 H240"/>
+    <rect class="stage" x="490" y="0" width="170" height="46" rx="6"/>
+    <text class="mono" x="520" y="29">merge UV</text>
+    <path class="blue" marker-end="url(#arrowBlue)" d="M430,23 H490"/>
+    <rect class="y0" x="720" y="0" width="120" height="46" rx="6"/>
+    <text class="mono" x="764" y="29">Y0</text>
+    <rect class="y1" x="900" y="0" width="120" height="46" rx="6"/>
+    <text class="mono" x="944" y="29">Y1</text>
+    <text class="mono" x="1090" y="18">旋转 NV12 顺序 : UV -> Y -> UV -> Y</text>
+    <text class="mono" x="1090" y="48">UV/Y 坐标由 rotated output line/column 映射</text>
+  </g>
+
+  <g transform="translate(90,1598)">
+    <text class="mono" x="0" y="0">读出循环：</text>
+    <text class="mono" x="110" y="0">rotate NV12: read UV_A/B from both SRAM -> read Y -> read UV_A/B -> read Y -> next rotated output position</text>
+  </g>
+</svg>

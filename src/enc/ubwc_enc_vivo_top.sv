@@ -1,5 +1,6 @@
 module ubwc_enc_vivo_top
     #(
+        parameter                                     SB_DW                          = 1,
         parameter integer                             FAKE_MODEL_EN                  = 0,
         parameter integer                             FAKE_TILE_EXPECT_LINEAR        = 0,
         parameter integer                             FAKE_IMG_W                     = 4096,
@@ -49,8 +50,8 @@ module ubwc_enc_vivo_top
         input   wire    [15                     :0]         i_ci_xcoord                     ,
         input   wire    [15                     :0]         i_ci_ycoord                     ,
         input   wire    [3                      :0]         i_ci_fcnt                       ,
-
         input   wire                                        i_ci_lossy                      ,
+        input   wire    [SB_DW                -1:0]         i_ci_sb                         ,
         input   wire    [2                      :0]         i_ci_ubwc_cfg_0                 ,
         input   wire    [2                      :0]         i_ci_ubwc_cfg_1                 ,
         input   wire    [3                      :0]         i_ci_ubwc_cfg_2                 ,
@@ -63,6 +64,7 @@ module ubwc_enc_vivo_top
         input   wire    [2                      :0]         i_ci_ubwc_cfg_9                 ,
         input   wire    [5                      :0]         i_ci_ubwc_cfg_10                ,
         input   wire    [5                      :0]         i_ci_ubwc_cfg_11                ,
+        input   wire    [3                      :0]         i_ci_ubwc_ver                   ,
 
         input   wire                                        i_rvi_valid                     ,
         output  wire                                        o_rvi_ready                     ,
@@ -78,6 +80,7 @@ module ubwc_enc_vivo_top
         input   wire                                        i_co_ready                      ,
         output  reg     [2                      :0]         o_co_alen                       ,
         output  reg                                         o_co_pcm                        ,
+        output  reg     [SB_DW                -1:0]         o_co_sb                         ,
 
         output  wire                                        o_cvo_valid                     ,
         input   wire                                        i_cvo_ready                     ,
@@ -680,6 +683,15 @@ module ubwc_enc_vivo_top
         else if (ci_fire)
             o_co_pcm <= fake_model_active ? ci_metadata_eff[5] :
                                             i_ci_forced_pcm;
+    end
+
+    always @(posedge i_clk or posedge i_reset) begin
+        if (i_reset)
+            o_co_sb <= {SB_DW{1'b0}};
+        else if (i_sreset)
+            o_co_sb <= {SB_DW{1'b0}};
+        else if (ci_fire)
+            o_co_sb <= i_ci_sb;
     end
 
     always @(posedge i_clk or posedge i_reset) begin

@@ -546,7 +546,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     parameter [63:0] CFG_G016_TILE_BASE_UV_ADDR = 64'h0000_0000_804C_8000,
     parameter [63:0] CFG_G016_META_BASE_Y_ADDR = 64'h0000_0000_8000_0000,
     parameter [63:0] CFG_G016_META_BASE_UV_ADDR = 64'h0000_0000_804C_5000,
-    parameter integer COM_BUF_AW = 12,
+    parameter integer COM_BUF_AW = 11,
     parameter integer CASE_TILE_EXPECT_LINEAR = 0,
     parameter integer CASE_CI_LOSSY = 0,
     parameter integer CASE_UBWC_CFG_0 = 0,
@@ -588,8 +588,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer APB_DW          = 32;
     localparam integer AXI_AW          = 64;
     localparam integer AXI_DW          = 256;
-    localparam integer M_AXI_DW        = 64;
-    localparam integer AXI_LENW        = 5;
+    localparam integer M_AXI_DW        = 128;
+    localparam integer AXI_LENW        = 8;
     localparam integer AXI_IDW         = 4;
     localparam integer COM_BUF_DW      = 128;
     localparam integer SB_WIDTH        = 1;
@@ -5199,7 +5199,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_cases #(
     parameter [63:0] CFG_G016_TILE_BASE_UV_ADDR = 64'h0000_0000_804C_8000,
     parameter [63:0] CFG_G016_META_BASE_Y_ADDR = 64'h0000_0000_8000_0000,
     parameter [63:0] CFG_G016_META_BASE_UV_ADDR = 64'h0000_0000_804C_5000,
-    parameter integer COM_BUF_AW = 12,
+    parameter integer COM_BUF_AW = 11,
     parameter integer CASE_TILE_EXPECT_LINEAR = 0,
     parameter integer CASE_CI_LOSSY = 0,
     parameter integer CASE_UBWC_CFG_0 = 0,
@@ -5277,7 +5277,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_cases #(
 endmodule
 
 module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 #(
-    parameter integer COM_BUF_AW = 12
+    parameter integer COM_BUF_AW = 11
 ) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .CASE_ID(0),
@@ -5286,7 +5286,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888 #(
 endmodule
 
 module tb_ubwc_enc_wrapper_top_rgba8888_128x128 #(
-    parameter integer COM_BUF_AW = 12
+    parameter integer COM_BUF_AW = 11
 ) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .CASE_ID(0),
@@ -5302,7 +5302,7 @@ module tb_ubwc_enc_wrapper_top_rgba8888_128x128 #(
 endmodule
 
 module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 #(
-    parameter integer COM_BUF_AW = 12
+    parameter integer COM_BUF_AW = 11
 ) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .CASE_ID(1),
@@ -5311,7 +5311,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102 #(
 endmodule
 
 module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 #(
-    parameter integer COM_BUF_AW = 12
+    parameter integer COM_BUF_AW = 11
 ) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .CASE_ID(2),
@@ -5320,7 +5320,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12 #(
 endmodule
 
 module tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016 #(
-    parameter integer COM_BUF_AW = 12
+    parameter integer COM_BUF_AW = 11
 ) ();
     tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .CASE_ID(3),

@@ -16,7 +16,7 @@ module ubwc_dec_wrapper_top #(
     parameter   integer                  APB_AW                      = 16    ,
     parameter   integer                  APB_DW                      = 32    ,
     parameter   integer                  AXI_AW                      = 64    ,
-    parameter   integer                  AXI_DW                      = 64    ,
+    parameter   integer                  AXI_DW                      = 128   ,
     parameter   integer                  AXI_IDW                     = 4     ,
     parameter   integer                  AXI_LENW                    = 5     ,
     parameter   integer                  SB_WIDTH                    = 1     ,
@@ -132,7 +132,7 @@ module ubwc_dec_wrapper_top #(
 );
 
     localparam integer                  CORE_AXI_DW                 = 256   ;
-    localparam integer                  VIVO_CI_FIFO_W              = 1 + 3 + 5 + 4 + 1 + 2 + 12 + 10 + 4;
+    localparam integer                  VIVO_CI_FIFO_W              = 1 + 3 + 5 + 4 + 1 + 2 + 4 + 12 + 10 + 4;
     localparam integer                  VIVO_CVI_FIFO_W             = 256 + 1 + 5 + 12 + 10 + 4;
     localparam integer                  VIVO_CO_FIFO_W              = 3;
     localparam integer                  VIVO_COORD_FIFO_W           = 5 + 12 + 10 + 4;
@@ -157,6 +157,7 @@ module ubwc_dec_wrapper_top #(
     wire                                r_tile_cfg_ci_input_type               ;
     wire                                r_tile_cfg_ci_lossy                    ;
     wire    [2                   -1 :0] r_tile_cfg_ci_alpha_mode               ;
+    wire    [4                   -1 :0] r_tile_cfg_ubwc_ver                    ;
     wire    [AXI_AW              -1 :0] r_tile_base_addr_rgba_y0               ;
     wire    [AXI_AW              -1 :0] r_tile_base_addr_uv0                   ;
     wire    [AXI_AW              -1 :0] r_tile_base_addr_rgba_y1               ;
@@ -311,11 +312,16 @@ module ubwc_dec_wrapper_top #(
     wire    [4                   -1 :0] vivo_ci_metadata_int                   ;
     wire                                vivo_ci_lossy_int                      ;
     wire    [2                   -1 :0] vivo_ci_alpha_mode_int                 ;
+    wire    [4                   -1 :0] vivo_ci_ubwc_ver_int                   ;
     wire    [12                  -1 :0] vivo_ci_x_coord_int                    ;
     wire    [10                  -1 :0] vivo_ci_y_coord_int                    ;
     wire    [4                   -1 :0] vivo_ci_fcnt_int                       ;
+    wire                                vivo_ci_has_payload                    ;
+    wire                                vivo_ci_payload_ready                  ;
+    wire                                vivo_ci_payload_fire                   ;
     wire                                vivo_cvi_valid_int                     ;
     wire                                vivo_cvi_fire_vivo                     ;
+    wire                                vivo_cvi_last_fire                     ;
     wire    [256                 -1 :0] vivo_cvi_data_int                      ;
     wire                                vivo_cvi_last_int                      ;
     wire    [5                   -1 :0] vivo_cvi_format_int                    ;
@@ -461,22 +467,27 @@ module ubwc_dec_wrapper_top #(
                                             tile_ci_metadata_int,
                                             tile_ci_lossy_int,
                                             tile_ci_alpha_mode_int,
+                                            r_tile_cfg_ubwc_ver,
                                             tile_x_coord_int,
                                             tile_y_coord_int,
                                             tile_fcnt_int};
     assign vivo_ci_fifo_wr_en            = tile_ci_fire_int;
     assign vivo_ci_fire_vivo             = vivo_ci_valid_int & vivo_ci_ready_raw;
     assign vivo_ci_fifo_rd_en            = vivo_ci_fire_vivo;
-    assign vivo_ci_valid_int             = !vivo_ci_fifo_empty;
-    assign vivo_ci_input_type_int        = vivo_ci_fifo_dout[41];
-    assign vivo_ci_alen_int              = vivo_ci_fifo_dout[38 +: 3];
-    assign vivo_ci_format_int            = vivo_ci_fifo_dout[33 +: 5];
-    assign vivo_ci_metadata_int          = vivo_ci_fifo_dout[29 +: 4];
-    assign vivo_ci_lossy_int             = vivo_ci_fifo_dout[28];
-    assign vivo_ci_alpha_mode_int        = vivo_ci_fifo_dout[26 +: 2];
+    assign vivo_ci_valid_int             = !vivo_ci_fifo_empty & vivo_ci_payload_ready;
+    assign vivo_ci_input_type_int        = vivo_ci_fifo_dout[45];
+    assign vivo_ci_alen_int              = vivo_ci_fifo_dout[42 +: 3];
+    assign vivo_ci_format_int            = vivo_ci_fifo_dout[37 +: 5];
+    assign vivo_ci_metadata_int          = vivo_ci_fifo_dout[33 +: 4];
+    assign vivo_ci_lossy_int             = vivo_ci_fifo_dout[32];
+    assign vivo_ci_alpha_mode_int        = vivo_ci_fifo_dout[30 +: 2];
+    assign vivo_ci_ubwc_ver_int          = vivo_ci_fifo_dout[26 +: 4];
     assign vivo_ci_x_coord_int           = vivo_ci_fifo_dout[14 +: 12];
     assign vivo_ci_y_coord_int           = vivo_ci_fifo_dout[4  +: 10];
     assign vivo_ci_fcnt_int              = vivo_ci_fifo_dout[0  +: 4];
+    assign vivo_ci_has_payload           = !vivo_ci_metadata_int[3];
+    assign vivo_ci_payload_ready         = !vivo_ci_has_payload | !vivo_cvi_fifo_empty;
+    assign vivo_ci_payload_fire          = vivo_ci_fire_vivo & vivo_ci_has_payload;
     assign tile_ci_ready_int             = !vivo_ci_fifo_full & !vivo_coord_fifo_full;
     assign vivo_coord_fifo_din           = {tile_format_int,
                                             tile_x_coord_int,
@@ -502,13 +513,16 @@ module ubwc_dec_wrapper_top #(
     assign vivo_cvi_fifo_wr_en           = tile_cvi_fire_int;
     assign vivo_cvi_fire_vivo            = vivo_cvi_valid_int & vivo_cvi_ready_int;
     assign vivo_cvi_fifo_rd_en           = vivo_cvi_fire_vivo;
-    assign vivo_cvi_valid_int            = vivo_cvi_gate_active & !vivo_cvi_fifo_empty;
+    assign vivo_cvi_valid_int            = (vivo_cvi_gate_active |
+                                           (vivo_ci_valid_int & vivo_ci_has_payload)) &
+                                           !vivo_cvi_fifo_empty;
     assign vivo_cvi_data_int             = vivo_cvi_fifo_dout[0 +: 256];
     assign vivo_cvi_last_int             = vivo_cvi_fifo_dout[256];
     assign vivo_cvi_fcnt_int             = vivo_cvi_fifo_dout[257 +: 4];
     assign vivo_cvi_y_coord_int          = vivo_cvi_fifo_dout[261 +: 10];
     assign vivo_cvi_x_coord_int          = vivo_cvi_fifo_dout[271 +: 12];
     assign vivo_cvi_format_int           = vivo_cvi_fifo_dout[283 +: 5];
+    assign vivo_cvi_last_fire            = vivo_cvi_fire_vivo & vivo_cvi_last_int;
     assign tile_cvi_ready_int            = !vivo_cvi_fifo_full;
     assign vivo_rvo_fifo_din             = {vivo_rvo_last, vivo_rvo_data};
     assign vivo_rvo_fifo_wr_en           = vivo_rvo_valid & vivo_rvo_ready;
@@ -575,9 +589,9 @@ module ubwc_dec_wrapper_top #(
     always @(posedge i_vivo_clk or negedge vivo_rst_n) begin
         if (!vivo_rst_n)
             vivo_cvi_gate_active <= 1'b0;
-        else if (vivo_ci_fire_vivo)
+        else if (vivo_ci_payload_fire & !vivo_cvi_last_fire)
             vivo_cvi_gate_active <= 1'b1;
-        else if (vivo_cvi_fire_vivo && vivo_cvi_last_int)
+        else if (vivo_cvi_last_fire)
             vivo_cvi_gate_active <= 1'b0;
     end
 
@@ -654,6 +668,7 @@ module ubwc_dec_wrapper_top #(
         .o_tile_cfg_ci_input_type               ( r_tile_cfg_ci_input_type            ),
         .o_tile_cfg_ci_lossy                    ( r_tile_cfg_ci_lossy                 ),
         .o_tile_cfg_ci_alpha_mode               ( r_tile_cfg_ci_alpha_mode            ),
+        .o_tile_cfg_ubwc_ver                    ( r_tile_cfg_ubwc_ver                 ),
         .o_tile_base_addr_rgba_y0               ( r_tile_base_addr_rgba_y0            ),
         .o_tile_base_addr_uv0                   ( r_tile_base_addr_uv0                ),
         .o_tile_base_addr_rgba_y1               ( r_tile_base_addr_rgba_y1            ),
@@ -1288,6 +1303,7 @@ module ubwc_dec_wrapper_top #(
         .i_ci_metadata              ( vivo_ci_metadata_int          ),
         .i_ci_lossy                 ( vivo_ci_lossy_int             ),
         .i_ci_alpha_mode            ( vivo_ci_alpha_mode_int        ),
+        .i_ci_ubwc_ver              ( vivo_ci_ubwc_ver_int          ),
         .i_ci_sb                    ( {SB_WIDTH{1'b0}}              ),
         .i_ci_xcoord                ( vivo_ci_x_coord_int           ),
         .i_ci_ycoord                ( vivo_ci_y_coord_int           ),

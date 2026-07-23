@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1720" height="1120" viewBox="0 0 1720 1120">
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}
+      .card{fill:#fff;stroke:#cbd5e1;stroke-width:2}
+      .title{font:700 30px Arial,"Noto Sans CJK SC",sans-serif;fill:#111827}
+      .h2{font:700 22px Arial,"Noto Sans CJK SC",sans-serif;fill:#111827}
+      .txt{font:16px Arial,"Noto Sans CJK SC",sans-serif;fill:#334155}
+      .small{font:13px Arial,"Noto Sans CJK SC",sans-serif;fill:#475569}
+      .mono{font:13px "Menlo","Consolas",monospace;fill:#1f2937}
+      .y{fill:#bbf7d0;stroke:#22c55e;stroke-width:2}
+      .uvA{fill:#fed7aa;stroke:#f97316;stroke-width:2}
+      .uvB{fill:#fde68a;stroke:#d97706;stroke-width:2}
+      .res{fill:#f1f5f9;stroke:#94a3b8;stroke-width:2;stroke-dasharray:8 6}
+      .rd{fill:#dbeafe;stroke:#2563eb;stroke-width:2}
+      .wr{fill:#f0fdf4;stroke:#16a34a;stroke-width:2}
+      .line{stroke:#0f172a;stroke-width:2.2;fill:none}
+      .blue{stroke:#2563eb;stroke-width:2.4;fill:none}
+      .green{stroke:#16a34a;stroke-width:2.4;fill:none}
+      .dash{stroke:#64748b;stroke-width:2;stroke-dasharray:8 6;fill:none}
+      .arrow{marker-end:url(#arrow)}
+      .arrowb{marker-end:url(#arrowb)}
+      .arrowg{marker-end:url(#arrowg)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0f172a"/>
+    </marker>
+    <marker id="arrowb" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowg" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1720" height="1120"/>
+  <text class="title" x="56" y="58">DEC NV12 Rotate Tile-to-OTF：SRAM 存储与逐行读写调度</text>
+  <text class="txt" x="56" y="92">目标：最终 OTF 行顺序是 (Y,UV), Y, (Y,UV), Y...；UV 与 Y 必须逐行组合输出，不能先把 UV 全部读完。</text>
+
+  <rect class="card" x="48" y="132" width="1624" height="288" rx="16"/>
+  <text class="h2" x="80" y="172">1. 单 bank 4096 word x 128 bit 的 NV12 rotate 工作区</text>
+  <text class="txt" x="80" y="204">Y 区域保存 32 条输出 Y 行；UV 区域分成 UV_A / UV_B 两个 slot，读一个 slot 时允许写另一个 slot。</text>
+
+  <g transform="translate(90,248)">
+    <rect class="y" x="0" y="0" width="760" height="78" rx="6"/>
+    <text class="mono" x="320" y="32">Y stripe: word 0..2175</text>
+    <text class="small" x="302" y="56">32 output Y lines, 68 word/line for 1088 aligned width</text>
+    <rect class="uvA" x="780" y="0" width="250" height="78" rx="6"/>
+    <text class="mono" x="852" y="32">UV_A</text>
+    <text class="small" x="828" y="56">word 2176..2719</text>
+    <rect class="uvB" x="1050" y="0" width="250" height="78" rx="6"/>
+    <text class="mono" x="1122" y="32">UV_B</text>
+    <text class="small" x="1098" y="56">word 2720..3263</text>
+    <rect class="res" x="1320" y="0" width="180" height="78" rx="6"/>
+    <text class="mono" x="1372" y="32">reserved</text>
+    <text class="small" x="1360" y="56">3264..4095</text>
+    <line class="line" x1="0" y1="112" x2="1500" y2="112"/>
+    <text class="mono" x="0" y="144" text-anchor="middle">0</text>
+    <text class="mono" x="780" y="144" text-anchor="middle">2176</text>
+    <text class="mono" x="1030" y="144" text-anchor="middle">2720</text>
+    <text class="mono" x="1300" y="144" text-anchor="middle">3264</text>
+    <text class="mono" x="1500" y="144" text-anchor="middle">4095</text>
+  </g>
+
+  <rect class="card" x="48" y="456" width="1624" height="382" rx="16"/>
+  <text class="h2" x="80" y="496">2. 读写并行调度：写入整 tile，读出逐行组合</text>
+  <text class="txt" x="80" y="528">UV_A / UV_B 是同一个 bank 内的两个 UV slot；当前 slot 被读时，另一个 slot 可以写。Y 区域按输出行写入和读取。</text>
+
+  <rect class="wr" x="92" y="578" width="260" height="72" rx="8"/>
+  <text class="mono" x="132" y="610">T0 write UV_A</text>
+  <text class="small" x="122" y="634">first half UV ready</text>
+  <rect class="wr" x="432" y="578" width="260" height="72" rx="8"/>
+  <text class="mono" x="474" y="610">T1 write Y0</text>
+  <text class="small" x="464" y="634">Y row group ready</text>
+  <rect class="rd" x="772" y="578" width="260" height="72" rx="8"/>
+  <text class="mono" x="800" y="610">T2 read UV_A + Y0</text>
+  <text class="small" x="810" y="634">(Y,UV) then Y</text>
+  <rect class="wr" x="1112" y="578" width="260" height="72" rx="8"/>
+  <text class="mono" x="1148" y="610">T2 write UV_B</text>
+  <text class="small" x="1150" y="634">parallel with read</text>
+
+  <path class="green arrowg" d="M352,614 H432"/>
+  <path class="blue arrowb" d="M692,614 H772"/>
+  <path class="green arrowg" d="M1032,614 H1112"/>
+
+  <rect class="wr" x="252" y="718" width="260" height="72" rx="8"/>
+  <text class="mono" x="294" y="750">T3 write Y1</text>
+  <text class="small" x="280" y="774">next Y group</text>
+  <rect class="rd" x="592" y="718" width="260" height="72" rx="8"/>
+  <text class="mono" x="620" y="750">T4 read UV_B + Y1</text>
+  <text class="small" x="628" y="774">(Y,UV) then Y</text>
+  <rect class="wr" x="932" y="718" width="260" height="72" rx="8"/>
+  <text class="mono" x="972" y="750">T4 write UV_A</text>
+  <text class="small" x="966" y="774">slot reuse after read</text>
+  <rect class="rd" x="1272" y="718" width="260" height="72" rx="8"/>
+  <text class="mono" x="1308" y="750">repeat ping/pang</text>
+  <text class="small" x="1308" y="774">line-level schedule</text>
+  <path class="green arrowg" d="M512,754 H592"/>
+  <path class="green arrowg" d="M852,754 H932"/>
+  <path class="blue arrowb" d="M1192,754 H1272"/>
+
+  <rect class="card" x="48" y="874" width="780" height="190" rx="16"/>
+  <text class="h2" x="80" y="914">3. SRAM 仲裁规则</text>
+  <text class="txt" x="80" y="950">同一个 bank 内如果读写同周期争用同一个 SRAM 端口，写优先。</text>
+  <text class="mono" x="80" y="984">REN = read_req &amp;&amp; !WEN</text>
+  <text class="mono" x="80" y="1014">RVALID only when REN was accepted</text>
+  <text class="txt" x="80" y="1046">这样不会浪费 SRAM 带宽：没有写的时候，每拍都可以发读。</text>
+
+  <rect class="card" x="892" y="874" width="780" height="190" rx="16"/>
+  <text class="h2" x="924" y="914">4. RTL 拆分</text>
+  <text class="txt" x="924" y="950">`ubwc_dec_tile_to_otf_rotate` 只做 path select。</text>
+  <text class="mono" x="924" y="984">rotate=0         -> legacy ubwc_dec_tile_to_otf</text>
+  <text class="mono" x="924" y="1014">rotate!=0 &amp;&amp; NV12 -> ubwc_dec_tile_to_otf_nv12_rotate</text>
+  <text class="txt" x="924" y="1046">RGBA/P010 rotate 不进入该路径，保持 unsupported/error。</text>
+</svg>

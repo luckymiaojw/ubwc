@@ -24,7 +24,17 @@ package ubwc_dec_cfg_pkg;
     localparam logic [15:0] UBWC_DEC_REG_META_BASE_UV_HI = 16'h0044;
     localparam logic [15:0] UBWC_DEC_REG_TILE_BASE_UV_LO = 16'h0048;
     localparam logic [15:0] UBWC_DEC_REG_TILE_BASE_UV_HI = 16'h004c;
+    localparam logic [15:0] UBWC_DEC_REG_STATUS0         = 16'h0050;
+    localparam logic [15:0] UBWC_DEC_REG_STATUS1         = 16'h0054;
+    localparam logic [15:0] UBWC_DEC_REG_STATUS2         = 16'h0058;
+    localparam logic [15:0] UBWC_DEC_REG_STATUS3         = 16'h005c;
     localparam logic [15:0] UBWC_DEC_REG_IRQ_CTRL        = 16'h0060;
+    localparam logic [15:0] UBWC_DEC_REG_STATUS4         = 16'h0064;
+    localparam logic [15:0] UBWC_DEC_REG_STAT_META       = 16'h0068;
+    localparam logic [15:0] UBWC_DEC_REG_STAT_TILE       = 16'h006c;
+    localparam logic [15:0] UBWC_DEC_REG_STAT_OTF_TILE   = 16'h0070;
+    localparam logic [15:0] UBWC_DEC_REG_STAT_OTF_LINE   = 16'h0074;
+    localparam logic [15:0] UBWC_DEC_REG_STAT_OTF_DE     = 16'h0078;
 
     typedef struct packed {
         logic [63:0] tile_base_rgba_y;
@@ -135,6 +145,18 @@ package ubwc_dec_cfg_pkg;
         ubwc_dec_active_tile_y_numbers = ubwc_dec_ceil_div(height_px, ubwc_dec_tile_h(format));
     endfunction
 
+    function automatic bit ubwc_dec_is_nv12_format(input int unsigned format);
+        ubwc_dec_is_nv12_format = (format == UBWC_DEC_FMT_YUV420_8_NV12);
+    endfunction
+
+    function automatic bit ubwc_dec_rotate_is_supported(input int unsigned format,
+                                                        input int unsigned src_height_px,
+                                                        input logic [1:0] rotate_mode);
+        ubwc_dec_rotate_is_supported = (|rotate_mode) &&
+                                       ubwc_dec_is_nv12_format(format) &&
+                                       (src_height_px <= 1080);
+    endfunction
+
     function automatic int unsigned ubwc_dec_surface_pitch_bytes(input int unsigned format,
                                                                 input int unsigned width_px);
         ubwc_dec_surface_pitch_bytes =
@@ -222,7 +244,8 @@ package ubwc_dec_cfg_pkg;
                                                           input int unsigned highest_bank_bit,
                                                           input bit bank_spread_en,
                                                           input bit four_line_format,
-                                                          input bit lossy_rgba_2_1);
+                                                          input bit lossy_rgba_2_1,
+                                                          input logic [3:0] ubwc_ver);
         ubwc_dec_reg_tile_cfg0 = 32'd0;
         ubwc_dec_reg_tile_cfg0[0] = lvl1_bank_swizzle_en;
         ubwc_dec_reg_tile_cfg0[1] = lvl2_bank_swizzle_en;
@@ -231,6 +254,7 @@ package ubwc_dec_cfg_pkg;
         ubwc_dec_reg_tile_cfg0[9] = bank_spread_en;
         ubwc_dec_reg_tile_cfg0[10] = four_line_format;
         ubwc_dec_reg_tile_cfg0[11] = lossy_rgba_2_1;
+        ubwc_dec_reg_tile_cfg0[19:16] = ubwc_ver;
     endfunction
 
     function automatic logic [31:0] ubwc_dec_reg_tile_cfg1(input int unsigned format,
@@ -240,13 +264,21 @@ package ubwc_dec_cfg_pkg;
         ubwc_dec_reg_tile_cfg1 = {20'd0, pitch[11:0]};
     endfunction
 
+    function automatic logic [31:0] ubwc_dec_reg_tile_cfg2_fields(input bit ci_input_type,
+                                                                 input bit ci_lossy,
+                                                                 input logic [1:0] ci_alpha_mode);
+        ubwc_dec_reg_tile_cfg2_fields = 32'd0;
+        ubwc_dec_reg_tile_cfg2_fields[0] = ci_input_type;
+        ubwc_dec_reg_tile_cfg2_fields[8] = ci_lossy;
+        ubwc_dec_reg_tile_cfg2_fields[10:9] = ci_alpha_mode;
+    endfunction
+
     function automatic logic [31:0] ubwc_dec_reg_tile_cfg2(input bit ci_input_type,
                                                           input bit ci_lossy,
                                                           input logic [1:0] ci_alpha_mode);
-        ubwc_dec_reg_tile_cfg2 = 32'd0;
-        ubwc_dec_reg_tile_cfg2[0] = ci_input_type;
-        ubwc_dec_reg_tile_cfg2[8] = ci_lossy;
-        ubwc_dec_reg_tile_cfg2[10:9] = ci_alpha_mode;
+        ubwc_dec_reg_tile_cfg2 = ubwc_dec_reg_tile_cfg2_fields(ci_input_type,
+                                                               ci_lossy,
+                                                               ci_alpha_mode);
     endfunction
 
     function automatic logic [31:0] ubwc_dec_reg_vivo_cfg(input bit ubwc_en,
@@ -264,11 +296,42 @@ package ubwc_dec_cfg_pkg;
         ubwc_dec_reg_meta_cfg0 = {tile_y[15:0], tile_x[15:0]};
     endfunction
 
-    function automatic logic [31:0] ubwc_dec_reg_otf_cfg0(input int unsigned format,
-                                                         input int unsigned width_px);
+    function automatic logic [31:0] ubwc_dec_reg_meta_cfg0_from_otf(input int unsigned format,
+                                                                    input int unsigned img_width_px,
+                                                                    input int unsigned h_act,
+                                                                    input int unsigned v_act,
+                                                                    input logic [1:0] rotate_mode);
+        bit rotate_active;
+        int unsigned src_width;
+        int unsigned src_height;
+        int unsigned tile_x;
+        int unsigned tile_y;
+        rotate_active = ubwc_dec_rotate_is_supported(format, h_act, rotate_mode);
+        src_width = rotate_active ? img_width_px : h_act;
+        src_height = rotate_active ? h_act : v_act;
+        tile_x = ubwc_dec_is_rgba_format(format) ?
+                 (((src_width + 63) >> 6) << 2) :
+                 (((src_width + 127) >> 7) << 2);
+        tile_y = ubwc_dec_is_nv12_format(format) ?
+                 ((src_height + 7) >> 3) :
+                 ((src_height + 3) >> 2);
+        ubwc_dec_reg_meta_cfg0_from_otf = {tile_y[15:0], tile_x[15:0]};
+    endfunction
+
+    function automatic logic [31:0] ubwc_dec_reg_otf_cfg0_ex(input int unsigned format,
+                                                            input int unsigned width_px,
+                                                            input logic [1:0] rotate_mode);
         int unsigned base_format;
         base_format = ubwc_dec_base_format(format);
-        ubwc_dec_reg_otf_cfg0 = {11'd0, base_format[4:0], 16'd0};
+        ubwc_dec_reg_otf_cfg0_ex = 32'd0;
+        ubwc_dec_reg_otf_cfg0_ex[15:0] = width_px[15:0];
+        ubwc_dec_reg_otf_cfg0_ex[20:16] = base_format[4:0];
+        ubwc_dec_reg_otf_cfg0_ex[22:21] = rotate_mode;
+    endfunction
+
+    function automatic logic [31:0] ubwc_dec_reg_otf_cfg0(input int unsigned format,
+                                                         input int unsigned width_px);
+        ubwc_dec_reg_otf_cfg0 = ubwc_dec_reg_otf_cfg0_ex(format, width_px, 2'd0);
     endfunction
 
     function automatic logic [31:0] ubwc_dec_reg_otf_cfg1(input int unsigned h_total,

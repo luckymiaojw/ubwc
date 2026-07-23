@@ -33,6 +33,7 @@ DEFAULT_BASE_ADDR = 0x0000000080000000
 
 SOURCE_PATTERNS = [
     re.compile(r".*?_(?P<width>[0-9]+)x(?P<height>[0-9]+)_s(?P<stored_width>[0-9]+)x(?P<stored_height>[0-9]+)_(?P<fmt>.+)\.raw"),
+    re.compile(r".*?_w(?P<width>[0-9]+)_h(?P<height>[0-9]+)_s(?P<stored_width>[0-9]+)x(?P<stored_height>[0-9]+)_(?P<fmt>.+)\.raw"),
     re.compile(r".*?_w(?P<width>[0-9]+)_h(?P<height>[0-9]+)_(?P<fmt>.+)\.raw"),
     re.compile(r".*?(?P<width>[0-9]+)x(?P<height>[0-9]+)_(?P<fmt>.+)\.raw"),
 ]
@@ -89,6 +90,7 @@ class Layout:
     tile_base_uv: int
     linear_size_y: int
     linear_size_uv: int
+    raw_active_payload: bool = False
 
     @property
     def case_name(self) -> str:
@@ -139,6 +141,7 @@ def make_layout(
     source_tag: str,
     source_note: str,
     base_addr: int,
+    raw_active_payload: bool = False,
 ) -> Layout:
     explicit_stored_size = stored_width is not None or stored_height is not None
     if src_fmt == "rgba8888":
@@ -250,6 +253,7 @@ def make_layout(
         tile_base_uv=tile_base_uv,
         linear_size_y=linear_size_y,
         linear_size_uv=linear_size_uv,
+        raw_active_payload=raw_active_payload,
     )
 
 
@@ -469,6 +473,19 @@ def crop_plane(data: bytes, stored_pitch_bytes: int, active_pitch_bytes: int, ac
 
 def split_raw(raw_path: Path, layout: Layout) -> tuple[bytes, bytes]:
     raw = raw_path.read_bytes()
+    if layout.raw_active_payload:
+        active_expected = layout.linear_size_y + layout.linear_size_uv
+        active_row_bytes = layout.width * layout.bpp
+        max_expected = layout.linear_size_y + active_row_bytes * layout.stored_uv
+        if len(raw) < active_expected or len(raw) > max_expected:
+            raise ValueError(f"{raw_path}: raw active payload size {len(raw)} outside "
+                             f"expected range {active_expected}..{max_expected}")
+        if (len(raw) - active_expected) % active_row_bytes != 0:
+            raise ValueError(f"{raw_path}: raw active payload has non-row-aligned padding")
+        y = raw[:layout.linear_size_y]
+        uv = raw[layout.linear_size_y:layout.linear_size_y + layout.linear_size_uv] if layout.has_uv else b""
+        return y, uv
+
     if layout.explicit_stored_size:
         raw_stored_y_size = layout.pitch_y * layout.stored_y
         raw_stored_uv_size = layout.pitch_uv * layout.stored_uv if layout.has_uv else 0
@@ -574,7 +591,25 @@ def make_readme(layout: Layout, files: dict[str, str]) -> str:
     ])
     if layout.has_uv:
         lines.append("Note                                    : Linear/tiled-uncompressed files keep active payload only; compressed/meta files follow aligned UBWC storage layout.")
+    if layout.raw_active_payload:
+        lines.append("Note                                    : Source .raw is interpreted as active NV12 payload; extra UV padding rows after the active UV plane are ignored.")
     return "\n".join(lines) + "\n"
+
+
+def use_active_nv12_raw_fallback(raw_path: Path, layout: Layout) -> bool:
+    if layout.src_fmt != "yuv420_nv12":
+        return False
+    if not layout.explicit_stored_size:
+        return False
+    if layout.stored_width != layout.width or layout.stored_y != layout.height:
+        return False
+    raw_size = raw_path.stat().st_size
+    active_expected = layout.linear_size_y + layout.linear_size_uv
+    active_row_bytes = layout.width * layout.bpp
+    max_expected = layout.linear_size_y + active_row_bytes * align((layout.height + 1) // 2, 32)
+    if raw_size < active_expected or raw_size > max_expected:
+        return False
+    return (raw_size - active_expected) % active_row_bytes == 0
 
 
 def convert_one(raw_path: Path, dst_root: Path, source_tag: str, source_note: str, base_addr: int, force: bool) -> Path:
@@ -596,7 +631,21 @@ def convert_one(raw_path: Path, dst_root: Path, source_tag: str, source_note: st
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True)
 
-    linear_y, linear_uv = split_raw(raw_path, layout)
+    try:
+        linear_y, linear_uv = split_raw(raw_path, layout)
+    except ValueError:
+        if not use_active_nv12_raw_fallback(raw_path, layout):
+            raise
+        layout = make_layout(width,
+                             height,
+                             align(width, 128),
+                             align(height, 16),
+                             src_fmt,
+                             source_tag,
+                             source_note,
+                             base_addr,
+                             raw_active_payload=True)
+        linear_y, linear_uv = split_raw(raw_path, layout)
     meta_y, tile_y, meta_uv, tile_uv = split_ubwc(ubwc_path, layout)
     tile_uncomp_y = tiled_uncompressed_from_linear(
         linear_y,

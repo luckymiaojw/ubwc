@@ -280,8 +280,17 @@ package ubwc_enc_cfg_pkg;
         ubwc_enc_reg_enc_ci_cfg2 = 32'd0;
     endfunction
 
+    function automatic logic [31:0] ubwc_enc_reg_enc_ci_cfg3_fields(input logic [5:0] ubwc_cfg_10,
+                                                                    input logic [5:0] ubwc_cfg_11,
+                                                                    input logic [3:0] ubwc_ver);
+        ubwc_enc_reg_enc_ci_cfg3_fields = 32'd0;
+        ubwc_enc_reg_enc_ci_cfg3_fields[5:0] = ubwc_cfg_10;
+        ubwc_enc_reg_enc_ci_cfg3_fields[13:8] = ubwc_cfg_11;
+        ubwc_enc_reg_enc_ci_cfg3_fields[19:16] = ubwc_ver;
+    endfunction
+
     function automatic logic [31:0] ubwc_enc_reg_enc_ci_cfg3();
-        ubwc_enc_reg_enc_ci_cfg3 = 32'd0;
+        ubwc_enc_reg_enc_ci_cfg3 = ubwc_enc_reg_enc_ci_cfg3_fields(6'd0, 6'd0, 4'd7);
     endfunction
 
     function automatic logic [31:0] ubwc_enc_reg_otf_cfg0(input int unsigned format);

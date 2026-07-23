@@ -1,0 +1,35 @@
+Metadata RGB/Y-plane                    : visual_from_pd2366_color_pattern_160x144_pd2366_color_nv12_verify_ubwc_enc_out2.txt
+Metadata UV-plane                       : visual_from_pd2366_color_pattern_160x144_pd2366_color_nv12_verify_ubwc_enc_out3.txt
+Tiled Compressed Image RGB/Y-plane      : visual_from_pd2366_color_pattern_160x144_pd2366_color_nv12_verify_ubwc_enc_out0.txt
+Tiled Compressed Image UV-plane         : visual_from_pd2366_color_pattern_160x144_pd2366_color_nv12_verify_ubwc_enc_out1.txt
+Tiled Uncompressed Image RGB/Y-plane    : visual_from_pd2366_color_pattern_160x144_pd2366_color_nv12_verify_ubwc_enc_in0.txt
+Tiled Uncompressed Image UV-plane       : visual_from_pd2366_color_pattern_160x144_pd2366_color_nv12_verify_ubwc_enc_in1.txt
+Linear Image Y-plane                    : visual_from_pd2366_color_pattern_160x144_pd2366_color_nv12_verify_pack10_out0.txt
+Linear Image UV-plane                   : visual_from_pd2366_color_pattern_160x144_pd2366_color_nv12_verify_pack10_out1.txt
+Image format                            : NV12
+Actual Image size(Pixels)               : 160x144  WxH in (pixels/line x lines)  (Actual image size without padding)
+Aligned Height for Pixel Data P0        : 256       Single plane mode or dual plane mode Y plane height in lines
+Aligned Height for Pixel Data P1        : 96       Dual plane mode UV plane height in lines
+Pitch for Pixel Data P0                 : 256      Single plane mode or dual plane mode Y plane pitch in bytes
+Pitch for Pixel Data P1                 : 256      Dual plane mode UV plane pitch in bytes
+Pitch for Meta Data P0                  : 64       Single plane mode or dual plane mode Y metadata plane pitch in bytes
+Height for Meta Data P0                 : 32       Single plane mode or dual plane mode Y metadata plane pitch in lines
+Pitch for Meta Data P1                  : 64       Dual plane mode UV meta plane pitch in bytes
+Height for Meta Data P1                 : 16       Dual plane mode UV meta plane pitch in lines
+Base Address Meta RGB/Y-plane              : 0x0000000080000000
+Base Address Tile RGB/Y-plane              : 0x0000000080001000
+Base Address Meta UV-plane               : 0x0000000080011000
+Base Address Tile UV-plane               : 0x0000000080012000
+Highest bank bit                        : 16
+Mal size                                : 32
+Level1 bank swizzle bit                 : 0
+Level2 bank swizzle bit                 : 1
+Level3 bank swizzle bit                 : 1
+Bank spread                             : 1
+AMSBC                                   : 7 (UBWC7.1)
+LOSSY                                   : 0
+DDR mem channel                         : 8
+Source                                  : pd2366_ubwc4_nv12_160x144/color
+Note                                    : Text files are 64-bit memory words with an @base address line; low-address byte is the rightmost byte in each word. The last linear active word is zero padded when the plane byte count is not 8-byte aligned.
+Note                                    : Metadata bytes for tile rows fully outside the active image are cleared; active rows keep aligned-width padding tile metadata.
+Note                                    : Linear/tiled-uncompressed files keep active payload only; compressed/meta files follow aligned UBWC storage layout.

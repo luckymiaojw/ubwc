@@ -5,10 +5,11 @@ User-visible make commands are intentionally small:
 
     make bvector
     make comp_enc
-    make comp_dec
+    make comp_dec  # routes to dec_rotation ROT=0
     make comp_loop
     make run MODE=enc  CNUM=0001
-    make run MODE=dec  CNUM=0001
+    make run MODE=dec  CNUM=0001  # routes to dec_rotation ROT=0
+    make run MODE=dec_rotation CNUM=0001 ROT=90
     make run MODE=loop CNUM=0001
 
 The implementation reuses the existing vector conversion and wrapper
@@ -41,11 +42,16 @@ ENV_SCRIPT = PROJECT_ROOT / "prj_setup.env"
 ENC_TOP = "tb_ubwc_enc_wrapper_top_tajmahal_cases"
 DEC_TOP = "tb_ubwc_dec_wrapper_top_tajmahal_cases"
 LOOP_TOP = "tb_ubwc_dec_to_enc_loop_tajmahal_cases"
+DEC_ROTATION_FILELIST = PROJECT_ROOT / "src" / "flist" / "filelist_dec_rotation.f"
 
 MAX_FRAME_NUM = 100
+ROTATION_CNUM_START = 90
+ROTATION_MAX_INPUT_WIDTH = 1080
+ROTATION_MAX_INPUT_HEIGHT = 1080
 
 sys.path.insert(0, str(SCRIPT_DIR))
 import convert_ubwc_raw_vectors as raw_conv  # noqa: E402
+import gen_dec_rotation_expected as rot_flow  # noqa: E402
 import ubwc_vector_regression as reg_flow  # noqa: E402
 
 
@@ -85,11 +91,14 @@ def run_sim_make(target: str,
                  build_root: Path,
                  flags: str,
                  run_args: str,
+                 filelist: Path | None = None,
                  log: Path | None = None) -> int:
+    filelist_arg = f"FILELIST={shlex.quote(str(filelist))} " if filelist else ""
     cmd = (
         f"source {shlex.quote(str(ENV_SCRIPT))}; "
         f"make -C {shlex.quote(str(SIM_DIR))} "
         f"TOP={shlex.quote(top)} "
+        f"{filelist_arg}"
         f"BUILD_ROOT={shlex.quote(str(build_root))} "
         f'TB_PARAM_FLAGS="{flags}" '
         f'RUN_ARGS="{run_args}" '
@@ -160,7 +169,7 @@ def write_db(rows: list[DbCase]) -> None:
         writer = csv.DictWriter(fh, fieldnames=[
             "cnum", "label", "format", "width", "height",
             "stored_y", "stored_uv", "source", "case_dir", "modes",
-        ])
+        ], lineterminator="\n")
         writer.writeheader()
         for row in sorted(rows, key=lambda item: item.cnum):
             writer.writerow({
@@ -178,9 +187,10 @@ def write_db(rows: list[DbCase]) -> None:
 
 
 def next_cnum(rows: list[DbCase]) -> int:
-    if not rows:
+    base_rows = [row for row in rows if "dec_rotation" not in row.modes]
+    if not base_rows:
         return 1
-    return max(int(row.cnum) for row in rows) + 1
+    return max(int(row.cnum) for row in base_rows) + 1
 
 
 def db_from_case(cnum: str,
@@ -209,7 +219,19 @@ def db_from_case(cnum: str,
 
 
 def case_supports_mode(row: DbCase, mode: str) -> bool:
+    if mode == "dec_rotation":
+        return ("dec_rotation" in row.modes) or ("dec" in row.modes)
     return mode in row.modes
+
+
+def case_supports_rotation(row: DbCase, rotation: int) -> bool:
+    if rotation == 0:
+        return True
+    return (row.fmt == "nv12" and
+            row.width <= ROTATION_MAX_INPUT_WIDTH and
+            row.height <= ROTATION_MAX_INPUT_HEIGHT and
+            (row.width % 2) == 0 and
+            (row.height % 4) == 0)
 
 
 def manual_cnum(path: Path) -> str | None:
@@ -251,10 +273,48 @@ def discover_case_dirs() -> list[tuple[Path, reg_flow.VectorCase]]:
     return found
 
 
+def is_rotation_alias(row: DbCase) -> bool:
+    return "dec_rotation" in row.modes
+
+
+def make_rotation_aliases(rows: list[DbCase]) -> list[DbCase]:
+    base_rows = [row for row in rows if not is_rotation_alias(row)]
+    rotation_candidates = [
+        row for row in base_rows
+        if row.fmt == "nv12" and "dec" in row.modes and
+        row.width <= ROTATION_MAX_INPUT_WIDTH and
+        row.height <= ROTATION_MAX_INPUT_HEIGHT and
+        (row.width % 2) == 0 and
+        (row.height % 4) == 0
+    ]
+    rotation_candidates.sort(key=lambda item: int(item.cnum))
+
+    used_cnums = {row.cnum for row in base_rows}
+    aliases: list[DbCase] = []
+    for idx, row in enumerate(rotation_candidates):
+        cnum = f"{ROTATION_CNUM_START + idx:04d}"
+        if cnum in used_cnums:
+            die(f"rotation alias CNUM conflicts with existing case: {cnum}")
+        aliases.append(DbCase(
+            cnum=cnum,
+            label=f"{cnum}_dec_rotation_from_{row.cnum}_{row.fmt}_{row.width}x{row.height}",
+            fmt=row.fmt,
+            width=row.width,
+            height=row.height,
+            stored_y=row.stored_y,
+            stored_uv=row.stored_uv,
+            source=f"dec_rotation/{row.cnum}",
+            case_dir=row.case_dir,
+            modes=("dec_rotation",),
+        ))
+    return base_rows + aliases
+
+
 def discover_existing_cases(force_link: bool, preserve_existing: bool) -> list[DbCase]:
     old_rows = load_db() if preserve_existing else []
-    old_by_path = {row.case_dir.resolve(): row for row in old_rows}
-    old_by_cnum = {row.cnum: row for row in old_rows}
+    old_base_rows = [row for row in old_rows if not is_rotation_alias(row)]
+    old_by_path = {row.case_dir.resolve(): row for row in old_base_rows}
+    old_by_cnum = {row.cnum: row for row in old_base_rows}
     used_cnums: set[str] = set()
     rows: list[DbCase] = []
     pending: list[tuple[Path, reg_flow.VectorCase]] = []
@@ -313,6 +373,7 @@ def discover_existing_cases(force_link: bool, preserve_existing: bool) -> list[D
         rows.append(db_from_case(cnum, path, case, path.name, force_link))
         used_cnums.add(cnum)
 
+    rows = make_rotation_aliases(rows)
     write_db(rows)
     return rows
 
@@ -335,13 +396,14 @@ def convert_raw_vectors(src: Path,
         die(f"no raw vector files found under {src}")
 
     new_rows: list[DbCase] = []
+    source_note = src.name.strip() or src.name
     for offset, raw_path in enumerate(raw_paths):
         cnum = f"{start + offset:04d}"
         out_dir = raw_conv.convert_one(
             raw_path=raw_path,
             dst_root=tmp_root,
             source_tag=source_tag,
-            source_note=src.name,
+            source_note=source_note,
             base_addr=base_addr,
             force=True,
         )
@@ -354,10 +416,11 @@ def convert_raw_vectors(src: Path,
             clean_path(dst_dir)
         dst_dir.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(out_dir), str(dst_dir))
-        new_rows.append(db_from_case(cnum, dst_dir, reg_flow.load_case(dst_dir), src.name, True))
+        new_rows.append(db_from_case(cnum, dst_dir, reg_flow.load_case(dst_dir), source_note, True))
 
     clean_path(tmp_root)
     rows.extend(new_rows)
+    rows = make_rotation_aliases(rows)
     write_db(rows)
     return new_rows
 
@@ -365,7 +428,10 @@ def convert_raw_vectors(src: Path,
 def ensure_db() -> list[DbCase]:
     rows = load_db()
     if rows:
-        return rows
+        fixed_rows = make_rotation_aliases(rows)
+        if fixed_rows != rows:
+            write_db(fixed_rows)
+        return fixed_rows
     return discover_existing_cases(force_link=False)
 
 
@@ -407,6 +473,8 @@ def build_run_args(mode: str,
         "+tb_idle_gap_cycles=12000000",
         f"+tb_bank_dly={bank_dly}",
     ]
+    if mode == "dec_rotation":
+        args.append("+tb_no_wave")
 
     if mode == "enc":
         if rand_otf:
@@ -422,7 +490,7 @@ def build_run_args(mode: str,
                 "+tb_axi_aw_stall_pct=20",
                 "+tb_axi_w_stall_pct=20",
             ])
-    elif mode == "dec":
+    elif mode in ("dec", "dec_rotation"):
         if rand_otf:
             args.extend([
                 "+tb_otf_ready_random=1",
@@ -451,38 +519,77 @@ def build_run_args(mode: str,
     return " ".join(args)
 
 
-def sim_paths(mode: str, row: DbCase) -> tuple[str, Path, Path, Path]:
+def sim_paths(mode: str, row: DbCase, rotation: int = 0) -> tuple[str, Path, Path, Path]:
     if mode == "enc":
         top = ENC_TOP
-    elif mode == "dec":
+    elif mode in ("dec", "dec_rotation"):
         top = DEC_TOP
     else:
         top = LOOP_TOP
-    build_root = SIM_DIR / "build" / "clean_flow" / mode / row.cnum
+    if mode == "dec_rotation":
+        build_root = SIM_DIR / "build" / "clean_flow" / mode / f"rot{rotation}" / row.cnum
+    else:
+        build_root = SIM_DIR / "build" / "clean_flow" / mode / row.cnum
     build_dir = build_root / f"{top}_fake"
     log = build_root / "flow.log"
     return top, build_root, build_dir, log
 
 
-def prepare_case(mode: str, row: DbCase, build_dir: Path) -> reg_flow.VectorCase:
+def prepare_case(mode: str,
+                 row: DbCase,
+                 build_dir: Path,
+                 rotation: int = 0) -> reg_flow.VectorCase:
     case = reg_flow.load_case(row.case_dir)
     if mode == "enc":
         reg_flow.prepare_enc_files(case, build_dir)
-    elif mode == "dec":
+    elif mode in ("dec", "dec_rotation"):
         reg_flow.prepare_dec_files(case, build_dir)
+        if mode == "dec_rotation" and rotation in (90, 270):
+            reg_flow.write_words64(build_dir / "inject_tile_plane0.txt",
+                                   reg_flow.linear_to_dec_tile_words(case, 0))
+            if case.has_uv:
+                reg_flow.write_words64(build_dir / "inject_tile_plane1.txt",
+                                       reg_flow.linear_to_dec_tile_words(case, 1))
+            if rot_flow.generate_one(row.case_dir, rotation, build_dir / "expected_otf_stream.txt") != 0:
+                die(f"CNUM={row.cnum} is not eligible for dec_rotation ROT={rotation}")
     else:
         reg_flow.prepare_dec_files(case, build_dir)
         reg_flow.prepare_enc_files(case, build_dir)
     return case
 
 
-def comp_one(mode: str, row: DbCase) -> bool:
-    top, build_root, build_dir, log = sim_paths(mode, row)
-    case = prepare_case(mode, row, build_dir)
+def dec_rotation_flags(top: str, case: reg_flow.VectorCase, rotation: int) -> str:
+    if rotation not in (0, 90, 270):
+        die("ROT must be 0, 90, or 270")
+    if rotation == 0:
+        return ""
+    out_width = case.height
+    out_height = case.width
+    flags = (
+        f" -pvalue+{top}.CASE_DEC_ROTATION={rotation}"
+        f" -pvalue+{top}.CASE_OTF_H_TOTAL={out_width + 304}"
+        f" -pvalue+{top}.CFG_OTF_V_TOTAL={out_height + 60}"
+    )
+    if case.fmt == "nv12":
+        tile_y_words64 = len(reg_flow.linear_to_dec_tile_words(case, 0))
+        tile_uv_words64 = len(reg_flow.linear_to_dec_tile_words(case, 1))
+        flags += (
+            f" -pvalue+{top}.CFG_NV12_UNCOMP_Y_WORDS64={tile_y_words64}"
+            f" -pvalue+{top}.CFG_NV12_UNCOMP_UV_WORDS64={tile_uv_words64}"
+        )
+    return flags
+
+
+def comp_one(mode: str, row: DbCase, rotation: int = 0) -> bool:
+    top, build_root, build_dir, log = sim_paths(mode, row, rotation)
+    case = prepare_case(mode, row, build_dir, rotation)
     flags = reg_flow.make_param_flags(top, case, dec=(mode != "enc"))
+    if mode == "dec_rotation":
+        flags += dec_rotation_flags(top, case, rotation)
     if log.exists():
         log.unlink()
-    rc = run_sim_make("comp", top, build_root, flags, "", log)
+    filelist = DEC_ROTATION_FILELIST if mode == "dec_rotation" else None
+    rc = run_sim_make("comp", top, build_root, flags, "", filelist, log)
     return rc == 0
 
 
@@ -493,20 +600,24 @@ def run_one(mode: str,
             rand_axi: bool,
             bank_dly: int,
             seed: int,
-            axi_read_delay: int) -> bool:
+            axi_read_delay: int,
+            rotation: int = 0) -> bool:
     if mode == "loop":
         return run_loop(row, frame_num, rand_otf, rand_axi, bank_dly, seed, axi_read_delay)
-    top, build_root, build_dir, log = sim_paths(mode, row)
+    top, build_root, build_dir, log = sim_paths(mode, row, rotation)
     run_args = build_run_args(mode, frame_num, rand_otf, rand_axi, bank_dly, seed, axi_read_delay)
-    case = prepare_case(mode, row, build_dir)
-    flags = reg_flow.make_param_flags(top, case, dec=(mode == "dec"))
+    case = prepare_case(mode, row, build_dir, rotation)
+    flags = reg_flow.make_param_flags(top, case, dec=(mode != "enc"))
+    if mode == "dec_rotation":
+        flags += dec_rotation_flags(top, case, rotation)
     if log.exists():
         log.unlink()
+    filelist = DEC_ROTATION_FILELIST if mode == "dec_rotation" else None
     if not (build_dir / "simv").exists():
-        rc = run_sim_make("comp", top, build_root, flags, run_args, log)
+        rc = run_sim_make("comp", top, build_root, flags, run_args, filelist, log)
         if rc != 0:
             return False
-    rc = run_sim_make("run", top, build_root, flags, run_args, log)
+    rc = run_sim_make("run", top, build_root, flags, run_args, filelist, log)
     run_log = build_dir / "run.log"
     passed = rc == 0 and not reg_flow.log_has_failure(log) and not reg_flow.log_has_failure(run_log)
     print(f"[{'PASS' if passed else 'FAIL'}] {mode} CNUM={row.cnum} {row.name}", flush=True)
@@ -518,7 +629,7 @@ def comp_loop() -> bool:
     log = build_root / "flow.log"
     if log.exists():
         log.unlink()
-    rc = run_sim_make("comp", LOOP_TOP, build_root, "", "", log)
+    rc = run_sim_make("comp", LOOP_TOP, build_root, "", "", None, log)
     return rc == 0
 
 
@@ -537,11 +648,11 @@ def run_loop(row: DbCase,
     if log.exists():
         log.unlink()
     if not (build_dir / "simv").exists():
-        rc = run_sim_make("comp", top, build_root, flags, run_args, log)
+        rc = run_sim_make("comp", top, build_root, flags, run_args, None, log)
         if rc != 0:
             print(f"[FAIL] loop CNUM={row.cnum} {row.name} compile failed", flush=True)
             return False
-    rc = run_sim_make("run", top, build_root, flags, run_args, log)
+    rc = run_sim_make("run", top, build_root, flags, run_args, None, log)
     run_log = build_dir / "run.log"
     passed = rc == 0 and not reg_flow.log_has_failure(log) and not reg_flow.log_has_failure(run_log)
     print(f"[{'PASS' if passed else 'FAIL'}] loop CNUM={row.cnum} {row.name}", flush=True)
@@ -555,14 +666,15 @@ def submit_bsub(mode: str,
                 rand_axi: str,
                 bank_dly: int,
                 seed: int,
-                axi_read_delay: int) -> bool:
+                axi_read_delay: int,
+                rotation: int) -> bool:
     log_dir = SIM_DIR / "build" / "clean_flow" / "bsub_logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log = log_dir / f"{mode}_{row.cnum}.log"
     cmd = (
         f"make run MODE={mode} CNUM={row.cnum} FRAME_NUM={frame_num} "
         f"RAND_OTF={rand_otf} RAND_AXI={rand_axi} BANK_DLY={bank_dly} "
-        f"SEED={seed} AXI_READ_DELAY={axi_read_delay} SUBMIT=local"
+        f"SEED={seed} AXI_READ_DELAY={axi_read_delay} ROT={rotation} SUBMIT=local"
     )
     job = f"ubwc_{mode}_{row.cnum}"
     rc = run_cmd(["bsub", "-J", job, "-oo", str(log), cmd])
@@ -590,12 +702,16 @@ def cmd_bvector(args: argparse.Namespace) -> int:
 
 def cmd_comp(args: argparse.Namespace) -> int:
     mode = args.mode
-    if mode not in ("enc", "dec", "loop"):
-        die("MODE must be enc, dec, or loop")
+    if mode not in ("enc", "dec", "dec_rotation", "loop"):
+        die("MODE must be enc, dec, dec_rotation, or loop")
+    rotation = parse_int(args.rotation)
+    if mode == "dec":
+        mode = "dec_rotation"
+        rotation = 0
     cases = select_cases(args.cnum or "all", mode)
     failed: list[str] = []
     for row in cases:
-        if not comp_one(mode, row):
+        if not comp_one(mode, row, rotation):
             failed.append(row.cnum)
     if failed:
         print(f"FAIL_COMPILE={','.join(failed)}")
@@ -604,17 +720,27 @@ def cmd_comp(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     mode = args.mode
-    if mode not in ("enc", "dec", "loop"):
-        die("MODE must be enc, dec, or loop")
+    if mode not in ("enc", "dec", "dec_rotation", "loop"):
+        die("MODE must be enc, dec, dec_rotation, or loop")
     frame_num = parse_int(args.frame_num)
     bank_dly = parse_int(args.bank_dly)
     seed = parse_int(args.seed)
     axi_read_delay = parse_int(args.axi_read_delay)
+    rotation = parse_int(args.rotation)
+    if mode == "dec":
+        mode = "dec_rotation"
+        rotation = 0
     cases = select_cases(args.cnum, mode)
     submit = args.submit.lower()
     failed: list[str] = []
     rand_otf = normalize_bool(args.rand_otf)
     rand_axi = normalize_bool(args.rand_axi)
+    if mode == "dec_rotation":
+        blocked_rotation = [row for row in cases if not case_supports_rotation(row, rotation)]
+        if blocked_rotation:
+            detail = ", ".join(f"{row.cnum}({row.fmt},{row.width}x{row.height})"
+                               for row in blocked_rotation)
+            die(f"CNUM does not support ROT={rotation}: {detail}")
 
     stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     summary = SIM_DIR / "build" / "clean_flow" / f"summary_{mode}_{stamp}.txt"
@@ -623,9 +749,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     for row in cases:
         if submit == "bsub":
             ok = submit_bsub(mode, row, frame_num, str(int(rand_otf)), str(int(rand_axi)),
-                             bank_dly, seed, axi_read_delay)
+                             bank_dly, seed, axi_read_delay, rotation)
         elif submit == "local":
-            ok = run_one(mode, row, frame_num, rand_otf, rand_axi, bank_dly, seed, axi_read_delay)
+            ok = run_one(mode, row, frame_num, rand_otf, rand_axi,
+                         bank_dly, seed, axi_read_delay, rotation)
         else:
             die("SUBMIT must be local or bsub")
         if not ok:
@@ -638,6 +765,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         f"rand_otf={int(rand_otf)}\n"
         f"rand_axi={int(rand_axi)}\n"
         f"bank_dly={bank_dly}\n"
+        f"rotation={rotation}\n"
         f"submit={submit}\n"
         f"fail={','.join(failed)}\n",
         encoding="utf-8",
@@ -661,6 +789,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_comp = sub.add_parser("comp", help="Compile enc/dec/loop")
     p_comp.add_argument("--mode", required=True)
     p_comp.add_argument("--cnum", default="all")
+    p_comp.add_argument("--rotation", default="0")
     p_comp.set_defaults(func=cmd_comp)
 
     p_run = sub.add_parser("run", help="Run enc/dec/loop")
@@ -672,6 +801,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--bank-dly", default="1")
     p_run.add_argument("--seed", default="1")
     p_run.add_argument("--axi-read-delay", default="0")
+    p_run.add_argument("--rotation", default="0")
     p_run.add_argument("--submit", default="local")
     p_run.set_defaults(func=cmd_run)
 

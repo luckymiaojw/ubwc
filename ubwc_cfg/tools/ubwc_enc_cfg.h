@@ -327,9 +327,18 @@ static inline uint32_t ubwc_enc_reg_enc_ci_cfg2(void)
     return 0u;
 }
 
+static inline uint32_t ubwc_enc_reg_enc_ci_cfg3_fields(uint32_t ubwc_cfg_10,
+                                                       uint32_t ubwc_cfg_11,
+                                                       uint32_t ubwc_ver)
+{
+    return ((ubwc_cfg_10 & 0x3fu) << 0) |
+           ((ubwc_cfg_11 & 0x3fu) << 8) |
+           ((ubwc_ver & 0xfu) << 16);
+}
+
 static inline uint32_t ubwc_enc_reg_enc_ci_cfg3(void)
 {
-    return 0u;
+    return ubwc_enc_reg_enc_ci_cfg3_fields(0u, 0u, 7u);
 }
 
 static inline uint32_t ubwc_enc_reg_otf_cfg0(uint32_t format)

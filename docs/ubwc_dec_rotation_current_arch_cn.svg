@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1880" height="1180" viewBox="0 0 1880 1180">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 L0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#d97706"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#dc2626"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 34px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #475569; }
+      .lane { opacity: 0.9; }
+      .lane-title { font-size: 18px; font-weight: 700; fill: #334155; }
+      .box-title { font-size: 17px; font-weight: 700; }
+      .box-text { font-size: 13px; fill: #334155; }
+      .small { font-size: 12px; fill: #475569; }
+      .sig { font-size: 12px; fill: #334155; font-weight: 600; }
+      .note { font-size: 13px; fill: #64748b; }
+      .cfg { fill: #fffbeb; stroke: #d97706; stroke-width: 2; rx: 10; }
+      .meta { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 10; }
+      .axi { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 10; }
+      .fifo { fill: #f8fafc; stroke: #64748b; stroke-width: 2; rx: 10; }
+      .vivo { fill: #faf5ff; stroke: #9333ea; stroke-width: 2; rx: 10; }
+      .rot { fill: #eef2ff; stroke: #4f46e5; stroke-width: 2; rx: 10; }
+      .otf { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 10; }
+      .sram { fill: #f0fdf4; stroke: #16a34a; stroke-width: 2; rx: 10; }
+      .stat { fill: #fef2f2; stroke: #dc2626; stroke-width: 2; rx: 10; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.4; marker-end: url(#arrow); }
+      .data-flow { fill: none; stroke: #2563eb; stroke-width: 2.6; marker-end: url(#arrow-blue); }
+      .cfg-flow { fill: none; stroke: #d97706; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow-orange); }
+      .err-flow { fill: none; stroke: #dc2626; stroke-width: 2; stroke-dasharray: 7 5; marker-end: url(#arrow-red); }
+      .mux { fill: #ffffff; stroke: #475569; stroke-width: 2; }
+      .cell-y { fill: #dcfce7; stroke: #16a34a; stroke-width: 1.4; }
+      .cell-uv { fill: #fed7aa; stroke: #ea580c; stroke-width: 1.4; }
+      .cell-rsv { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 1.4; stroke-dasharray: 5 4; }
+    </style>
+  </defs>
+
+  <rect width="1880" height="1180" fill="#f8fafc"/>
+  <rect width="1880" height="1180" fill="url(#grid)" opacity="0.55"/>
+
+  <text x="56" y="58" class="title">DEC Rotation 当前架构图</text>
+  <text x="56" y="88" class="subtitle">当前实现：DEC normal 和 DEC rotation 分文件处理 tile_to_otf；rotation 只支持 NV12 90°/270°，共享外部 bank0/bank1 SRAM，不新增大容量内部 SRAM。</text>
+
+  <rect x="48" y="120" width="1784" height="95" fill="#fff7ed" class="lane"/>
+  <rect x="48" y="235" width="1784" height="375" fill="#ecfdf5" class="lane"/>
+  <rect x="48" y="630" width="1784" height="175" fill="#f5f3ff" class="lane"/>
+  <rect x="48" y="825" width="1784" height="220" fill="#eff6ff" class="lane"/>
+  <text x="66" y="150" class="lane-title">APB / 配置域</text>
+  <text x="66" y="265" class="lane-title">AXI/Core 域</text>
+  <text x="66" y="660" class="lane-title">VIVO 域 / 解压模型或真实核接口</text>
+  <text x="66" y="855" class="lane-title">OTF 域 + 外部共享 SRAM</text>
+
+  <rect x="135" y="145" width="240" height="50" class="cfg"/>
+  <text x="255" y="166" text-anchor="middle" class="box-title">APB 寄存器</text>
+  <text x="255" y="187" text-anchor="middle" class="box-text">format / size / base / rotate_mode</text>
+
+  <rect x="455" y="145" width="250" height="50" class="cfg"/>
+  <text x="580" y="166" text-anchor="middle" class="box-title">Frame Start</text>
+  <text x="580" y="187" text-anchor="middle" class="box-text">start pulse + fcnt + addr slot</text>
+
+  <rect x="785" y="145" width="250" height="50" class="cfg"/>
+  <text x="910" y="166" text-anchor="middle" class="box-title">Rotate Mode</text>
+  <text x="910" y="187" text-anchor="middle" class="box-text">0 normal / 1 rot90 / 2 rot270</text>
+
+  <rect x="1485" y="145" width="250" height="50" class="stat"/>
+  <text x="1610" y="166" text-anchor="middle" class="box-title">Status / IRQ</text>
+  <text x="1610" y="187" text-anchor="middle" class="box-text">done / underflow / error counters</text>
+
+  <rect x="120" y="295" width="240" height="84" class="meta"/>
+  <text x="240" y="322" text-anchor="middle" class="box-title">Meta 8x8 Cmd Gen</text>
+  <text x="240" y="346" text-anchor="middle" class="box-text">ubwc_dec_meta_blk_get_cmd_gen</text>
+  <text x="240" y="366" text-anchor="middle" class="box-text">ROT270: x stripe 反向扫描</text>
+
+  <rect x="445" y="295" width="255" height="84" class="axi"/>
+  <text x="572" y="322" text-anchor="middle" class="box-title">Meta AXI RCmd</text>
+  <text x="572" y="346" text-anchor="middle" class="box-text">ubwc_dec_meta_fifo16_rcmd_gen</text>
+  <text x="572" y="366" text-anchor="middle" class="box-text">16 lane FIFO 输出 UV→Y</text>
+
+  <rect x="785" y="295" width="235" height="84" class="meta"/>
+  <text x="902" y="322" text-anchor="middle" class="box-title">Meta Decode</text>
+  <text x="902" y="346" text-anchor="middle" class="box-text">meta byte → alen / flag</text>
+  <text x="902" y="366" text-anchor="middle" class="box-text">coord/fcnt 透传</text>
+
+  <rect x="1105" y="295" width="245" height="84" class="axi"/>
+  <text x="1227" y="322" text-anchor="middle" class="box-title">Tile AR Cmd Gen</text>
+  <text x="1227" y="346" text-anchor="middle" class="box-text">source coord → compressed addr</text>
+  <text x="1227" y="366" text-anchor="middle" class="box-text">CVI payload 进入 VIVO</text>
+
+  <rect x="1435" y="295" width="250" height="84" class="axi"/>
+  <text x="1560" y="322" text-anchor="middle" class="box-title">AXI Read Master</text>
+  <text x="1560" y="346" text-anchor="middle" class="box-text">M_AXI_DW=128 bit</text>
+  <text x="1560" y="366" text-anchor="middle" class="box-text">read metadata + compressed tile</text>
+
+  <rect x="735" y="470" width="220" height="72" class="fifo"/>
+  <text x="845" y="498" text-anchor="middle" class="box-title">CI FIFO</text>
+  <text x="845" y="522" text-anchor="middle" class="box-text">metadata / alen / coord</text>
+
+  <rect x="1065" y="470" width="220" height="72" class="fifo"/>
+  <text x="1175" y="498" text-anchor="middle" class="box-title">CVI FIFO</text>
+  <text x="1175" y="522" text-anchor="middle" class="box-text">compressed tile payload</text>
+
+  <rect x="1395" y="470" width="220" height="72" class="fifo"/>
+  <text x="1505" y="498" text-anchor="middle" class="box-title">Coord FIFO</text>
+  <text x="1505" y="522" text-anchor="middle" class="box-text">format / x / y / fcnt</text>
+
+  <rect x="995" y="665" width="265" height="85" class="vivo"/>
+  <text x="1127" y="694" text-anchor="middle" class="box-title">ubwc_dec_vivo_top</text>
+  <text x="1127" y="718" text-anchor="middle" class="box-text">fake/real 均只做 tile 解压</text>
+  <text x="1127" y="738" text-anchor="middle" class="box-text">RVO raw tile，不做旋转</text>
+
+  <rect x="1375" y="665" width="240" height="85" class="fifo"/>
+  <text x="1495" y="694" text-anchor="middle" class="box-title">RVO Async FIFO</text>
+  <text x="1495" y="718" text-anchor="middle" class="box-text">raw tile data + last</text>
+  <text x="1495" y="738" text-anchor="middle" class="box-text">当前深度按小 FIFO 使用</text>
+
+  <polygon points="240,900 315,865 315,935" class="mux"/>
+  <text x="275" y="904" text-anchor="middle" class="box-title">MUX</text>
+  <text x="245" y="950" text-anchor="middle" class="small">rotate_active</text>
+
+  <rect x="415" y="850" width="255" height="92" class="otf"/>
+  <text x="542" y="880" text-anchor="middle" class="box-title">Normal Tile-to-OTF</text>
+  <text x="542" y="906" text-anchor="middle" class="box-text">ubwc_dec_tile_to_otf normal path</text>
+  <text x="542" y="926" text-anchor="middle" class="box-text">非旋转继续原调度</text>
+
+  <rect x="415" y="960" width="255" height="92" class="rot"/>
+  <text x="542" y="990" text-anchor="middle" class="box-title">Rotation Tile-to-OTF</text>
+  <text x="542" y="1016" text-anchor="middle" class="box-text">ubwc_dec_tile_to_otf_rotate</text>
+  <text x="542" y="1036" text-anchor="middle" class="box-text">NV12 rot90 / rot270</text>
+
+  <rect x="800" y="870" width="315" height="168" class="sram"/>
+  <text x="958" y="900" text-anchor="middle" class="box-title">共享外部工作 SRAM</text>
+  <text x="958" y="924" text-anchor="middle" class="box-text">bank0 / bank1 由 normal/rotation mux 共享</text>
+  <g transform="translate(835,945)">
+    <rect x="0" y="0" width="170" height="30" class="cell-y"/>
+    <text x="85" y="20" text-anchor="middle" class="small">Y stripe 0..2175</text>
+    <rect x="0" y="40" width="170" height="30" class="cell-uv"/>
+    <text x="85" y="60" text-anchor="middle" class="small">UV stripe 2176..3263</text>
+    <rect x="0" y="80" width="170" height="30" class="cell-rsv"/>
+    <text x="85" y="100" text-anchor="middle" class="small">reserved 3264..4095</text>
+  </g>
+  <text x="1052" y="982" text-anchor="middle" class="box-text">一组 source x-stripe</text>
+  <text x="1052" y="1004" text-anchor="middle" class="box-text">Y/UV 写同一个 bank</text>
+  <text x="1052" y="1026" text-anchor="middle" class="box-text">下一组切换到另一个 bank</text>
+
+  <rect x="1250" y="890" width="240" height="92" class="fifo"/>
+  <text x="1370" y="920" text-anchor="middle" class="box-title">OTF CDC FIFO</text>
+  <text x="1370" y="946" text-anchor="middle" class="box-text">rotated line compact data</text>
+  <text x="1370" y="966" text-anchor="middle" class="box-text">AXI/Core → OTF</text>
+
+  <rect x="1580" y="890" width="215" height="92" class="otf"/>
+  <text x="1688" y="920" text-anchor="middle" class="box-title">OTF Output</text>
+  <text x="1688" y="946" text-anchor="middle" class="box-text">vsync / hsync / de</text>
+  <text x="1688" y="966" text-anchor="middle" class="box-text">rotated H_ACT / V_ACT</text>
+
+  <path class="cfg-flow" d="M375 170 H455"/>
+  <path class="cfg-flow" d="M705 170 H785"/>
+  <path class="cfg-flow" d="M910 195 V250 H240 V295"/>
+  <path class="cfg-flow" d="M1035 170 H1485"/>
+
+  <path class="flow" d="M360 337 H445"/>
+  <text x="376" y="324" class="sig">8x8 block AR</text>
+  <path class="flow" d="M700 337 H785"/>
+  <text x="715" y="324" class="sig">meta bytes + coord</text>
+  <path class="flow" d="M1020 337 H1105"/>
+  <text x="1034" y="324" class="sig">CI stream</text>
+  <path class="flow" d="M1350 337 H1435"/>
+  <text x="1364" y="324" class="sig">AR/R channel</text>
+
+  <path class="flow" d="M902 379 V470"/>
+  <path class="flow" d="M1227 379 V430 H1175 V470"/>
+  <path class="flow" d="M1227 379 V430 H1505 V470"/>
+  <path class="data-flow" d="M1560 379 V430 H1175"/>
+  <text x="1260" y="426" class="sig">compressed data</text>
+
+  <path class="flow" d="M845 542 V620 H1127 V665"/>
+  <path class="data-flow" d="M1175 542 V620 H1127 V665"/>
+  <path class="flow" d="M1505 542 V620 H1495 V665"/>
+  <path class="data-flow" d="M1260 708 H1375"/>
+  <text x="1285" y="693" class="sig">RVO raw tile</text>
+
+  <path class="data-flow" d="M1495 750 V815 H315 V900"/>
+  <path class="flow" d="M1505 542 V820 H315 V900"/>
+  <text x="760" y="806" class="sig">raw tile + coord tag 进入 tile_to_otf</text>
+
+  <path class="flow" d="M315 890 H415"/>
+  <path class="data-flow" d="M315 910 V1006 H415"/>
+  <path class="data-flow" d="M670 1006 H760 V954 H800"/>
+  <path class="flow" d="M670 896 H760 V928 H800"/>
+  <text x="708" y="884" class="sig">normal access</text>
+  <text x="708" y="994" class="sig">rotation access</text>
+
+  <path class="data-flow" d="M1115 954 H1250"/>
+  <path class="data-flow" d="M1490 936 H1580"/>
+
+  <path class="err-flow" d="M542 850 V805 H1610 V195"/>
+  <path class="err-flow" d="M958 870 V820 H1610 V195"/>
+  <text x="1205" y="808" class="sig">underflow / invalid coord / done</text>
+
+  <rect x="90" y="1082" width="1690" height="62" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" rx="10"/>
+  <text x="118" y="1108" class="note">关键约束：rotation 只支持 NV12，source height ≤ 1080；ROT90 正向扫描 x stripe，ROT270 反向扫描 x stripe。</text>
+  <text x="118" y="1134" class="note">实现要点：padding beat 不允许覆盖已写入的有效 word；partial stripe 在 ROT270 时把有效 local-x 压到 SRAM 低行号，读侧仍从 line0 开始输出。</text>
+</svg>

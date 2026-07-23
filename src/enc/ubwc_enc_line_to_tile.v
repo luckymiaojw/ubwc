@@ -76,8 +76,8 @@ module ubwc_enc_line_to_tile#(
     localparam                                      RD_IDLE                         = 2'd0;
     localparam                                      RD_ACT                          = 2'd1;
     localparam                                      RD_FIN                          = 2'd2;
-    localparam  [ADDR_W              -1 :0]         SRAM_REGION_BASE                = ADDR_W'(2048);
-    localparam  [ADDR_W              -1 :0]         SRAM_UV_SLOT_SIZE               = ADDR_W'(1024);
+    localparam  [ADDR_W              -1 :0]         SRAM_REGION_BASE                = {1'b1, {(ADDR_W-1){1'b0}}};
+    localparam  [ADDR_W              -1 :0]         SRAM_UV_SLOT_SIZE               = {2'b01, {(ADDR_W-2){1'b0}}};
     localparam  integer                             READ_META_FIFO_W                = 4 + 16 + 16 + 1 + 1 + 1 + 1;
     localparam  integer                             READ_META_FIFO_DEPTH            = 16;
     localparam  integer                             READ_META_FIFO_PROG_DEPTH       = 4;

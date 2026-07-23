@@ -619,7 +619,7 @@ def make_param_flags(top: str, case: VectorCase, dec: bool) -> str:
     params: dict[str, int] = {
         "CASE_ID": case.case_id,
         "IMG_W": case.width,
-        "COM_BUF_AW": 12,
+        "COM_BUF_AW": 12 if dec else 11,
         "CASE_TILE_EXPECT_LINEAR": 0 if dec else 1,
         "CASE_CI_LOSSY": case.lossy,
         "CASE_UBWC_CFG_0": case.ubwc_cfg[0],
@@ -818,12 +818,16 @@ def prepare_dec_files(case: VectorCase, build_dir: Path) -> None:
     else:
         for name in ("input_meta_plane1.txt", "input_tile_plane1.txt", "inject_tile_plane1.txt"):
             (build_dir / name).write_text("")
-    if case.lossy and case.fmt in ("rgba8888", "rgba1010102"):
-        expected_linear_y = build_dir / "expected_linear_from_uncompressed_plane0.memh"
-        write_words64(expected_linear_y, dec_tile_to_linear_words(case, 0))
-        prepare_otf_stream(case, build_dir, expected_y=expected_linear_y)
+    expected_linear_y = build_dir / "expected_linear_from_uncompressed_plane0.memh"
+    write_words64(expected_linear_y, dec_tile_to_linear_words(case, 0))
+    if case.has_uv:
+        expected_linear_uv = build_dir / "expected_linear_from_uncompressed_plane1.memh"
+        write_words64(expected_linear_uv, dec_tile_to_linear_words(case, 1))
+        prepare_otf_stream(case, build_dir,
+                           expected_y=expected_linear_y,
+                           expected_uv=expected_linear_uv)
     else:
-        prepare_otf_stream(case, build_dir)
+        prepare_otf_stream(case, build_dir, expected_y=expected_linear_y)
     shutil.copy2(build_dir / "input_otf_stream.txt", build_dir / "expected_otf_stream.txt")
 
 

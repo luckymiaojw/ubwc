@@ -35,7 +35,17 @@ enum {
     UBWC_DEC_REG_META_BASE_UV_HI = 0x0044,
     UBWC_DEC_REG_TILE_BASE_UV_LO = 0x0048,
     UBWC_DEC_REG_TILE_BASE_UV_HI = 0x004c,
-    UBWC_DEC_REG_IRQ_CTRL        = 0x0060
+    UBWC_DEC_REG_STATUS0         = 0x0050,
+    UBWC_DEC_REG_STATUS1         = 0x0054,
+    UBWC_DEC_REG_STATUS2         = 0x0058,
+    UBWC_DEC_REG_STATUS3         = 0x005c,
+    UBWC_DEC_REG_IRQ_CTRL        = 0x0060,
+    UBWC_DEC_REG_STATUS4         = 0x0064,
+    UBWC_DEC_REG_STAT_META       = 0x0068,
+    UBWC_DEC_REG_STAT_TILE       = 0x006c,
+    UBWC_DEC_REG_STAT_OTF_TILE   = 0x0070,
+    UBWC_DEC_REG_STAT_OTF_LINE   = 0x0074,
+    UBWC_DEC_REG_STAT_OTF_DE     = 0x0078
 };
 
 typedef struct {
@@ -72,6 +82,7 @@ typedef struct {
     uint32_t v_sync;
     uint32_t v_bp;
     uint32_t v_act;
+    uint32_t rotate_mode;
     uint32_t lvl1_bank_swizzle_en;
     uint32_t lvl2_bank_swizzle_en;
     uint32_t lvl3_bank_swizzle_en;
@@ -80,6 +91,7 @@ typedef struct {
     uint32_t ci_input_type;
     uint32_t ci_lossy;
     uint32_t ci_alpha_mode;
+    uint32_t ci_ubwc_ver;
     uint32_t vivo_ubwc_en;
     uint32_t vivo_sreset;
     uint32_t irq_enable;
@@ -187,6 +199,20 @@ static inline uint32_t ubwc_dec_active_tile_y_numbers(uint32_t format, uint32_t 
     return ubwc_dec_ceil_div_u32(height_px, ubwc_dec_tile_h(format));
 }
 
+static inline uint32_t ubwc_dec_is_nv12_format(uint32_t format)
+{
+    return format == UBWC_DEC_FMT_YUV420_8_NV12;
+}
+
+static inline uint32_t ubwc_dec_rotate_is_supported(uint32_t format,
+                                                    uint32_t src_height_px,
+                                                    uint32_t rotate_mode)
+{
+    return ((rotate_mode & 0x3u) != 0u) &&
+           ubwc_dec_is_nv12_format(format) &&
+           (src_height_px <= 1080u);
+}
+
 static inline uint32_t ubwc_dec_surface_pitch_bytes(uint32_t format, uint32_t width_px)
 {
     uint32_t tile_w = ubwc_dec_tile_w(format);
@@ -286,7 +312,8 @@ static inline uint32_t ubwc_dec_reg_tile_cfg0(uint32_t lvl1_bank_swizzle_en,
                                              uint32_t highest_bank_bit,
                                              uint32_t bank_spread_en,
                                              uint32_t four_line_format,
-                                             uint32_t lossy_rgba_2_1)
+                                             uint32_t lossy_rgba_2_1,
+                                             uint32_t ubwc_ver)
 {
     return ((lvl1_bank_swizzle_en & 1u) << 0) |
            ((lvl2_bank_swizzle_en & 1u) << 1) |
@@ -294,7 +321,8 @@ static inline uint32_t ubwc_dec_reg_tile_cfg0(uint32_t lvl1_bank_swizzle_en,
            ((highest_bank_bit & 0x1fu) << 4) |
            ((bank_spread_en & 1u) << 9) |
            ((four_line_format & 1u) << 10) |
-           ((lossy_rgba_2_1 & 1u) << 11);
+           ((lossy_rgba_2_1 & 1u) << 11) |
+           ((ubwc_ver & 0xfu) << 16);
 }
 
 static inline uint32_t ubwc_dec_reg_tile_cfg1(uint32_t format, uint32_t width_px)
@@ -302,13 +330,22 @@ static inline uint32_t ubwc_dec_reg_tile_cfg1(uint32_t format, uint32_t width_px
     return ubwc_dec_tile_pitch(format, width_px) & 0xfffu;
 }
 
-static inline uint32_t ubwc_dec_reg_tile_cfg2(uint32_t ci_input_type,
-                                             uint32_t ci_lossy,
-                                             uint32_t ci_alpha_mode)
+static inline uint32_t ubwc_dec_reg_tile_cfg2_fields(uint32_t ci_input_type,
+                                                    uint32_t ci_lossy,
+                                                    uint32_t ci_alpha_mode)
 {
     return ((ci_input_type & 1u) << 0) |
            ((ci_lossy & 1u) << 8) |
            ((ci_alpha_mode & 0x3u) << 9);
+}
+
+static inline uint32_t ubwc_dec_reg_tile_cfg2(uint32_t ci_input_type,
+                                             uint32_t ci_lossy,
+                                             uint32_t ci_alpha_mode)
+{
+    return ubwc_dec_reg_tile_cfg2_fields(ci_input_type,
+                                         ci_lossy,
+                                         ci_alpha_mode);
 }
 
 static inline uint32_t ubwc_dec_reg_vivo_cfg(uint32_t ubwc_en, uint32_t sreset)
@@ -322,10 +359,37 @@ static inline uint32_t ubwc_dec_reg_meta_cfg0(uint32_t format, uint32_t width_px
            ((ubwc_dec_active_tile_y_numbers(format, height_px) & 0xffffu) << 16);
 }
 
+static inline uint32_t ubwc_dec_reg_meta_cfg0_from_otf(uint32_t format,
+                                                      uint32_t img_width_px,
+                                                      uint32_t h_act,
+                                                      uint32_t v_act,
+                                                      uint32_t rotate_mode)
+{
+    uint32_t rotate_active = ubwc_dec_rotate_is_supported(format, h_act, rotate_mode);
+    uint32_t src_width = rotate_active ? img_width_px : h_act;
+    uint32_t src_height = rotate_active ? h_act : v_act;
+    uint32_t tile_x = ubwc_dec_is_rgba_format(format) ?
+                      (((src_width + 63u) >> 6) << 2) :
+                      (((src_width + 127u) >> 7) << 2);
+    uint32_t tile_y = ubwc_dec_is_nv12_format(format) ?
+                      ((src_height + 7u) >> 3) :
+                      ((src_height + 3u) >> 2);
+
+    return (tile_x & 0xffffu) | ((tile_y & 0xffffu) << 16);
+}
+
+static inline uint32_t ubwc_dec_reg_otf_cfg0_ex(uint32_t format,
+                                               uint32_t width_px,
+                                               uint32_t rotate_mode)
+{
+    return (width_px & 0xffffu) |
+           ((ubwc_dec_base_format(format) & 0x1fu) << 16) |
+           ((rotate_mode & 0x3u) << 21);
+}
+
 static inline uint32_t ubwc_dec_reg_otf_cfg0(uint32_t format, uint32_t width_px)
 {
-    (void)width_px;
-    return ((ubwc_dec_base_format(format) & 0x1fu) << 16);
+    return ubwc_dec_reg_otf_cfg0_ex(format, width_px, 0u);
 }
 
 static inline uint32_t ubwc_dec_reg_otf_cfg1(uint32_t h_total, uint32_t h_sync)
@@ -385,6 +449,7 @@ static inline ubwc_dec_config_t ubwc_dec_default_config(uint32_t format,
     cfg.v_sync = 0u;
     cfg.v_bp = 0u;
     cfg.v_act = height_px;
+    cfg.rotate_mode = 0u;
     cfg.lvl1_bank_swizzle_en = 0u;
     cfg.lvl2_bank_swizzle_en = 1u;
     cfg.lvl3_bank_swizzle_en = 1u;
@@ -393,11 +458,30 @@ static inline ubwc_dec_config_t ubwc_dec_default_config(uint32_t format,
     cfg.ci_input_type = 1u;
     cfg.ci_lossy = lossy;
     cfg.ci_alpha_mode = 0u;
+    cfg.ci_ubwc_ver = 7u;
     cfg.vivo_ubwc_en = 1u;
     cfg.vivo_sreset = 0u;
     cfg.irq_enable = 1u;
     cfg.do_start = 1u;
     return cfg;
+}
+
+static inline void ubwc_dec_apply_rotate_mode(ubwc_dec_config_t *cfg, uint32_t rotate_mode)
+{
+    uint32_t rotate_enable;
+
+    if (cfg == 0) {
+        return;
+    }
+
+    rotate_enable = ubwc_dec_rotate_is_supported(cfg->format, cfg->height_px, rotate_mode);
+    cfg->rotate_mode = rotate_enable ? (rotate_mode & 0x3u) : 0u;
+    if (rotate_enable) {
+        cfg->h_total = cfg->height_px;
+        cfg->h_act = cfg->height_px;
+        cfg->v_total = cfg->width_px;
+        cfg->v_act = cfg->width_px;
+    }
 }
 
 static inline size_t ubwc_dec_make_reg_writes_ex(const ubwc_dec_config_t *cfg,
@@ -412,16 +496,15 @@ static inline size_t ubwc_dec_make_reg_writes_ex(const ubwc_dec_config_t *cfg,
     uint32_t four_line = ubwc_dec_is_rgba_format(c->format) ? 1u : 0u;
     uint32_t lossy = (c->format == UBWC_DEC_FMT_RGBA8888_L_2_1) ? 1u : 0u;
     ubwc_dec_reg_write_t regs[] = {
-        {UBWC_DEC_REG_TILE_CFG0, ubwc_dec_reg_tile_cfg0(c->lvl1_bank_swizzle_en, c->lvl2_bank_swizzle_en, c->lvl3_bank_swizzle_en, c->highest_bank_bit, c->bank_spread_en, four_line, lossy), "APB_ADDR_TILE_CFG0"},
+        {UBWC_DEC_REG_TILE_CFG0, ubwc_dec_reg_tile_cfg0(c->lvl1_bank_swizzle_en, c->lvl2_bank_swizzle_en, c->lvl3_bank_swizzle_en, c->highest_bank_bit, c->bank_spread_en, four_line, lossy, c->ci_ubwc_ver), "APB_ADDR_TILE_CFG0"},
         {UBWC_DEC_REG_TILE_CFG1, ubwc_dec_reg_tile_cfg1(c->format, c->h_act), "APB_ADDR_TILE_CFG1"},
-        {UBWC_DEC_REG_TILE_CFG2, ubwc_dec_reg_tile_cfg2(c->ci_input_type, c->ci_lossy, c->ci_alpha_mode), "APB_ADDR_TILE_CFG2"},
+        {UBWC_DEC_REG_TILE_CFG2, ubwc_dec_reg_tile_cfg2_fields(c->ci_input_type, c->ci_lossy, c->ci_alpha_mode), "APB_ADDR_TILE_CFG2"},
         {UBWC_DEC_REG_VIVO_CFG,  ubwc_dec_reg_vivo_cfg(c->vivo_ubwc_en, c->vivo_sreset), "APB_ADDR_VIVO_CFG"},
-        {UBWC_DEC_REG_OTF_CFG0,  ubwc_dec_reg_otf_cfg0(c->format, c->width_px), "APB_ADDR_OTF_CFG0"},
+        {UBWC_DEC_REG_OTF_CFG0,  ubwc_dec_reg_otf_cfg0_ex(c->format, c->width_px, c->rotate_mode), "APB_ADDR_OTF_CFG0"},
         {UBWC_DEC_REG_OTF_CFG1,  ubwc_dec_reg_otf_cfg1(c->h_total, c->h_sync), "APB_ADDR_OTF_CFG1"},
         {UBWC_DEC_REG_OTF_CFG2,  ubwc_dec_reg_otf_cfg2(c->h_bp, c->h_act), "APB_ADDR_OTF_CFG2"},
         {UBWC_DEC_REG_OTF_CFG3,  ubwc_dec_reg_otf_cfg3(c->v_total, c->v_sync), "APB_ADDR_OTF_CFG3"},
         {UBWC_DEC_REG_OTF_CFG4,  ubwc_dec_reg_otf_cfg4(c->v_bp, c->v_act), "APB_ADDR_OTF_CFG4"},
-        {UBWC_DEC_REG_META_CFG0, ubwc_dec_reg_meta_cfg0(c->format, c->h_act, c->v_act), "APB_ADDR_META_CFG0"},
         {UBWC_DEC_REG_META_BASE_Y_LO, ubwc_dec_reg_base_lo(c->base.meta_base_rgba_y), "REG_META_BASE_Y_LO"},
         {UBWC_DEC_REG_META_BASE_Y_HI, ubwc_dec_reg_base_hi(c->base.meta_base_rgba_y), "REG_META_BASE_Y_HI"},
         {UBWC_DEC_REG_TILE_BASE_Y_LO, ubwc_dec_reg_base_lo(c->base.tile_base_rgba_y), "REG_TILE_BASE_Y_LO"},

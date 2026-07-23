@@ -80,6 +80,7 @@ typedef struct {
     uint32_t ci_input_type;
     uint32_t ci_lossy;
     uint32_t ci_alpha_mode;
+    uint32_t ci_ubwc_ver;
     uint32_t vivo_ubwc_en;
     uint32_t vivo_sreset;
     uint32_t irq_enable;
@@ -262,13 +263,25 @@ static inline uint32_t ubwc_dec_reg_tile_cfg1(uint32_t format, uint32_t width_px
     return ubwc_dec_tile_pitch(format, width_px) & 0xfffu;
 }
 
+static inline uint32_t ubwc_dec_reg_tile_cfg2_fields(uint32_t ci_input_type,
+                                                    uint32_t ci_lossy,
+                                                    uint32_t ci_alpha_mode,
+                                                    uint32_t ubwc_ver)
+{
+    return ((ci_input_type & 1u) << 0) |
+           ((ci_lossy & 1u) << 8) |
+           ((ci_alpha_mode & 0x3u) << 9) |
+           ((ubwc_ver & 0xfu) << 16);
+}
+
 static inline uint32_t ubwc_dec_reg_tile_cfg2(uint32_t ci_input_type,
                                              uint32_t ci_lossy,
                                              uint32_t ci_alpha_mode)
 {
-    return ((ci_input_type & 1u) << 0) |
-           ((ci_lossy & 1u) << 8) |
-           ((ci_alpha_mode & 0x3u) << 9);
+    return ubwc_dec_reg_tile_cfg2_fields(ci_input_type,
+                                         ci_lossy,
+                                         ci_alpha_mode,
+                                         7u);
 }
 
 static inline uint32_t ubwc_dec_reg_vivo_cfg(uint32_t ubwc_en, uint32_t sreset)
@@ -353,6 +366,7 @@ static inline ubwc_dec_config_t ubwc_dec_default_config(uint32_t format,
     cfg.ci_input_type = 1u;
     cfg.ci_lossy = lossy;
     cfg.ci_alpha_mode = 0u;
+    cfg.ci_ubwc_ver = 7u;
     cfg.vivo_ubwc_en = 1u;
     cfg.vivo_sreset = 0u;
     cfg.irq_enable = 1u;
@@ -374,7 +388,7 @@ static inline size_t ubwc_dec_make_reg_writes_ex(const ubwc_dec_config_t *cfg,
     ubwc_dec_reg_write_t regs[] = {
         {UBWC_DEC_REG_TILE_CFG0, ubwc_dec_reg_tile_cfg0(c->lvl1_bank_swizzle_en, c->lvl2_bank_swizzle_en, c->lvl3_bank_swizzle_en, c->highest_bank_bit, c->bank_spread_en, four_line, lossy), "APB_ADDR_TILE_CFG0"},
         {UBWC_DEC_REG_TILE_CFG1, ubwc_dec_reg_tile_cfg1(c->format, c->width_px), "APB_ADDR_TILE_CFG1"},
-        {UBWC_DEC_REG_TILE_CFG2, ubwc_dec_reg_tile_cfg2(c->ci_input_type, c->ci_lossy, c->ci_alpha_mode), "APB_ADDR_TILE_CFG2"},
+        {UBWC_DEC_REG_TILE_CFG2, ubwc_dec_reg_tile_cfg2_fields(c->ci_input_type, c->ci_lossy, c->ci_alpha_mode, c->ci_ubwc_ver), "APB_ADDR_TILE_CFG2"},
         {UBWC_DEC_REG_VIVO_CFG,  ubwc_dec_reg_vivo_cfg(c->vivo_ubwc_en, c->vivo_sreset), "APB_ADDR_VIVO_CFG"},
         {UBWC_DEC_REG_OTF_CFG0,  ubwc_dec_reg_otf_cfg0(c->format, c->width_px), "APB_ADDR_OTF_CFG0"},
         {UBWC_DEC_REG_OTF_CFG1,  ubwc_dec_reg_otf_cfg1(c->h_total, c->h_sync), "APB_ADDR_OTF_CFG1"},

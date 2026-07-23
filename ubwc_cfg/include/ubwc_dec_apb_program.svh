@@ -25,7 +25,9 @@ task automatic ubwc_dec_apb_program_full(
     input bit vivo_ubwc_en,
     input bit vivo_sreset,
     input bit irq_enable,
-    input bit do_start
+    input bit do_start,
+    input logic [1:0] rotate_mode = 2'd0,
+    input logic [3:0] ubwc_ver = 4'd7
 );
     bit four_line_format;
     bit lossy_rgba_2_1;
@@ -39,18 +41,20 @@ task automatic ubwc_dec_apb_program_full(
                                                        lvl3_bank_swizzle_en,
                                                        highest_bank_bit,
                                                        bank_spread_en,
-                                                       four_line_format, lossy_rgba_2_1));
+                                                       four_line_format,
+                                                       lossy_rgba_2_1,
+                                                       ubwc_ver));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_TILE_CFG1,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg1(format, h_act));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_TILE_CFG2,
-              ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg2(ci_input_type,
-                                                       ci_lossy,
-                                                       ci_alpha_mode));
+              ubwc_dec_cfg_pkg::ubwc_dec_reg_tile_cfg2_fields(ci_input_type,
+                                                              ci_lossy,
+                                                              ci_alpha_mode));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_VIVO_CFG,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_vivo_cfg(vivo_ubwc_en, vivo_sreset));
 
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_OTF_CFG0,
-              ubwc_dec_cfg_pkg::ubwc_dec_reg_otf_cfg0(format, width_px));
+              ubwc_dec_cfg_pkg::ubwc_dec_reg_otf_cfg0_ex(format, width_px, rotate_mode));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_OTF_CFG1,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_otf_cfg1(h_total, h_sync));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_OTF_CFG2,
@@ -59,8 +63,6 @@ task automatic ubwc_dec_apb_program_full(
               ubwc_dec_cfg_pkg::ubwc_dec_reg_otf_cfg3(v_total, v_sync));
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_OTF_CFG4,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_otf_cfg4(v_bp, v_act));
-    apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_META_CFG0,
-              ubwc_dec_cfg_pkg::ubwc_dec_reg_meta_cfg0(format, h_act, v_act));
 
     apb_write(ubwc_dec_cfg_pkg::UBWC_DEC_REG_META_BASE_Y_LO,
               ubwc_dec_cfg_pkg::ubwc_dec_reg_base_lo(meta_base_rgba_y));
@@ -97,7 +99,9 @@ task automatic ubwc_dec_apb_program(
     input int unsigned v_total,
     input int unsigned v_sync,
     input int unsigned v_bp,
-    input int unsigned v_act
+    input int unsigned v_act,
+    input logic [1:0] rotate_mode = 2'd0,
+    input logic [3:0] ubwc_ver = 4'd7
 );
     bit lossy_rgba_2_1;
 
@@ -128,7 +132,9 @@ task automatic ubwc_dec_apb_program(
                               1'b1,
                               1'b0,
                               1'b1,
-                              1'b1);
+                              1'b1,
+                              rotate_mode,
+                              ubwc_ver);
 endtask
 
 task automatic ubwc_dec_apb_program_simple(
@@ -150,6 +156,39 @@ task automatic ubwc_dec_apb_program_simple(
                          height_px, 0, 0, height_px);
 endtask
 
+task automatic ubwc_dec_apb_program_simple_rotate(
+    input int unsigned format,
+    input int unsigned width_px,
+    input int unsigned height_px,
+    input logic [63:0] meta_y_base_addr,
+    input logic [1:0] rotate_mode,
+    input logic [3:0] ubwc_ver = 4'd7
+);
+    ubwc_dec_cfg_pkg::ubwc_dec_base_cfg_t base;
+    bit rotate_active;
+    logic [1:0] rotate_mode_eff;
+    int unsigned h_act;
+    int unsigned v_act;
+
+    base = ubwc_dec_cfg_pkg::ubwc_dec_layout_bases(format, width_px, height_px,
+                                                   meta_y_base_addr);
+    rotate_active = ubwc_dec_cfg_pkg::ubwc_dec_rotate_is_supported(format,
+                                                                   height_px,
+                                                                   rotate_mode);
+    rotate_mode_eff = rotate_active ? rotate_mode : 2'd0;
+    h_act = rotate_active ? height_px : width_px;
+    v_act = rotate_active ? width_px : height_px;
+    ubwc_dec_apb_program(format, width_px, height_px,
+                         base.tile_base_rgba_y,
+                         base.tile_base_uv,
+                         base.meta_base_rgba_y,
+                         base.meta_base_uv,
+                         h_act, 0, 0, h_act,
+                         v_act, 0, 0, v_act,
+                         rotate_mode_eff,
+                         ubwc_ver);
+endtask
+
 task automatic ubwc_dec_apb_program_simple_full(
     input int unsigned format,
     input int unsigned width_px,
@@ -165,7 +204,9 @@ task automatic ubwc_dec_apb_program_simple_full(
     input int unsigned v_act,
     input bit ci_lossy,
     input bit irq_enable,
-    input bit do_start
+    input bit do_start,
+    input logic [1:0] rotate_mode = 2'd0,
+    input logic [3:0] ubwc_ver = 4'd7
 );
     ubwc_dec_cfg_pkg::ubwc_dec_base_cfg_t base;
 
@@ -197,5 +238,7 @@ task automatic ubwc_dec_apb_program_simple_full(
                               1'b1,
                               1'b0,
                               irq_enable,
-                              do_start);
+                              do_start,
+                              rotate_mode,
+                              ubwc_ver);
 endtask

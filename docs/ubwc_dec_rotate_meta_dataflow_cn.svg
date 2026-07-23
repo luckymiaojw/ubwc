@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 32px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #475569; }
+      .section { font-size: 22px; font-weight: 700; }
+      .box-title { font-size: 17px; font-weight: 700; }
+      .box-text { font-size: 13px; fill: #334155; }
+      .small { font-size: 12px; fill: #475569; }
+      .sig { font-size: 12px; fill: #334155; font-weight: 600; }
+      .note { font-size: 13px; fill: #64748b; }
+      .formula { font-size: 13px; fill: #0f172a; font-family: Consolas, "SFMono-Regular", monospace; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 10; }
+      .box-cfg { fill: #fffbeb; stroke: #d97706; stroke-width: 2; rx: 10; }
+      .box-scan { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; rx: 10; }
+      .box-axi { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 10; }
+      .box-buf { fill: #f8fafc; stroke: #64748b; stroke-width: 2; rx: 10; }
+      .box-rot { fill: #eef2ff; stroke: #4f46e5; stroke-width: 2; rx: 10; }
+      .box-decode { fill: #f0fdf4; stroke: #16a34a; stroke-width: 2; rx: 10; }
+      .box-stat { fill: #fef2f2; stroke: #dc2626; stroke-width: 2; rx: 10; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.4; marker-end: url(#arrow); }
+      .rot-flow { fill: none; stroke: #2563eb; stroke-width: 2.4; marker-end: url(#arrow-blue); }
+      .cfg-flow { fill: none; stroke: #d97706; stroke-width: 2; stroke-dasharray: 8 6; marker-end: url(#arrow-orange); }
+      .dash { fill: none; stroke: #64748b; stroke-width: 1.8; stroke-dasharray: 7 6; }
+      .cell { fill: #ffffff; stroke: #94a3b8; stroke-width: 1; }
+      .cell-valid { fill: #e0f2fe; stroke: #0284c7; stroke-width: 1; }
+      .cell-invalid { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1; }
+      .cell-ping { fill: #dcfce7; stroke: #16a34a; stroke-width: 1.5; }
+      .cell-pang { fill: #ede9fe; stroke: #7c3aed; stroke-width: 1.5; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1200" fill="#f8fafc"/>
+  <rect width="1920" height="1200" fill="url(#grid)" opacity="0.55"/>
+
+  <text x="56" y="58" class="title">DEC 旋转模式 Metadata Block-Row 数据流图</text>
+  <text x="56" y="88" class="subtitle">修正版：第一版仅支持 NV12 90° / 270°；metadata 按完整 8-tile-row block-row ping-pong，normal / rotate tile_to_otf 分文件实现。</text>
+
+  <rect x="70" y="125" width="230" height="82" class="box-cfg"/>
+  <text x="185" y="156" text-anchor="middle" class="box-title">Frame Config</text>
+  <text x="185" y="181" text-anchor="middle" class="box-text">format / fcnt / rotate</text>
+  <text x="185" y="199" text-anchor="middle" class="box-text">source tile cols / rows</text>
+
+  <rect x="375" y="125" width="260" height="82" class="box-scan"/>
+  <text x="505" y="156" text-anchor="middle" class="box-title">Plane Block-Row Scanner</text>
+  <text x="505" y="181" text-anchor="middle" class="box-text">plane = Y / UV</text>
+  <text x="505" y="199" text-anchor="middle" class="box-text">block_row_idx = 0,1,2...</text>
+
+  <rect x="710" y="125" width="285" height="82" class="box-scan"/>
+  <text x="852" y="156" text-anchor="middle" class="box-title">Block-Row Address Gen</text>
+  <text x="852" y="181" text-anchor="middle" class="box-text">block_cols = ceil(tile_cols / 8)</text>
+  <text x="852" y="199" text-anchor="middle" class="box-text">src_y_base = block_row_idx * 8</text>
+
+  <rect x="1070" y="125" width="260" height="82" class="box-axi"/>
+  <text x="1200" y="156" text-anchor="middle" class="box-title">AXI Read Meta Row</text>
+  <text x="1200" y="181" text-anchor="middle" class="box-text">read block_cols * 8 words64</text>
+  <text x="1200" y="199" text-anchor="middle" class="box-text">NV12 1920: 8 * 8 = 64 words</text>
+
+  <rect x="1405" y="125" width="260" height="82" class="box-buf"/>
+  <text x="1535" y="156" text-anchor="middle" class="box-title">PING / PANG Row Buffer</text>
+  <text x="1535" y="181" text-anchor="middle" class="box-text">rowbuf[block_cols][8][8]</text>
+  <text x="1535" y="199" text-anchor="middle" class="box-text">valid mask for tail block</text>
+
+  <path class="cfg-flow" d="M300 166 H375"/>
+  <path class="flow" d="M635 166 H710"/>
+  <path class="flow" d="M995 166 H1070"/>
+  <path class="flow" d="M1330 166 H1405"/>
+  <text x="648" y="152" class="sig">plane + row</text>
+  <text x="1014" y="152" class="sig">meta AR list</text>
+  <text x="1344" y="152" class="sig">64-bit meta words</text>
+
+  <rect x="80" y="255" width="540" height="370" class="box"/>
+  <text x="108" y="292" class="section">A. Block-Row 定义</text>
+  <text x="108" y="320" class="note">一条 block-row 覆盖完整 tile 宽度，垂直方向覆盖 8 个 tile row。</text>
+  <text x="108" y="348" class="formula">block_cols = ceil(tile_cols / 8)</text>
+  <text x="108" y="376" class="formula">rowbuf[block_cols][8][8]</text>
+  <text x="108" y="412" class="note">NV12 1920x1080 示例：</text>
+  <text x="130" y="440" class="formula">Y  tile = 60 x 135, block_cols = ceil(60/8)=8, block_rows=17</text>
+  <text x="130" y="466" class="formula">UV tile = 60 x 68,  block_cols = ceil(60/8)=8, block_rows=9</text>
+  <g transform="translate(120,500)">
+    <rect x="0" y="0" width="54" height="42" class="cell-valid"/><text x="27" y="26" text-anchor="middle" class="small">B0</text>
+    <rect x="62" y="0" width="54" height="42" class="cell-valid"/><text x="89" y="26" text-anchor="middle" class="small">B1</text>
+    <rect x="124" y="0" width="54" height="42" class="cell-valid"/><text x="151" y="26" text-anchor="middle" class="small">B2</text>
+    <rect x="186" y="0" width="54" height="42" class="cell-valid"/><text x="213" y="26" text-anchor="middle" class="small">B3</text>
+    <rect x="248" y="0" width="54" height="42" class="cell-valid"/><text x="275" y="26" text-anchor="middle" class="small">B4</text>
+    <rect x="310" y="0" width="54" height="42" class="cell-valid"/><text x="337" y="26" text-anchor="middle" class="small">B5</text>
+    <rect x="372" y="0" width="54" height="42" class="cell-valid"/><text x="399" y="26" text-anchor="middle" class="small">B6</text>
+    <rect x="434" y="0" width="54" height="42" class="cell-valid"/><text x="461" y="26" text-anchor="middle" class="small">B7</text>
+    <text x="244" y="72" text-anchor="middle" class="note">B7 中 x=56..59 有效，x=60..63 由 valid mask 屏蔽</text>
+  </g>
+
+  <rect x="700" y="255" width="520" height="370" class="box"/>
+  <text x="728" y="292" class="section">B. PING/PANG 预取与调度</text>
+  <text x="728" y="320" class="note">读入完整 block-row 后再交给 rotate scheduler；另一个 buffer 同时预取下一条 block-row。</text>
+  <g transform="translate(760,365)">
+    <rect x="0" y="0" width="185" height="70" class="cell-ping"/>
+    <text x="92" y="30" text-anchor="middle" class="box-title">PING</text>
+    <text x="92" y="52" text-anchor="middle" class="box-text">read row N</text>
+    <path class="flow" d="M205 35 H290"/>
+    <rect x="310" y="0" width="185" height="70" class="cell-pang"/>
+    <text x="402" y="30" text-anchor="middle" class="box-title">PANG</text>
+    <text x="402" y="52" text-anchor="middle" class="box-text">schedule row N-1</text>
+    <path class="rot-flow" d="M402 82 V132 H92 V82"/>
+    <text x="247" y="122" text-anchor="middle" class="sig">swap after rowbuf done</text>
+  </g>
+  <text x="728" y="560" class="formula">read_done(PING) &amp;&amp; sched_done(PANG) → swap</text>
+  <text x="728" y="588" class="formula">read_done(PANG) &amp;&amp; sched_done(PING) → swap</text>
+
+  <rect x="1300" y="255" width="540" height="370" class="box"/>
+  <text x="1328" y="292" class="section">C. 旋转调度输出</text>
+  <text x="1328" y="320" class="note">scheduler 从 rowbuf 中按 rotate_mode 取有效 meta，并生成 source/destination 坐标。</text>
+  <g transform="translate(1348,365)">
+    <rect x="0" y="0" width="160" height="62" class="box-scan"/>
+    <text x="80" y="25" text-anchor="middle" class="box-text">meta byte</text>
+    <text x="80" y="45" text-anchor="middle" class="box-text">valid only</text>
+    <path class="rot-flow" d="M178 31 H245"/>
+    <rect x="265" y="0" width="200" height="62" class="box-rot"/>
+    <text x="365" y="24" text-anchor="middle" class="box-text">src_x / src_y</text>
+    <text x="365" y="44" text-anchor="middle" class="box-text">dst_x / dst_y</text>
+  </g>
+  <text x="1328" y="478" class="formula">rot90 : dst_x = src_rows - 1 - src_y, dst_y = src_x</text>
+  <text x="1328" y="506" class="formula">rot270: dst_x = src_y,                 dst_y = src_cols - 1 - src_x</text>
+  <text x="1328" y="552" class="note">注意：src 坐标用于 tile address；dst 坐标送 tile_to_otf 做旋转后写入。</text>
+
+  <rect x="120" y="700" width="300" height="92" class="box-decode"/>
+  <text x="270" y="733" text-anchor="middle" class="box-title">Meta Decode</text>
+  <text x="270" y="758" text-anchor="middle" class="box-text">meta byte → alen / flag</text>
+  <text x="270" y="780" text-anchor="middle" class="box-text">alpha_mode / lossy mode</text>
+
+  <rect x="515" y="700" width="330" height="92" class="box-buf"/>
+  <text x="680" y="733" text-anchor="middle" class="box-title">Decoded Meta Stream</text>
+  <text x="680" y="758" text-anchor="middle" class="box-text">format / alen / metadata / alpha</text>
+  <text x="680" y="780" text-anchor="middle" class="box-text">src_x/src_y + dst_x/dst_y + fcnt</text>
+
+  <rect x="940" y="700" width="330" height="92" class="box-decode"/>
+  <text x="1105" y="733" text-anchor="middle" class="box-title">Tile AR Cmd Gen</text>
+  <text x="1105" y="758" text-anchor="middle" class="box-text">source coord → compressed address</text>
+  <text x="1105" y="780" text-anchor="middle" class="box-text">destination coord 旁路给 tile_to_otf</text>
+
+  <rect x="1365" y="700" width="320" height="92" class="box-stat"/>
+  <text x="1525" y="733" text-anchor="middle" class="box-title">Debug Status</text>
+  <text x="1525" y="758" text-anchor="middle" class="box-text">rowbuf overflow / underflow</text>
+  <text x="1525" y="780" text-anchor="middle" class="box-text">tail invalid drop / coord illegal</text>
+
+  <path class="rot-flow" d="M1570 625 V665 H270 V700"/>
+  <text x="410" y="657" class="sig">reordered meta stream</text>
+  <path class="rot-flow" d="M420 746 H515"/>
+  <path class="rot-flow" d="M845 746 H940"/>
+  <path class="flow" d="M1270 746 H1365"/>
+
+  <rect x="120" y="875" width="1600" height="230" class="box"/>
+  <text x="150" y="912" class="section">实现边界建议</text>
+  <text x="150" y="946" class="note">1. `ubwc_dec_meta_get_cmd_gen`：从单行/单 group 扫描升级为 plane block-row scanner，产生 block_row_idx 和 block_col_idx。</text>
+  <text x="150" y="974" class="note">2. `ubwc_dec_meta_axi_rcmd_gen`：按 block-row 读取 metadata，写入 PING/PANG row buffer；一条 rowbuf 包含 block_cols 个 8x8 block。</text>
+  <text x="150" y="1002" class="note">3. 新增或扩展 rotate scheduler：从已填满的 rowbuf 输出有效 tile 的 meta byte、src coord、dst coord。</text>
+  <text x="150" y="1030" class="note">4. `ubwc_dec_meta_data_decode`：保持 meta byte 解码语义，增加 dst_x/dst_y 旁路，不参与 source address 计算。</text>
+  <text x="150" y="1058" class="note">5. 90°/270° 时必须保留 source tile cols/rows 与 output H_ACT/V_ACT 两套尺寸；不能用 rotated OTF 尺寸反推 source metadata 布局。</text>
+  <text x="150" y="1086" class="note">6. tile_to_otf 侧保持两套文件：normal 路径继续使用 ubwc_dec_tile_to_otf；NV12 rotate 路径使用 ubwc_dec_tile_to_otf_rot_nv12。</text>
+</svg>

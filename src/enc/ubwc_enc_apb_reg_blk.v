@@ -61,6 +61,7 @@ module ubwc_enc_apb_reg_blk
         output  wire    [2                      :0]         o_enc_ci_ubwc_cfg_9             ,
         output  wire    [5                      :0]         o_enc_ci_ubwc_cfg_10            ,
         output  wire    [5                      :0]         o_enc_ci_ubwc_cfg_11            ,
+        output  wire    [3                      :0]         o_enc_ci_ubwc_ver               ,
 
         input   wire                                        i_enc_idle                      ,
         input   wire                                        i_enc_error                     ,
@@ -294,6 +295,10 @@ module ubwc_enc_apb_reg_blk
                     regs[i] <= REG_VERSION;
                 else if (i == REG_DATE_IDX)
                     regs[i] <= REG_DATE;
+                else if (i == REG_IRQ_CTRL)
+                    regs[i] <= {{(DW-1){1'b0}}, 1'b1};
+                else if (i == REG_ENC_CI_CFG3)
+                    regs[i] <= {12'd0, 4'd7, 16'd0};
                 else
                     regs[i] <= {DW{1'b0}};
             end
@@ -687,14 +692,14 @@ module ubwc_enc_apb_reg_blk
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
-            irq_enable_sync_ff1 <= 1'b0;
+            irq_enable_sync_ff1 <= 1'b1;
         else
             irq_enable_sync_ff1 <= regs[REG_IRQ_CTRL][0];
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
-            irq_enable_sync_ff2 <= 1'b0;
+            irq_enable_sync_ff2 <= 1'b1;
         else
             irq_enable_sync_ff2 <= irq_enable_sync_ff1;
     end
@@ -844,6 +849,7 @@ module ubwc_enc_apb_reg_blk
     assign o_enc_ci_ubwc_cfg_9         = regs[REG_ENC_CI_CFG2][28 +: 3];
     assign o_enc_ci_ubwc_cfg_10        = regs[REG_ENC_CI_CFG3][0  +: 6];
     assign o_enc_ci_ubwc_cfg_11        = regs[REG_ENC_CI_CFG3][8  +: 6];
+    assign o_enc_ci_ubwc_ver           = regs[REG_ENC_CI_CFG3][16 +: 4];
 
     assign enc_ubwc_en                 = regs[REG_TILE_CFG0][0];
     assign enc_ubwc_en_axi             = enc_ubwc_en_axi_ff2;

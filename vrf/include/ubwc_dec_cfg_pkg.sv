@@ -196,13 +196,24 @@ package ubwc_dec_cfg_pkg;
         ubwc_dec_reg_tile_cfg1 = {20'd0, pitch[11:0]};
     endfunction
 
+    function automatic logic [31:0] ubwc_dec_reg_tile_cfg2_fields(input bit ci_input_type,
+                                                                 input bit ci_lossy,
+                                                                 input logic [1:0] ci_alpha_mode,
+                                                                 input logic [3:0] ubwc_ver);
+        ubwc_dec_reg_tile_cfg2_fields = 32'd0;
+        ubwc_dec_reg_tile_cfg2_fields[0] = ci_input_type;
+        ubwc_dec_reg_tile_cfg2_fields[8] = ci_lossy;
+        ubwc_dec_reg_tile_cfg2_fields[10:9] = ci_alpha_mode;
+        ubwc_dec_reg_tile_cfg2_fields[19:16] = ubwc_ver;
+    endfunction
+
     function automatic logic [31:0] ubwc_dec_reg_tile_cfg2(input bit ci_input_type,
                                                           input bit ci_lossy,
                                                           input logic [1:0] ci_alpha_mode);
-        ubwc_dec_reg_tile_cfg2 = 32'd0;
-        ubwc_dec_reg_tile_cfg2[0] = ci_input_type;
-        ubwc_dec_reg_tile_cfg2[8] = ci_lossy;
-        ubwc_dec_reg_tile_cfg2[10:9] = ci_alpha_mode;
+        ubwc_dec_reg_tile_cfg2 = ubwc_dec_reg_tile_cfg2_fields(ci_input_type,
+                                                               ci_lossy,
+                                                               ci_alpha_mode,
+                                                               4'd7);
     endfunction
 
     function automatic logic [31:0] ubwc_dec_reg_vivo_cfg(input bit ubwc_en,

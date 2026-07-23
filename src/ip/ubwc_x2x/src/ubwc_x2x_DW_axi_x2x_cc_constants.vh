@@ -166,12 +166,12 @@
 // Values:       8 16 32 64 128 256 512
 // 
 // Width of DW_axi_x2x Slave Port data ports.
-`define ubwc_x2x_X2X_SP_DW 64
+`define ubwc_x2x_X2X_SP_DW 128
 
 
 //The width of the Slave Port write strobe bus
 
-`define ubwc_x2x_X2X_SP_SW 8
+`define ubwc_x2x_X2X_SP_SW 16
 
 
 
@@ -789,7 +789,7 @@
 
 //Maximum possible number of bytes in X2X_SP_DW.
 
-`define ubwc_x2x_X2X_MAX_SP_BYTES 8
+`define ubwc_x2x_X2X_MAX_SP_BYTES 16
 
 
 //Log base 2 of maximum possible number of bytes in X2X_MP_DW.
@@ -805,12 +805,12 @@
 
 //Log base 2 of maximum possible number of bytes in X2X_SP_DW.
 
-`define ubwc_x2x_X2X_LOG2_MAX_SP_BYTES 3
+`define ubwc_x2x_X2X_LOG2_MAX_SP_BYTES 4
 
 
 //Log base 2 of maximum possible number of bytes in X2X_SP_DW.
 
-`define ubwc_x2x_X2X_0LOG2_MAX_SP_BYTES 3
+`define ubwc_x2x_X2X_0LOG2_MAX_SP_BYTES 4
 
 
 //Maximum possible value of a*size_m
@@ -820,7 +820,7 @@
 
 //Maximum possible value of a*size_m
 
-`define ubwc_x2x_X2X_MAX_SP_ASIZE 3
+`define ubwc_x2x_X2X_MAX_SP_ASIZE 4
 
 
 //Maximum possible total transfer size in bytes on the X2X MP.
@@ -830,7 +830,7 @@
 
 //Maximum possible total transfer size in bytes on the X2X SP.
 
-`define ubwc_x2x_X2X_MAX_SP_TOTAL_BYTE 2048
+`define ubwc_x2x_X2X_MAX_SP_TOTAL_BYTE 4096
 
 
 //This is the log2 of (X2X_MAX_MP_TOTAL_BYTE)
@@ -840,19 +840,19 @@
 
 //This is the log2 of (X2X_MAX_SP_TOTAL_BYTE)
 
-`define ubwc_x2x_X2X_LOG2_SP_BYTE 11
+`define ubwc_x2x_X2X_LOG2_SP_BYTE 12
 
 
 //The depth of the WIP FIFO for non fan out write interleaving
 //configurations.
 //Max value is 64
 
-`define ubwc_x2x_X2X_WIP_FIFO_D 5
+`define ubwc_x2x_X2X_WIP_FIFO_D 3
 
 
 //This is the log2 of (X2X_WIP_FIFO_D)
 
-`define ubwc_x2x_X2X_LOG2_WIP_FIFO_D 3
+`define ubwc_x2x_X2X_LOG2_WIP_FIFO_D 2
 
 
 
@@ -939,7 +939,7 @@
 
 //Log base 2 of X2X_SP_SW
 
-`define ubwc_x2x_X2X_LOG2_SP_SW 3
+`define ubwc_x2x_X2X_LOG2_SP_SW 4
 
 
 //Log base 2 of the larger of X2X_MP_SW and X2X_SP_SW.
@@ -979,7 +979,7 @@
 //Defines the width of the signal containing the number of data beats
 //issued from the SP W block for a single pop from the W channel fifo.
 
-`define ubwc_x2x_X2X_SP_W_BEATS_PER_POP_W 3
+`define ubwc_x2x_X2X_SP_W_BEATS_PER_POP_W 2
 
 
 //Defines the word width of the resize info. fifo in the SP W channel block.
@@ -1005,7 +1005,7 @@
 //How many bits of address to use when going from large data bus
 //to smaller data bus.
 
-`define ubwc_x2x_X2X_DATA_SEL_W 2
+`define ubwc_x2x_X2X_DATA_SEL_W 1
 
 
 //How many bits of low power reg to use in write transaction
@@ -1030,7 +1030,7 @@
 
 //Resizing ratio within the X2X.
 
-`define ubwc_x2x_X2X_RS_RATIO 4
+`define ubwc_x2x_X2X_RS_RATIO 2
 
 
 //Creates a define for whether the master port data width is larger than
@@ -1103,12 +1103,12 @@
 
 //Creates a define for SP_DW = 64
 
-`define ubwc_x2x_X2X_SPDW64
+// `define ubwc_x2x_X2X_SPDW64
 
 
 //Creates a define for SP_DW = 128
 
-// `define ubwc_x2x_X2X_SPDW128
+`define ubwc_x2x_X2X_SPDW128
 
 
 //Creates a define for SP_DW = 256

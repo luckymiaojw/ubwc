@@ -58,6 +58,7 @@ module ubwc_dec_apb_reg_blk #(
     output  wire                                        o_tile_cfg_ci_input_type        ,
     output  wire                                        o_tile_cfg_ci_lossy             ,
     output  wire    [1                      :0]         o_tile_cfg_ci_alpha_mode        ,
+    output  wire    [3                      :0]         o_tile_cfg_ubwc_ver             ,
     output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_rgba_y0        ,
     output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_uv0            ,
     output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_rgba_y1        ,
@@ -143,6 +144,7 @@ module ubwc_dec_apb_reg_blk #(
     reg                                             r_tile_cfg_ci_input_type        ;
     reg                                             r_tile_cfg_ci_lossy             ;
     reg         [1                      :0]         r_tile_cfg_ci_alpha_mode        ;
+    reg         [3                      :0]         r_tile_cfg_ubwc_ver             ;
     reg         [AXI_AW              -1 :0]         r_tile_base_addr_rgba_y         ;
     reg         [AXI_AW              -1 :0]         r_tile_base_addr_uv             ;
     reg         [AXI_AW              -1 :0]         r_tile_base_addr_rgba_y0        ;
@@ -221,6 +223,7 @@ module ubwc_dec_apb_reg_blk #(
     reg                                             a_tile_cfg_ci_input_type        ;
     reg                                             a_tile_cfg_ci_lossy             ;
     reg         [1                      :0]         a_tile_cfg_ci_alpha_mode        ;
+    reg         [3                      :0]         a_tile_cfg_ubwc_ver             ;
     reg         [AXI_AW              -1 :0]         a_tile_base_addr_rgba_y0        ;
     reg         [AXI_AW              -1 :0]         a_tile_base_addr_uv0            ;
     reg         [AXI_AW              -1 :0]         a_tile_base_addr_rgba_y1        ;
@@ -384,6 +387,7 @@ module ubwc_dec_apb_reg_blk #(
             r_tile_cfg_ci_input_type            <= 1'b0;
             r_tile_cfg_ci_lossy                 <= 1'b0;
             r_tile_cfg_ci_alpha_mode            <= 2'd0;
+            r_tile_cfg_ubwc_ver                 <= 4'd7;
             r_tile_base_addr_rgba_y            <= {AXI_AW{1'b0}};
             r_tile_base_addr_uv                  <= {AXI_AW{1'b0}};
             r_tile_base_addr_rgba_y0           <= {AXI_AW{1'b0}};
@@ -506,6 +510,7 @@ module ubwc_dec_apb_reg_blk #(
                     r_tile_cfg_bank_spread_en           <= PWDATA[9];
                     r_tile_cfg_4line_format             <= PWDATA[10];
                     r_tile_cfg_is_lossy_rgba_2_1_format <= PWDATA[11];
+                    r_tile_cfg_ubwc_ver                 <= PWDATA[16 +: 4];
                 end
                 APB_ADDR_TILE_CFG1: begin
                     r_tile_cfg_pitch <= PWDATA[11:0];
@@ -597,6 +602,7 @@ module ubwc_dec_apb_reg_blk #(
             a_tile_cfg_ci_input_type <= 1'b0;
             a_tile_cfg_ci_lossy <= 1'b0;
             a_tile_cfg_ci_alpha_mode <= 2'd0;
+            a_tile_cfg_ubwc_ver <= 4'd7;
             a_tile_base_addr_rgba_y0 <= {AXI_AW{1'b0}};
             a_tile_base_addr_uv0 <= {AXI_AW{1'b0}};
             a_tile_base_addr_rgba_y1 <= {AXI_AW{1'b0}};
@@ -639,6 +645,7 @@ module ubwc_dec_apb_reg_blk #(
                 a_tile_cfg_ci_input_type <= r_tile_cfg_ci_input_type;
                 a_tile_cfg_ci_lossy <= r_tile_cfg_ci_lossy;
                 a_tile_cfg_ci_alpha_mode <= r_tile_cfg_ci_alpha_mode;
+                a_tile_cfg_ubwc_ver <= r_tile_cfg_ubwc_ver;
                 a_tile_base_addr_rgba_y0 <= r_tile_base_addr_rgba_y0;
                 a_tile_base_addr_uv0 <= r_tile_base_addr_uv0;
                 a_tile_base_addr_rgba_y1 <= r_tile_base_addr_rgba_y1;
@@ -735,7 +742,9 @@ module ubwc_dec_apb_reg_blk #(
                 r_prdata = REG_DATE;
             end
             APB_ADDR_TILE_CFG0: begin
-                r_prdata = {{(DW-12){1'b0}},
+                r_prdata = {{(DW-20){1'b0}},
+                            r_tile_cfg_ubwc_ver,
+                            4'd0,
                             r_tile_cfg_is_lossy_rgba_2_1_format,
                             r_tile_cfg_4line_format,
                             r_tile_cfg_bank_spread_en,
@@ -868,6 +877,7 @@ module ubwc_dec_apb_reg_blk #(
     assign o_tile_cfg_ci_input_type            = a_tile_cfg_ci_input_type;
     assign o_tile_cfg_ci_lossy                 = a_tile_cfg_ci_lossy;
     assign o_tile_cfg_ci_alpha_mode            = a_tile_cfg_ci_alpha_mode;
+    assign o_tile_cfg_ubwc_ver                 = a_tile_cfg_ubwc_ver;
     assign o_tile_base_addr_rgba_y0           = a_tile_base_addr_rgba_y0;
     assign o_tile_base_addr_uv0                 = a_tile_base_addr_uv0;
     assign o_tile_base_addr_rgba_y1           = a_tile_base_addr_rgba_y1;

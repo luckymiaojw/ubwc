@@ -182,6 +182,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     parameter integer CFG_OTF_V_TOTAL = 682,
     parameter integer CFG_OTF_V_SYNC = 5,
     parameter integer CFG_OTF_V_BP = 36,
+    parameter integer CASE_DEC_ROTATION = 0,
     parameter integer CASE_CI_LOSSY = 0,
     parameter integer CASE_UBWC_CFG_0 = 0,
     parameter integer CASE_UBWC_CFG_1 = 0,
@@ -245,7 +246,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     localparam integer APB_DW   = 32;
     localparam integer AXI_AW   = 64;
     localparam integer AXI_DW   = 256;
-    localparam integer M_AXI_DW = 64;
+    localparam integer M_AXI_DW = 128;
     localparam integer AXI_IDW  = 4;
     localparam integer AXI_LENW = 5;
     localparam integer SB_WIDTH = 3;
@@ -359,10 +360,16 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     localparam integer CASE_TILE_PITCH_BYTES = CASE_IS_G016 ? G016_TILE_PITCH :
                                                (CASE_IS_NV12 ? NV12_TILE_PITCH : RGBA_TILE_PITCH);
     localparam integer CASE_TILE_PITCH_UNITS = CASE_TILE_PITCH_BYTES / 16;
-    localparam integer CASE_OTF_V_ACT        = CASE_IS_G016 ? G016_ACTIVE_H :
+    localparam integer CASE_INPUT_V_ACT      = CASE_IS_G016 ? G016_ACTIVE_H :
                                                (CASE_IS_NV12 ? NV12_ACTIVE_H : RGBA_ACTIVE_H);
+    localparam integer CASE_DEC_ROTATE_EN    = (CASE_DEC_ROTATION == 90) ||
+                                               (CASE_DEC_ROTATION == 270);
+    localparam integer CASE_ROTATE_MODE      = (CASE_DEC_ROTATION == 90)  ? 1 :
+                                               (CASE_DEC_ROTATION == 270) ? 2 : 0;
+    localparam integer CASE_OTF_H_ACT        = CASE_DEC_ROTATE_EN ? CASE_INPUT_V_ACT : IMG_W;
+    localparam integer CASE_OTF_V_ACT        = CASE_DEC_ROTATE_EN ? IMG_W : CASE_INPUT_V_ACT;
     localparam integer CASE_OTF_V_TOTAL      = CFG_OTF_V_TOTAL;
-    localparam integer CASE_OTF_BEATS_PER_LINE= ceil_div(IMG_W, 4);
+    localparam integer CASE_OTF_BEATS_PER_LINE= ceil_div(CASE_OTF_H_ACT, 4);
     localparam integer CASE_EXPECTED_OTF_BEATS= CASE_OTF_BEATS_PER_LINE * CASE_OTF_V_ACT;
     localparam integer CASE_TIMEOUT_CYCLES   = CASE_HAS_PLANE1 ? 12000000 : 16000000;
     // With OTF at 100MHz and full porch timing, active pixels can start
@@ -777,6 +784,12 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     integer                   tb_debug_word64_index;
     integer                   dbg_axi_word64_base;
     integer                   tb_check_no_otf_underflow;
+    integer                   rotate_dbg_progress_sum;
+    integer                   rotate_dbg_prev_progress_sum;
+    integer                   rotate_dbg_stall_cycles;
+    integer                   rotate_dbg_token_wr_cnt;
+    integer                   rotate_dbg_token_rd_cnt;
+    integer                   tb_rotate_stop_cycle;
     reg [4:0]                 first_rvo_mismatch_fmt;
     reg [11:0]                first_rvo_mismatch_x;
     reg [9:0]                 first_rvo_mismatch_y;
@@ -1219,7 +1232,32 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             ycoord      = 0;
             uv_ycoord   = 0;
 
-            while (sample_idx < CASE_EXPECTED_DEC_META_SAMPLES) begin
+            if (CASE_DEC_ROTATE_EN && CASE_IS_NV12) begin
+                xcoord = (CASE_DEC_ROTATION == 270) ? (CASE_META_X_SAMPLES - 1) : 0;
+                while ((CASE_DEC_ROTATION == 270) ? (xcoord >= 0) :
+                                                     (xcoord < CASE_META_X_SAMPLES)) begin
+                    for (uv_ycoord = 0; uv_ycoord < NV12_UV_ACTIVE_TILE_Y_COUNT; uv_ycoord = uv_ycoord + 1) begin
+                        fmt = expected_dec_meta_format(1);
+                        raw = expected_dec_meta_raw(fmt, xcoord, uv_ycoord);
+                        write_dec_meta_line(fd, sample_idx, raw, fmt,
+                                            expected_dec_meta_flag_by_coord(fmt, raw, xcoord, uv_ycoord),
+                                            expected_dec_meta_alen_by_coord(fmt, raw, xcoord, uv_ycoord),
+                                            xcoord, uv_ycoord);
+                        sample_idx = sample_idx + 1;
+                    end
+                    for (ycoord = 0; ycoord < NV12_Y_ACTIVE_TILE_Y_COUNT; ycoord = ycoord + 1) begin
+                        fmt = expected_dec_meta_format(0);
+                        raw = expected_dec_meta_raw(fmt, xcoord, ycoord);
+                        write_dec_meta_line(fd, sample_idx, raw, fmt,
+                                            expected_dec_meta_flag_by_coord(fmt, raw, xcoord, ycoord),
+                                            expected_dec_meta_alen_by_coord(fmt, raw, xcoord, ycoord),
+                                            xcoord, ycoord);
+                        sample_idx = sample_idx + 1;
+                    end
+                    xcoord = (CASE_DEC_ROTATION == 270) ? (xcoord - 1) :
+                                                          (xcoord + 1);
+                end
+            end else while (sample_idx < CASE_EXPECTED_DEC_META_SAMPLES) begin
                 fmt = expected_dec_meta_format(is_uv_plane);
                 active_ycoord = is_uv_plane ? uv_ycoord :
                                 ((scan_phase == DEC_META_PHASE_YL) ? (ycoord + 1) :
@@ -1273,7 +1311,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             end else begin
                 rvo_plane_word_base = CASE_IS_G016
                                     ? plane_tile_base_word(tile_x, tile_y, 32, 4, G016_TILE_PITCH, G016_HIGHEST_BANK, 2)
-                                    : plane_tile_base_word(tile_x, tile_y, 32, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 1);
+                                    : plane_tile_base_word(tile_x, tile_y, 16, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 2);
             end
         end
     endfunction
@@ -1773,7 +1811,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             end else begin
                 word64_base = CASE_IS_G016
                             ? plane_tile_base_word(tile_x, tile_y, 32, 4, G016_TILE_PITCH, G016_HIGHEST_BANK, 2)
-                            : plane_tile_base_word(tile_x, tile_y, 32, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 1);
+                            : plane_tile_base_word(tile_x, tile_y, 16, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 2);
                 word_idx    = word64_base + beat_idx * (M_AXI_DW / 64);
                 for (lane_idx = 0; lane_idx < (M_AXI_DW / 64); lane_idx = lane_idx + 1) begin
                     if ((word_idx + lane_idx) < CASE_CMP1_WORDS64)
@@ -1819,7 +1857,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             end else begin
                 word64_base = CASE_IS_G016
                             ? plane_tile_base_word(tile_x, tile_y, 32, 4, G016_TILE_PITCH, G016_HIGHEST_BANK, 2)
-                            : plane_tile_base_word(tile_x, tile_y, 32, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 1);
+                            : plane_tile_base_word(tile_x, tile_y, 16, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 2);
                 word_idx    = word64_base + beat_idx * 4;
                 w0 = (word_idx + 0 < CASE_CMP1_WORDS64) ? tile_plane1_words[word_idx + 0] : 64'd0;
                 w1 = (word_idx + 1 < CASE_CMP1_WORDS64) ? tile_plane1_words[word_idx + 1] : 64'd0;
@@ -1899,7 +1937,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             end else begin
                 word64_base = CASE_IS_G016
                             ? plane_tile_base_word(tile_x, tile_y, 32, 4, G016_TILE_PITCH, G016_HIGHEST_BANK, 2)
-                            : plane_tile_base_word(tile_x, tile_y, 32, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 1);
+                            : plane_tile_base_word(tile_x, tile_y, 16, 8, NV12_TILE_PITCH, NV12_HIGHEST_BANK, 2);
                 word_idx    = word64_base + beat_idx * 4;
                 w0 = (word_idx + 0 < CASE_TILE1_WORDS64) ? ref_tile_plane1_words[word_idx + 0] : 64'd0;
                 w1 = (word_idx + 1 < CASE_TILE1_WORDS64) ? ref_tile_plane1_words[word_idx + 1] : 64'd0;
@@ -2117,9 +2155,9 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             apb_write(16'h0010, tile_cfg2_data);
             apb_write(16'h0014, 32'h0000_0001);
 
-            apb_write(16'h0018, {11'd0, CASE_BASE_FORMAT, IMG_W[15:0]});
+            apb_write(16'h0018, {9'd0, CASE_ROTATE_MODE[1:0], CASE_BASE_FORMAT, IMG_W[15:0]});
             apb_write(16'h001c, {CASE_OTF_H_SYNC[15:0], CASE_OTF_H_TOTAL[15:0]});
-            apb_write(16'h0020, {IMG_W[15:0], CASE_OTF_H_BP[15:0]});
+            apb_write(16'h0020, {CASE_OTF_H_ACT[15:0], CASE_OTF_H_BP[15:0]});
             apb_write(16'h0024, {CFG_OTF_V_SYNC[15:0], CASE_OTF_V_TOTAL[15:0]});
             apb_write(16'h0028, {CASE_OTF_V_ACT[15:0], CFG_OTF_V_BP[15:0]});
             apb_write(16'h002c, {CASE_TILE_Y_NUMBERS[15:0], CASE_TILE_X_NUMBERS[15:0]});
@@ -2676,12 +2714,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
         .rst_otf_n        (i_otf_rstn),
         .i_frame_start    (1'b0),
         .i_frame_fcnt     (4'd0),
-        .cfg_img_width    (IMG_W[15:0]),
+        .cfg_img_width    (CASE_OTF_H_ACT[15:0]),
         .cfg_format       (CASE_BASE_FORMAT),
+`ifdef UBWC_DEC_ROTATION
+        .i_rotate_mode    (2'd0),
+`endif
         .cfg_otf_h_total  (CASE_OTF_H_TOTAL[15:0]),
         .cfg_otf_h_sync   (CASE_OTF_H_SYNC[15:0]),
         .cfg_otf_h_bp     (CASE_OTF_H_BP[15:0]),
-        .cfg_otf_h_act    (IMG_W[15:0]),
+        .cfg_otf_h_act    (CASE_OTF_H_ACT[15:0]),
         .cfg_otf_v_total  (CASE_OTF_V_TOTAL[15:0]),
         .cfg_otf_v_sync   (CFG_OTF_V_SYNC[15:0]),
         .cfg_otf_v_bp     (CFG_OTF_V_BP[15:0]),
@@ -2767,6 +2808,195 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     always @(posedge i_axi_clk) begin
         cycle_cnt <= cycle_cnt + 1;
     end
+
+`ifdef UBWC_DEC_ROTATION
+    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
+        if (!i_vivo_rstn)
+            rotate_dbg_token_wr_cnt <= 0;
+        else if (dut.vivo_rvo_tile_fifo_wr_en)
+            rotate_dbg_token_wr_cnt <= rotate_dbg_token_wr_cnt + 1;
+    end
+
+    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
+        if (!i_axi_rstn)
+            rotate_dbg_token_rd_cnt <= 0;
+        else if (dut.vivo_rvo_tile_fifo_rd_en)
+            rotate_dbg_token_rd_cnt <= rotate_dbg_token_rd_cnt + 1;
+    end
+
+    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
+        if (!i_axi_rstn) begin
+            rotate_dbg_prev_progress_sum <= 0;
+            rotate_dbg_stall_cycles      <= 0;
+        end else if ((CASE_DEC_ROTATE_EN != 0) && $test$plusargs("tb_rotate_debug_stop")) begin
+            rotate_dbg_progress_sum = dec_meta_out_cnt +
+                                      vivo_if_ci_accept_cnt +
+                                      vivo_if_cvi_beat_cnt +
+                                      vivo_if_rvo_beat_cnt +
+                                      otf_beat_cnt +
+                                      dut.u_tile_to_otf.u_rotate_ref.tile_done_count +
+                                      dut.u_tile_to_otf.u_rotate_ref.tile_beat_idx +
+                                      dut.u_tile_to_otf.u_rotate_ref.emit_line +
+                                      dut.u_tile_to_otf.u_rotate_ref.emit_word_idx +
+                                      dut.u_tile_to_otf.u_rotate_ref.otf_de_count_sram;
+            if (rotate_dbg_progress_sum != rotate_dbg_prev_progress_sum) begin
+                rotate_dbg_prev_progress_sum <= rotate_dbg_progress_sum;
+                rotate_dbg_stall_cycles      <= 0;
+            end else if (rotate_dbg_progress_sum != 0) begin
+                rotate_dbg_stall_cycles <= rotate_dbg_stall_cycles + 1;
+            end
+
+            if ((rotate_dbg_progress_sum != 0) && (rotate_dbg_stall_cycles == 2000)) begin
+                $display("[ROTDBG] stalled at time=%0t cycle=%0d progress=%0d", $time, cycle_cnt, rotate_dbg_progress_sum);
+                $display("[ROTDBG] counts meta=%0d ci=%0d cvi=%0d rvo=%0d otf=%0d",
+                         dec_meta_out_cnt,
+                         vivo_if_ci_accept_cnt,
+                         vivo_if_cvi_beat_cnt,
+                         vivo_if_rvo_beat_cnt,
+                         otf_beat_cnt);
+                $display("[ROTDBG] meta v/r=%0b/%0b tile_ci v/r=%0b/%0b tile_cvi v/r=%0b/%0b",
+                         dut.meta_dec_valid,
+                         dut.meta_dec_ready,
+                         dut.tile_ci_valid_int,
+                         dut.tile_ci_ready_int,
+                         dut.tile_cvi_valid_int,
+                         dut.tile_cvi_ready_int);
+                $display("[ROTDBG] vivo fifo ci_empty/full=%0b/%0b coord_v/full=%0b/%0b co_v=%0b rvo_empty/full=%0b/%0b",
+                         dut.vivo_ci_fifo_empty,
+                         dut.vivo_ci_fifo_full,
+                         dut.vivo_coord_fifo_valid,
+                         dut.vivo_coord_fifo_full,
+                         dut.vivo_co_axi_valid,
+                         dut.vivo_rvo_fifo_empty,
+                         dut.vivo_rvo_fifo_full);
+                $display("[ROTDBG] vivo int ci v/r=%0b/%0b cvi v/r=%0b/%0b gate=%0b tile_active=%0b in_left=%0d out_left=%0d co_valid=%0b",
+                         dut.vivo_ci_valid_int,
+                         dut.vivo_ci_ready_raw,
+                         dut.vivo_cvi_valid_int,
+                         dut.vivo_cvi_ready_int,
+                         dut.vivo_cvi_gate_active,
+                         dut.u_dec_vivo_top.r_tile_active,
+                         dut.u_dec_vivo_top.r_in_beats_left,
+                         dut.u_dec_vivo_top.r_out_beats_left,
+                         dut.u_dec_vivo_top.r_co_valid);
+                $display("[ROTDBG] arcmd ci_empty/full=%0b/%0b desc_used/rsp/complete=%0d/%0d/%0d reserved/resident=%0d/%0d rdata_empty/full=%0b/%0b cvi_active=%0b beats_left=%0d arvalid/ready=%0b/%0b rvalid/ready=%0b/%0b",
+                         dut.u_tile_arcmd_gen.ci_fifo_empty,
+                         dut.u_tile_arcmd_gen.ci_fifo_full,
+                         dut.u_tile_arcmd_gen.desc_used_count,
+                         dut.u_tile_arcmd_gen.rsp_desc_count,
+                         dut.u_tile_arcmd_gen.complete_tile_count,
+                         dut.u_tile_arcmd_gen.reserved_beat_count,
+                         dut.u_tile_arcmd_gen.rdata_fifo_data_count,
+                         dut.u_tile_arcmd_gen.rdata_fifo_empty,
+                         dut.u_tile_arcmd_gen.rdata_fifo_full,
+                         dut.u_tile_arcmd_gen.cvi_stream_active_reg,
+                         dut.u_tile_arcmd_gen.cvi_stream_beats_left_reg,
+                         dut.tile_m_axi_arvalid,
+                         dut.tile_m_axi_arready,
+                         dut.tile_m_axi_rvalid,
+                         dut.tile_m_axi_rready);
+                $display("[ROTDBG] wrapper rotate=%0b otf_tile v/r/fire=%0b/%0b/%0b rvo_rd_count=%0d rvo_fifo_valid/stage_valid=%0b/%0b token empty/full/wr/rd=%0b/%0b/%0b/%0b token cnt wr/rd=%0d/%0d rvo wr/rd/last/beat=%0b/%0b/%0b/%0d",
+                         dut.vivo_rotate_active,
+                         dut.otf_axis_tile_valid,
+                         dut.otf_axis_tile_ready_int,
+                         dut.otf_axis_tile_fire,
+                         dut.vivo_rvo_fifo_rd_count,
+                         dut.vivo_rvo_fifo_valid,
+                         dut.vivo_rvo_stage_valid,
+                         dut.vivo_rvo_tile_fifo_empty,
+                         dut.vivo_rvo_tile_fifo_full,
+                         dut.vivo_rvo_tile_fifo_wr_en,
+                         dut.vivo_rvo_tile_fifo_rd_en,
+                         rotate_dbg_token_wr_cnt,
+                         rotate_dbg_token_rd_cnt,
+                         dut.vivo_rvo_fifo_wr_en,
+                         dut.vivo_rvo_fifo_rd_en,
+                         dut.vivo_rvo_last,
+                         dut.vivo_rvo_tile_beat_cnt);
+                $display("[ROTDBG] rotate active=%0b hdr v/r=%0b/%0b data v/r=%0b/%0b tile_active=%0b beat=%0d done=%0d expect=%0d emit=%0b fifo_empty/full=%0b/%0b",
+                         dut.u_tile_to_otf.rotate_active,
+                         dut.u_tile_to_otf.s_axis_tile_valid,
+                         dut.u_tile_to_otf.s_axis_tile_ready,
+                         dut.u_tile_to_otf.s_axis_tvalid,
+                         dut.u_tile_to_otf.s_axis_tready,
+                         dut.u_tile_to_otf.u_rotate_ref.tile_active,
+                         dut.u_tile_to_otf.u_rotate_ref.tile_beat_idx,
+                         dut.u_tile_to_otf.u_rotate_ref.tile_done_count,
+                         dut.u_tile_to_otf.u_rotate_ref.expect_tile_count,
+                         dut.u_tile_to_otf.u_rotate_ref.emit_active,
+                         dut.u_tile_to_otf.u_rotate_ref.fifo_empty,
+                         dut.u_tile_to_otf.u_rotate_ref.fifo_full);
+                $finish;
+            end
+        end
+    end
+
+    always @(posedge i_axi_clk) begin
+        if ((CASE_DEC_ROTATE_EN != 0) &&
+            $test$plusargs("tb_rotate_trace") &&
+            (cycle_cnt != 0) &&
+            ((cycle_cnt % 10000) == 0)) begin
+            $display("[ROTTRACE] time=%0t cycle=%0d meta=%0d ci=%0d cvi=%0d rvo=%0d otf=%0d done=%0d beat=%0d emit=%0b line=%0d word=%0d fifo_cnt=%0d stage=%0b",
+                     $time,
+                     cycle_cnt,
+                     dec_meta_out_cnt,
+                     vivo_if_ci_accept_cnt,
+                     vivo_if_cvi_beat_cnt,
+                     vivo_if_rvo_beat_cnt,
+                     otf_beat_cnt,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_done_count,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_beat_idx,
+                     dut.u_tile_to_otf.u_rotate_ref.emit_active,
+                     dut.u_tile_to_otf.u_rotate_ref.emit_line,
+                     dut.u_tile_to_otf.u_rotate_ref.emit_word_idx,
+                     dut.u_tile_to_otf.u_rotate_ref.fifo_rd_count,
+                     dut.vivo_rvo_stage_valid);
+        end
+    end
+
+    initial begin : rotate_debug_stop_at_cycle
+        tb_rotate_stop_cycle = 0;
+        void'($value$plusargs("tb_rotate_stop_cycle=%d", tb_rotate_stop_cycle));
+        if (tb_rotate_stop_cycle > 0) begin
+            wait (PRESETn && i_axi_rstn && i_otf_rstn && i_vivo_rstn);
+            wait (cycle_cnt >= tb_rotate_stop_cycle);
+            $display("[ROTSTOP] cycle=%0d time=%0t", cycle_cnt, $time);
+            $display("[ROTSTOP] ref busy=%0b tile_active=%0b emit=%0b line=%0d word=%0d done=%0d expect=%0d fifo empty/full/cnt=%0b/%0b/%0d start_ready=%0b fs_empty=%0b fs_rd=%0b otf_ready=%0b",
+                     dut.u_tile_to_otf.u_rotate_ref.o_busy,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_active,
+                     dut.u_tile_to_otf.u_rotate_ref.emit_active,
+                     dut.u_tile_to_otf.u_rotate_ref.emit_line,
+                     dut.u_tile_to_otf.u_rotate_ref.emit_word_idx,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_done_count,
+                     dut.u_tile_to_otf.u_rotate_ref.expect_tile_count,
+                     dut.u_tile_to_otf.u_rotate_ref.fifo_empty,
+                     dut.u_tile_to_otf.u_rotate_ref.fifo_full,
+                     dut.u_tile_to_otf.u_rotate_ref.fifo_rd_count,
+                     dut.u_tile_to_otf.u_rotate_ref.fifo_start_ready,
+                     dut.u_tile_to_otf.u_rotate_ref.frame_start_fifo_empty,
+                     dut.u_tile_to_otf.u_rotate_ref.frame_start_fifo_rd_en,
+                     dut.u_tile_to_otf.u_rotate_ref.otf_frame_start_ready);
+            $display("[ROTSTOP] stream hdr v/r=%0b/%0b data v/r=%0b/%0b otf beats=%0d frame_done=%0d",
+                     dut.u_tile_to_otf.u_rotate_ref.s_axis_tile_valid,
+                     dut.u_tile_to_otf.u_rotate_ref.s_axis_tile_ready,
+                     dut.u_tile_to_otf.u_rotate_ref.s_axis_tvalid,
+                     dut.u_tile_to_otf.u_rotate_ref.s_axis_tready,
+                     otf_beat_cnt,
+                     otf_frame_done_count);
+            $display("[ROTSTOP] wrapper coord_v=%0b token empty/full wr/rd=%0b/%0b %0b/%0b rvo empty/full valid/stage=%0b/%0b %0b/%0b",
+                     dut.vivo_coord_fifo_valid,
+                     dut.vivo_rvo_tile_fifo_empty,
+                     dut.vivo_rvo_tile_fifo_full,
+                     dut.vivo_rvo_tile_fifo_wr_en,
+                     dut.vivo_rvo_tile_fifo_rd_en,
+                     dut.vivo_rvo_fifo_empty,
+                     dut.vivo_rvo_fifo_full,
+                     dut.vivo_rvo_fifo_valid,
+                     dut.vivo_rvo_stage_valid);
+            $finish;
+        end
+    end
+`endif
 
     always @(posedge i_axi_clk or negedge i_axi_rstn) begin
         if (!i_axi_rstn) begin
@@ -2860,7 +3090,8 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             first_vivo_cvi_actual_last <= 1'b0;
             exp_dec_meta_is_uv     <= CASE_HAS_PLANE1 ? 1'b1 : 1'b0;
             exp_dec_meta_phase     <= CASE_HAS_PLANE1 ? DEC_META_PHASE_UV : DEC_META_PHASE_YH;
-            exp_dec_meta_x         <= 12'd0;
+            exp_dec_meta_x         <= (CASE_DEC_ROTATION == 270) ?
+                                      (CASE_META_X_SAMPLES - 1) : 12'd0;
             exp_dec_meta_y         <= 10'd0;
             exp_dec_meta_uv_y      <= 10'd0;
             exp_dec_meta_done      <= 1'b0;
@@ -2960,10 +3191,38 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                 if (((dec_meta_out_cnt + 1) % CASE_EXPECTED_DEC_META_SAMPLES) == 0) begin
                     exp_dec_meta_is_uv <= CASE_HAS_PLANE1 ? 1'b1 : 1'b0;
                     exp_dec_meta_phase <= CASE_HAS_PLANE1 ? DEC_META_PHASE_UV : DEC_META_PHASE_YH;
-                    exp_dec_meta_x     <= 12'd0;
+                    exp_dec_meta_x     <= (CASE_DEC_ROTATION == 270) ?
+                                          (CASE_META_X_SAMPLES - 1) : 12'd0;
                     exp_dec_meta_y     <= 10'd0;
                     exp_dec_meta_uv_y  <= 10'd0;
                     exp_dec_meta_done  <= ((dec_meta_out_cnt + 1) >= expected_dec_meta_samples_total);
+                end else if (CASE_DEC_ROTATE_EN && CASE_IS_NV12) begin
+                    if (exp_dec_meta_is_uv) begin
+                        if (exp_dec_meta_uv_y == (NV12_UV_ACTIVE_TILE_Y_COUNT - 1)) begin
+                            exp_dec_meta_uv_y  <= 10'd0;
+                            exp_dec_meta_y     <= 10'd0;
+                            exp_dec_meta_is_uv <= 1'b0;
+                            exp_dec_meta_phase <= DEC_META_PHASE_YH;
+                        end else begin
+                            exp_dec_meta_uv_y <= exp_dec_meta_uv_y + 1'b1;
+                        end
+                    end else begin
+                        if (exp_dec_meta_y == (NV12_Y_ACTIVE_TILE_Y_COUNT - 1)) begin
+                            exp_dec_meta_y     <= 10'd0;
+                            exp_dec_meta_uv_y  <= 10'd0;
+                            exp_dec_meta_is_uv <= 1'b1;
+                            exp_dec_meta_phase <= DEC_META_PHASE_UV;
+                            if (CASE_DEC_ROTATION == 270)
+                                exp_dec_meta_x <= (exp_dec_meta_x == 12'd0) ?
+                                                  (CASE_META_X_SAMPLES - 1) :
+                                                  (exp_dec_meta_x - 1'b1);
+                            else
+                                exp_dec_meta_x <= (exp_dec_meta_x == (CASE_META_X_SAMPLES - 1)) ?
+                                                  12'd0 : (exp_dec_meta_x + 1'b1);
+                        end else begin
+                            exp_dec_meta_y <= exp_dec_meta_y + 1'b1;
+                        end
+                    end
                 end else begin
                     if (exp_dec_meta_x == (CASE_META_X_SAMPLES - 1)) begin
                         exp_dec_meta_x <= 12'd0;
@@ -3359,7 +3618,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     (dut.vivo_ci_alen_int !== vivo_if_ci_exp_alen)) begin
                     vivo_if_ci_mismatch_cnt <= vivo_if_ci_mismatch_cnt + 1;
                     if (vivo_if_ci_mismatch_cnt == 0) begin
-                        $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_CI scope=u_core.dut.ubwc_dec_vivo_top_inst.i_ci_*",
+                        $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_CI scope=u_core.dut.u_dec_vivo_top.i_ci_*",
                                  $time);
                         $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d raw=0x%02x",
                                  dut.vivo_ci_format_int,
@@ -3390,7 +3649,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     vivo_if_cvi_underflow_cnt     <= vivo_if_cvi_underflow_cnt + 1;
                     vivo_if_cvi_data_mismatch_cnt <= vivo_if_cvi_data_mismatch_cnt + 1;
                     if (vivo_if_cvi_underflow_cnt == 0) begin
-                        $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_CVI_UNDERFLOW scope=u_core.dut.ubwc_dec_vivo_top_inst.i_cvi_*",
+                        $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_CVI_UNDERFLOW scope=u_core.dut.u_dec_vivo_top.i_cvi_*",
                                  $time);
                         $display("[TB][FIRST_MISMATCH]   cvi data arrived with no accepted CI command, data=0x%064x last=%0b",
                                  dut.vivo_cvi_data_int,
@@ -3426,7 +3685,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     if (dut.vivo_cvi_data_int !== vivo_if_cvi_exp_data) begin
                         vivo_if_cvi_data_mismatch_cnt <= vivo_if_cvi_data_mismatch_cnt + 1;
                         if (vivo_if_cvi_data_mismatch_cnt == 0) begin
-                            $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_CVI_DATA scope=u_core.dut.ubwc_dec_vivo_top_inst.i_cvi_*",
+                            $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_CVI_DATA scope=u_core.dut.u_dec_vivo_top.i_cvi_*",
                                      $time);
                             $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d addr=0x%016x beat=%0d",
                                      vivo_if_cvi_exp_fmt,
@@ -3444,7 +3703,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     if (dut.vivo_cvi_last_int !== vivo_if_cvi_exp_last) begin
                         vivo_if_cvi_last_mismatch_cnt <= vivo_if_cvi_last_mismatch_cnt + 1;
                         if (vivo_if_cvi_last_mismatch_cnt == 0) begin
-                            $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_CVI_LAST scope=u_core.dut.ubwc_dec_vivo_top_inst.i_cvi_last",
+                            $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_CVI_LAST scope=u_core.dut.u_dec_vivo_top.i_cvi_last",
                                      $time);
                             $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d beat=%0d last exp=%0b act=%0b",
                                      vivo_if_cvi_exp_fmt,
@@ -3475,7 +3734,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                     vivo_if_rvo_underflow_cnt     <= vivo_if_rvo_underflow_cnt + 1;
                     vivo_if_rvo_data_mismatch_cnt <= vivo_if_rvo_data_mismatch_cnt + 1;
                     if (vivo_if_rvo_underflow_cnt == 0) begin
-                        $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_RVO_UNDERFLOW scope=u_core.dut.ubwc_dec_vivo_top_inst.o_rvo_*",
+                        $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_RVO_UNDERFLOW scope=u_core.dut.u_dec_vivo_top.o_rvo_*",
                                  $time);
                         $display("[TB][FIRST_MISMATCH]   rvo data arrived with no accepted CI command, data=0x%064x last=%0b",
                                  dut.vivo_rvo_data,
@@ -3494,7 +3753,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                         (dut.vivo_rvo_data !== vivo_if_rvo_exp_data)) begin
                         vivo_if_rvo_data_mismatch_cnt <= vivo_if_rvo_data_mismatch_cnt + 1;
                         if (vivo_if_rvo_data_mismatch_cnt == 0) begin
-                            $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_RVO_DATA scope=u_core.dut.ubwc_dec_vivo_top_inst.o_rvo_*",
+                            $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_RVO_DATA scope=u_core.dut.u_dec_vivo_top.o_rvo_*",
                                      $time);
                             $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d beat=%0d",
                                      vivo_if_fmt_queue[vivo_if_rvo_rd_ptr],
@@ -3514,7 +3773,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                         (dut.vivo_rvo_last !== vivo_if_rvo_exp_last)) begin
                         vivo_if_rvo_last_mismatch_cnt <= vivo_if_rvo_last_mismatch_cnt + 1;
                         if (vivo_if_rvo_last_mismatch_cnt == 0) begin
-                            $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_RVO_LAST scope=u_core.dut.ubwc_dec_vivo_top_inst.o_rvo_last",
+                            $display("[TB][FIRST_MISMATCH] time=%0t checker=DEC_VIVO_IF_RVO_LAST scope=u_core.dut.u_dec_vivo_top.o_rvo_last",
                                      $time);
                             $display("[TB][FIRST_MISMATCH]   fmt=%0d x=%0d y=%0d beat=%0d last exp=%0b act=%0b",
                                      vivo_if_fmt_queue[vivo_if_rvo_rd_ptr],
@@ -3828,6 +4087,8 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
     always @(posedge i_otf_clk or negedge i_otf_rstn) begin
         reg [127:0] exp_data_word;
+        reg [127:0] otf_cmp_mask;
+        reg [15:0]  otf_valid_pixels;
         if (!i_otf_rstn) begin
             otf_beat_cnt            <= 0;
             otf_mismatch_cnt        <= 0;
@@ -3847,10 +4108,23 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                        otf_beat_cnt, tb_otf_data);
             end
             exp_data_word = expected_otf_beats[otf_beat_cnt % CASE_EXPECTED_OTF_BEATS];
+            if ((otf_active_x + 4) > CASE_OTF_H_ACT)
+                otf_valid_pixels = CASE_OTF_H_ACT - otf_active_x;
+            else
+                otf_valid_pixels = 16'd4;
+
+            case (otf_valid_pixels)
+                16'd0   : otf_cmp_mask = 128'h00000000000000000000000000000000;
+                16'd1   : otf_cmp_mask = 128'h000000000000000000000000ffffffff;
+                16'd2   : otf_cmp_mask = 128'h0000000000000000ffffffffffffffff;
+                16'd3   : otf_cmp_mask = 128'h00000000ffffffffffffffffffffffff;
+                default : otf_cmp_mask = 128'hffffffffffffffffffffffffffffffff;
+            endcase
+
             if (otf_fd != 0) begin
                 $fwrite(otf_fd, "%032h\n", tb_otf_data);
             end
-            if (tb_otf_data !== exp_data_word) begin
+            if ((tb_otf_data & otf_cmp_mask) !== (exp_data_word & otf_cmp_mask)) begin
                 otf_mismatch_cnt <= otf_mismatch_cnt + 1;
                 if (first_otf_mismatch_beat < 0) begin
                     first_otf_mismatch_beat <= otf_beat_cnt;
@@ -3865,7 +4139,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             last_progress_cycle     <= cycle_cnt;
             last_otf_progress_cycle <= cycle_cnt;
 
-            if ((otf_active_x + 4) >= IMG_W) begin
+            if ((otf_active_x + 4) >= CASE_OTF_H_ACT) begin
                 otf_active_x <= 0;
                 if (otf_active_y == (CASE_OTF_V_ACT - 1)) begin
                     otf_active_y         <= 0;
@@ -4434,6 +4708,28 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                  dut.u_tile_to_otf.writer_vld,
                  dut.u_tile_to_otf.pending_a,
                  dut.u_tile_to_otf.pending_b);
+`ifdef UBWC_DEC_ROTATION
+        if (CASE_DEC_ROTATE_EN) begin
+            $display("  dbg rotate ref       : active=%0b tile_active=%0b fmt=%0d x=%0d y=%0d beat=%0d done=%0d expect=%0d",
+                     dut.u_tile_to_otf.rotate_active,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_active,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_format_r,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_x_r,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_y_r,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_beat_idx,
+                     dut.u_tile_to_otf.u_rotate_ref.tile_done_count,
+                     dut.u_tile_to_otf.u_rotate_ref.expect_tile_count);
+            $display("  dbg rotate stream    : hdr_v/r=%0b/%0b data_v/r=%0b/%0b emit=%0b fifo_empty=%0b fifo_full=%0b fifo_count=%0d",
+                     dut.u_tile_to_otf.s_axis_tile_valid,
+                     dut.u_tile_to_otf.s_axis_tile_ready,
+                     dut.u_tile_to_otf.s_axis_tvalid,
+                     dut.u_tile_to_otf.s_axis_tready,
+                     dut.u_tile_to_otf.u_rotate_ref.emit_active,
+                     dut.u_tile_to_otf.u_rotate_ref.fifo_empty,
+                     dut.u_tile_to_otf.u_rotate_ref.fifo_full,
+                     dut.u_tile_to_otf.u_rotate_ref.fifo_rd_count);
+        end
+`endif
         $display("  dbg wrap fifo        : coord_v=%0b co_v=%0b rvo_empty=%0b rvo_tvalid=%0b rvo_tready=%0b",
                  dut.vivo_coord_fifo_valid,
                  dut.vivo_co_axi_valid,
@@ -4957,24 +5253,26 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
 
     initial begin
 `ifdef WAVES
+        if (!$test$plusargs("tb_no_wave")) begin
 `ifdef FSDB
-        case (CASE_ID)
-            CASE_RGBA1010102: $fsdbDumpfile("tb_ubwc_dec_wrapper_top_tajmahal_rgba1010102.fsdb");
-            CASE_NV12:        $fsdbDumpfile("tb_ubwc_dec_wrapper_top_tajmahal_nv12.fsdb");
-            CASE_G016:        $fsdbDumpfile("tb_ubwc_dec_wrapper_top_k_outdoor61_g016.fsdb");
-            default:          $fsdbDumpfile("tb_ubwc_dec_wrapper_top_tajmahal_rgba8888.fsdb");
-        endcase
-        $fsdbDumpvars(0, tb_ubwc_dec_wrapper_top_tajmahal_core);
-        $fsdbDumpMDA(0, tb_ubwc_dec_wrapper_top_tajmahal_core);
+            case (CASE_ID)
+                CASE_RGBA1010102: $fsdbDumpfile("tb_ubwc_dec_wrapper_top_tajmahal_rgba1010102.fsdb");
+                CASE_NV12:        $fsdbDumpfile("tb_ubwc_dec_wrapper_top_tajmahal_nv12.fsdb");
+                CASE_G016:        $fsdbDumpfile("tb_ubwc_dec_wrapper_top_k_outdoor61_g016.fsdb");
+                default:          $fsdbDumpfile("tb_ubwc_dec_wrapper_top_tajmahal_rgba8888.fsdb");
+            endcase
+            $fsdbDumpvars(0, tb_ubwc_dec_wrapper_top_tajmahal_core);
+            $fsdbDumpMDA(0, tb_ubwc_dec_wrapper_top_tajmahal_core);
 `else
-        case (CASE_ID)
-            CASE_RGBA1010102: $dumpfile("tb_ubwc_dec_wrapper_top_tajmahal_rgba1010102.vcd");
-            CASE_NV12:        $dumpfile("tb_ubwc_dec_wrapper_top_tajmahal_nv12.vcd");
-            CASE_G016:        $dumpfile("tb_ubwc_dec_wrapper_top_k_outdoor61_g016.vcd");
-            default:          $dumpfile("tb_ubwc_dec_wrapper_top_tajmahal_rgba8888.vcd");
-        endcase
-        $dumpvars(0, tb_ubwc_dec_wrapper_top_tajmahal_core);
+            case (CASE_ID)
+                CASE_RGBA1010102: $dumpfile("tb_ubwc_dec_wrapper_top_tajmahal_rgba1010102.vcd");
+                CASE_NV12:        $dumpfile("tb_ubwc_dec_wrapper_top_tajmahal_nv12.vcd");
+                CASE_G016:        $dumpfile("tb_ubwc_dec_wrapper_top_k_outdoor61_g016.vcd");
+                default:          $dumpfile("tb_ubwc_dec_wrapper_top_tajmahal_rgba8888.vcd");
+            endcase
+            $dumpvars(0, tb_ubwc_dec_wrapper_top_tajmahal_core);
 `endif
+        end
 `endif
     end
 
@@ -5042,6 +5340,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_cases #(
     parameter integer CFG_OTF_V_TOTAL = 682,
     parameter integer CFG_OTF_V_SYNC = 5,
     parameter integer CFG_OTF_V_BP = 36,
+    parameter integer CASE_DEC_ROTATION = 0,
     parameter integer CASE_CI_LOSSY = 0,
     parameter integer CASE_UBWC_CFG_0 = 0,
     parameter integer CASE_UBWC_CFG_1 = 0,
@@ -5118,6 +5417,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_cases #(
         .CFG_OTF_V_TOTAL (CFG_OTF_V_TOTAL),
         .CFG_OTF_V_SYNC (CFG_OTF_V_SYNC),
         .CFG_OTF_V_BP (CFG_OTF_V_BP),
+        .CASE_DEC_ROTATION (CASE_DEC_ROTATION),
         .CASE_CI_LOSSY (CASE_CI_LOSSY),
         .CASE_UBWC_CFG_0 (CASE_UBWC_CFG_0),
         .CASE_UBWC_CFG_1 (CASE_UBWC_CFG_1),
@@ -5195,6 +5495,7 @@ module tb_ubwc_dec_to_enc_loop_tajmahal_cases #(
     parameter integer CFG_OTF_V_TOTAL = 682,
     parameter integer CFG_OTF_V_SYNC = 5,
     parameter integer CFG_OTF_V_BP = 36,
+    parameter integer CASE_DEC_ROTATION = 0,
     parameter integer CASE_CI_LOSSY = 0,
     parameter integer CASE_UBWC_CFG_0 = 0,
     parameter integer CASE_UBWC_CFG_1 = 0,
@@ -5271,6 +5572,7 @@ module tb_ubwc_dec_to_enc_loop_tajmahal_cases #(
         .CFG_OTF_V_TOTAL (CFG_OTF_V_TOTAL),
         .CFG_OTF_V_SYNC (CFG_OTF_V_SYNC),
         .CFG_OTF_V_BP (CFG_OTF_V_BP),
+        .CASE_DEC_ROTATION (CASE_DEC_ROTATION),
         .CASE_CI_LOSSY (CASE_CI_LOSSY),
         .CASE_UBWC_CFG_0 (CASE_UBWC_CFG_0),
         .CASE_UBWC_CFG_1 (CASE_UBWC_CFG_1),

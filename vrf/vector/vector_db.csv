@@ -69,3 +69,15 @@ cnum,label,format,width,height,stored_y,stored_uv,source,case_dir,modes
 0068,0068_p010_lossless_ubwc4p0_1920x1080,p010,1920,1080,1088,544,P010_1920x1080_vectors/ubwc4p0,vrf/vector/cases/0068_p010_lossless_ubwc4p0_1920x1080,"enc,dec,loop"
 0069,0069_p010_lossless_ubwc7p1_1920x1080,p010,1920,1080,1088,544,P010_1920x1080_vectors/ubwc7p1_new,vrf/vector/cases/0069_p010_lossless_ubwc7p1_1920x1080,"enc,dec,loop"
 0070,0070_rgba8888_144x132,rgba8888,144,132,144,0,enc_from_cm_magic_pattern_144x132_rgba8888,vrf/vector/cases/0070_rgba8888_144x132,"enc,dec,loop"
+0071,0071_nv12_160x144_color,nv12,160,144,256,96,pd2366_ubwc4_nv12_160x144/color,vrf/vector/cases/0071_nv12_160x144_color,"enc,dec,loop"
+0072,0072_nv12_160x144_smptebars,nv12,160,144,256,96,pd2366_ubwc4_nv12_160x144/smptebars,vrf/vector/cases/0072_nv12_160x144_smptebars,"enc,dec,loop"
+0073,0073_nv12_160x144,nv12,160,144,160,96,ubwc_pattern_160x144_stage,vrf/vector/cases/0073_nv12_160x144,"enc,dec,loop"
+0074,0074_nv12_928x792,nv12,928,792,800,416,pattern_928_792_nv12,vrf/vector/cases/0074_nv12_928x792,dec
+0090,0090_dec_rotation_from_0009_nv12_256x160,nv12,256,160,192,96,dec_rotation/0009,vrf/vector/enc_from_r7130_pattern_256x160_nv12,dec_rotation
+0091,0091_dec_rotation_from_0027_nv12_128x128,nv12,128,128,128,64,dec_rotation/0027,vrf/vector/enc_from_r7928_pattern_128x128_nv12,dec_rotation
+0092,0092_dec_rotation_from_0031_nv12_144x132,nv12,144,132,160,96,dec_rotation/0031,vrf/vector/enc_from_r7928_pattern_144x132_nv12,dec_rotation
+0093,0093_dec_rotation_from_0043_nv12_256x256,nv12,256,256,256,128,dec_rotation/0043,vrf/vector/enc_from_r7928_pattern_256x256_nv12,dec_rotation
+0094,0094_dec_rotation_from_0071_nv12_160x144,nv12,160,144,256,96,dec_rotation/0071,vrf/vector/cases/0071_nv12_160x144_color,dec_rotation
+0095,0095_dec_rotation_from_0072_nv12_160x144,nv12,160,144,256,96,dec_rotation/0072,vrf/vector/cases/0072_nv12_160x144_smptebars,dec_rotation
+0096,0096_dec_rotation_from_0073_nv12_160x144,nv12,160,144,160,96,dec_rotation/0073,vrf/vector/cases/0073_nv12_160x144,dec_rotation
+0097,0097_dec_rotation_from_0074_nv12_928x792,nv12,928,792,800,416,dec_rotation/0074,vrf/vector/cases/0074_nv12_928x792,dec_rotation

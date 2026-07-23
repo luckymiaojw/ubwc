@@ -102,6 +102,8 @@ module ubwc_dec_tile_arcmd_gen
     localparam  integer                             CI_FCNT_MSB                     = CI_FCNT_LSB + 4 - 1;
     localparam  integer                             CI_FIFO_W                       = CI_FCNT_MSB + 1;
     localparam  integer                             RDATA_FIFO_W                    = AXI_DW + 1;
+    localparam  integer                             RDATA_FIFO_DEPTH                = 32;
+    localparam  [6                   -1 :0]         RDATA_FIFO_SAFE_COUNT           = 6'd31;
     localparam  [3                   -1 :0]         AXI_ARSIZE                      = 3'($clog2(AXI_DW >> 3));
 
     wire                                            tile_cmd_valid                  ;
@@ -144,6 +146,12 @@ module ubwc_dec_tile_arcmd_gen
     wire                                            rdata_fifo_wr_en                ;
     wire                                            rdata_fifo_rd_en                ;
     wire                                            rdata_fifo_last                 ;
+    wire        [5                   -1 :0]         rdata_fifo_data_count           ;
+    wire        [6                   -1 :0]         rdata_fifo_data_count_ext       ;
+    wire        [6                   -1 :0]         rdata_reserved_count            ;
+    wire        [6                   -1 :0]         rdata_reserved_next_count       ;
+    wire        [6                   -1 :0]         ar_issue_beats_count            ;
+    wire                                            rdata_credit_avail              ;
     wire                                            ar_split_active                 ;
     wire        [AXI_AW              -1 :0]         ar_req_addr                     ;
     wire        [AXI_IDW             -1 :0]         ar_req_axi_id                   ;
@@ -181,6 +189,7 @@ module ubwc_dec_tile_arcmd_gen
     reg         [4                   -1 :0]         cvi_stream_beats_left_reg       ;
     reg                                             ci_pending_payload_done_reg     ;
     reg                                             r_burst_fail_reg                ;
+    reg         [6                   -1 :0]         r_resp_pending_count            ;
 
     ubwc_tile_addr #(
         .ADDR_W                         ( AXI_AW                                )
@@ -253,7 +262,7 @@ module ubwc_dec_tile_arcmd_gen
     mg_sync_fifo #(
         .PROG_DEPTH                    ( 1                                     ),
         .DWIDTH                        ( RDATA_FIFO_W                         ),
-        .DEPTH                         ( 32                                    ),
+        .DEPTH                         ( RDATA_FIFO_DEPTH                      ),
         .SHOW_AHEAD                    ( 1                                     )
     ) u_rdata_fifo (
         .clk                           ( clk                                   ),
@@ -266,7 +275,7 @@ module ubwc_dec_tile_arcmd_gen
         .empty                         ( rdata_fifo_empty                      ),
         .dout                          ( rdata_fifo_dout                       ),
         .valid                         ( rdata_fifo_valid                      ),
-        .data_count                    (                                       )
+        .data_count                    ( rdata_fifo_data_count                 )
     );
 
     assign tile_cmd_addr_full         = {tile_cmd_addr, 4'b0000};
@@ -292,6 +301,11 @@ module ubwc_dec_tile_arcmd_gen
                                         ((ar_req_beats_left <= ar_boundary_beats[3:0]) ? ar_req_beats_left : ar_boundary_beats[3:0]);
     assign ar_next_beats_left         = ar_req_beats_left - ar_issue_beats;
     assign ar_next_addr               = ar_req_addr + {{(AXI_AW-9){1'b0}}, ar_issue_beats, 5'b0};
+    assign rdata_fifo_data_count_ext  = {1'b0, rdata_fifo_data_count};
+    assign ar_issue_beats_count       = {2'd0, ar_issue_beats};
+    assign rdata_reserved_count       = rdata_fifo_data_count_ext + r_resp_pending_count;
+    assign rdata_reserved_next_count  = rdata_reserved_count + ar_issue_beats_count;
+    assign rdata_credit_avail         = (rdata_reserved_next_count <= RDATA_FIFO_SAFE_COUNT);
     assign ar_valid_from_fifo         = ci_fifo_valid && ci_fifo_has_payload &&
                                         !ci_pending_fifo_full && !ar_split_active;
     assign ar_fire                    = m_axi_arvalid && m_axi_arready;
@@ -343,7 +357,7 @@ module ubwc_dec_tile_arcmd_gen
     assign o_tile_x_coord             = ci_out_data_reg[CI_X_MSB:CI_X_LSB];
     assign o_tile_y_coord             = ci_out_data_reg[CI_Y_MSB:CI_Y_LSB];
     assign o_tile_fcnt                = ci_out_fcnt;
-    assign m_axi_arvalid              = ar_split_active | ar_valid_from_fifo;
+    assign m_axi_arvalid              = (ar_split_active | ar_valid_from_fifo) && rdata_credit_avail;
     assign m_axi_araddr               = ar_req_addr;
     assign m_axi_arlen                = {4'd0, ar_issue_beats} - 8'd1;
     assign m_axi_arsize               = AXI_ARSIZE;
@@ -451,6 +465,22 @@ module ubwc_dec_tile_arcmd_gen
             r_burst_fail_reg <= 1'b0;
         else if (r_fire && !r_resp_ok)
             r_burst_fail_reg <= 1'b1;
+    end
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            r_resp_pending_count <= 6'd0;
+        else if (i_frame_start)
+            r_resp_pending_count <= 6'd0;
+        else begin
+            case ({ar_fire, r_fire})
+                2'b10:   r_resp_pending_count <= r_resp_pending_count + ar_issue_beats_count;
+                2'b01:   r_resp_pending_count <= (r_resp_pending_count == 6'd0) ? 6'd0 :
+                                                  (r_resp_pending_count - 6'd1);
+                2'b11:   r_resp_pending_count <= r_resp_pending_count + ar_issue_beats_count - 6'd1;
+                default: r_resp_pending_count <= r_resp_pending_count;
+            endcase
+        end
     end
 
     always @(posedge clk or negedge rst_n) begin

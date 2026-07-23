@@ -223,7 +223,9 @@ module ubwc_dec_tile_to_otf #(
     assign frame_start_sram           = (i_frame_start == 1'b1);
     assign frame_start_otf            = frame_start_otf_reg;
     assign frame_start_fifo_wr_en     = frame_start_sram && !frame_start_fifo_full;
-    assign frame_start_fifo_rd_en     = !frame_start_fifo_empty && otf_frame_start_ready;
+    assign frame_start_fifo_rd_en     = !frame_start_fifo_empty &&
+                                        otf_frame_start_ready &&
+                                        fifo_start_ready;
     assign frame_start_fifo_wdata     = i_frame_fcnt;
     assign fifo_rd_en1                = 1'b0;
     assign fifo_empty1                = 1'b1;
