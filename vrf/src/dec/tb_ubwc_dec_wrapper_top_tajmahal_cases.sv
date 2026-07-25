@@ -787,8 +787,6 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     integer                   rotate_dbg_progress_sum;
     integer                   rotate_dbg_prev_progress_sum;
     integer                   rotate_dbg_stall_cycles;
-    integer                   rotate_dbg_token_wr_cnt;
-    integer                   rotate_dbg_token_rd_cnt;
     integer                   tb_rotate_stop_cycle;
     reg [4:0]                 first_rvo_mismatch_fmt;
     reg [11:0]                first_rvo_mismatch_x;
@@ -2810,20 +2808,6 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
     end
 
 `ifdef UBWC_DEC_ROTATION
-    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
-        if (!i_vivo_rstn)
-            rotate_dbg_token_wr_cnt <= 0;
-        else if (dut.vivo_rvo_tile_fifo_wr_en)
-            rotate_dbg_token_wr_cnt <= rotate_dbg_token_wr_cnt + 1;
-    end
-
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
-            rotate_dbg_token_rd_cnt <= 0;
-        else if (dut.vivo_rvo_tile_fifo_rd_en)
-            rotate_dbg_token_rd_cnt <= rotate_dbg_token_rd_cnt + 1;
-    end
-
     always @(posedge i_axi_clk or negedge i_axi_rstn) begin
         if (!i_axi_rstn) begin
             rotate_dbg_prev_progress_sum <= 0;
@@ -2895,24 +2879,16 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                          dut.tile_m_axi_arready,
                          dut.tile_m_axi_rvalid,
                          dut.tile_m_axi_rready);
-                $display("[ROTDBG] wrapper rotate=%0b otf_tile v/r/fire=%0b/%0b/%0b rvo_rd_count=%0d rvo_fifo_valid/stage_valid=%0b/%0b token empty/full/wr/rd=%0b/%0b/%0b/%0b token cnt wr/rd=%0d/%0d rvo wr/rd/last/beat=%0b/%0b/%0b/%0d",
+                $display("[ROTDBG] wrapper rotate=%0b otf_tile v/r/fire=%0b/%0b/%0b rvo empty/full/wr/rd/last=%0b/%0b/%0b/%0b/%0b",
                          dut.vivo_rotate_active,
                          dut.otf_axis_tile_valid,
                          dut.otf_axis_tile_ready_int,
                          dut.otf_axis_tile_fire,
-                         dut.vivo_rvo_fifo_rd_count,
-                         dut.vivo_rvo_fifo_valid,
-                         dut.vivo_rvo_stage_valid,
-                         dut.vivo_rvo_tile_fifo_empty,
-                         dut.vivo_rvo_tile_fifo_full,
-                         dut.vivo_rvo_tile_fifo_wr_en,
-                         dut.vivo_rvo_tile_fifo_rd_en,
-                         rotate_dbg_token_wr_cnt,
-                         rotate_dbg_token_rd_cnt,
+                         dut.vivo_rvo_fifo_empty,
+                         dut.vivo_rvo_fifo_full,
                          dut.vivo_rvo_fifo_wr_en,
                          dut.vivo_rvo_fifo_rd_en,
-                         dut.vivo_rvo_last,
-                         dut.vivo_rvo_tile_beat_cnt);
+                         dut.vivo_rvo_last);
                 $display("[ROTDBG] rotate active=%0b hdr v/r=%0b/%0b data v/r=%0b/%0b tile_active=%0b beat=%0d done=%0d expect=%0d emit=%0b fifo_empty/full=%0b/%0b",
                          dut.u_tile_to_otf.rotate_active,
                          dut.u_tile_to_otf.s_axis_tile_valid,
@@ -2936,7 +2912,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             $test$plusargs("tb_rotate_trace") &&
             (cycle_cnt != 0) &&
             ((cycle_cnt % 10000) == 0)) begin
-            $display("[ROTTRACE] time=%0t cycle=%0d meta=%0d ci=%0d cvi=%0d rvo=%0d otf=%0d done=%0d beat=%0d emit=%0b line=%0d word=%0d fifo_cnt=%0d stage=%0b",
+            $display("[ROTTRACE] time=%0t cycle=%0d meta=%0d ci=%0d cvi=%0d rvo=%0d otf=%0d done=%0d beat=%0d emit=%0b line=%0d word=%0d fifo_cnt=%0d rvo_empty=%0b",
                      $time,
                      cycle_cnt,
                      dec_meta_out_cnt,
@@ -2950,7 +2926,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                      dut.u_tile_to_otf.u_rotate_ref.emit_line,
                      dut.u_tile_to_otf.u_rotate_ref.emit_word_idx,
                      dut.u_tile_to_otf.u_rotate_ref.fifo_rd_count,
-                     dut.vivo_rvo_stage_valid);
+                     dut.vivo_rvo_fifo_empty);
         end
     end
 
@@ -2983,16 +2959,15 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
                      dut.u_tile_to_otf.u_rotate_ref.s_axis_tready,
                      otf_beat_cnt,
                      otf_frame_done_count);
-            $display("[ROTSTOP] wrapper coord_v=%0b token empty/full wr/rd=%0b/%0b %0b/%0b rvo empty/full valid/stage=%0b/%0b %0b/%0b",
+            $display("[ROTSTOP] wrapper coord_v=%0b otf_tile v/r/fire=%0b/%0b/%0b rvo empty/full wr/rd=%0b/%0b %0b/%0b",
                      dut.vivo_coord_fifo_valid,
-                     dut.vivo_rvo_tile_fifo_empty,
-                     dut.vivo_rvo_tile_fifo_full,
-                     dut.vivo_rvo_tile_fifo_wr_en,
-                     dut.vivo_rvo_tile_fifo_rd_en,
+                     dut.otf_axis_tile_valid,
+                     dut.otf_axis_tile_ready_int,
+                     dut.otf_axis_tile_fire,
                      dut.vivo_rvo_fifo_empty,
                      dut.vivo_rvo_fifo_full,
-                     dut.vivo_rvo_fifo_valid,
-                     dut.vivo_rvo_stage_valid);
+                     dut.vivo_rvo_fifo_wr_en,
+                     dut.vivo_rvo_fifo_rd_en);
             $finish;
         end
     end
