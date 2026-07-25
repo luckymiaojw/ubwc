@@ -13,7 +13,7 @@
 `timescale 1ns/1ps
 
 module ubwc_wrapper_top #(
-    parameter ENC_SB_WIDTH           = 1,
+    parameter ENC_SB_WIDTH           = 36,
     parameter ENC_APB_AW             = 16,
     parameter ENC_APB_DW             = 32,
     parameter ENC_APB_BLK_NREG       = 64,

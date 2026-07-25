@@ -54,11 +54,11 @@ module ubwc_dec_apb_reg_blk #(
     output  wire    [4                      :0]         o_tile_cfg_highest_bank_bit     ,
     output  wire                                        o_tile_cfg_bank_spread_en       ,
     output  wire                                        o_tile_cfg_is_lossy_rgba_2_1_format,
+    output  wire    [3                      :0]         o_tile_cfg_ubwc_ver             ,
     output  wire    [11                     :0]         o_tile_cfg_pitch                ,
     output  wire                                        o_tile_cfg_ci_input_type        ,
     output  wire                                        o_tile_cfg_ci_lossy             ,
     output  wire    [1                      :0]         o_tile_cfg_ci_alpha_mode        ,
-    output  wire    [3                      :0]         o_tile_cfg_ubwc_ver             ,
     output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_rgba_y0        ,
     output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_uv0            ,
     output  wire    [AXI_AW              -1 :0]         o_tile_base_addr_rgba_y1        ,
@@ -141,11 +141,11 @@ module ubwc_dec_apb_reg_blk #(
     reg                                             r_tile_cfg_bank_spread_en       ;
     reg                                             r_tile_cfg_4line_format         ;
     reg                                             r_tile_cfg_is_lossy_rgba_2_1_format;
+    reg         [3                      :0]         r_tile_cfg_ubwc_ver             ;
     reg         [11                     :0]         r_tile_cfg_pitch                ;
     reg                                             r_tile_cfg_ci_input_type        ;
     reg                                             r_tile_cfg_ci_lossy             ;
     reg         [1                      :0]         r_tile_cfg_ci_alpha_mode        ;
-    reg         [3                      :0]         r_tile_cfg_ubwc_ver             ;
     reg         [AXI_AW              -1 :0]         r_tile_base_addr_rgba_y         ;
     reg         [AXI_AW              -1 :0]         r_tile_base_addr_uv             ;
     reg         [AXI_AW              -1 :0]         r_tile_base_addr_rgba_y0        ;
@@ -222,11 +222,11 @@ module ubwc_dec_apb_reg_blk #(
     reg         [4                      :0]         a_tile_cfg_highest_bank_bit     ;
     reg                                             a_tile_cfg_bank_spread_en       ;
     reg                                             a_tile_cfg_is_lossy_rgba_2_1_format;
+    reg         [3                      :0]         a_tile_cfg_ubwc_ver             ;
     reg         [11                     :0]         a_tile_cfg_pitch                ;
     reg                                             a_tile_cfg_ci_input_type        ;
     reg                                             a_tile_cfg_ci_lossy             ;
     reg         [1                      :0]         a_tile_cfg_ci_alpha_mode        ;
-    reg         [3                      :0]         a_tile_cfg_ubwc_ver             ;
     reg         [AXI_AW              -1 :0]         a_tile_base_addr_rgba_y0        ;
     reg         [AXI_AW              -1 :0]         a_tile_base_addr_uv0            ;
     reg         [AXI_AW              -1 :0]         a_tile_base_addr_rgba_y1        ;
@@ -402,11 +402,11 @@ module ubwc_dec_apb_reg_blk #(
             r_tile_cfg_bank_spread_en           <= 1'b0;
             r_tile_cfg_4line_format             <= 1'b0;
             r_tile_cfg_is_lossy_rgba_2_1_format <= 1'b0;
+            r_tile_cfg_ubwc_ver                 <= 4'd7;
             r_tile_cfg_pitch                    <= 12'd0;
             r_tile_cfg_ci_input_type            <= 1'b0;
             r_tile_cfg_ci_lossy                 <= 1'b0;
             r_tile_cfg_ci_alpha_mode            <= 2'd0;
-            r_tile_cfg_ubwc_ver                 <= 4'd7;
             r_tile_base_addr_rgba_y            <= {AXI_AW{1'b0}};
             r_tile_base_addr_uv                  <= {AXI_AW{1'b0}};
             r_tile_base_addr_rgba_y0           <= {AXI_AW{1'b0}};
@@ -430,7 +430,7 @@ module ubwc_dec_apb_reg_blk #(
             fifo_meta_uv_wr_ptr                 <= {BASE_FIFO_PTR_W{1'b0}};
             fifo_meta_uv_rd_ptr                 <= {BASE_FIFO_PTR_W{1'b0}};
             fifo_meta_uv_count                  <= {BASE_FIFO_CNT_W{1'b0}};
-            r_vivo_ubwc_en                      <= 1'b0;
+            r_vivo_ubwc_en                      <= 1'b1;
             r_vivo_sreset                       <= 1'b0;
             r_meta_start_toggle                 <= 1'b0;
             r_start_wait_busy_seen              <= 1'b0;
@@ -449,7 +449,7 @@ module ubwc_dec_apb_reg_blk #(
             r_otf_cfg_v_bp                      <= 16'd0;
             r_otf_cfg_v_act                     <= 16'd0;
             r_rotate_mode                       <= 2'd0;
-            r_irq_enable                        <= 1'b0;
+            r_irq_enable                        <= 1'b1;
             r_irq_clear_toggle                  <= 1'b0;
         end else begin
             if (base_fifo_start_pclk) begin
@@ -612,8 +612,8 @@ module ubwc_dec_apb_reg_blk #(
             r_meta_start_sync_ff2 <= 1'b0;
             r_frame_start_cfg_valid_axi <= 1'b0;
             r_frame_start_pulse_axi <= 1'b0;
-            r_irq_enable_sync_ff1 <= 1'b0;
-            r_irq_enable_sync_ff2 <= 1'b0;
+            r_irq_enable_sync_ff1 <= 1'b1;
+            r_irq_enable_sync_ff2 <= 1'b1;
             r_irq_clear_sync_ff1 <= 1'b0;
             r_irq_clear_sync_ff2 <= 1'b0;
             a_tile_cfg_lvl2_bank_swizzle_en <= 1'b0;
@@ -621,16 +621,16 @@ module ubwc_dec_apb_reg_blk #(
             a_tile_cfg_highest_bank_bit <= 5'd0;
             a_tile_cfg_bank_spread_en <= 1'b0;
             a_tile_cfg_is_lossy_rgba_2_1_format <= 1'b0;
+            a_tile_cfg_ubwc_ver <= 4'd7;
             a_tile_cfg_pitch <= 12'd0;
             a_tile_cfg_ci_input_type <= 1'b0;
             a_tile_cfg_ci_lossy <= 1'b0;
             a_tile_cfg_ci_alpha_mode <= 2'd0;
-            a_tile_cfg_ubwc_ver <= 4'd7;
             a_tile_base_addr_rgba_y0 <= {AXI_AW{1'b0}};
             a_tile_base_addr_uv0 <= {AXI_AW{1'b0}};
             a_tile_base_addr_rgba_y1 <= {AXI_AW{1'b0}};
             a_tile_base_addr_uv1 <= {AXI_AW{1'b0}};
-            a_vivo_ubwc_en <= 1'b0;
+            a_vivo_ubwc_en <= 1'b1;
             a_vivo_sreset <= 1'b0;
             a_meta_base_format <= 5'd0;
             a_meta_base_addr_rgba_y0 <= {AXI_AW{1'b0}};
@@ -666,11 +666,11 @@ module ubwc_dec_apb_reg_blk #(
                 a_tile_cfg_highest_bank_bit <= r_tile_cfg_highest_bank_bit;
                 a_tile_cfg_bank_spread_en <= r_tile_cfg_bank_spread_en;
                 a_tile_cfg_is_lossy_rgba_2_1_format <= r_tile_cfg_is_lossy_rgba_2_1_format;
+                a_tile_cfg_ubwc_ver <= r_tile_cfg_ubwc_ver;
                 a_tile_cfg_pitch <= r_tile_cfg_pitch;
                 a_tile_cfg_ci_input_type <= r_tile_cfg_ci_input_type;
                 a_tile_cfg_ci_lossy <= r_tile_cfg_ci_lossy;
                 a_tile_cfg_ci_alpha_mode <= r_tile_cfg_ci_alpha_mode;
-                a_tile_cfg_ubwc_ver <= r_tile_cfg_ubwc_ver;
                 a_tile_base_addr_rgba_y0 <= r_tile_base_addr_rgba_y0;
                 a_tile_base_addr_uv0 <= r_tile_base_addr_uv0;
                 a_tile_base_addr_rgba_y1 <= r_tile_base_addr_rgba_y1;
@@ -900,11 +900,11 @@ module ubwc_dec_apb_reg_blk #(
     assign o_tile_cfg_highest_bank_bit         = a_tile_cfg_highest_bank_bit;
     assign o_tile_cfg_bank_spread_en           = a_tile_cfg_bank_spread_en;
     assign o_tile_cfg_is_lossy_rgba_2_1_format = a_tile_cfg_is_lossy_rgba_2_1_format;
+    assign o_tile_cfg_ubwc_ver                 = a_tile_cfg_ubwc_ver;
     assign o_tile_cfg_pitch                    = a_tile_cfg_pitch;
     assign o_tile_cfg_ci_input_type            = a_tile_cfg_ci_input_type;
     assign o_tile_cfg_ci_lossy                 = a_tile_cfg_ci_lossy;
     assign o_tile_cfg_ci_alpha_mode            = a_tile_cfg_ci_alpha_mode;
-    assign o_tile_cfg_ubwc_ver                 = a_tile_cfg_ubwc_ver;
     assign o_tile_base_addr_rgba_y0           = a_tile_base_addr_rgba_y0;
     assign o_tile_base_addr_uv0                 = a_tile_base_addr_uv0;
     assign o_tile_base_addr_rgba_y1           = a_tile_base_addr_rgba_y1;

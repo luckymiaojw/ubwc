@@ -59,10 +59,10 @@
         <mxCell id="ci_fifo" value="&lt;b&gt;CI FIFO&lt;/b&gt;&lt;br&gt;tile_x / tile_y / format / fcnt&lt;br&gt;forced_pcm 标记边界 partial tile" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=15;" vertex="1" parent="1">
           <mxGeometry x="1315" y="350" width="360" height="112" as="geometry"/>
         </mxCell>
-        <mxCell id="coord_fifo" value="&lt;b&gt;coord FIFO&lt;/b&gt;&lt;br&gt;跟随 CI 出口保存 x/y/format/fcnt&lt;br&gt;o_co_sb = fcnt[0]&lt;br&gt;最后 tile 触发 addr_cfg_done" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=15;" vertex="1" parent="1">
+        <mxCell id="coord_fifo" value="&lt;b&gt;coord FIFO&lt;/b&gt;&lt;br&gt;跟随 CI 出口保存 x/y/format/fcnt&lt;br&gt;o_co_sb = fcnt[0]&lt;br&gt;最后 tile 触发 correct_irq" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=15;" vertex="1" parent="1">
           <mxGeometry x="1315" y="510" width="360" height="126" as="geometry"/>
         </mxCell>
-        <mxCell id="stat" value="&lt;b&gt;统计与中断&lt;/b&gt;&lt;br&gt;otf_de_count / line_count 按 fcnt[0]&lt;br&gt;最后有效数据 correct_irq&lt;br&gt;slot0/slot1 独立计数" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef2f2;strokeColor=#dc2626;strokeWidth=2;fontSize=15;" vertex="1" parent="1">
+        <mxCell id="stat" value="&lt;b&gt;统计与中断&lt;/b&gt;&lt;br&gt;otf_de_count / line_count 按 fcnt[0]&lt;br&gt;最后有效数据 correct_irq&lt;br&gt;fcnt[0]=0/1 分组计数" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef2f2;strokeColor=#dc2626;strokeWidth=2;fontSize=15;" vertex="1" parent="1">
           <mxGeometry x="1315" y="710" width="360" height="126" as="geometry"/>
         </mxCell>
 

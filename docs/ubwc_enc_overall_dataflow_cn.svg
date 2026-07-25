@@ -44,19 +44,19 @@
 
   <rect class="blue" x="95" y="188" width="360" height="74"/>
   <text class="box-title" x="275" y="216" text-anchor="middle">ubwc_enc_apb_reg_blk</text>
-  <text class="box-text" x="275" y="241" text-anchor="middle">静态配置 + 每帧地址组 + IRQ enable/clear</text>
+  <text class="box-text" x="275" y="241" text-anchor="middle">静态配置 + 唯一地址组 + IRQ enable/clear</text>
 
   <rect class="gray" x="535" y="188" width="305" height="74"/>
   <text class="box-title" x="687" y="216" text-anchor="middle">ubwc_enc_rst_mdl</text>
   <text class="box-text" x="687" y="241" text-anchor="middle">rst_n_sys / rst_n_otf / srst</text>
 
   <rect class="yellow" x="920" y="188" width="385" height="74"/>
-  <text class="box-title" x="1112" y="216" text-anchor="middle">地址 slot 与 fcnt</text>
-  <text class="box-text" x="1112" y="241" text-anchor="middle">fcnt[0] 选择 base_addr0/base_addr1</text>
+  <text class="box-title" x="1112" y="216" text-anchor="middle">唯一地址组与 fcnt</text>
+  <text class="box-text" x="1112" y="241" text-anchor="middle">START 锁存 base；fcnt 不选择地址</text>
 
   <rect class="red" x="1390" y="188" width="590" height="74"/>
   <text class="box-title" x="1685" y="216" text-anchor="middle">ubwc_enc_status / IRQ</text>
-  <text class="box-text" x="1685" y="241" text-anchor="middle">correct/error pending、stage_done、frame_done、per-slot 统计计数</text>
+  <text class="box-text" x="1685" y="241" text-anchor="middle">correct/error pending、stage_done、frame_done、per-fcnt 统计计数</text>
 
   <rect class="lane" x="50" y="335" width="2060" height="800" rx="16"/>
   <text class="lane-title" x="80" y="370">主数据路径：OTF video → UBWC compressed buffer</text>
@@ -95,7 +95,7 @@
   <rect class="yellow" x="955" y="700" width="360" height="110"/>
   <text class="box-title" x="1135" y="734" text-anchor="middle">CO + coord/fcnt 对齐通路</text>
   <text class="box-text" x="1135" y="762" text-anchor="middle">enc_co_valid/alen/pcm + b_tile_x/y/fcnt</text>
-  <text class="small" x="1135" y="786" text-anchor="middle">fcnt[0] 同时决定 sb 和地址 slot</text>
+  <text class="small" x="1135" y="786" text-anchor="middle">fcnt[0] 决定 sb 和统计桶，不选择地址</text>
 
   <rect class="green" x="1400" y="395" width="350" height="130"/>
   <text class="box-title" x="1575" y="428" text-anchor="middle">ubwc_enc_tile_addr</text>
@@ -107,7 +107,7 @@
   <text class="box-title" x="1575" y="644" text-anchor="middle">ubwc_enc_meta_addr_gen</text>
   <text class="box-text" x="1575" y="674" text-anchor="middle">根据 meta pitch / last_xcoord</text>
   <text class="box-text" x="1575" y="696" text-anchor="middle">生成 metadata byte 与写地址</text>
-  <text class="box-text" x="1575" y="718" text-anchor="middle">按 Y/UV meta base slot 选择</text>
+  <text class="box-text" x="1575" y="718" text-anchor="middle">按 Y/UV plane 选择唯一 meta base</text>
   <text class="small" x="1575" y="742" text-anchor="middle">meta_data_valid / meta_addr_valid / meta_fcnt</text>
 
   <rect class="blue" x="1400" y="845" width="350" height="112"/>
@@ -131,7 +131,7 @@
   <text class="small" x="1965" y="1130" text-anchor="middle">输出 o_m_axi_aw/w/b</text>
 
   <rect class="lane" x="50" y="1190" width="2060" height="88" rx="16"/>
-  <text class="small" x="85" y="1220">fcnt 主线：i_otf_fcnt → otf_to_tile → rvi_fcnt / b_tile_fcnt → tile/meta addr → AXI ID；fcnt[0] 选择地址 slot0/slot1，并随统计计数进入 status。</text>
+  <text class="small" x="85" y="1220">fcnt 主线：i_otf_fcnt → otf_to_tile → rvi_fcnt / b_tile_fcnt → tile/meta addr → AXI ID；fcnt[0] 仅用于 sideband 与统计分组，地址来自唯一 START 快照。</text>
   <text class="small" x="85" y="1245">错误/中断：OTF bad line/frame、FIFO overflow、metadata error、VIVO error 与地址无效进入 APB/status；正确中断由 OTF_TO_TILE 在最后一个有效 tile 输出完成点产生。</text>
 
   <path class="line" d="M405 520 L485 520"/>

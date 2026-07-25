@@ -69,14 +69,14 @@ ENC_FIELDS = [
     ("ENC", h(0x028), "REG_OTF_CFG2", "19:16", "otf_cfg_tile_h", "RW", "0", "Tile height in pixels. RGBA=4, NV12=8, P010=4."),
     ("ENC", h(0x02C), "REG_OTF_CFG3", "15:0", "otf_cfg_y_tile_cols", "RW", "0", "Y tile column count. RGBA formats use this field for RGBA tile columns."),
     ("ENC", h(0x02C), "REG_OTF_CFG3", "31:16", "otf_cfg_uv_tile_cols", "RW", "0", "UV tile column count. RGBA formats write 0."),
-    ("ENC", h(0x030), "REG_META_BASE_Y_LO", "31:0", "meta_y_base_offset_addr[31:0]", "RW", "0", "Y metadata base address low word. RGBA formats use this slot for RGBA metadata."),
-    ("ENC", h(0x034), "REG_META_BASE_Y_HI", "31:0", "meta_y_base_offset_addr[63:32]", "RW", "0", "Y metadata base address high word. RGBA formats use this slot for RGBA metadata."),
-    ("ENC", h(0x038), "REG_TILE_BASE_Y_LO", "31:0", "y_base_offset_addr[31:0]", "RW", "0", "Y compressed tile/pixel data base address low word. RGBA formats use this slot for RGBA data."),
-    ("ENC", h(0x03C), "REG_TILE_BASE_Y_HI", "31:0", "y_base_offset_addr[63:32]", "RW", "0", "Y compressed tile/pixel data base address high word. RGBA formats use this slot for RGBA data."),
+    ("ENC", h(0x030), "REG_META_BASE_Y_LO", "31:0", "meta_y_base_offset_addr[31:0]", "RW", "0", "Y metadata base address low word. RGBA formats use this field for RGBA metadata."),
+    ("ENC", h(0x034), "REG_META_BASE_Y_HI", "31:0", "meta_y_base_offset_addr[63:32]", "RW", "0", "Y metadata base address high word. RGBA formats use this field for RGBA metadata."),
+    ("ENC", h(0x038), "REG_TILE_BASE_Y_LO", "31:0", "y_base_offset_addr[31:0]", "RW", "0", "Y compressed tile/pixel data base address low word. RGBA formats use this field for RGBA data."),
+    ("ENC", h(0x03C), "REG_TILE_BASE_Y_HI", "31:0", "y_base_offset_addr[63:32]", "RW", "0", "Y compressed tile/pixel data base address high word. RGBA formats use this field for RGBA data."),
     ("ENC", h(0x040), "REG_META_BASE_UV_LO", "31:0", "meta_uv_base_offset_addr[31:0]", "RW", "0", "UV metadata base address low word. RGBA formats write 0."),
     ("ENC", h(0x044), "REG_META_BASE_UV_HI", "31:0", "meta_uv_base_offset_addr[63:32]", "RW", "0", "UV metadata base address high word. RGBA formats write 0."),
     ("ENC", h(0x048), "REG_TILE_BASE_UV_LO", "31:0", "uv_base_offset_addr[31:0]", "RW", "0", "UV compressed tile/pixel data base address low word. RGBA formats write 0."),
-    ("ENC", h(0x04C), "REG_TILE_BASE_UV_HI", "31:0", "uv_base_offset_addr[63:32]", "RW", "0", "UV compressed tile/pixel data base address high word. Writing this register commits the current four base addresses as one frame address set."),
+    ("ENC", h(0x04C), "REG_TILE_BASE_UV_HI", "31:0", "uv_base_offset_addr[63:32]", "RW", "0", "UV compressed tile/pixel data base address high word. Write this register last to mark the single working address set complete; START then latches it."),
     ("ENC", h(0x050), "REG_META_ACTIVE_SIZE", "15:0", "meta_active_width_px", "RW", "0", "Metadata active width in pixels."),
     ("ENC", h(0x050), "REG_META_ACTIVE_SIZE", "31:16", "meta_active_height_px", "RW", "0", "Metadata active height in pixels."),
     ("ENC", h(0x054), "REG_META_PITCH", "31:0", "meta_data_plane_pitch", "RW", "0", "Metadata plane pitch configuration."),
@@ -89,19 +89,20 @@ ENC_FIELDS = [
     ("ENC", h(0x058), "REG_STATUS0", "6", "meta_err_0", "RO", "dynamic", "Metadata co-buffer overflow error."),
     ("ENC", h(0x058), "REG_STATUS0", "7", "meta_err_1", "RO", "dynamic", "Metadata tile-order error."),
     ("ENC", h(0x058), "REG_STATUS0", "8", "frame_done", "RO", "dynamic", "Frame done status from wrapper."),
-    ("ENC", h(0x058), "REG_STATUS0", "9", "addr_cfg_invalid", "RO", "dynamic", "Sticky current-slot address-not-configured error. The ENC data path selects address slot0 or slot1 from the current frame fcnt[0]. When hardware checks the current slot address validity and the selected address FIFO is empty, active_addr_cfg_valid is 0, this bit is set and held, and the condition contributes to error IRQ. This means the current frame has no usable META/TILE base addresses. Software must submit the per-frame address group for the corresponding slot, confirm that the software buffer queue is aligned with fcnt[0], then clear the sticky status with REG_IRQ_CTRL[1] irq_clear; disabling enc_ubwc_en or hard reset also clears it."),
-    ("ENC", h(0x058), "REG_STATUS0", "10", "addr_cfg_valid0", "RO", "dynamic", "Address slot 0 has a configured entry."),
-    ("ENC", h(0x058), "REG_STATUS0", "11", "addr_cfg_valid1", "RO", "dynamic", "Address slot 1 has a configured entry."),
-    ("ENC", h(0x058), "REG_STATUS0", "12", "addr_cfg_overflow", "RO", "dynamic", "Sticky address-configuration FIFO overflow status. One frame address group contains four 64-bit base addresses: META Y, TILE Y, META UV, and TILE UV. Software commits one address group by writing REG_TILE_BASE_UV_HI. The APB block alternates committed groups into slot0/slot1 address FIFOs; each slot FIFO depth is 4. If the selected slot FIFO is full when the commit write occurs, the current address group is not pushed, this bit is set and held, and the condition contributes to error IRQ. Software should stop submitting new address groups, wait for existing frames to consume FIFO entries, clear the sticky bit with REG_IRQ_CTRL[1] irq_clear, and make sure the software buffer queue is aligned with the hardware address queue; if needed, disable enc_ubwc_en and reconfigure."),
+    ("ENC", h(0x058), "REG_STATUS0", "9", "addr_cfg_invalid", "RO", "dynamic", "Sticky single-address configuration error. It is set when the ENC data path checks an address configuration but the most recently START-latched META Y, TILE Y, META UV, and TILE UV base-address set is invalid. The condition contributes to error IRQ and remains set until REG_IRQ_CTRL[1] irq_clear, enc_ubwc_en disable, or hard reset."),
+    ("ENC", h(0x058), "REG_STATUS0", "10", "addr_cfg_valid", "RO", "dynamic", "The single META/TILE base-address set latched by the most recent START is valid. All frames reuse this set until software writes a new complete set and issues START again."),
+    ("ENC", h(0x058), "REG_STATUS0", "11", "Reserved", "-", "-", "Reserved; reads as 0."),
+    ("ENC", h(0x058), "REG_STATUS0", "12", "Reserved", "-", "-", "Reserved; reads as 0."),
     ("ENC", h(0x058), "REG_STATUS0", "13", "rst_drain_timeout", "RO", "dynamic", "Sticky AXI drain timeout during encoder soft reset. Before asserting the internal soft reset, ENC stops issuing new AXI writes and waits for tile/meta AXI write outstanding transactions to drain. If idle is not reached within 16'hffff i_axi_clk cycles, this bit is set and held until REG_IRQ_CTRL[1] irq_clear or hard reset."),
+    ("ENC", h(0x058), "REG_STATUS0", "14", "cfg_valid", "RO", "dynamic", "Result of the most recent START configuration commit. Set when format, geometry, tile/metadata parameters, and the single address set are valid. When clear, ENC holds o_otf_ready low."),
     ("ENC", h(0x05C), "REG_STATUS1", "7:0", "stage_done", "RO", "dynamic", "Encoder stage done bitmap."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "0", "irq_enable", "RW", "0", "Interrupt enable. Register reset is 0; software should write 1 when IRQ output is required."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "1", "irq_clear", "W1P", "0", "Write 1 to generate an interrupt clear pulse; readback is 0."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "2", "irq_pending", "RO", "dynamic", "Any pending interrupt."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "3", "irq_correct_pending", "RO", "dynamic", "Correct/frame-done interrupt pending."),
     ("ENC", h(0x060), "REG_IRQ_CTRL", "4", "irq_error_pending", "RO", "dynamic", "Error interrupt pending."),
-    ("ENC", h(0x060), "REG_IRQ_CTRL", "5", "start", "W1P", "0", "Write 1 after one full output address group has been configured. Address writes only fill the pending address queues; start is a separate frame token."),
-    ("ENC", h(0x060), "REG_IRQ_CTRL", "6", "vsync_reset_en", "RW", "0", "When set, an input OTF VSYNC rising edge requests an encoder soft reset through the AXI-drain reset sequencer and re-arms the frame start token after reset release."),
+    ("ENC", h(0x060), "REG_IRQ_CTRL", "5", "start", "W1P", "0", "Write 1 to validate and latch the complete ENC configuration snapshot. START does not reset the frame pipeline and does not start OTF processing. It must complete before the target VSYNC; a late commit applies from the next VSYNC."),
+    ("ENC", h(0x060), "REG_IRQ_CTRL", "6", "Reserved", "-", "-", "Reserved; reads as 0."),
     ("ENC", h(0x064), "REG_STATUS2", "2:0", "irq_status", "RO", "dynamic", "Bit0 any IRQ, bit1 correct IRQ, bit2 error IRQ."),
 ]
 
@@ -114,7 +115,7 @@ for idx, name in enumerate(
     ]
 ):
     addr = 0x068 + (idx * 4)
-    desc = name.replace("REG_", "").lower() + " statistic counter; suffix 0/1 follows fcnt[0] address slot."
+    desc = name.replace("REG_", "").lower() + " statistic counter; suffix 0/1 is the fcnt[0] statistics bucket and is independent of address selection."
     ENC_FIELDS.append(("ENC", h(addr), name, "31:0", name[4:].lower(), "RO", "dynamic", desc))
 
 
@@ -197,35 +198,36 @@ PROGRAMMING = [
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "13", "WRITE 0x050 REG_META_ACTIVE_SIZE", "配置 metadata active width/height。active 尺寸不变时不需要重写。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "14", "WRITE 0x054 REG_META_PITCH", "配置 metadata pitch。宽度和格式不变时不需要重写。"],
     ["ENC 几何配置", "ENC", "图像格式发生变化时配置", "15", "WRITE 0x020 REG_OTF_CFG0", "配置 otf_cfg_format。建议作为 OTF/metadata geometry 组的最后一笔写。"],
-    ["ENC 每帧地址", "ENC", "每帧都要配置", "16", "WRITE 0x030/0x034", "配置下一帧地址组的 Y metadata base 低/高 32 bit；RGBA 使用该槽位存 RGBA metadata。"],
-    ["ENC 每帧地址", "ENC", "每帧都要配置", "17", "WRITE 0x038/0x03C", "配置下一帧地址组的 Y tile data base 低/高 32 bit；RGBA 使用该槽位存 RGBA tile data。"],
-    ["ENC 每帧地址", "ENC", "每帧都要配置", "18", "WRITE 0x040/0x044", "配置 UV metadata base 低/高 32 bit，RGBA 写 0。"],
-    ["ENC 每帧地址", "ENC", "每帧都要配置", "19", "WRITE 0x048", "配置 UV tile data base 低 32 bit，RGBA 写 0。"],
-    ["ENC 每帧地址", "ENC", "每帧都要配置", "20", "WRITE 0x04C REG_TILE_BASE_UV_HI", "配置 UV tile data base 高 32 bit，RGBA 写 0。本写入会提交当前四个 64 bit base address 为一组帧地址，必须最后写。"],
-    ["ENC 启动", "ENC", "每帧", "21", "WRITE 0x060 bit[5]=1", "写 START token。地址写入只填充地址队列，不再作为 start 标志；写 START 后再送入对应 OTF vsync/hsync/de/data。"],
-    ["ENC 监控", "ENC", "运行中", "22", "READ 0x058/0x05C/0x060/0x064", "读取 STATUS0、STATUS1、IRQ_CTRL、STATUS2。addr_cfg_invalid 表示当前 fcnt[0] 对应 slot 没有可用地址配置，是 sticky 错误状态；软件补齐地址并确认队列对齐后，通过 REG_IRQ_CTRL[1] irq_clear 清除。IRQ bit 区分 correct/error pending。"],
-    ["ENC 清中断", "ENC", "软件处理中断后", "23", "WRITE 0x060 bit[1]=1", "清除 ENC 中断 pending。统计计数仍可用于调试。"],
-    ["DEC 静态配置", "DEC", "图像格式发生变化时配置", "24", "WRITE 0x008 APB_ADDR_TILE_CFG0", "配置 bank swizzle、bank spread、4-line format、lossy_rgba_2_1_format。这些配置在 frame start 时锁存到 AXI 域。"],
-    ["DEC 静态配置", "DEC", "图像格式发生变化时配置", "25", "WRITE 0x00C APB_ADDR_TILE_CFG1", "配置 tile_cfg_pitch，单位 16 byte。"],
-    ["DEC CI 配置", "DEC", "图像格式发生变化时配置", "26", "WRITE 0x010 APB_ADDR_TILE_CFG2", "配置 CI input type、lossy、alpha mode。寄存器复位值为 0，普通 tiled UBWC 路径软件应配置 ci_input_type=1。"],
-    ["DEC VIVO 配置", "DEC", "图像格式发生变化时配置", "27", "WRITE 0x014 APB_ADDR_VIVO_CFG", "配置 vivo_ubwc_en 和 vivo_sreset。寄存器复位值为 0，启动 decode 前软件应配置 vivo_ubwc_en=1。"],
-    ["DEC 几何配置", "DEC", "图像格式发生变化时配置", "28", "WRITE 0x018 APB_ADDR_OTF_CFG0", "配置输出 img_width 和 format，同时更新 meta_base_format。"],
-    ["DEC OTF timing", "DEC", "图像格式发生变化时配置", "29", "WRITE 0x01C/0x020", "配置 h_total、h_sync、h_bp、h_act。输出 timing 不变时连续帧不需要重写。"],
-    ["DEC OTF timing", "DEC", "图像格式发生变化时配置", "30", "WRITE 0x024/0x028", "配置 v_total、v_sync、v_bp、v_act。输出 timing 不变时连续帧不需要重写。"],
-    ["DEC 几何配置", "DEC", "图像格式发生变化时配置", "31", "WRITE 0x02C APB_ADDR_META_CFG0", "配置 Y/RGBA 基准 metadata tile_x_numbers 和 tile_y_numbers；YUV420 的 UV metadata tile 数由格式内部推导。"],
-    ["DEC 每帧地址", "DEC", "每帧都要配置", "32", "WRITE 0x030 then 0x034", "配置 RGBA/Y metadata base 低/高 32 bit。"],
-    ["DEC 每帧地址", "DEC", "每帧都要配置", "33", "WRITE 0x038 then 0x03C", "配置 RGBA/Y compressed tile base 低/高 32 bit。"],
-    ["DEC 每帧地址", "DEC", "每帧都要配置", "34", "WRITE 0x040 then 0x044", "配置 UV metadata base 低/高 32 bit。"],
-    ["DEC 每帧地址", "DEC", "每帧都要配置", "35", "WRITE 0x048 then 0x04C", "配置 UV compressed tile base 低/高 32 bit，RGBA 图像不关心。"],
-    ["DEC 启动", "DEC", "每帧", "36", "WRITE 0x060 bit[5]=1", "写 START token。完整地址组和 START token 都有效，且 metadata stage 可接受新帧时，硬件锁存本帧地址并启动 decode。"],
-    ["DEC 监控", "DEC", "运行中", "37", "READ 0x050/0x054/0x060/0x064", "读取 STATUS0、STATUS1、IRQ_CTRL、STATUS4。STATUS1[4] 是 frame_done。STATUS4/IRQ_CTRL 区分 correct/error pending。"],
-    ["DEC 统计", "DEC", "运行中调试", "38", "READ 0x068/0x06C/0x070/0x074/0x078", "读取 metadata tile count、tile address count、OTF tile count、OTF line count、OTF de beat count。"],
-    ["DEC 清中断", "DEC", "软件处理中断后", "39", "WRITE 0x060 bit[1]=1", "清除 DEC 中断 pending。VIVO idle/error 状态和统计计数仍可读。"],
+    ["ENC 单一地址", "ENC", "地址或 layout 变化时配置", "16", "WRITE 0x030/0x034", "配置唯一一组 Y metadata base 低/高 32 bit；RGBA 使用该位置存 RGBA metadata。"],
+    ["ENC 单一地址", "ENC", "地址或 layout 变化时配置", "17", "WRITE 0x038/0x03C", "配置唯一一组 Y tile data base 低/高 32 bit；RGBA 使用该位置存 RGBA tile data。"],
+    ["ENC 单一地址", "ENC", "地址或 layout 变化时配置", "18", "WRITE 0x040/0x044", "配置唯一一组 UV metadata base 低/高 32 bit，RGBA 写 0。"],
+    ["ENC 单一地址", "ENC", "地址或 layout 变化时配置", "19", "WRITE 0x048", "配置唯一一组 UV tile data base 低 32 bit，RGBA 写 0。"],
+    ["ENC 单一地址", "ENC", "地址或 layout 变化时配置", "20", "WRITE 0x04C REG_TILE_BASE_UV_HI", "配置 UV tile data base 高 32 bit，RGBA 写 0。该寄存器必须最后写，用于标记唯一工作地址组完整。"],
+    ["ENC 配置提交", "ENC", "静态配置或地址快照变化时", "21", "WRITE 0x060 bit[5]=1", "写 START 提交并锁存完整配置快照。START 不复位也不启动帧；读取 STATUS0[14] cfg_valid。START 必须在目标 VSYNC 前完成。"],
+    ["ENC 帧启动", "ENC", "每帧", "22", "输入 VSYNC", "每个 VSYNC 上升沿采样 cfg_valid，再触发 AXI drain 和全链路帧复位。采样有效时复位释放后自动运行；所有帧复用最近一次 START 锁存的唯一地址组。采样无效时整帧 o_otf_ready=0。"],
+    ["ENC 监控", "ENC", "运行中", "23", "READ 0x058/0x05C/0x060/0x064", "读取 STATUS0、STATUS1、IRQ_CTRL、STATUS2。cfg_valid 表示 START 提交结果；addr_cfg_valid 表示唯一地址组已锁存且有效；IRQ bit 区分 correct/error pending。"],
+    ["ENC 清中断", "ENC", "软件处理中断后", "24", "WRITE 0x060 bit[1]=1", "清除 ENC 中断 pending。统计计数仍可用于调试。"],
+    ["DEC 静态配置", "DEC", "图像格式发生变化时配置", "25", "WRITE 0x008 APB_ADDR_TILE_CFG0", "配置 bank swizzle、bank spread、4-line format、lossy_rgba_2_1_format。这些配置在 frame start 时锁存到 AXI 域。"],
+    ["DEC 静态配置", "DEC", "图像格式发生变化时配置", "26", "WRITE 0x00C APB_ADDR_TILE_CFG1", "配置 tile_cfg_pitch，单位 16 byte。"],
+    ["DEC CI 配置", "DEC", "图像格式发生变化时配置", "27", "WRITE 0x010 APB_ADDR_TILE_CFG2", "配置 CI input type、lossy、alpha mode。寄存器复位值为 0，普通 tiled UBWC 路径软件应配置 ci_input_type=1。"],
+    ["DEC VIVO 配置", "DEC", "图像格式发生变化时配置", "28", "WRITE 0x014 APB_ADDR_VIVO_CFG", "配置 vivo_ubwc_en 和 vivo_sreset。寄存器复位值为 0，启动 decode 前软件应配置 vivo_ubwc_en=1。"],
+    ["DEC 几何配置", "DEC", "图像格式发生变化时配置", "29", "WRITE 0x018 APB_ADDR_OTF_CFG0", "配置输出 img_width 和 format，同时更新 meta_base_format。"],
+    ["DEC OTF timing", "DEC", "图像格式发生变化时配置", "30", "WRITE 0x01C/0x020", "配置 h_total、h_sync、h_bp、h_act。输出 timing 不变时连续帧不需要重写。"],
+    ["DEC OTF timing", "DEC", "图像格式发生变化时配置", "31", "WRITE 0x024/0x028", "配置 v_total、v_sync、v_bp、v_act。输出 timing 不变时连续帧不需要重写。"],
+    ["DEC 几何配置", "DEC", "图像格式发生变化时配置", "32", "WRITE 0x02C APB_ADDR_META_CFG0", "配置 Y/RGBA 基准 metadata tile_x_numbers 和 tile_y_numbers；YUV420 的 UV metadata tile 数由格式内部推导。"],
+    ["DEC 每帧地址", "DEC", "每帧都要配置", "33", "WRITE 0x030 then 0x034", "配置 RGBA/Y metadata base 低/高 32 bit。"],
+    ["DEC 每帧地址", "DEC", "每帧都要配置", "34", "WRITE 0x038 then 0x03C", "配置 RGBA/Y compressed tile base 低/高 32 bit。"],
+    ["DEC 每帧地址", "DEC", "每帧都要配置", "35", "WRITE 0x040 then 0x044", "配置 UV metadata base 低/高 32 bit。"],
+    ["DEC 每帧地址", "DEC", "每帧都要配置", "36", "WRITE 0x048 then 0x04C", "配置 UV compressed tile base 低/高 32 bit，RGBA 图像不关心。"],
+    ["DEC 启动", "DEC", "每帧", "37", "WRITE 0x060 bit[5]=1", "写 START token。完整地址组和 START token 都有效，且 metadata stage 可接受新帧时，硬件锁存本帧地址并启动 decode。"],
+    ["DEC 监控", "DEC", "运行中", "38", "READ 0x050/0x054/0x060/0x064", "读取 STATUS0、STATUS1、IRQ_CTRL、STATUS4。STATUS1[4] 是 frame_done。STATUS4/IRQ_CTRL 区分 correct/error pending。"],
+    ["DEC 统计", "DEC", "运行中调试", "39", "READ 0x068/0x06C/0x070/0x074/0x078", "读取 metadata tile count、tile address count、OTF tile count、OTF line count、OTF de beat count。"],
+    ["DEC 清中断", "DEC", "软件处理中断后", "40", "WRITE 0x060 bit[1]=1", "清除 DEC 中断 pending。VIVO idle/error 状态和统计计数仍可读。"],
     [],
     ["格式", "编码", "tile_w", "tile_h", "bpp", "配置复用说明"],
-    ["RGBA8888", "0", "16", "4", "4", "格式和尺寸不变时，tile/OTF/meta geometry 可复用；每帧只更新 base address。"],
-    ["RGBA1010102", "1", "16", "4", "4", "几何规则同 RGBA8888；只换 buffer 地址时不需要重配 geometry。"],
-    ["YUV420_8/NV12", "2", "32", "8", "1(Y),2(UV pair)", "Y/UV 有独立 metadata/tile base；新 buffer 必须写每帧地址。"],
+    ["RGBA8888", "0", "16", "4", "4", "格式、尺寸和输出 buffer 不变时，静态配置与唯一地址组均可持续复用。"],
+    ["RGBA1010102", "1", "16", "4", "4", "几何规则同 RGBA8888；更换 buffer 地址后重新写完整地址组并写 START。"],
+    ["YUV420_8/NV12", "2", "32", "8", "1(Y),2(UV pair)", "Y/UV 使用唯一一组独立 metadata/tile base；地址变化后重新写完整地址组并写 START。"],
     ["YUV420_10/P010", "3", "32", "4", "2(Y),4(UV pair)", "tile count 规则按 P010 tile_h=4 计算，pitch 使用 16 bit component 存储计算。"],
 ]
 
@@ -233,8 +235,9 @@ PROGRAMMING = [
 ADDRESS_RULES = [
     ["Item", "Rule"],
     ["Address map", "APB registers are 32-bit word aligned. ENC defined range is 0x000..0x09C. DEC defined range is 0x000..0x078."],
-    ["ENC address slots", "Two alternating address slots hold frame address sets for fcnt[0]=0/1. Each entry contains Y metadata base, Y tile base, UV metadata base, and UV tile base."],
-    ["ENC address commit", "Write REG_TILE_BASE_UV_HI @0x04C last. That write snapshots the current META_BASE_Y, TILE_BASE_Y, META_BASE_UV and the just-written TILE_BASE_UV value. A separate IRQ_CTRL[5] start write is still required for the frame."],
+    ["ENC single address set", "ENC has one address set containing Y metadata base, Y tile base, UV metadata base, and UV tile base. fcnt does not select an address."],
+    ["ENC address commit", "Write REG_TILE_BASE_UV_HI @0x04C last to mark the working address set complete. Write IRQ_CTRL[5] START to validate and latch the complete snapshot, then check STATUS0[14] cfg_valid and STATUS0[10] addr_cfg_valid."],
+    ["ENC frame reset", "Every input VSYNC rising edge samples the committed configuration, requests AXI drain, and resets the frame pipeline. Processing starts automatically after reset release only when the sampled result is valid. Frames reuse the same latched addresses until a later START updates them."],
     ["DEC address set", "Software writes metadata/tile bases for RGBA/Y and UV. A complete address set plus a separate IRQ_CTRL[5] start write is required for each frame."],
     ["DEC start token", "A decode frame starts when a complete DEC address set and a START token are both valid, metadata is not busy, and the metadata launch slot is free."],
     ["Contiguous UBWC layout", "For YUV: Y metadata, Y tile data, UV metadata, UV tile data. For RGBA: RGBA metadata and RGBA tile data are enough; unused Y/UV partner bases may be written 0 as required by the wrapper path."],
@@ -260,12 +263,14 @@ def access_cn(access: str) -> str:
 
 def cfg_note(block: str, addr: str, field: str, access: str) -> str:
     addr_i = int(addr, 16)
+    if access == "-":
+        return "-"
     if field in {"version", "date"}:
         return "上电后读取一次，用于确认软件和 RTL 版本匹配。"
     if field == "start":
+        if block == "ENC":
+            return "静态配置和唯一地址组准备完成后写 1；再读取 STATUS0[14] cfg_valid 和 STATUS0[10] addr_cfg_valid。START 不启动帧。"
         return "每帧地址组写完整后写 1；读回为 0。地址写入不再单独启动帧。"
-    if field == "vsync_reset_en":
-        return "按系统策略配置；置 1 后 ENC 输入 VSYNC 上升沿会触发软复位并重新 arm frame start。"
     if "irq_enable" in field:
         return "上电后或中断策略变化时配置。"
     if "irq_clear" in field:
@@ -274,8 +279,8 @@ def cfg_note(block: str, addr: str, field: str, access: str) -> str:
         return "运行中或中断后读取，用于调试和状态确认。"
     if block == "ENC" and 0x030 <= addr_i <= 0x04C:
         if addr == h(0x04C):
-            return "每帧配置；该高 32 bit 写入必须最后写，会提交当前四个 base 地址为一组帧地址。"
-        return "每帧配置，低/高 32 bit 共同组成 64 bit base 地址。"
+            return "地址或 layout 变化时配置；该高 32 bit 必须最后写，用于标记唯一地址组完整，随后写 START 锁存。"
+        return "地址或 layout 变化时配置；低/高 32 bit 共同组成唯一地址组中的一个 64 bit base 地址。"
     if block == "DEC" and addr_i in {0x030, 0x034, 0x038, 0x03C, 0x040, 0x044, 0x048, 0x04C}:
         if addr_i in {0x034, 0x03C, 0x044, 0x04C}:
             return "每帧配置；低/高 32 bit 写完整后形成该 base 地址。"
@@ -289,12 +294,14 @@ def cfg_note(block: str, addr: str, field: str, access: str) -> str:
 
 def cfg_note_en(block: str, addr: str, field: str, access: str) -> str:
     addr_i = int(addr, 16)
+    if access == "-":
+        return "-"
     if field in {"version", "date"}:
         return "Read once after reset to confirm software/RTL compatibility."
     if field == "start":
+        if block == "ENC":
+            return "Write after static configuration and the single address set are ready; then read STATUS0[14] cfg_valid and STATUS0[10] addr_cfg_valid. START does not start a frame."
         return "Write 1 after the per-frame address group is complete; readback is 0. Address writes do not start a frame by themselves."
-    if field == "vsync_reset_en":
-        return "Configure according to the system policy. When set, ENC input VSYNC rising edges trigger a soft reset and re-arm frame start."
     if "irq_enable" in field:
         return "Configure after reset or when the interrupt policy changes."
     if "irq_clear" in field:
@@ -303,8 +310,8 @@ def cfg_note_en(block: str, addr: str, field: str, access: str) -> str:
         return "Read during runtime or after interrupt handling for status/debug."
     if block == "ENC" and 0x030 <= addr_i <= 0x04C:
         if addr == h(0x04C):
-            return "Per-frame configuration. This high-word write must be last and commits the four base addresses as one frame address group."
-        return "Per-frame configuration. Low/high words form one 64-bit base address."
+            return "Configure when the address or layout changes. Write this high word last to mark the single address set complete, then issue START to latch it."
+        return "Configure when the address or layout changes. Low/high words form one 64-bit base address in the single address set."
     if block == "DEC" and addr_i in {0x030, 0x034, 0x038, 0x03C, 0x040, 0x044, 0x048, 0x04C}:
         if addr_i in {0x034, 0x03C, 0x044, 0x04C}:
             return "Per-frame configuration. Low/high words complete this base address."
@@ -422,10 +429,10 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
         return "metadata co-buffer overflow 错误状态。"
     if lower == "meta_err_1":
         return "metadata tile order 错误状态。"
-    if "addr_cfg_overflow" in lower:
-        return "地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 REG_TILE_BASE_UV_HI 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 REG_IRQ_CTRL[1] irq_clear 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 enc_ubwc_en 后重新配置。"
     if "rst_drain_timeout" in lower:
         return "软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 16'hffff 个 i_axi_clk 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 REG_IRQ_CTRL[1] irq_clear 或硬复位后清零。"
+    if lower == "cfg_valid":
+        return "最近一次 START 配置提交结果；格式、尺寸、layout 和单一地址配置完整时为 1。为 0 时 ENC 保持 OTF 反压。"
     if "busy" in lower:
         return "对应处理 stage 的 busy 状态。"
     if "idle" in lower:
@@ -441,11 +448,9 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
     if "frame_done" in lower:
         return "当前/上一帧处理完成状态。"
     if "addr_cfg_invalid" in lower:
-        return "当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 fcnt[0] 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 active_addr_cfg_valid 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 fcnt[0] 对齐后，再写 REG_IRQ_CTRL[1] irq_clear 清 sticky 状态；关闭 enc_ubwc_en 或硬复位也会清零。"
-    if "addr_cfg_valid0" in lower:
-        return "ENC 地址 slot0 中存在已配置地址。"
-    if "addr_cfg_valid1" in lower:
-        return "ENC 地址 slot1 中存在已配置地址。"
+        return "单一地址配置无效 sticky 状态；数据链路检查地址时，如果最近一次 START 锁存的 META Y、TILE Y、META UV、TILE UV 地址组无效，则该 bit 置 1 并保持，同时参与 error IRQ。软件应按顺序重写完整地址组，写 START 锁存，再写 REG_IRQ_CTRL[1] irq_clear 清除旧错误。关闭 enc_ubwc_en 或硬复位也会清零。"
+    if lower == "addr_cfg_valid":
+        return "最近一次 START 已锁存一组完整有效的 META/TILE 基地址；后续帧持续复用，直到下一次 START 更新。"
     if "stage_done" in lower:
         return "stage done 位图。"
     if "stage_seen" in lower:
@@ -455,9 +460,11 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
     if "irq_clear" in lower:
         return "中断清除写 1 脉冲。"
     if lower == "start":
-        return "帧 START 写 1 脉冲；地址组写完后再写该 bit 启动本帧。"
-    if lower == "vsync_reset_en":
-        return "ENC 输入 VSYNC 上升沿触发整条 ENC 链路软复位；复位通过 AXI drain reset sequencer 执行。"
+        if block == "ENC":
+            return "写 1 校验并锁存 ENC 配置快照，不启动帧。"
+        return "写 1 产生 DEC decode START token。"
+    if lower == "reserved":
+        return "保留，读回 0。"
     if "irq_pending" in lower:
         return "任意中断 pending 状态。"
     if "irq_correct_pending" in lower:
@@ -479,7 +486,7 @@ def desc_cn(block: str, reg: str, field: str, desc: str) -> str:
             return "DEC OTF 输出 de && ready 有效 beat 计数。"
         return "DEC 统计计数器。"
     if lower.endswith("_cnt") or "_cnt" in lower or "count" in lower:
-        return "ENC 统计计数器；后缀 0/1 对应 fcnt[0] 地址 slot。"
+        return "ENC 统计计数器；后缀 0/1 仅按 fcnt[0] 分组统计，与地址选择无关。"
     return desc
 
 
@@ -784,7 +791,7 @@ def main() -> None:
         ("ubwc_enc_apb", enc_rows, table_widths, {1}),
         ("ubwc_dec_apb", dec_rows, table_widths, {1}),
         ("Overview", overview_rows(), [34, 120], {1}),
-        ("Programming_Guide", PROGRAMMING, [24, 10, 36, 8, 34, 110], {1, 42}),
+        ("Programming_Guide", PROGRAMMING, [24, 10, 36, 8, 34, 110], {1, 43}),
         ("Address_Rules", ADDRESS_RULES, [28, 120], {1}),
     ]
     enc_sheets = [
@@ -806,14 +813,15 @@ def main() -> None:
             ["UBWC ENC/DEC APB 中文寄存器表"],
             ["生成时间", datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
             ["说明", "本 workbook 是中文版寄存器表；ENC/DEC 地址组、连续帧、中断和统计寄存器已按当前 RTL 语义更新。"],
-            ["配置频率", "静态/几何/CI/VIVO/OTF timing 在图像格式、尺寸、layout 或 timing 变化时配置；地址组每帧配置。"],
+            ["配置频率", "ENC 静态/几何/CI 与唯一地址组在格式、尺寸、layout 或地址变化时配置并写 START 锁存；连续帧可复用。DEC 地址组仍按帧配置。"],
         ], [34, 120], {1}),
-        ("配置流程", PROGRAMMING, [24, 10, 36, 8, 34, 110], {1, 42}),
+        ("配置流程", PROGRAMMING, [24, 10, 36, 8, 34, 110], {1, 43}),
         ("地址规则", [
             ["项目", "规则"],
             ["地址映射", "APB 寄存器为 32-bit 对齐访问。ENC 当前范围 0x000..0x09C，DEC 当前范围 0x000..0x078。"],
-            ["ENC 地址 slot", "ENC 使用两个交替地址 slot，对应 fcnt[0]=0/1。每项包含 Y metadata base、Y tile base、UV metadata base、UV tile base。"],
-            ["ENC 地址提交", "每帧写完四个 64-bit base 后，最后写 REG_TILE_BASE_UV_HI @0x04C。该写入会提交当前四个 base 为一组帧地址。"],
+            ["ENC 唯一地址组", "ENC 仅保留一组 Y metadata、Y tile、UV metadata、UV tile base；fcnt 不参与地址选择。"],
+            ["ENC 地址提交", "四个 64-bit base 写完后，最后写 REG_TILE_BASE_UV_HI @0x04C 标记工作地址组完整；再写 IRQ_CTRL[5] START 锁存快照，并读取 STATUS0[14] cfg_valid 和 STATUS0[10] addr_cfg_valid。"],
+            ["ENC 帧控制", "每个输入 VSYNC 上升沿采样配置有效性并触发 AXI drain 和帧级全链路复位；采样有效时复位释放后自动运行。连续帧复用同一地址，直到下一次 START 更新。"],
             ["DEC 地址组", "DEC 每帧写 metadata/tile 的 RGBA/Y 与 UV base 地址。完整地址组有效后可启动 decode。"],
             ["DEC START", "完整 DEC 地址组和 START token 都有效、metadata 不 busy、launch slot 可用时，硬件锁存本帧地址并启动 decode。"],
             ["连续 layout", "YUV 通常按 Y metadata、Y tile data、UV metadata、UV tile data 连续排列。RGBA 只需要 RGBA metadata 和 RGBA tile data。"],

@@ -177,7 +177,7 @@ poll_until((read(0x0050) & (1 << 6)) != 0);  // STATUS0.frame_idle_done
 
 Module: `ubwc_enc_apb_reg_blk`
 
-The encoder now uses `IRQ_CTRL[5]` as the APB start token. Software should program one output address group, write `IRQ_CTRL[5]=1`, then send the matching upstream OTF frame. Address writes only queue addresses; they no longer start a frame by themselves. Optional `IRQ_CTRL[6]` enables VSYNC-triggered encoder soft reset; the reset request is routed through the AXI-drain reset sequencer and re-arms frame start after reset release.
+The encoder uses `IRQ_CTRL[5]` as a configuration-commit pulse. Software programs the static fields and the single output address group, writes `IRQ_CTRL[5]=1`, and checks `STATUS0[10] addr_cfg_valid` and `STATUS0[14] cfg_valid`. START only validates and latches a complete working snapshot; it does not reset or start a frame. Every input VSYNC rising edge samples the committed configuration, requests AXI drain and a frame-level ENC reset, and processing starts automatically after reset release only when that sampled result is valid. All frames reuse the same latched address group until software writes a new group and issues START again. `IRQ_CTRL[6]` is reserved.
 
 Recommended configuration order:
 
@@ -185,7 +185,7 @@ Recommended configuration order:
 2. Program tile and metadata base addresses.
 3. Program `ENC_CI_CFG1/2/3`, then `ENC_CI_CFG0`.
 4. Program `OTF_CFG1/2/3`, `META_ACTIVE_SIZE`, and `META_PITCH`, then `OTF_CFG0`.
-5. Write `IRQ_CTRL[5]=1`, then start sending `i_otf_*`. If VSYNC reset mode is required, set `IRQ_CTRL[6]=1` before the input VSYNC arrives.
+5. Write `IRQ_CTRL[5]=1`, poll `STATUS0[10]` and `STATUS0[14]` until the committed address/configuration is valid, then provide the frame `i_otf_fcnt` and VSYNC. Hardware samples configuration validity at that VSYNC, resets and re-arms the frame pipeline automatically. `i_otf_fcnt` remains part of AXI ID, SB, and statistics tracking, but it does not select an address.
 
 ### Encoder Register Summary
 
@@ -264,7 +264,7 @@ Recommended configuration order:
 | `0x0040` | `REG_META_BASE_UV_LO` | `[31:0]` | `meta_uv_base_addr[31:0]` | `RW` | Low 32 bits of UV metadata base address; RGBA formats write 0 |
 | `0x0044` | `REG_META_BASE_UV_HI` | `[31:0]` | `meta_uv_base_addr[63:32]` | `RW` | High 32 bits of UV metadata base address |
 | `0x0048` | `REG_TILE_BASE_UV_LO` | `[31:0]` | `uv_base_addr[31:0]` | `RW` | Low 32 bits of UV compressed-data base address; RGBA formats write 0 |
-| `0x004c` | `REG_TILE_BASE_UV_HI` | `[31:0]` | `uv_base_addr[63:32]` | `RW` | High 32 bits of UV compressed-data base address. Address set becomes eligible only after software writes `IRQ_CTRL[5]=1`. |
+| `0x004c` | `REG_TILE_BASE_UV_HI` | `[31:0]` | `uv_base_addr[63:32]` | `RW` | High 32 bits of UV compressed-data base address. The address group is included in the working snapshot only after software writes `IRQ_CTRL[5]=1`. |
 | `0x0050` | `META_ACTIVE_SIZE` | `[15:0]` | `active_width_px` | `RW` | Metadata active-area width in pixels |
 | `0x0050` | `META_ACTIVE_SIZE` | `[31:16]` | `active_height_px` | `RW` | Metadata active-area height in pixels |
 | `0x0054` | `META_PITCH` | `[31:0]` | `meta_data_plane_pitch` | `RW` | Metadata pitch. Program `align_up((align_up(width, tile_w * 4) + tile_w - 1) / tile_w, 64)`, matching `ubwc_demo.cpp`; current encoder metadata address path uses `meta_data_plane_pitch << 4` as byte stride. Example NV12 1996x1074 Y plane: `align_up((align_up(1996,128)+32-1)/32,64)=64`; UV plane example also uses `meta_pitch=64`. |
@@ -277,25 +277,27 @@ Recommended configuration order:
 | `0x0058` | `STATUS0` | `[6]` | `meta_err_0` | `RO` | Metadata co-buffer overflow error |
 | `0x0058` | `STATUS0` | `[7]` | `meta_err_1` | `RO` | Metadata tile-order error |
 | `0x0058` | `STATUS0` | `[8]` | `frame_done` | `RO` | Frame-done status from encoder wrapper |
-| `0x0058` | `STATUS0` | `[9]` | `addr_cfg_invalid` | `RO` | Sticky current-slot address-not-configured error. The ENC data path selects address slot0 or slot1 from the current frame `fcnt[0]`. When hardware checks the current slot address validity and the selected address FIFO is empty, `active_addr_cfg_valid` is 0, this bit is set and held, and the condition contributes to error IRQ. |
-| `0x0058` | `STATUS0` | `[10]` | `addr_cfg_valid0` | `RO` | Address slot 0 has a configured entry |
-| `0x0058` | `STATUS0` | `[11]` | `addr_cfg_valid1` | `RO` | Address slot 1 has a configured entry |
-| `0x0058` | `STATUS0` | `[12]` | `addr_cfg_overflow` | `RO` | Sticky address-configuration FIFO overflow status. One frame address group contains four 64-bit base addresses: META Y, TILE Y, META UV, and TILE UV. Software commits one address group by writing `REG_TILE_BASE_UV_HI`. The APB block alternates committed groups into slot0/slot1 address FIFOs; each slot FIFO depth is 4. If the selected slot FIFO is full when the commit write occurs, the current address group is not pushed, this bit is set and held, and the condition contributes to error IRQ. |
+| `0x0058` | `STATUS0` | `[9]` | `addr_cfg_invalid` | `RO` | Sticky single-address-group invalid error. It is set if ENC checks the address configuration while the group latched by the most recent START is invalid; the condition contributes to error IRQ. |
+| `0x0058` | `STATUS0` | `[10]` | `addr_cfg_valid` | `RO` | The single META/TILE address group latched by the most recent START is valid. |
+| `0x0058` | `STATUS0` | `[11]` | `Reserved` | `-` | Reserved; reads as 0. |
+| `0x0058` | `STATUS0` | `[12]` | `Reserved` | `-` | Reserved; reads as 0. |
 | `0x0058` | `STATUS0` | `[13]` | `rst_drain_timeout` | `RO` | Sticky AXI drain timeout during encoder soft reset. Before asserting internal soft reset, ENC stops issuing new AXI writes and waits for tile/meta AXI write outstanding transactions to drain. If idle is not reached within `16'hffff` `i_axi_clk` cycles, this bit is set and held until `REG_IRQ_CTRL[1] irq_clear` or hard reset. |
+| `0x0058` | `STATUS0` | `[14]` | `cfg_valid` | `RO` | Result of the most recent START configuration commit. Set when format, geometry, tile/metadata parameters, and the single address group are valid. When clear, ENC holds `o_otf_ready` low. |
 | `0x005c` | `STATUS1` | `[7:0]` | `stage_done` | `RO` | Encoder stage-done bitmap |
 | `0x0060` | `IRQ_CTRL` | `[0]` | `irq_enable` | `RW` | IRQ enable. Register reset is `0`; software should write `1` when IRQ output is required. |
 | `0x0060` | `IRQ_CTRL` | `[1]` | `irq_clear` | `W1P` | Write `1` to generate an IRQ clear pulse in encoder clock domain |
 | `0x0060` | `IRQ_CTRL` | `[2]` | `irq_pending` | `RO` | Current IRQ pending status |
 | `0x0060` | `IRQ_CTRL` | `[3]` | `irq_correct_pending` | `RO` | Correct/frame IRQ pending status |
 | `0x0060` | `IRQ_CTRL` | `[4]` | `irq_error_pending` | `RO` | Error IRQ pending status |
-| `0x0060` | `IRQ_CTRL` | `[5]` | `start` | `W1P` | Write `1` after one full output address group has been configured. Readback is `0`. |
-| `0x0060` | `IRQ_CTRL` | `[6]` | `vsync_reset_en` | `RW` | When set, an input `i_otf_vsync` rising edge triggers encoder soft reset through AXI drain and re-arms frame start after reset release. |
+| `0x0060` | `IRQ_CTRL` | `[5]` | `start` | `W1P` | Write `1` to validate and latch the complete ENC configuration snapshot. START does not reset or start frame processing. Readback is `0`. |
+| `0x0060` | `IRQ_CTRL` | `[6]` | `Reserved` | `-` | Reserved; reads as `0`. |
 
 Encoder completion hint:
 
 ```text
 write(0x0060, (1 << 5) | irq_enable);
-start_otf_input_stream();
+poll_until((read(0x0058) & (1 << 14)) != 0);
+provide_otf_fcnt_and_vsync();
 poll_until((read(0x0058) & (1 << 0)) != 0);  // STATUS0.enc_idle
 check((read(0x0058) & 0x0000007e) == 0);     // no error bits
 ```

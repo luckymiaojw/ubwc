@@ -2476,7 +2476,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             );
 
             ubwc_enc_wrapper_top #(
-                .SB_WIDTH                         (1),
+                .SB_WIDTH                         (36),
                 .APB_AW                           (APB_AW),
                 .APB_DW                           (APB_DW),
                 .AXI_AW                           (AXI_AW),
@@ -2590,7 +2590,7 @@ module tb_ubwc_dec_wrapper_top_tajmahal_core #(
             assign loop_enc_coord_is_uv_plane    = enc_dut.ubwc_enc_otf_to_tile_inst.coord_is_uv_plane;
             assign loop_enc_coord_yuv_last_uv    = enc_dut.ubwc_enc_otf_to_tile_inst.coord_yuv_last_uv;
             assign loop_enc_coord_frame_last     = enc_dut.ubwc_enc_otf_to_tile_inst.coord_frame_last;
-            assign loop_enc_addr_cfg_done_pulse  = enc_dut.ubwc_enc_otf_to_tile_inst.o_addr_cfg_done_pulse;
+            assign loop_enc_addr_cfg_done_pulse  = enc_dut.ubwc_enc_otf_to_tile_inst.o_correct_irq_pulse;
             assign loop_enc_correct_irq_pulse    = enc_dut.ubwc_enc_otf_to_tile_inst.o_correct_irq_pulse;
             assign loop_enc_l2t_rd_state         = enc_dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_state;
             assign loop_enc_l2t_rd_plane         = enc_dut.ubwc_enc_otf_to_tile_inst.u_line_to_tile.rd_plane;

@@ -16,7 +16,6 @@
 
 module ubwc_enc_meta_addr_gen
     #(
-        parameter                                       SB_WIDTH                        = 1,
         parameter                                       IN_FIFO_DEPTH                   = 32,
         parameter                                       META_AW                         = 64,
         parameter                                       TH_DW                           = 12,
@@ -28,15 +27,11 @@ module ubwc_enc_meta_addr_gen
         input   wire    [32                  -1 :0]         i_meta_data_plane_pitch         ,
         input   wire    [TW_DW               -1 :0]         i_meta_last_xcoord              ,
 
-        input   wire    [64                  -1 :0]         i_meta_y_base_offset_addr0      ,
-        input   wire    [64                  -1 :0]         i_meta_uv_base_offset_addr0     ,
-        input   wire    [64                  -1 :0]         i_meta_y_base_offset_addr1      ,
-        input   wire    [64                  -1 :0]         i_meta_uv_base_offset_addr1     ,
+        input   wire    [64                  -1 :0]         i_meta_y_base_offset_addr       ,
+        input   wire    [64                  -1 :0]         i_meta_uv_base_offset_addr      ,
 
         input   wire                                        i_co_valid                      ,
         input   wire    [3                   -1 :0]         i_co_alen                       ,
-        input   wire                                        i_co_pcm                        ,
-        input   wire    [SB_WIDTH            -1 :0]         i_co_sb                         ,
         input   wire    [5                   -1 :0]         i_format                        ,
         input   wire    [4                   -1 :0]         i_fcnt                          ,
         input   wire    [TH_DW               -1 :0]         i_ycoord                        ,
@@ -56,7 +51,7 @@ module ubwc_enc_meta_addr_gen
         output  logic                                       o_frame_done
     );
 
-    localparam                                      IN_DATA_W                       = 3+SB_WIDTH+5+4+TH_DW+TW_DW;
+    localparam                                      IN_DATA_W                       = 3+5+4+TH_DW+TW_DW;
     localparam  [4                      :0]         FMT_NV12_UV                     = 5'd9;
     localparam  [4                      :0]         FMT_P010_UV                     = 5'd15;
     localparam  integer                             META_Y_GROUP_W                  = TH_DW - 4;
@@ -65,7 +60,6 @@ module ubwc_enc_meta_addr_gen
 
     wire                                            co_buf_full                     ;
     wire        [3                   -1 :0]         int_co_alen                     ;
-    wire        [SB_WIDTH            -1 :0]         int_co_sb                       ;
     wire        [5                   -1 :0]         int_format                      ;
     wire        [4                   -1 :0]         int_fcnt                        ;
     wire        [TH_DW               -1 :0]         int_ycoord                      ;
@@ -84,12 +78,8 @@ module ubwc_enc_meta_addr_gen
     wire        [META_AW             -1 :0]         tile_meta_base_addr             ;
     wire        [META_AW             -1 :0]         tile_meta_pitch_stride_w        ;
     wire        [META_AW             -1 :0]         tile_meta_y_base_addr_next      ;
-    wire        [META_AW             -1 :0]         tile_meta_y_base_addr_sel       ;
     wire        [META_Y_GROUP_W      -1 :0]         tile_meta_y_group_w             ;
-    wire        [META_Y_GROUP_W      -1 :0]         tile_meta_y_group_sel           ;
     wire        [META_Y_GROUP_W      -1 :0]         tile_meta_y_group_inc_w         ;
-    wire                                            tile_meta_y_base_valid_sel      ;
-    wire                                            tile_meta_y_base_slot_sel       ;
     wire                                            tile_meta_addr_fire             ;
     wire                                            tile_meta_same_stream_w         ;
     wire                                            tile_meta_group_restart_w       ;
@@ -97,9 +87,6 @@ module ubwc_enc_meta_addr_gen
     wire                                            tile_meta_group_next_w          ;
     wire                                            tile_meta_order_err_w           ;
     wire        [META_TILE_OFFSET_W  -1 :0]         tile_meta_offset_w              ;
-    wire                                            tile_meta_row_same_w            ;
-    wire        [TW_DW               -1 :0]         tile_meta_row_count_w           ;
-    wire                                            tile_meta_row_last_w            ;
     wire        [META_ADDR_FIFO_W    -1 :0]         meta_addr_fifo_din              ;
     wire        [META_ADDR_FIFO_W    -1 :0]         meta_addr_fifo_dout             ;
 
@@ -109,20 +96,11 @@ module ubwc_enc_meta_addr_gen
     reg         [3                      :0]         tile_meta_fcnt                  ;
     reg         [63                     :0]         tile_meta_word_data_w           ;
     reg         [META_AW             -1 :0]         tile_meta_addr                  ;
-    reg         [META_AW             -1 :0]         tile_meta_y_base_addr_y_r       ;
-    reg         [META_AW             -1 :0]         tile_meta_y_base_addr_uv_r      ;
-    reg         [META_Y_GROUP_W      -1 :0]         tile_meta_y_group_y_r           ;
-    reg         [META_Y_GROUP_W      -1 :0]         tile_meta_y_group_uv_r          ;
-    reg                                             tile_meta_y_base_valid_y_r      ;
-    reg                                             tile_meta_y_base_valid_uv_r     ;
-    reg                                             tile_meta_y_base_slot_y_r       ;
-    reg                                             tile_meta_y_base_slot_uv_r      ;
-    reg                                             tile_meta_row_valid_r           ;
-    reg         [4                   -1 :0]         tile_meta_row_fcnt_r            ;
-    reg         [SB_WIDTH            -1 :0]         tile_meta_row_sb_r              ;
-    reg                                             tile_meta_row_plane_r           ;
-    reg         [TH_DW               -1 :0]         tile_meta_row_ycoord_r          ;
-    reg         [TW_DW               -1 :0]         tile_meta_row_count_r           ;
+    reg         [META_AW             -1 :0]         tile_meta_y_base_addr_r         ;
+    reg         [META_Y_GROUP_W      -1 :0]         tile_meta_y_group_r             ;
+    reg                                             tile_meta_y_base_valid_r        ;
+    reg                                             tile_meta_y_base_plane_r        ;
+    reg                                             tile_meta_y_base_slot_r         ;
     reg                                             tile_meta_order_err_r           ;
 
     mg_sync_fifo
@@ -153,18 +131,17 @@ module ubwc_enc_meta_addr_gen
 
     //pop_cnt
 
-    assign in_fifo_push_data          = {i_co_alen, i_co_sb, i_format, i_fcnt, i_ycoord, i_xcoord};
+    assign in_fifo_push_data          = {i_co_alen, i_format, i_fcnt, i_ycoord, i_xcoord};
     assign int_xcoord                 = in_fifo_pop_data[0                        +:TW_DW     ];
     assign int_ycoord                 = in_fifo_pop_data[TW_DW                    +:TH_DW     ];
     assign int_fcnt                   = in_fifo_pop_data[TH_DW+TW_DW              +:4         ];
     assign int_format                 = in_fifo_pop_data[TH_DW+TW_DW+4            +:5         ];
-    assign int_co_sb                  = in_fifo_pop_data[TH_DW+TW_DW+4+5          +:SB_WIDTH  ];
-    assign int_co_alen                = in_fifo_pop_data[TH_DW+TW_DW+4+5+SB_WIDTH +:3         ];
-    assign tile_meta_fill_byte_w      = {3'b000, 1'b1, int_co_alen, 1'b0};
+    assign int_co_alen                = in_fifo_pop_data[TH_DW+TW_DW+4+5          +:3         ];
+    assign tile_meta_fill_byte_w      = {4'h1, int_co_alen, 1'b0};
     assign co_buffer_overflow         = i_co_valid & co_buf_full;
     assign tile_meta_addr_base_w      = ((int_format == FMT_NV12_UV) || (int_format == FMT_P010_UV)) ? 1'b1 : 1'b0;
-    assign tile_meta_y_base_sel       = int_co_sb[0] ? i_meta_y_base_offset_addr1  : i_meta_y_base_offset_addr0;
-    assign tile_meta_uv_base_sel      = int_co_sb[0] ? i_meta_uv_base_offset_addr1 : i_meta_uv_base_offset_addr0;
+    assign tile_meta_y_base_sel       = i_meta_y_base_offset_addr;
+    assign tile_meta_uv_base_sel      = i_meta_uv_base_offset_addr;
     assign tile_meta_base_addr        = tile_meta_addr_base_w ? tile_meta_uv_base_sel : tile_meta_y_base_sel;
     assign tile_meta_pitch_stride_w   = {{(META_AW-36){1'b0}}, i_meta_data_plane_pitch, 4'd0};
     assign tile_meta_word_w           = {tile_meta_addr[4:3], tile_meta_word_data_w};
@@ -175,37 +152,23 @@ module ubwc_enc_meta_addr_gen
                                          ,int_xcoord[0+:3]};
     assign tile_meta_addr_fire        = in_fifo_pop_valid && in_fifo_pop_ready && (int_xcoord[2:0] == 3'd0);
     assign tile_meta_y_group_w        = int_ycoord[TH_DW-1:4];
-    assign tile_meta_y_base_addr_sel  = tile_meta_addr_base_w ? tile_meta_y_base_addr_uv_r :
-                                                                 tile_meta_y_base_addr_y_r;
-    assign tile_meta_y_group_sel      = tile_meta_addr_base_w ? tile_meta_y_group_uv_r :
-                                                                 tile_meta_y_group_y_r;
-    assign tile_meta_y_base_valid_sel = tile_meta_addr_base_w ? tile_meta_y_base_valid_uv_r :
-                                                                 tile_meta_y_base_valid_y_r;
-    assign tile_meta_y_base_slot_sel  = tile_meta_addr_base_w ? tile_meta_y_base_slot_uv_r :
-                                                                 tile_meta_y_base_slot_y_r;
-    assign tile_meta_y_group_inc_w    = tile_meta_y_group_sel + {{(META_Y_GROUP_W-1){1'b0}}, 1'b1};
-    assign tile_meta_same_stream_w    = tile_meta_y_base_valid_sel &&
-                                        (tile_meta_y_base_slot_sel == int_co_sb[0]);
+    assign tile_meta_y_group_inc_w    = tile_meta_y_group_r + {{(META_Y_GROUP_W-1){1'b0}}, 1'b1};
+    assign tile_meta_same_stream_w    = tile_meta_y_base_valid_r &&
+                                        (tile_meta_y_base_slot_r == int_fcnt[0]) &&
+                                        (tile_meta_y_base_plane_r == tile_meta_addr_base_w);
     assign tile_meta_group_restart_w  = !tile_meta_same_stream_w ||
                                         (tile_meta_y_group_w == {META_Y_GROUP_W{1'b0}});
     assign tile_meta_group_same_w     = tile_meta_same_stream_w &&
-                                        (tile_meta_y_group_w == tile_meta_y_group_sel);
+                                        (tile_meta_y_group_w == tile_meta_y_group_r);
     assign tile_meta_group_next_w     = tile_meta_same_stream_w &&
                                         (tile_meta_y_group_w == tile_meta_y_group_inc_w);
     assign tile_meta_y_base_addr_next = tile_meta_group_restart_w ? {META_AW{1'b0}} :
-                                        tile_meta_group_same_w    ? tile_meta_y_base_addr_sel :
-                                        (tile_meta_y_base_addr_sel + tile_meta_pitch_stride_w);
+                                        tile_meta_group_same_w    ? tile_meta_y_base_addr_r :
+                                        (tile_meta_y_base_addr_r + tile_meta_pitch_stride_w);
     assign tile_meta_order_err_w      = tile_meta_addr_fire &&
                                         !tile_meta_group_restart_w &&
                                         !tile_meta_group_same_w &&
                                         !tile_meta_group_next_w;
-    assign tile_meta_row_same_w       = tile_meta_row_valid_r &&
-                                        (tile_meta_row_fcnt_r   == int_fcnt) &&
-                                        (tile_meta_row_sb_r     == int_co_sb) &&
-                                        (tile_meta_row_plane_r  == tile_meta_addr_base_w) &&
-                                        (tile_meta_row_ycoord_r == int_ycoord);
-    assign tile_meta_row_count_w      = tile_meta_row_same_w ? tile_meta_row_count_r : {TW_DW{1'b0}};
-    assign tile_meta_row_last_w       = (tile_meta_row_count_w == i_meta_last_xcoord);
     assign meta_addr_fifo_din         = {tile_meta_fcnt, tile_meta_addr};
     assign o_meta_addr                = meta_addr_fifo_dout[0 +: META_AW];
     assign o_meta_fcnt                = meta_addr_fifo_dout[META_ADDR_FIFO_W-1 -: 4];
@@ -217,9 +180,7 @@ module ubwc_enc_meta_addr_gen
         if(~i_rstn)
             pop_cnt <= 3'd0    ;
         else if(in_fifo_pop_valid && in_fifo_pop_ready) begin
-            if(tile_meta_row_last_w || (pop_cnt == 3'd7))
-                pop_cnt <= 3'd0 ;
-            else if(int_xcoord[2:0] == 3'd0)
+            if(int_xcoord[2:0] == 3'd0)
                 pop_cnt <= 3'd1 ;
             else
                 pop_cnt <= pop_cnt + 1'b1   ;
@@ -231,14 +192,14 @@ module ubwc_enc_meta_addr_gen
             tile_meta_word_data_w    <= 64'd0    ;
         else if(in_fifo_pop_valid && in_fifo_pop_ready) begin
             case(int_xcoord[2:0])
-                3'd0    :   tile_meta_word_data_w    <= {56'd0, tile_meta_fill_byte_w                              }    ;
-                3'd1    :   tile_meta_word_data_w    <= {48'd0, tile_meta_fill_byte_w, tile_meta_word_data_w[ 7:0]}    ;
-                3'd2    :   tile_meta_word_data_w    <= {40'd0, tile_meta_fill_byte_w, tile_meta_word_data_w[15:0]}    ;
-                3'd3    :   tile_meta_word_data_w    <= {32'd0, tile_meta_fill_byte_w, tile_meta_word_data_w[23:0]}    ;
-                3'd4    :   tile_meta_word_data_w    <= {24'd0, tile_meta_fill_byte_w, tile_meta_word_data_w[31:0]}    ;
-                3'd5    :   tile_meta_word_data_w    <= {16'd0, tile_meta_fill_byte_w, tile_meta_word_data_w[39:0]}    ;
-                3'd6    :   tile_meta_word_data_w    <= { 8'd0, tile_meta_fill_byte_w, tile_meta_word_data_w[47:0]}    ;
-                3'd7    :   tile_meta_word_data_w    <= {       tile_meta_fill_byte_w, tile_meta_word_data_w[55:0]}    ;
+                3'd0    :   tile_meta_word_data_w    <= {56'd0,tile_meta_fill_byte_w                              }    ;
+                3'd1    :   tile_meta_word_data_w    <= {48'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +: 8]}    ;
+                3'd2    :   tile_meta_word_data_w    <= {40'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:16]}    ;
+                3'd3    :   tile_meta_word_data_w    <= {32'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:24]}    ;
+                3'd4    :   tile_meta_word_data_w    <= {24'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:32]}    ;
+                3'd5    :   tile_meta_word_data_w    <= {16'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:40]}    ;
+                3'd6    :   tile_meta_word_data_w    <= { 8'd0,tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:48]}    ;
+                3'd7    :   tile_meta_word_data_w    <= {      tile_meta_fill_byte_w,tile_meta_word_data_w[0 +:56]}    ;
             endcase
         end
     end
@@ -248,7 +209,7 @@ module ubwc_enc_meta_addr_gen
             in_fifo_pop_ready   <= 1'b0 ;
         else if((meta_data_buf_pfull == 1'b0) && (meta_addr_buf_pfull == 1'b0))
             in_fifo_pop_ready   <= 1'b1 ;
-        else if(((pop_cnt == 3'd7) || tile_meta_row_last_w) && ((meta_data_buf_pfull == 1'b1) || (meta_addr_buf_pfull == 1'b1)))
+        else if(((pop_cnt == 3'd7) || (int_xcoord == i_meta_last_xcoord)) && ((meta_data_buf_pfull == 1'b1) || (meta_addr_buf_pfull == 1'b1)))
             in_fifo_pop_ready   <= 1'b0 ;
     end
 
@@ -256,7 +217,7 @@ module ubwc_enc_meta_addr_gen
         if(~i_rstn)
             tile_meta_vld   <= 1'b0 ;
         else if(in_fifo_pop_valid && in_fifo_pop_ready) begin
-            if((pop_cnt == 3'd7) || tile_meta_row_last_w)
+            if((pop_cnt == 3'd7) || (int_xcoord == i_meta_last_xcoord))
                 tile_meta_vld   <= 1'b1 ;
             else
                 tile_meta_vld   <= 1'b0 ;
@@ -267,54 +228,8 @@ module ubwc_enc_meta_addr_gen
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
             tile_meta_fcnt  <= 4'd0 ;
-        else if(in_fifo_pop_valid && in_fifo_pop_ready && ((pop_cnt == 3'd7) || tile_meta_row_last_w))
+        else if(in_fifo_pop_valid && in_fifo_pop_ready && ((pop_cnt == 3'd7) || (int_xcoord == i_meta_last_xcoord)))
             tile_meta_fcnt  <= int_fcnt ;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_row_valid_r <= 1'b0;
-        else if(in_fifo_pop_valid && in_fifo_pop_ready)
-            tile_meta_row_valid_r <= 1'b1;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_row_fcnt_r <= 4'd0;
-        else if(in_fifo_pop_valid && in_fifo_pop_ready)
-            tile_meta_row_fcnt_r <= int_fcnt;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_row_sb_r <= {SB_WIDTH{1'b0}};
-        else if(in_fifo_pop_valid && in_fifo_pop_ready)
-            tile_meta_row_sb_r <= int_co_sb;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_row_plane_r <= 1'b0;
-        else if(in_fifo_pop_valid && in_fifo_pop_ready)
-            tile_meta_row_plane_r <= tile_meta_addr_base_w;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_row_ycoord_r <= {TH_DW{1'b0}};
-        else if(in_fifo_pop_valid && in_fifo_pop_ready)
-            tile_meta_row_ycoord_r <= int_ycoord;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_row_count_r <= {TW_DW{1'b0}};
-        else if(in_fifo_pop_valid && in_fifo_pop_ready) begin
-            if(tile_meta_row_last_w)
-                tile_meta_row_count_r <= {TW_DW{1'b0}};
-            else
-                tile_meta_row_count_r <= tile_meta_row_count_w + {{(TW_DW-1){1'b0}}, 1'b1};
-        end
     end
 
     mg_sync_fifo
@@ -346,64 +261,43 @@ module ubwc_enc_meta_addr_gen
             tile_meta_addr  <= {META_AW{1'd0}}    ;
         else if(tile_meta_addr_fire)
                 tile_meta_addr  <= tile_meta_base_addr
-                                 + tile_meta_y_base_addr_next
+                                 + (int_ycoord[TH_DW-1:4]*i_meta_data_plane_pitch[15:0]*16)
                                  + {{(META_AW-META_TILE_OFFSET_W){1'b0}}, tile_meta_offset_w};
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
-            tile_meta_y_base_addr_y_r <= {META_AW{1'b0}};
-        else if(tile_meta_addr_fire && !tile_meta_addr_base_w)
-            tile_meta_y_base_addr_y_r <= tile_meta_y_base_addr_next;
+            tile_meta_y_base_addr_r <= {META_AW{1'b0}};
+        else if(tile_meta_addr_fire)
+            tile_meta_y_base_addr_r <= tile_meta_y_base_addr_next;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
-            tile_meta_y_base_addr_uv_r <= {META_AW{1'b0}};
-        else if(tile_meta_addr_fire && tile_meta_addr_base_w)
-            tile_meta_y_base_addr_uv_r <= tile_meta_y_base_addr_next;
+            tile_meta_y_group_r <= {META_Y_GROUP_W{1'b0}};
+        else if(tile_meta_addr_fire)
+            tile_meta_y_group_r <= tile_meta_y_group_w;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
-            tile_meta_y_group_y_r <= {META_Y_GROUP_W{1'b0}};
-        else if(tile_meta_addr_fire && !tile_meta_addr_base_w)
-            tile_meta_y_group_y_r <= tile_meta_y_group_w;
+            tile_meta_y_base_valid_r <= 1'b0;
+        else if(tile_meta_addr_fire)
+            tile_meta_y_base_valid_r <= 1'b1;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
-            tile_meta_y_group_uv_r <= {META_Y_GROUP_W{1'b0}};
-        else if(tile_meta_addr_fire && tile_meta_addr_base_w)
-            tile_meta_y_group_uv_r <= tile_meta_y_group_w;
+            tile_meta_y_base_plane_r <= 1'b0;
+        else if(tile_meta_addr_fire)
+            tile_meta_y_base_plane_r <= tile_meta_addr_base_w;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
         if(~i_rstn)
-            tile_meta_y_base_valid_y_r <= 1'b0;
-        else if(tile_meta_addr_fire && !tile_meta_addr_base_w)
-            tile_meta_y_base_valid_y_r <= 1'b1;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_y_base_valid_uv_r <= 1'b0;
-        else if(tile_meta_addr_fire && tile_meta_addr_base_w)
-            tile_meta_y_base_valid_uv_r <= 1'b1;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_y_base_slot_y_r <= 1'b0;
-        else if(tile_meta_addr_fire && !tile_meta_addr_base_w)
-            tile_meta_y_base_slot_y_r <= int_co_sb[0];
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if(~i_rstn)
-            tile_meta_y_base_slot_uv_r <= 1'b0;
-        else if(tile_meta_addr_fire && tile_meta_addr_base_w)
-            tile_meta_y_base_slot_uv_r <= int_co_sb[0];
+            tile_meta_y_base_slot_r <= 1'b0;
+        else if(tile_meta_addr_fire)
+            tile_meta_y_base_slot_r <= int_fcnt[0];
     end
 
     always @(posedge i_clk or negedge i_rstn) begin

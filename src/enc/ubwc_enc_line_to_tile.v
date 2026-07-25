@@ -27,8 +27,6 @@ module ubwc_enc_line_to_tile#(
     input   wire    [15                     :0]         cfg_y_tile_cols                 ,
     input   wire    [15                     :0]         cfg_uv_tile_cols                ,
     input   wire    [15                     :0]         cfg_y_group_count               ,
-    input   wire    [15                     :0]         cfg_last_y_lines                ,
-    input   wire    [15                     :0]         cfg_last_uv_lines               ,
 
     // A FIFO input
     // {fcnt[3:0], lcnt[11:0], vsync, hsync, tlast, tkeep[15:0], tdata[127:0]}
@@ -76,8 +74,8 @@ module ubwc_enc_line_to_tile#(
     localparam                                      RD_IDLE                         = 2'd0;
     localparam                                      RD_ACT                          = 2'd1;
     localparam                                      RD_FIN                          = 2'd2;
-    localparam  [ADDR_W              -1 :0]         SRAM_REGION_BASE                = {1'b1, {(ADDR_W-1){1'b0}}};
-    localparam  [ADDR_W              -1 :0]         SRAM_UV_SLOT_SIZE               = {2'b01, {(ADDR_W-2){1'b0}}};
+    localparam  [ADDR_W              -1 :0]         SRAM_REGION_BASE                = {1'b1,{(ADDR_W-1){1'b0}}};
+    localparam  [ADDR_W              -1 :0]         SRAM_UV_SLOT_SIZE               = {2'b01,{(ADDR_W-2){1'b0}}};
     localparam  integer                             READ_META_FIFO_W                = 4 + 16 + 16 + 1 + 1 + 1 + 1;
     localparam  integer                             READ_META_FIFO_DEPTH            = 16;
     localparam  integer                             READ_META_FIFO_PROG_DEPTH       = 4;
@@ -133,16 +131,6 @@ module ubwc_enc_line_to_tile#(
     wire                                            bank0_b_done_set                ;
     wire                                            bank1_a_done_set                ;
     wire                                            bank1_b_done_set                ;
-    wire                                            bank0_a_last_group              ;
-    wire                                            bank0_b_last_group              ;
-    wire                                            bank1_a_last_group              ;
-    wire                                            bank1_b_last_group              ;
-    wire        [15                     :0]         bank0_a_done_line_target        ;
-    wire        [15                     :0]         bank0_b_done_line_target        ;
-    wire        [15                     :0]         bank1_a_done_line_target        ;
-    wire        [15                     :0]         bank1_b_done_line_target        ;
-    wire                                            bank0_b_empty_done_set          ;
-    wire                                            bank1_b_empty_done_set          ;
     wire                                            bank0_a_done_eff_next           ;
     wire                                            bank1_a_done_eff_next           ;
     wire                                            bank0_ready_for_read_next       ;
@@ -259,7 +247,6 @@ module ubwc_enc_line_to_tile#(
     wire                                            bank1_read_return               ;
     wire                                            read_data_vld                   ;
     wire        [127                    :0]         read_data                       ;
-    wire        [127                    :0]         read_data_eff                   ;
     wire                                            rd_selected_b_done              ;
     wire                                            rd_selected_has_uv              ;
     wire                                            rd_pair_bank_sel                ;
@@ -715,12 +702,10 @@ module ubwc_enc_line_to_tile#(
                                            read_meta_bank_pending &&
                                            read_meta_bank_dout_vld;
     assign read_data                     = read_meta_bank_sel ? bank1_dout : bank0_dout;
-    assign read_data_eff                 = read_meta_word_invalid ? 128'd0 :
-                                                                    read_data;
     assign read_meta_fifo_rd_en          = read_data_vld;
     assign resp_fifo_din                 = {read_meta_fcnt, read_meta_y, read_meta_x,
                                             read_meta_plane, read_meta_last,
-                                            read_meta_keep, read_data_eff};
+                                            read_meta_keep, read_data};
     assign resp_fifo_wr_en               = read_data_vld;
     assign resp_fifo_rd_en               = resp_fifo_valid && i_tile_rdy;
     assign o_tile_vld                    = resp_fifo_valid;
@@ -812,38 +797,14 @@ module ubwc_enc_line_to_tile#(
                                            (bank1_group_start && (a_group_id > bank1_group_id)) ||
                                            (a_group_id < bank1_group_id) ||
                                            (bank1_fcnt != a_fcnt));
-    assign bank0_a_last_group            = (cfg_y_group_count != 16'd0) &&
-                                           (a_group_id == cfg_y_group_last);
-    assign bank0_b_last_group            = (cfg_y_group_count != 16'd0) &&
-                                           (b_group_id == cfg_y_group_last);
-    assign bank1_a_last_group            = (cfg_y_group_count != 16'd0) &&
-                                           (a_group_id == cfg_y_group_last);
-    assign bank1_b_last_group            = (cfg_y_group_count != 16'd0) &&
-                                           (b_group_id == cfg_y_group_last);
-    assign bank0_a_done_line_target      = (bank0_a_last_group && (cfg_last_y_lines != 16'd0)) ?
-                                           cfg_last_y_lines : a_total_lines;
-    assign bank0_b_done_line_target      = (bank0_b_last_group && (cfg_last_uv_lines != 16'd0)) ?
-                                           cfg_last_uv_lines : b_total_lines;
-    assign bank1_a_done_line_target      = (bank1_a_last_group && (cfg_last_y_lines != 16'd0)) ?
-                                           cfg_last_y_lines : a_total_lines;
-    assign bank1_b_done_line_target      = (bank1_b_last_group && (cfg_last_uv_lines != 16'd0)) ?
-                                           cfg_last_uv_lines : b_total_lines;
-    assign bank0_b_empty_done_set        = need_b && bank0_a_done_set &&
-                                           bank0_a_last_group &&
-                                           (cfg_last_uv_lines == 16'd0);
-    assign bank1_b_empty_done_set        = need_b && bank1_a_done_set &&
-                                           bank1_a_last_group &&
-                                           (cfg_last_uv_lines == 16'd0);
     assign bank0_a_done_set              = bank0_fire_a && a_tlast &&
-                                           (bank0_a_line_idx + 16'd1 >= bank0_a_done_line_target);
-    assign bank0_b_done_set              = (bank0_fire_b && b_tlast &&
-                                           (bank0_b_line_idx + 16'd1 >= bank0_b_done_line_target)) ||
-                                           bank0_b_empty_done_set;
+                                           (bank0_a_line_idx + 16'd1 >= a_total_lines);
+    assign bank0_b_done_set              = bank0_fire_b && b_tlast &&
+                                           (bank0_b_line_idx + 16'd1 >= b_total_lines);
     assign bank1_a_done_set              = bank1_fire_a && a_tlast &&
-                                           (bank1_a_line_idx + 16'd1 >= bank1_a_done_line_target);
-    assign bank1_b_done_set              = (bank1_fire_b && b_tlast &&
-                                           (bank1_b_line_idx + 16'd1 >= bank1_b_done_line_target)) ||
-                                           bank1_b_empty_done_set;
+                                           (bank1_a_line_idx + 16'd1 >= a_total_lines);
+    assign bank1_b_done_set              = bank1_fire_b && b_tlast &&
+                                           (bank1_b_line_idx + 16'd1 >= b_total_lines);
     assign bank0_a_done_eff_next         = bank0_a_done_eff_r ||
                                            bank0_a_done ||
                                            bank0_a_done_set ||

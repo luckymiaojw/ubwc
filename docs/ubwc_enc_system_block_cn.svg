@@ -81,7 +81,7 @@
   <path class="cfg" d="M 300 136 H 460 V 248"/>
   <text x="342" y="124" class="sig">format/size/tile cfg[31:0]</text>
   <path class="cfg" d="M 300 152 H 970 V 408"/>
-  <text x="592" y="144" class="sig">base_addr[63:0] slot0/1</text>
+  <text x="592" y="144" class="sig">single base_addr[63:0]</text>
   <path class="err" d="M 1200 408 V 168 H 300"/>
   <text x="1070" y="156" class="sig">status/irq/error[31:0]</text>
 </svg>

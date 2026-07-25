@@ -28,7 +28,7 @@
 
   <rect x="0" y="0" width="1200" height="2070" fill="#f3f4f6"/>
   <text x="600" y="54" text-anchor="middle" class="title">UBWC 软件配置流程图</text>
-  <text x="600" y="84" text-anchor="middle" class="subtitle">ENC 和 DEC 分开绘制；静态配置在格式变化时更新，地址组每帧更新</text>
+  <text x="600" y="84" text-anchor="middle" class="subtitle">ENC 和 DEC 分开绘制；ENC 地址变化时更新，DEC 地址组每帧更新</text>
 
   <!-- ENC flow -->
   <rect x="80" y="120" width="1040" height="900" class="panel"/>
@@ -50,24 +50,24 @@
   <text x="335" y="660" text-anchor="middle" class="box-text">tile_pitch / swizzle / lossy 标志</text>
 
   <rect x="660" y="540" width="410" height="150" class="frame"/>
-  <text x="865" y="581" text-anchor="middle" class="box-title">4. 配置 ENC 每帧地址</text>
+  <text x="865" y="581" text-anchor="middle" class="box-title">4. 配置 ENC 唯一地址组</text>
   <text x="865" y="608" text-anchor="middle" class="box-text">Y meta base: 0x030 / 0x034</text>
   <text x="865" y="634" text-anchor="middle" class="box-text">Y tile base: 0x038 / 0x03C</text>
   <text x="865" y="660" text-anchor="middle" class="box-text">UV meta base: 0x040 / 0x044</text>
   <text x="865" y="686" text-anchor="middle" class="box-text">UV tile base: 0x048 / 0x04C</text>
 
   <polygon points="865,725 1030,790 865,855 700,790" class="decision"/>
-  <text x="865" y="782" text-anchor="middle" class="box-title">5. 地址 slot 有效?</text>
-  <text x="865" y="808" text-anchor="middle" class="box-text">四个 64-bit base 地址已写完整</text>
+  <text x="865" y="782" text-anchor="middle" class="box-title">5. 唯一地址组完整?</text>
+  <text x="865" y="808" text-anchor="middle" class="box-text">最后写 0x04C，再写 START 锁存</text>
 
   <rect x="130" y="880" width="410" height="92" class="box"/>
-  <text x="335" y="911" text-anchor="middle" class="box-title">6. OTF 输入自动驱动</text>
-  <text x="335" y="938" text-anchor="middle" class="box-text">ENC 写 IRQ_CTRL[5] START</text>
-  <text x="335" y="962" text-anchor="middle" class="box-text">vsync / hsync / de / data 进入流水线</text>
+  <text x="335" y="911" text-anchor="middle" class="box-title">6. START 提交，VSYNC 驱动</text>
+  <text x="335" y="938" text-anchor="middle" class="box-text">写 IRQ_CTRL[5] 锁存配置与唯一地址组</text>
+  <text x="335" y="962" text-anchor="middle" class="box-text">后续 vsync / hsync / de / data 复用该地址</text>
 
   <rect x="660" y="880" width="410" height="74" class="note"/>
   <text x="865" y="908" text-anchor="middle" class="box-title">等待地址配置</text>
-  <text x="865" y="934" text-anchor="middle" class="box-text">不启动/阻塞当前 fcnt 数据</text>
+  <text x="865" y="934" text-anchor="middle" class="box-text">不启动并阻塞当前输入数据</text>
 
   <rect x="130" y="995" width="410" height="44" class="irq"/>
   <text x="335" y="1023" text-anchor="middle" class="box-text">等待 ENC 正确完成中断或错误中断</text>
@@ -152,5 +152,5 @@
   <!-- footer -->
   <rect x="80" y="1985" width="1040" height="52" class="note"/>
   <text x="105" y="2011" class="small">配置频率：静态/几何/CI/VIVO/OTF timing 在图像格式、尺寸、layout 或 timing 变化时配置。</text>
-  <text x="105" y="2032" class="small">ENC/DEC 地址组每帧都要配置；下一帧通常只更新地址并等待对应中断。</text>
+  <text x="105" y="2032" class="small">ENC 地址组首次或地址变化时配置并由后续帧复用；DEC 每帧配置输入地址并等待对应中断。</text>
 </svg>

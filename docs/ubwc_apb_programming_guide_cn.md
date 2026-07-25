@@ -4,7 +4,7 @@
 
 - 上电后只需要配置一次的内容
 - 图像格式、尺寸、layout 不变时可以复用的内容
-- 每帧或每个 buffer 都必须重新配置的内容
+- 地址或 buffer layout 变化时必须重新配置的内容
 - 连续帧模式下地址组、fcnt 和中断的使用方式
 
 对应 RTL：
@@ -40,7 +40,7 @@ APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base addre
 | YUV420_8 / NV12 | 2 | 32 | 8 | Y + UV 双平面 |
 | YUV420_10 / P010 | 3 | 32 | 4 | Y + UV 双平面，16 bit component 存储 |
 
-连续帧模式下，图像格式、分辨率、tile layout、OTF timing 不变时，不需要每帧重复写所有寄存器。每帧只需要更新本帧使用的 UBWC buffer base address，并保证下一帧地址组已经写完整。
+连续帧模式下，图像格式、分辨率、tile layout、OTF timing 和 ENC 输出地址不变时，不需要每帧重复写 ENC 寄存器。ENC 后续帧复用最近一次 START 锁存的唯一地址组；DEC 仍按帧配置输入 UBWC buffer base address。
 
 R0 回归覆盖了 4096x600 RGBA8888/NV12/P010 的 ENC/DEC 连续两帧 wrapper fake case。NV12 路径 OTF 连续输出无断流；RGBA8888 路径 DEC OTF 比对通过、ENC layout/address/count 检查通过；P010 路径功能比对通过，AXI read 吞吐仍是后续性能优化关注点。
 
@@ -67,18 +67,18 @@ R0 回归覆盖了 4096x600 RGBA8888/NV12/P010 的 ENC/DEC 连续两帧 wrapper 
 | DEC | `APB_ADDR_META_CFG0` | Y/RGBA metadata tile_x/tile_y 数量 |
 | DEC | `APB_ADDR_OTF_CFG0/1/2/3/4` | 输出格式、宽度、OTF timing |
 
-### 2.3 每帧或每个新 buffer 都需要配置
+### 2.3 地址配置频率
 
 | 模块 | 寄存器组 | 说明 |
 | --- | --- | --- |
-| ENC | `REG_TILE_BASE_*`、`REG_META_BASE_*` | 每帧写入一组输出 buffer 地址 |
+| ENC | `REG_TILE_BASE_*`、`REG_META_BASE_*` | 只有一组输出地址；首次配置或输出 buffer 地址变化时重写并 START，后续帧可复用 |
 | DEC | `REG_META_BASE_Y_*`、`REG_TILE_BASE_Y_*`、`REG_META_BASE_UV_*`、`REG_TILE_BASE_UV_*` | 每帧写入一组输入 UBWC buffer 地址 |
 
-如果连续多帧使用 ping-pong buffer，则每帧至少要提前写好对应 slot 的地址。当前设计中 `fcnt[0]` 用于区分相邻两帧的数据路径和地址 slot。
+ENC 不再使用 slot0/slot1 地址模式，也没有地址 FIFO。`fcnt[0]` 仍可用于相邻帧的数据统计和 sideband，但不参与 base address 选择。若软件需要切换输出 buffer，应在目标 VSYNC 前写完整的新地址组、写 START，并确认 `STATUS0[14] cfg_valid=1`。
 
 ## 3. ENC 配置流程
 
-ENC 通过 `IRQ_CTRL[5]` 写 1 产生 START token。软件写好本帧地址后，先写 `IRQ_CTRL[5]=1`，再送入对应的 `vsync/hsync/de/data`。
+ENC 通过 `IRQ_CTRL[5]` 写 1提交配置快照。软件首次写好静态配置和唯一地址组后写 START；后续帧可直接送入 `vsync/hsync/de/data`，只有配置或输出地址变化时才再次写 START。
 
 ### 3.1 ENC 静态配置
 
@@ -149,9 +149,9 @@ YUV : y_tile_cols = ceil(width / 32), uv_tile_cols = ceil(width / 32)
 
 `o_meta_last_xcoord` 由 RTL 根据 `max(y_tile_cols,uv_tile_cols)-1` 计算，不再需要软件单独配置。
 
-### 3.2 ENC 每帧地址配置
+### 3.2 ENC 单一地址配置
 
-ENC 使用两组交替地址 slot，对应 `fcnt[0]=0/1`。每次需要写入 4 个 64 bit 地址：
+ENC 仅使用一组地址，包含 4 个 64 bit base：
 
 - Y metadata base，RGBA 图像使用该槽位
 - Y tile base，RGBA 图像使用该槽位
@@ -175,16 +175,18 @@ write(0x04c, tile_base_uv_hi);
 write(0x060, irq_enable | (1 << 5)); // start
 ```
 
-注意：地址写入只负责填充地址队列，不再作为 start 标志。四个 base address 写完后，软件写 `REG_IRQ_CTRL[5]=1` 作为本帧 START。
+注意：任意地址 word 被改写后，工作地址组暂时无效；必须按顺序写完整，并以 `REG_TILE_BASE_UV_HI` 作为最后一笔。四个 base address 写完后，软件写 `REG_IRQ_CTRL[5]=1` 锁存唯一地址组。
 
-如果当前输入帧对应的 `fcnt[0]` 地址还没有配置好，数据会被阻塞，并产生地址配置无效相关状态/中断。
+START 成功后，`STATUS0[10] addr_cfg_valid=1`，后续所有帧复用这组地址。地址或其他配置不完整时 `STATUS0[14] cfg_valid=0`，OTF 输入会被阻塞。
 
 ### 3.3 ENC 运行和中断
 
-地址和静态配置准备好后，先写 START，再启动上游 OTF 输入：
+地址和静态配置准备好后，先写 START 并确认提交成功，再启动上游 OTF 输入：
 
 ```text
 write(0x060, irq_enable | (1 << 5)); // IRQ_CTRL[5] = start
+poll_until((read(0x058) & (1 << 14)) != 0); // cfg_valid
+poll_until((read(0x058) & (1 << 10)) != 0); // addr_cfg_valid
 start_otf_input_stream();
 ```
 
@@ -207,13 +209,15 @@ write(0x060, old_irq_enable | (1 << 1)); // IRQ_CTRL[1] = irq_clear
 
 | 地址 | 说明 |
 | --- | --- |
-| `0x068/0x06c` | metadata 处理计数 slot0/slot1 |
-| `0x070/0x074` | tileaddr 处理计数 slot0/slot1 |
-| `0x078/0x07c` | OTF tile 计数 slot0/slot1 |
-| `0x080/0x084` | OTF de beat 计数 slot0/slot1 |
-| `0x088/0x08c` | OTF line 计数 slot0/slot1 |
-| `0x090/0x094` | tile AXI W 计数 slot0/slot1 |
-| `0x098/0x09c` | meta AXI W 计数 slot0/slot1 |
+| `0x068/0x06c` | metadata 处理计数，分别统计 `fcnt[0]=0/1` |
+| `0x070/0x074` | tileaddr 处理计数，分别统计 `fcnt[0]=0/1` |
+| `0x078/0x07c` | OTF tile 计数，分别统计 `fcnt[0]=0/1` |
+| `0x080/0x084` | OTF de beat 计数，分别统计 `fcnt[0]=0/1` |
+| `0x088/0x08c` | OTF line 计数，分别统计 `fcnt[0]=0/1` |
+| `0x090/0x094` | tile AXI W 计数，分别统计 `fcnt[0]=0/1` |
+| `0x098/0x09c` | meta AXI W 计数，分别统计 `fcnt[0]=0/1` |
+
+这些 0/1 后缀仅表示帧号奇偶统计桶，与地址选择无关。
 
 ## 4. DEC 配置流程
 
@@ -376,12 +380,12 @@ NV12/P010 的 UV plane 使用半宽、半高语义，但 UV 一个 sample pair �
 
 ## 6. 连续帧配置建议
 
-连续帧下推荐软件维护一个队列：
+连续帧下推荐软件按 ENC/DEC 分别管理：
 
 1. 初始化时写一次格式、尺寸、tile、OTF timing、CI、VIVO 等静态配置。
-2. 每来一个新输出/输入 buffer，就写一组 base address。
-3. 保证至少提前写好两帧地址，使 slot0/slot1 都有有效地址。
-4. 每组地址写完后写 `IRQ_CTRL[5]=1` 作为 START。ENC 随后送入对应 OTF 帧；DEC 在 START token 和地址组都有效时启动。
+2. ENC 首次写唯一输出地址组并 START；地址不变时后续 VSYNC 直接复用，不需要维护双 slot 队列。
+3. ENC 若切换输出 buffer，则在目标 VSYNC 前写完整新地址组、重新 START，并检查 `cfg_valid`。
+4. DEC 仍然为每个输入 UBWC buffer 写地址组并写 `IRQ_CTRL[5]=1` 启动。
 5. 每帧结束后处理中断，读取必要统计，再清中断。
 
 如果图像格式和尺寸不变，只换 buffer 地址，则不需要重复写 tile/OTF/meta geometry 寄存器。

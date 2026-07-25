@@ -16,11 +16,11 @@
 
 module ubwc_tile_enc_axi_wcmd_gen
     #(
-        parameter                                       SB_WIDTH                        = 1,
+        parameter                                       SB_WIDTH                        = 36,
         parameter                                       AXI_AW                          = 64,
         parameter                                       AXI_DW                          = 256,
         parameter                                       AXI_SW                          = 32,
-        parameter                                       AXI_LENW                        = 5,
+        parameter                                       AXI_LENW                        = 8,
         parameter                                       AXI_IDW                         = 6,
         parameter                                       CMD_DEPTH                       = 8,
         parameter                                       DATA_DEPTH                      = 16

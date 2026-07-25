@@ -1,6 +1,6 @@
 module ubwc_enc_vivo_top
     #(
-        parameter                                     SB_DW                          = 1,
+        parameter                                     SB_WIDTH                          = 36,
         parameter integer                             FAKE_MODEL_EN                  = 0,
         parameter integer                             FAKE_TILE_EXPECT_LINEAR        = 0,
         parameter integer                             FAKE_IMG_W                     = 4096,
@@ -45,13 +45,9 @@ module ubwc_enc_vivo_top
         input   wire                                        i_ci_input_type                 ,
         input   wire    [2                      :0]         i_ci_alen                       ,
         input   wire    [4                      :0]         i_ci_format                     ,
-        input   wire    [7                      :0]         i_ci_metadata                   ,
         input   wire                                        i_ci_forced_pcm                 ,
-        input   wire    [15                     :0]         i_ci_xcoord                     ,
-        input   wire    [15                     :0]         i_ci_ycoord                     ,
-        input   wire    [3                      :0]         i_ci_fcnt                       ,
         input   wire                                        i_ci_lossy                      ,
-        input   wire    [SB_DW                -1:0]         i_ci_sb                         ,
+        input   wire    [SB_WIDTH                -1:0]         i_ci_sb                         ,
         input   wire    [2                      :0]         i_ci_ubwc_cfg_0                 ,
         input   wire    [2                      :0]         i_ci_ubwc_cfg_1                 ,
         input   wire    [3                      :0]         i_ci_ubwc_cfg_2                 ,
@@ -70,17 +66,19 @@ module ubwc_enc_vivo_top
         output  wire                                        o_rvi_ready                     ,
         input   wire    [255                    :0]         i_rvi_data                      ,
         input   wire    [31                     :0]         i_rvi_mask                      ,
+`ifdef FAKE_MODE
         input   wire                                        i_rvi_last                      ,
         input   wire    [4                      :0]         i_rvi_format                    ,
         input   wire    [15                     :0]         i_rvi_xcoord                    ,
         input   wire    [15                     :0]         i_rvi_ycoord                    ,
         input   wire    [3                      :0]         i_rvi_fcnt                      ,
+`endif
 
         output  reg                                         o_co_valid                      ,
         input   wire                                        i_co_ready                      ,
         output  reg     [2                      :0]         o_co_alen                       ,
         output  reg                                         o_co_pcm                        ,
-        output  reg     [SB_DW                -1:0]         o_co_sb                         ,
+        output  reg     [SB_WIDTH                -1:0]         o_co_sb                         ,
 
         output  wire                                        o_cvo_valid                     ,
         input   wire                                        i_cvo_ready                     ,
@@ -95,6 +93,11 @@ module ubwc_enc_vivo_top
     localparam  integer                             CI_READY_PERIOD                 = 24;
     localparam  integer                             CI_CNT_W                        = (CI_READY_PERIOD <= 1) ? 1 : $clog2(CI_READY_PERIOD);
     localparam  [CI_CNT_W            -1 :0]         CI_READY_PERIOD_LAST            = CI_CNT_W'(CI_READY_PERIOD - 1);
+    localparam  integer                             CI_SB_XCOORD_LSB                = 0;
+    localparam  integer                             CI_SB_XCOORD_W                  = 8;
+    localparam  integer                             CI_SB_YCOORD_LSB                = 8;
+    localparam  integer                             CI_SB_YCOORD_W                  = 13;
+    localparam  integer                             CI_SB_FCNT_LSB                  = 21;
     localparam  integer                             FAKE_TILE0_WORDS64_SAFE         = (FAKE_TILE0_WORDS64 > 0) ? FAKE_TILE0_WORDS64 : 1;
     localparam  integer                             FAKE_TILE1_WORDS64_SAFE         = (FAKE_TILE1_WORDS64 > 0) ? FAKE_TILE1_WORDS64 : 1;
     localparam  integer                             FAKE_CMP0_WORDS64_SAFE          = (FAKE_CMP0_WORDS64  > 0) ? FAKE_CMP0_WORDS64  : 1;
@@ -114,7 +117,12 @@ module ubwc_enc_vivo_top
     wire                                            ci_fire                         ;
     wire                                            ci_coord_active                 ;
     wire        [7                      :0]         ci_metadata_eff                 ;
+    wire        [7                      :0]         ci_metadata_input               ;
     wire        [7                      :0]         ci_metadata_from_mem            ;
+    wire        [15                     :0]         ci_xcoord_debug                 ;
+    wire        [15                     :0]         ci_ycoord_debug                 ;
+    wire        [3                      :0]         ci_fcnt_debug                   ;
+    wire                                            rvi_last_debug                  ;
     wire        [2                      :0]         ci_alen_from_metadata           ;
     wire        [3                      :0]         ci_valid_beats_from_metadata    ;
     wire        [3                      :0]         ci_total_beats_from_metadata    ;
@@ -144,6 +152,22 @@ module ubwc_enc_vivo_top
 
     integer                                         fake_init_idx;
     integer                                         fake_file_fd;
+
+`ifdef FAKE_MODE
+    wire        [7                      :0]         i_ci_metadata                   ;
+
+    assign ci_metadata_input = i_ci_metadata;
+    assign rvi_last_debug    = i_rvi_last;
+`else
+    assign ci_metadata_input = 8'd0;
+    assign rvi_last_debug    = 1'b0;
+`endif
+
+    assign ci_fcnt_debug   = i_ci_sb[CI_SB_FCNT_LSB +: 4];
+    assign ci_ycoord_debug = {{(16-CI_SB_YCOORD_W){1'b0}},
+                              i_ci_sb[CI_SB_YCOORD_LSB +: CI_SB_YCOORD_W]};
+    assign ci_xcoord_debug = {{(16-CI_SB_XCOORD_W){1'b0}},
+                              i_ci_sb[CI_SB_XCOORD_LSB +: CI_SB_XCOORD_W]};
 
     function automatic integer fake_macro_tile_slot;
         input integer tile_x_mod8;
@@ -621,19 +645,19 @@ module ubwc_enc_vivo_top
                                             (fake_cvo_fire && fake_cvo_last_w)));
     assign ci_period_hit                = (ci_ready_cnt_r == CI_READY_PERIOD_LAST);
     assign ci_fire                      = i_ubwc_en && i_ci_valid && o_ci_ready;
-    assign ci_metadata_from_mem         = fake_meta_byte(i_ci_format, i_ci_xcoord, i_ci_ycoord);
-    assign ci_metadata_eff              = fake_model_active ? ci_metadata_from_mem : i_ci_metadata;
+    assign ci_metadata_from_mem         = fake_meta_byte(i_ci_format, ci_xcoord_debug, ci_ycoord_debug);
+    assign ci_metadata_eff              = fake_model_active ? ci_metadata_from_mem : ci_metadata_input;
     assign ci_coord_active              = !fake_model_active ||
-                                          ((i_ci_xcoord < fake_tile_active_cols(i_ci_format)) &&
-                                           (i_ci_ycoord < fake_tile_active_rows(i_ci_format)));
+                                          ((ci_xcoord_debug < fake_tile_active_cols(i_ci_format)) &&
+                                           (ci_ycoord_debug < fake_tile_active_rows(i_ci_format)));
     assign ci_alen_from_metadata        = ci_coord_active ? ci_metadata_eff[3:1] :
                                                             3'd0;
     assign ci_valid_beats_from_metadata = {1'b0, ci_alen_from_metadata} + 4'd1;
     assign ci_total_beats_from_metadata = (ci_valid_beats_from_metadata == 4'd0) ? 4'd1 :
                                                                                     ci_valid_beats_from_metadata;
     assign ci_cmp_addr_from_metadata    = fake_tile_addr_with_alen(i_ci_format,
-                                                                   i_ci_xcoord,
-                                                                   i_ci_ycoord,
+                                                                   ci_xcoord_debug,
+                                                                   ci_ycoord_debug,
                                                                    ci_alen_from_metadata,
                                                                    i_ci_lossy && (i_ci_format == 5'd0));
     assign fake_cvo_last_w              = (fake_cvo_beat_idx_r == (fake_cvo_total_beats_r - 4'd1));
@@ -649,7 +673,7 @@ module ubwc_enc_vivo_top
                                                               (i_ubwc_en && i_rvi_valid);
     assign o_cvo_data                   = fake_model_active ? fake_cvo_data_w : i_rvi_data;
     assign o_cvo_mask                   = fake_model_active ? fake_cvo_mask_w : i_rvi_mask;
-    assign o_cvo_last                   = fake_model_active ? fake_cvo_last_w : i_rvi_last;
+    assign o_cvo_last                   = fake_model_active ? fake_cvo_last_w : rvi_last_debug;
     assign o_ci_ready                   = i_ubwc_en && ci_period_hit && i_co_ready &&
                                           fake_ci_cmd_can_accept;
     assign o_rvi_ready                  = fake_model_active ? (i_ubwc_en &&
@@ -687,9 +711,9 @@ module ubwc_enc_vivo_top
 
     always @(posedge i_clk or posedge i_reset) begin
         if (i_reset)
-            o_co_sb <= {SB_DW{1'b0}};
+            o_co_sb <= {SB_WIDTH{1'b0}};
         else if (i_sreset)
-            o_co_sb <= {SB_DW{1'b0}};
+            o_co_sb <= {SB_WIDTH{1'b0}};
         else if (ci_fire)
             o_co_sb <= i_ci_sb;
     end
@@ -786,7 +810,7 @@ module ubwc_enc_vivo_top
             fake_rvi_beat_idx_r <= 4'd0;
         else if (i_sreset || !i_ubwc_en)
             fake_rvi_beat_idx_r <= 4'd0;
-        else if (fake_rvi_fire && i_rvi_last)
+        else if (fake_rvi_fire && rvi_last_debug)
             fake_rvi_beat_idx_r <= 4'd0;
         else if (fake_rvi_fire)
             fake_rvi_beat_idx_r <= fake_rvi_beat_idx_r + 4'd1;

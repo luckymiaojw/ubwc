@@ -183,6 +183,48 @@
           <table>
             <tr><th>版本</th><th>日期</th><th>影响范围</th><th>修改内容</th><th>文档/验证状态</th></tr>
             <tr>
+              <td>R0.7-dev</td>
+              <td>2026-07-24</td>
+              <td>ENC APB、wrapper、tile/meta 地址链路、配置工具、系统 spec</td>
+              <td>ENC 输出地址从 slot0/slot1 双地址队列改为唯一地址组。四个 64-bit base 写完并以 <code>REG_TILE_BASE_UV_HI</code> 收尾后，START 锁存唯一地址快照；后续 VSYNC 持续复用，直到下一次 START 替换。<code>fcnt[0]</code> 只保留帧标识和统计分组语义，不再选择地址。<code>REG_STATUS0[10]</code> 改为单一 <code>addr_cfg_valid</code>，<code>[12:11]</code> 改为保留位。</td>
+              <td>APB 配置提交定向测试通过；ENC wrapper Verilator lint 无错误；服务器 VCS case 0055～0058 均完成连续两帧，<code>stage_done=0xaa</code>，CVO、tile/meta AXI 写出及最终 memory compare 全部为 0 mismatch。回归命令仍因既有 RVI tiled-uncompressed reference checker 的独立数据重排失配返回非零。</td>
+            </tr>
+            <tr>
+              <td>R0.6-dev</td>
+              <td>2026-07-24</td>
+              <td>ENC reset、APB config commit、wrapper、配置工具、系统 spec</td>
+              <td>ENC 帧控制职责拆分：每个输入 VSYNC 上升沿固定触发 AXI drain、全链路帧复位并在复位释放后自动运行；<code>REG_IRQ_CTRL[5] START</code> 只校验并锁存工作寄存器和当前地址 slot 快照，不再触发复位或启动帧。配置无效或当前 <code>i_otf_fcnt[0]</code> 对应地址 slot 无效时，<code>o_otf_ready</code> 保持为 0；<code>REG_STATUS0[14] cfg_valid</code> 反映最近一次 START 的提交结果；原 <code>IRQ_CTRL[6]</code> 改为保留位。</td>
+              <td>START 配置提交定向测试和 VSYNC reset/drain 定向测试通过；ENC 顶层 Verilator lint 无错误；服务器 VCS NV12、RGBA8888、RGBA1010102、P010 均完成连续两帧，CVO、tile/meta AXI 写出及最终 memory compare 全部为 0 mismatch。回归命令仍因既有 RVI tiled-uncompressed reference checker 的独立数据重排失配返回非零。</td>
+            </tr>
+            <tr>
+              <td>R0.5-dev</td>
+              <td>2026-07-24</td>
+              <td>ENC OTF data packer、系统 spec</td>
+              <td>ENC fcnt 改为 OTF 域内部生成：<code>rst_n_otf=0</code> 时 <code>otf_fcnt_int/locked_fcnt</code> 清 0；每个 VSYNC 上升沿将递增前的 <code>otf_fcnt_int</code> 锁存为本帧 <code>locked_fcnt</code>，同时准备下一帧计数；<code>din_fcnt</code> 全程使用 <code>locked_fcnt</code>。外部 <code>i_otf_fcnt</code> 端口暂时保留兼容，但不再参与 packer 帧号生成。</td>
+              <td>ENC 顶层和完整 fake TB Verilator elaboration/lint 无错误；VCS 连续帧回归待执行。</td>
+            </tr>
+            <tr>
+              <td>R0.4-dev</td>
+              <td>2026-07-24</td>
+              <td>ENC wrapper、OTF-to-tile、验证环境、系统 spec</td>
+              <td>回退 ENC 内部自增 fcnt：恢复外部 <code>i_otf_fcnt[3:0]</code>；START CDC FIFO 只传启动 token；<code>ubwc_enc_otf_data_packer</code> 在 VSYNC 边界锁存本帧 <code>locked_fcnt</code>，并将其随像素、tile、metadata 和 AXI ID 数据链路传递。START/soft reset 不再自行分配帧号。</td>
+              <td>ENC 顶层 Verilator elaboration/lint 无错误；VCS 多帧回归待执行。</td>
+            </tr>
+            <tr>
+              <td>R0.3-dev</td>
+              <td>2026-07-24</td>
+              <td>ENC wrapper、验证环境、系统 spec</td>
+              <td>ENC 内部 4 bit fcnt 纳入 soft reset：进入内部 reset hold 时清 0，复位释放后首个被接受的 START 使用 <code>fcnt=0</code>；验证环境分别统计 START 接受总数和 soft reset 后的期望 fcnt，避免跨复位连续递增的旧假设。</td>
+              <td><code>git diff --check</code> 通过；ENC 顶层 Verilator elaboration/lint 无错误；VCS 多帧回归待执行。</td>
+            </tr>
+            <tr>
+              <td>R0.2-dev</td>
+              <td>2026-07-24</td>
+              <td>ENC wrapper、OTF-to-tile、验证环境、系统 spec</td>
+              <td>ENC frame count 改为硬件内部维护：每次有效 <code>START</code> 分配一个 4 bit fcnt，首帧为 0，随后模 16 递增；start token 与 fcnt 作为同一 CDC payload 从 AXI 域送到 OTF 域；删除 ENC 外部 <code>i_otf_fcnt</code> 接口，内部继续使用 <code>fcnt[0]</code> 选择地址 slot，并使用完整 4 bit fcnt 贯穿 tile/metadata/AXI ID 数据链路。</td>
+              <td>Verilator elaboration/lint 无错误；服务器 VCS case 0021 RGBA8888 与 case 0027 NV12 均完成连续 4 帧回归，两个 case 均为 <code>internal_fcnt_starts=4</code>、<code>internal_fcnt_mis=0</code>；case 0021 另完成连续 18 帧回归，<code>internal_fcnt_starts=18</code>、<code>internal_fcnt_mis=0</code>，覆盖 <code>4'hf -&gt; 4'h0</code> 回绕。</td>
+            </tr>
+            <tr>
               <td>R0.1-dev</td>
               <td>2026-05-19</td>
               <td>ENC reset、AXI wrapper、寄存器、配置工具、系统 spec</td>
@@ -204,14 +246,16 @@
           <table>
             <tr><th>特性</th><th>说明</th></tr>
             <tr><td>功能</td><td>将 OTF 输入像素流编码为 UBWC compressed tile 数据和 metadata，并通过 AXI write master 写入外部 memory。</td></tr>
-            <tr><td>输入接口</td><td>OTF input，包含 <code>vsync/hsync/de/data/fcnt/lcnt/ready</code>。</td></tr>
+            <tr><td>输入接口</td><td>OTF input，包含 <code>vsync/hsync/de/data/fcnt/lcnt/ready</code>；外部 <code>i_otf_fcnt[3:0]</code> 随当前帧数据进入 ENC，并贯穿 tile、metadata 和内部 AXI ID 数据链路。</td></tr>
             <tr><td>输出接口</td><td>AXI write master，分别写 compressed tile 数据和 metadata。</td></tr>
             <tr><td>推荐时钟</td><td>APB/PCLK 100 MHz；AXI/i_axi_clk 500 MHz；Core/i_vivo_clk 200 MHz；OTF/i_otf_clk 320 MHz。</td></tr>
             <tr><td>支持格式</td><td>RGBA8888、RGBA1010102、YUV420_8/NV12、YUV420_10/P010、RGBA8888 lossy 2:1。</td></tr>
             <tr><td>支持像素尺寸</td><td>当前 SRAM/line-buffer 规格按最大有效宽度 4096 px 设计；1440x3200 属于该宽度范围内。实际配置以 OTF width/height 和 layout 计算结果为准。</td></tr>
             <tr><td>SRAM</td><td>当前外部工作 SRAM 为 bank0/bank1 两个同规格 bank，单 bank 64 KiB，两 bank 合计 128 KiB。SRAM 容量主要由最大支持图像宽度决定；图像高度只影响行组处理次数，不增加单 bank 容量；小于或等于 4096 px 宽的 RGBA/YUV420 场景复用同一规格 SRAM。</td></tr>
-            <tr><td>连续帧</td><td>软件每帧写一组 base address 后写 <code>IRQ_CTRL[5]=1</code> 产生 start token；OTF 数据携带 <code>i_otf_fcnt</code>。若使能 <code>IRQ_CTRL[6]</code>，输入 <code>i_otf_vsync</code> 上升沿会触发 ENC soft reset 并在复位释放后重新 arm frame start。</td></tr>
-            <tr><td>地址 slot</td><td>两组地址 slot，硬件按 <code>fcnt[0]</code> 选择 slot0/slot1。</td></tr>
+            <tr><td>配置提交</td><td><code>REG_IRQ_CTRL[5] START</code> 只校验并锁存一份完整配置快照；该快照在下一次 START 前保持不变。START 不触发帧复位，也不启动 OTF 数据处理。</td></tr>
+            <tr><td>连续帧</td><td>每个输入 VSYNC 上升沿采样最近一次 START 提交的配置和唯一地址组有效性，并触发 AXI drain 和 ENC 全链路帧复位；复位释放后仅在该次采样有效时自动接收当前帧，不需要软件再次写 START。</td></tr>
+            <tr><td>输出地址</td><td>只保存一组 Y/RGBA metadata、Y/RGBA tile、UV metadata 和 UV tile base。地址不变时所有帧复用；<code>fcnt[0]</code> 不参与地址选择，只用于统计分组和数据链路标识。</td></tr>
+            <tr><td>输入门控</td><td>硬件在 VSYNC 边界采样最近一次 START 提交结果和唯一地址组有效性。采样有效时，复位释放后 <code>o_otf_ready</code> 才允许拉高；采样无效时整帧保持反压，帧中途补写 START 不会放行，下一次 VSYNC 才重新判定。</td></tr>
             <tr><td>中断</td><td>正确中断在最后有效输出完成后产生；错误中断用于地址未配置、OTF 行/帧错误、FIFO overflow、VIVO/metadata error。</td></tr>
           </table>
           <h3 id="enc-interface">ENC 2. Interface</h3>
@@ -247,9 +291,9 @@
             <tr><td>OTF input</td><td><code>i_otf_hsync</code></td><td>input</td><td>1 bit</td><td>Input line sync</td></tr>
             <tr><td>OTF input</td><td><code>i_otf_de</code></td><td>input</td><td>1 bit</td><td>Input data enable</td></tr>
             <tr><td>OTF input</td><td><code>i_otf_data</code></td><td>input</td><td>128 bit</td><td>Input pixel data</td></tr>
-            <tr><td>OTF input</td><td><code>i_otf_fcnt</code></td><td>input</td><td>4 bit</td><td>Input frame count</td></tr>
+            <tr><td>OTF input</td><td><code>i_otf_fcnt</code></td><td>input</td><td>4 bit</td><td>当前输入帧号；完整 4 bit 随数据链路传递，低位可用于统计分组和 sideband，但不参与地址选择</td></tr>
             <tr><td>OTF input</td><td><code>i_otf_lcnt</code></td><td>input</td><td>12 bit</td><td>Input line count</td></tr>
-            <tr><td>OTF input</td><td><code>o_otf_ready</code></td><td>output</td><td>1 bit</td><td>ENC 对 OTF 输入的反压</td></tr>
+            <tr><td>OTF input</td><td><code>o_otf_ready</code></td><td>output</td><td>1 bit</td><td>ENC 对 OTF 输入的反压；配置快照、唯一地址组或帧复位未就绪时保持为 0</td></tr>
             <tr><td>SRAM bank0</td><td><code>o_bank0_en</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM enable</td></tr>
             <tr><td>SRAM bank0</td><td><code>o_bank0_wen</code></td><td>output</td><td>1 bit</td><td>Bank0 SRAM write enable</td></tr>
             <tr><td>SRAM bank0</td><td><code>o_bank0_addr</code></td><td>output</td><td><code>COM_BUF_AW</code></td><td>Bank0 SRAM address</td></tr>
@@ -323,14 +367,14 @@
             <tr><td><code>0x0028</code></td><td><code>REG_OTF_CFG2</code></td><td>RW</td><td><code>0</code></td><td><code>[19:16]</code></td><td><code>otf_cfg_tile_h</code></td><td>Tile height。</td></tr>
             <tr><td><code>0x002c</code></td><td><code>REG_OTF_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>otf_cfg_y_tile_cols</code></td><td>Y/RGBA plane tile column count。</td></tr>
             <tr><td><code>0x002c</code></td><td><code>REG_OTF_CFG3</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>otf_cfg_uv_tile_cols</code></td><td>UV plane tile column count；RGBA 写 0。</td></tr>
-            <tr><td><code>0x0030</code></td><td><code>REG_META_BASE_Y_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[31:0]</code></td><td>Y/RGBA metadata 存储基地址低 32 bit，每帧配置。</td></tr>
-            <tr><td><code>0x0034</code></td><td><code>REG_META_BASE_Y_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[63:32]</code></td><td>Y/RGBA metadata 存储基地址高 32 bit，每帧配置。</td></tr>
-            <tr><td><code>0x0038</code></td><td><code>REG_TILE_BASE_Y_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>y_base_offset_addr[31:0]</code></td><td>Y/RGBA compressed tile 存储基地址低 32 bit，每帧配置。</td></tr>
-            <tr><td><code>0x003c</code></td><td><code>REG_TILE_BASE_Y_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>y_base_offset_addr[63:32]</code></td><td>Y/RGBA compressed tile 存储基地址高 32 bit，每帧配置。</td></tr>
+            <tr><td><code>0x0030</code></td><td><code>REG_META_BASE_Y_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[31:0]</code></td><td>唯一 Y/RGBA metadata 存储基地址低 32 bit；首次配置或输出 buffer 地址变化时写入。</td></tr>
+            <tr><td><code>0x0034</code></td><td><code>REG_META_BASE_Y_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[63:32]</code></td><td>唯一 Y/RGBA metadata 存储基地址高 32 bit；首次配置或输出 buffer 地址变化时写入。</td></tr>
+            <tr><td><code>0x0038</code></td><td><code>REG_TILE_BASE_Y_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>y_base_offset_addr[31:0]</code></td><td>唯一 Y/RGBA compressed tile 存储基地址低 32 bit；首次配置或输出 buffer 地址变化时写入。</td></tr>
+            <tr><td><code>0x003c</code></td><td><code>REG_TILE_BASE_Y_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>y_base_offset_addr[63:32]</code></td><td>唯一 Y/RGBA compressed tile 存储基地址高 32 bit；首次配置或输出 buffer 地址变化时写入。</td></tr>
             <tr><td><code>0x0040</code></td><td><code>REG_META_BASE_UV_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_uv_base_offset_addr[31:0]</code></td><td>UV metadata 存储基地址低 32 bit；RGBA 写 0。</td></tr>
             <tr><td><code>0x0044</code></td><td><code>REG_META_BASE_UV_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_uv_base_offset_addr[63:32]</code></td><td>UV metadata 存储基地址高 32 bit；RGBA 写 0。</td></tr>
             <tr><td><code>0x0048</code></td><td><code>REG_TILE_BASE_UV_LO</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>uv_base_offset_addr[31:0]</code></td><td>UV compressed tile 存储基地址低 32 bit；RGBA 写 0。</td></tr>
-            <tr><td><code>0x004c</code></td><td><code>REG_TILE_BASE_UV_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>uv_base_offset_addr[63:32]</code></td><td>UV compressed tile 存储基地址高 32 bit；地址组写完后仍需写 start。</td></tr>
+            <tr><td><code>0x004c</code></td><td><code>REG_TILE_BASE_UV_HI</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>uv_base_offset_addr[63:32]</code></td><td>UV compressed tile 存储基地址高 32 bit；必须作为八个地址 word 的最后一笔写入，以标记唯一工作地址组完整，随后写 START 锁存。</td></tr>
             <tr><td><code>0x0050</code></td><td><code>REG_META_ACTIVE_SIZE</code></td><td>RW</td><td><code>0</code></td><td><code>[15:0]</code></td><td><code>meta_active_width_px</code></td><td>Metadata 有效图像宽度。</td></tr>
             <tr><td><code>0x0050</code></td><td><code>REG_META_ACTIVE_SIZE</code></td><td>RW</td><td><code>0</code></td><td><code>[31:16]</code></td><td><code>meta_active_height_px</code></td><td>Metadata 有效图像高度。</td></tr>
             <tr><td><code>0x0054</code></td><td><code>REG_META_PITCH</code></td><td>RW</td><td><code>0</code></td><td><code>[31:0]</code></td><td><code>meta_data_plane_pitch</code></td><td>Metadata plane pitch。</td></tr>
@@ -343,36 +387,36 @@
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>Metadata co-buffer overflow。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>Metadata tile order error。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[8]</code></td><td><code>frame_done</code></td><td>Frame done。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 <code>fcnt[0]</code> 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 <code>active_addr_cfg_valid</code> 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 <code>fcnt[0]</code> 对齐后，再写 <code>REG_IRQ_CTRL[1] irq_clear</code> 清 sticky 状态；关闭 <code>enc_ubwc_en</code> 或硬复位也会清零。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[10]</code></td><td><code>addr_cfg_valid0</code></td><td>Address slot0 valid。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[11]</code></td><td><code>addr_cfg_valid1</code></td><td>Address slot1 valid。</td></tr>
-            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[12]</code></td><td><code>addr_cfg_overflow</code></td><td>地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 <code>REG_TILE_BASE_UV_HI</code> 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 <code>REG_IRQ_CTRL[1] irq_clear</code> 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 <code>enc_ubwc_en</code> 后重新配置。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>唯一地址组无效 sticky 状态；数据链路检查地址时，如果最近一次 START 锁存的 META Y、TILE Y、META UV、TILE UV 地址组无效，该 bit 置 1 并保持，同时参与 error IRQ。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[10]</code></td><td><code>addr_cfg_valid</code></td><td>最近一次 START 已锁存完整有效的唯一地址组；后续帧持续复用。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>-</td><td><code>-</code></td><td><code>[12:11]</code></td><td><code>Reserved</code></td><td>保留，读回 0。</td></tr>
             <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[13]</code></td><td><code>rst_drain_timeout</code></td><td>软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 <code>16'hffff</code> 个 <code>i_axi_clk</code> 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 <code>REG_IRQ_CTRL[1] irq_clear</code> 或硬复位后清零。</td></tr>
+            <tr><td><code>0x0058</code></td><td><code>REG_STATUS0</code></td><td>RO</td><td>dynamic</td><td><code>[14]</code></td><td><code>cfg_valid</code></td><td>最近一次 START 配置提交结果。格式、尺寸、tile 参数、metadata 参数及唯一地址组均有效时置 1；否则清 0。该 bit 为 0 时 ENC 保持 OTF 反压。</td></tr>
             <tr><td><code>0x005c</code></td><td><code>REG_STATUS1</code></td><td>RO</td><td>dynamic</td><td><code>[7:0]</code></td><td><code>stage_done</code></td><td>ENC stage done bitmap。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RW</td><td><code>0</code></td><td><code>[0]</code></td><td><code>irq_enable</code></td><td>中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[1]</code></td><td><code>irq_clear</code></td><td>写 1 清 pending/status sticky。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_pending</code></td><td>Any IRQ pending。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[3]</code></td><td><code>irq_correct_pending</code></td><td>Correct IRQ pending。</td></tr>
             <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RO</td><td>dynamic</td><td><code>[4]</code></td><td><code>irq_error_pending</code></td><td>Error IRQ pending。</td></tr>
-            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[5]</code></td><td><code>start</code></td><td>写 1 产生 frame start token。</td></tr>
-            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>RW</td><td><code>0</code></td><td><code>[6]</code></td><td><code>vsync_reset_en</code></td><td>置 1 后，ENC 输入 <code>i_otf_vsync</code> 上升沿通过 AXI-drain reset sequencer 触发整条 ENC 链路 soft reset，并在复位释放后重新 arm frame start。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>W1P</td><td><code>0</code></td><td><code>[5]</code></td><td><code>start</code></td><td>写 1 校验并锁存完整 ENC 配置快照；不触发帧复位，也不启动 OTF 数据处理。</td></tr>
+            <tr><td><code>0x0060</code></td><td><code>REG_IRQ_CTRL</code></td><td>-</td><td><code>-</code></td><td><code>[6]</code></td><td><code>Reserved</code></td><td>保留，读回 0。</td></tr>
             <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[0]</code></td><td><code>irq_status_any</code></td><td>Any IRQ mirror。</td></tr>
             <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[1]</code></td><td><code>irq_status_correct</code></td><td>Correct IRQ mirror。</td></tr>
             <tr><td><code>0x0064</code></td><td><code>REG_STATUS2</code></td><td>RO</td><td>dynamic</td><td><code>[2]</code></td><td><code>irq_status_error</code></td><td>Error IRQ mirror。</td></tr>
-            <tr><td><code>0x0068</code></td><td><code>REG_META_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_count0</code></td><td>slot0 metadata 统计计数。</td></tr>
-            <tr><td><code>0x006c</code></td><td><code>REG_META_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_count1</code></td><td>slot1 metadata 统计计数。</td></tr>
-            <tr><td><code>0x0070</code></td><td><code>REG_TILEADDR_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tileaddr_count0</code></td><td>slot0 tile address 统计计数。</td></tr>
-            <tr><td><code>0x0074</code></td><td><code>REG_TILEADDR_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tileaddr_count1</code></td><td>slot1 tile address 统计计数。</td></tr>
-            <tr><td><code>0x0078</code></td><td><code>REG_OTF_TILE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_tile_count0</code></td><td>slot0 OTF-to-tile tile 统计计数。</td></tr>
-            <tr><td><code>0x007c</code></td><td><code>REG_OTF_TILE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_tile_count1</code></td><td>slot1 OTF-to-tile tile 统计计数。</td></tr>
-            <tr><td><code>0x0080</code></td><td><code>REG_OTF_DE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_de_count0</code></td><td>slot0 de &amp;&amp; ready 统计计数。</td></tr>
-            <tr><td><code>0x0084</code></td><td><code>REG_OTF_DE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_de_count1</code></td><td>slot1 de &amp;&amp; ready 统计计数。</td></tr>
-            <tr><td><code>0x0088</code></td><td><code>REG_OTF_LINE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_line_count0</code></td><td>slot0 OTF line 统计计数。</td></tr>
-            <tr><td><code>0x008c</code></td><td><code>REG_OTF_LINE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_line_count1</code></td><td>slot1 OTF line 统计计数。</td></tr>
-            <tr><td><code>0x0090</code></td><td><code>REG_TILE_AXI_W_CNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt0</code></td><td>slot0 tile AXI W 统计计数。</td></tr>
-            <tr><td><code>0x0094</code></td><td><code>REG_TILE_AXI_W_CNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt1</code></td><td>slot1 tile AXI W 统计计数。</td></tr>
-            <tr><td><code>0x0098</code></td><td><code>REG_META_AXI_W_CNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt0</code></td><td>slot0 metadata AXI W 统计计数。</td></tr>
-            <tr><td><code>0x009c</code></td><td><code>REG_META_AXI_W_CNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt1</code></td><td>slot1 metadata AXI W 统计计数。</td></tr>
+            <tr><td><code>0x0068</code></td><td><code>REG_META_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_count0</code></td><td><code>fcnt[0]=0</code> 的 metadata 统计计数，与地址选择无关。</td></tr>
+            <tr><td><code>0x006c</code></td><td><code>REG_META_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_count1</code></td><td><code>fcnt[0]=1</code> 的 metadata 统计计数，与地址选择无关。</td></tr>
+            <tr><td><code>0x0070</code></td><td><code>REG_TILEADDR_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tileaddr_count0</code></td><td><code>fcnt[0]=0</code> 的 tile address 统计计数。</td></tr>
+            <tr><td><code>0x0074</code></td><td><code>REG_TILEADDR_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tileaddr_count1</code></td><td><code>fcnt[0]=1</code> 的 tile address 统计计数。</td></tr>
+            <tr><td><code>0x0078</code></td><td><code>REG_OTF_TILE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_tile_count0</code></td><td><code>fcnt[0]=0</code> 的 OTF-to-tile tile 统计计数。</td></tr>
+            <tr><td><code>0x007c</code></td><td><code>REG_OTF_TILE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_tile_count1</code></td><td><code>fcnt[0]=1</code> 的 OTF-to-tile tile 统计计数。</td></tr>
+            <tr><td><code>0x0080</code></td><td><code>REG_OTF_DE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_de_count0</code></td><td><code>fcnt[0]=0</code> 的 de &amp;&amp; ready 统计计数。</td></tr>
+            <tr><td><code>0x0084</code></td><td><code>REG_OTF_DE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_de_count1</code></td><td><code>fcnt[0]=1</code> 的 de &amp;&amp; ready 统计计数。</td></tr>
+            <tr><td><code>0x0088</code></td><td><code>REG_OTF_LINE_COUNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_line_count0</code></td><td><code>fcnt[0]=0</code> 的 OTF line 统计计数。</td></tr>
+            <tr><td><code>0x008c</code></td><td><code>REG_OTF_LINE_COUNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>otf_line_count1</code></td><td><code>fcnt[0]=1</code> 的 OTF line 统计计数。</td></tr>
+            <tr><td><code>0x0090</code></td><td><code>REG_TILE_AXI_W_CNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt0</code></td><td><code>fcnt[0]=0</code> 的 tile AXI W 统计计数。</td></tr>
+            <tr><td><code>0x0094</code></td><td><code>REG_TILE_AXI_W_CNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt1</code></td><td><code>fcnt[0]=1</code> 的 tile AXI W 统计计数。</td></tr>
+            <tr><td><code>0x0098</code></td><td><code>REG_META_AXI_W_CNT0</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt0</code></td><td><code>fcnt[0]=0</code> 的 metadata AXI W 统计计数。</td></tr>
+            <tr><td><code>0x009c</code></td><td><code>REG_META_AXI_W_CNT1</code></td><td>RO</td><td>dynamic</td><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt1</code></td><td><code>fcnt[0]=1</code> 的 metadata AXI W 统计计数。</td></tr>
           </table>
           <div class="note">APB 寄存器 32 bit，byte offset 4 byte 对齐；64 bit base address 先写 low，再写 high；<code>W1P</code> 字段写 1 产生 pulse。</div>
           <h4>ENC Register 逐项说明</h4>
@@ -494,7 +538,7 @@
           <div class="note">计算说明：<code>y_tile_cols = ceil(y_plane_width / tile_w)</code>，<code>uv_tile_cols = ceil(uv_plane_width / tile_w)</code>；RGBA 没有 UV plane，<code>uv_tile_cols=0</code>。</div>
 
           <h5>3.13 Meta/Tile Base 地址组</h5>
-          <p><strong>寄存器范围：</strong><code>0x0030</code> 到 <code>0x004c</code>；每帧或每个输出 buffer 配置一次。</p>
+          <p><strong>寄存器范围：</strong><code>0x0030</code> 到 <code>0x004c</code>；首次配置或输出 buffer 地址变化时写入，地址不变的连续帧直接复用。</p>
           <table>
             <tr><th>Register</th><th>Address</th><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
             <tr><td><code>REG_META_BASE_Y_LO</code></td><td><code>0x0030</code></td><td><code>[31:0]</code></td><td><code>meta_y_base_offset_addr[31:0]</code></td><td>RW</td><td>0</td><td>Y/RGBA metadata 存储基地址低 32 bit。</td></tr>
@@ -534,7 +578,7 @@ REG_META_BASE_UV_LO = meta_uv_base[31:0]
 REG_META_BASE_UV_HI = meta_uv_base[63:32]
 REG_TILE_BASE_UV_LO = tile_uv_base[31:0]
 REG_TILE_BASE_UV_HI = tile_uv_base[63:32]</code></pre>
-          <div class="note">说明：<code>tile_y_pitch_bytes</code>、<code>tile_uv_pitch_bytes</code>、<code>stored_y_height</code>、<code>stored_uv_height</code> 由格式、pitch 和 UBWC layout 对齐规则计算，必须和 <code>REG_TILE_CFG1</code>、<code>REG_META_ACTIVE_SIZE</code>、<code>REG_META_PITCH</code> 保持一致。地址组写完后，软件仍需写 <code>REG_IRQ_CTRL[5]=1</code> 产生 frame start token。</div>
+          <div class="note">说明：<code>tile_y_pitch_bytes</code>、<code>tile_uv_pitch_bytes</code>、<code>stored_y_height</code>、<code>stored_uv_height</code> 由格式、pitch 和 UBWC layout 对齐规则计算，必须和 <code>REG_TILE_CFG1</code>、<code>REG_META_ACTIVE_SIZE</code>、<code>REG_META_PITCH</code> 保持一致。地址组和静态配置写完后，软件写 <code>REG_IRQ_CTRL[5]=1</code> 提交配置，并读取 <code>REG_STATUS0[14]</code> 确认提交有效。</div>
 
           <h5>3.14 Meta Active Size</h5>
           <p><strong>寄存器：</strong><code>REG_META_ACTIVE_SIZE</code>；<strong>地址：</strong><code>0x0050</code></p>
@@ -579,13 +623,13 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td><code>[6]</code></td><td><code>meta_err_0</code></td><td>RO</td><td>dynamic</td><td>Metadata co-buffer overflow。</td></tr>
             <tr><td><code>[7]</code></td><td><code>meta_err_1</code></td><td>RO</td><td>dynamic</td><td>Metadata tile order error。</td></tr>
             <tr><td><code>[8]</code></td><td><code>frame_done</code></td><td>RO</td><td>dynamic</td><td>Frame done。</td></tr>
-            <tr><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>RO</td><td>dynamic</td><td>当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 <code>fcnt[0]</code> 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 <code>active_addr_cfg_valid</code> 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 <code>fcnt[0]</code> 对齐后，再写 <code>REG_IRQ_CTRL[1] irq_clear</code> 清 sticky 状态；关闭 <code>enc_ubwc_en</code> 或硬复位也会清零。</td></tr>
-            <tr><td><code>[10]</code></td><td><code>addr_cfg_valid0</code></td><td>RO</td><td>dynamic</td><td>Address slot0 valid。</td></tr>
-            <tr><td><code>[11]</code></td><td><code>addr_cfg_valid1</code></td><td>RO</td><td>dynamic</td><td>Address slot1 valid。</td></tr>
-            <tr><td><code>[12]</code></td><td><code>addr_cfg_overflow</code></td><td>RO</td><td>dynamic</td><td>地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 <code>REG_TILE_BASE_UV_HI</code> 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 <code>REG_IRQ_CTRL[1] irq_clear</code> 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 <code>enc_ubwc_en</code> 后重新配置。</td></tr>
+            <tr><td><code>[9]</code></td><td><code>addr_cfg_invalid</code></td><td>RO</td><td>dynamic</td><td>唯一地址组无效 sticky 状态；数据链路检查地址时，如果最近一次 START 锁存的四个 64-bit base 不完整，该 bit 置 1 并保持，同时参与 error IRQ。</td></tr>
+            <tr><td><code>[10]</code></td><td><code>addr_cfg_valid</code></td><td>RO</td><td>dynamic</td><td>最近一次 START 已锁存完整有效的唯一地址组；后续帧持续复用。</td></tr>
+            <tr><td><code>[12:11]</code></td><td><code>Reserved</code></td><td>-</td><td>-</td><td>保留，读回 0。</td></tr>
             <tr><td><code>[13]</code></td><td><code>rst_drain_timeout</code></td><td>RO</td><td>dynamic</td><td>软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 <code>16'hffff</code> 个 <code>i_axi_clk</code> 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 <code>REG_IRQ_CTRL[1] irq_clear</code> 或硬复位后清零。</td></tr>
+            <tr><td><code>[14]</code></td><td><code>cfg_valid</code></td><td>RO</td><td>dynamic</td><td>最近一次 START 提交的配置有效标志；为 0 时 <code>o_otf_ready</code> 保持为 0。</td></tr>
           </table>
-          <div class="note">计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源、OTF 输入异常和软复位 drain 是否异常。<code>addr_cfg_invalid=1</code> 表示当前要处理的帧已经到达，但 <code>fcnt[0]</code> 对应 slot 没有可用地址配置；软件应补齐地址组并确认帧号/slot 与 buffer 队列没有错位。<code>addr_cfg_overflow=1</code> 表示软件提交地址组的速度超过硬件消耗地址组的速度，至少有一次地址组 commit 被拒绝进入 FIFO；软件需要重新确认 buffer 队列和硬件地址队列的对应关系。<code>rst_drain_timeout=1</code> 表示本次软复位没有正常等到 AXI 写通路排空，复位 sequencer 已按超时路径继续进入 reset hold；软件应检查外部 AXI slave/interconnect 是否长时间不返回 ready/response，或是否在复位窗口仍有上游数据持续触发写请求。</div>
+          <div class="note">计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断配置提交、地址配置、中断来源、OTF 输入异常和帧复位 drain 是否异常。<code>cfg_valid=0</code> 表示最近一次 START 提交未通过完整性检查，硬件会保持 OTF 反压；软件应补齐工作寄存器和唯一地址组后重新写 START。<code>addr_cfg_valid=1</code> 表示该地址组已锁存并可跨帧复用。<code>addr_cfg_invalid=1</code> 表示数据链路曾尝试使用无效地址组；软件应按顺序重写全部地址、重新 START，再清错误。<code>rst_drain_timeout=1</code> 表示本次 VSYNC 帧复位没有正常等到 AXI 写通路排空；软件应检查外部 AXI slave/interconnect 是否长时间不返回 ready/response。</div>
 
           <h5>3.17 Status1</h5>
           <p><strong>寄存器：</strong><code>REG_STATUS1</code>；<strong>地址：</strong><code>0x005c</code></p>
@@ -604,10 +648,10 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td><code>[2]</code></td><td><code>irq_pending</code></td><td>RO</td><td>dynamic</td><td>Any IRQ pending。</td></tr>
             <tr><td><code>[3]</code></td><td><code>irq_correct_pending</code></td><td>RO</td><td>dynamic</td><td>Correct IRQ pending。</td></tr>
             <tr><td><code>[4]</code></td><td><code>irq_error_pending</code></td><td>RO</td><td>dynamic</td><td>Error IRQ pending。</td></tr>
-            <tr><td><code>[5]</code></td><td><code>start</code></td><td>W1P</td><td>0</td><td>写 1 产生 frame start token。</td></tr>
-            <tr><td><code>[6]</code></td><td><code>vsync_reset_en</code></td><td>RW</td><td>0</td><td>置 1 后，输入 <code>i_otf_vsync</code> 上升沿触发 ENC soft reset；复位前会等待 AXI write drain，复位释放后重新 arm frame start。</td></tr>
+            <tr><td><code>[5]</code></td><td><code>start</code></td><td>W1P</td><td>0</td><td>写 1 校验并锁存完整 ENC 配置快照；不触发帧复位，也不启动 OTF 数据处理。</td></tr>
+            <tr><td><code>[6]</code></td><td><code>Reserved</code></td><td>-</td><td>-</td><td>保留，读回 0。</td></tr>
           </table>
-          <div class="note">计算说明：每帧地址配置完成后写 <code>REG_IRQ_CTRL[5]=1</code> 启动；中断处理完成后写 <code>REG_IRQ_CTRL[1]=1</code> 清除。<code>REG_IRQ_CTRL[6]</code> 是可选自动复位模式，适合希望每个输入 VSYNC 重新初始化 ENC 内部流水的系统；软件必须在 VSYNC 到来前保证本帧地址 slot 已配置。</div>
+          <div class="note">计算说明：静态配置或地址组更新后写 <code>REG_IRQ_CTRL[5]=1</code> 提交配置，并轮询 <code>REG_STATUS0[14] cfg_valid</code>。输入 VSYNC 到来时硬件自动执行 AXI drain、帧级全链路复位并在释放后开始接收该帧；START 不参与这一时序。中断处理完成后写 <code>REG_IRQ_CTRL[1]=1</code> 清除。</div>
 
           <h5>3.19 Status2</h5>
           <p><strong>寄存器：</strong><code>REG_STATUS2</code>；<strong>地址：</strong><code>0x0064</code></p>
@@ -623,7 +667,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_META_COUNT0</code>；<strong>地址：</strong><code>0x0068</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>meta_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 metadata count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_count0</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=0</code> 的 metadata count；仅用于帧统计分组，与地址选择无关。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计计数，只用于 debug 和吞吐量核对。</div>
 
@@ -631,7 +675,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_META_COUNT1</code>；<strong>地址：</strong><code>0x006c</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>meta_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 metadata count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_count1</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=1</code> 的 metadata count；仅用于帧统计分组，与地址选择无关。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计计数，只用于 debug 和吞吐量核对。</div>
 
@@ -639,7 +683,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_TILEADDR_COUNT0</code>；<strong>地址：</strong><code>0x0070</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>tileaddr_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 tile address count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>tileaddr_count0</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=0</code> 的 tile address count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计计数，只用于 debug，不作为 frame done 判断依据。</div>
 
@@ -647,7 +691,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_TILEADDR_COUNT1</code>；<strong>地址：</strong><code>0x0074</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>tileaddr_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 tile address count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>tileaddr_count1</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=1</code> 的 tile address count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计计数，只用于 debug，不作为 frame done 判断依据。</div>
 
@@ -655,7 +699,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_OTF_TILE_COUNT0</code>；<strong>地址：</strong><code>0x0078</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>otf_tile_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 OTF-to-tile tile count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_tile_count0</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=0</code> 的 OTF-to-tile tile count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计计数，只用于 debug。</div>
 
@@ -663,7 +707,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_OTF_TILE_COUNT1</code>；<strong>地址：</strong><code>0x007c</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>otf_tile_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 OTF-to-tile tile count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_tile_count1</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=1</code> 的 OTF-to-tile tile count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计计数，只用于 debug。</div>
 
@@ -671,7 +715,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_OTF_DE_COUNT0</code>；<strong>地址：</strong><code>0x0080</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>otf_de_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 <code>i_otf_de && o_otf_ready</code> count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_de_count0</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=0</code> 的 <code>i_otf_de && o_otf_ready</code> count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计 OTF 有效输入 beat，只用于 debug。</div>
 
@@ -679,7 +723,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_OTF_DE_COUNT1</code>；<strong>地址：</strong><code>0x0084</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>otf_de_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 <code>i_otf_de && o_otf_ready</code> count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_de_count1</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=1</code> 的 <code>i_otf_de && o_otf_ready</code> count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计 OTF 有效输入 beat，只用于 debug。</div>
 
@@ -687,7 +731,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_OTF_LINE_COUNT0</code>；<strong>地址：</strong><code>0x0088</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>otf_line_count0</code></td><td>RO</td><td>dynamic</td><td>Slot0 OTF line count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_line_count0</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=0</code> 的 OTF line count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计 OTF line，只用于 debug。</div>
 
@@ -695,7 +739,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_OTF_LINE_COUNT1</code>；<strong>地址：</strong><code>0x008c</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>otf_line_count1</code></td><td>RO</td><td>dynamic</td><td>Slot1 OTF line count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>otf_line_count1</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=1</code> 的 OTF line count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计 OTF line，只用于 debug。</div>
 
@@ -703,7 +747,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_TILE_AXI_W_CNT0</code>；<strong>地址：</strong><code>0x0090</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt0</code></td><td>RO</td><td>dynamic</td><td>Slot0 tile AXI W beat count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt0</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=0</code> 的 tile AXI W beat count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计 tile AXI W beat，只用于 debug。</div>
 
@@ -711,7 +755,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_TILE_AXI_W_CNT1</code>；<strong>地址：</strong><code>0x0094</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt1</code></td><td>RO</td><td>dynamic</td><td>Slot1 tile AXI W beat count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>tile_axi_w_cnt1</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=1</code> 的 tile AXI W beat count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计 tile AXI W beat，只用于 debug。</div>
 
@@ -719,7 +763,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_META_AXI_W_CNT0</code>；<strong>地址：</strong><code>0x0098</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt0</code></td><td>RO</td><td>dynamic</td><td>Slot0 metadata AXI W beat count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt0</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=0</code> 的 metadata AXI W beat count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计 metadata AXI W beat，只用于 debug。</div>
 
@@ -727,7 +771,7 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <p><strong>寄存器：</strong><code>REG_META_AXI_W_CNT1</code>；<strong>地址：</strong><code>0x009c</code></p>
           <table>
             <tr><th>Bit</th><th>Field</th><th>Access</th><th>Reset</th><th>说明</th></tr>
-            <tr><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt1</code></td><td>RO</td><td>dynamic</td><td>Slot1 metadata AXI W beat count。</td></tr>
+            <tr><td><code>[31:0]</code></td><td><code>meta_axi_w_cnt1</code></td><td>RO</td><td>dynamic</td><td><code>fcnt[0]=1</code> 的 metadata AXI W beat count。</td></tr>
           </table>
           <div class="note">计算说明：硬件统计 metadata AXI W beat，只用于 debug。</div>
 
@@ -746,20 +790,21 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <h3 id="enc-work">ENC 5. Work Mode</h3>
           <pre><code>1. 读取 REG_VERSION / REG_DATE。
 2. 图像格式、尺寸或 layout 变化时，配置 TILE_CFG、CI_CFG、OTF_CFG、META_ACTIVE_SIZE、META_PITCH。
-3. 每个输出 buffer 到来时，写 META_Y、TILE_Y、META_UV、TILE_UV 四个 64-bit base address。
-4. 写 REG_IRQ_CTRL[5]=1 产生 start token；如果需要 VSYNC 自动复位模式，可在初始化时置 REG_IRQ_CTRL[6]=1。
-5. 上游按 i_otf_fcnt 输入 OTF frame；在 REG_IRQ_CTRL[6]=1 时，i_otf_vsync 上升沿会先触发 soft reset，再由 reset sequencer 重新 arm frame start。
-6. 硬件按 fcnt[0] 选择地址 slot，并写出 compressed tile 和 metadata。
-7. 软件读 STATUS/COUNT 处理状态，写 REG_IRQ_CTRL[1]=1 清中断。</code></pre>
+3. 首次配置或输出 buffer 地址变化时，依次写 META_Y、TILE_Y、META_UV、TILE_UV 四个 64-bit base address，并以 REG_TILE_BASE_UV_HI 收尾。
+4. 写 REG_IRQ_CTRL[5]=1 提交完整配置；读取 REG_STATUS0[14] cfg_valid 和 REG_STATUS0[10] addr_cfg_valid，二者均为 1 才允许上游送帧。
+5. 上游给出当前 i_otf_fcnt 并拉高 VSYNC；硬件在该边界采样 cfg_valid 和唯一地址组有效性，随后阻塞 OTF 输入，等待 AXI 写事务 drain，再复位 AXI/OTF/VIVO 帧状态。
+6. 复位释放后，仅当该次 VSYNC 的采样结果有效时自动拉高 o_otf_ready，并写出 compressed tile 和 metadata；采样无效时整帧保持 o_otf_ready=0，帧中途补写 START 不会放行本帧。
+7. 下一帧继续复用同一地址组，无需再次写地址或 START；仅当静态配置或唯一地址组需要切换时重新写完整配置并写 START。新 START 必须在目标 VSYNC 前完成并确认 cfg_valid=1。
+8. 软件读 STATUS/COUNT 处理状态，写 REG_IRQ_CTRL[1]=1 清中断。</code></pre>
 
           <h3 id="enc-debug">ENC 6. Debug</h3>
-          <p>ENC debug 建议先按中断类型分流，再按错误分类读取状态寄存器。正常完成类中断重点看 <code>frame_done</code>、slot 计数和 AXI 写计数；错误类中断重点看地址配置、OTF 输入、metadata 生成、AXI 写 drain 四类状态。读取并保存状态后，再写 <code>REG_IRQ_CTRL[1]=1</code> 清中断和 sticky 状态。</p>
+          <p>ENC debug 建议先按中断类型分流，再按错误分类读取状态寄存器。正常完成类中断重点看 <code>frame_done</code>、按 <code>fcnt[0]</code> 分组的统计计数和 AXI 写计数；错误类中断重点看唯一地址配置、OTF 输入、metadata 生成、AXI 写 drain 四类状态。读取并保存状态后，再写 <code>REG_IRQ_CTRL[1]=1</code> 清中断和 sticky 状态。</p>
           <h4>ENC 状态寄存器定位用途</h4>
           <table>
             <tr><th>寄存器/字段</th><th>定位的问题</th><th>调试含义</th></tr>
             <tr><td><code>REG_IRQ_CTRL[2]</code><br><code>REG_STATUS2[0]</code></td><td>是否存在中断</td><td>两者均为 any IRQ mirror。若 <code>o_irq</code> 没有拉高，先确认 <code>irq_enable</code> 是否置 1，再确认 pending 是否产生。</td></tr>
-            <tr><td><code>REG_IRQ_CTRL[3]</code><br><code>REG_STATUS2[1]</code></td><td>正常完成中断</td><td>表示本帧按硬件定义完成。若该 bit 置 1，应继续读取 <code>REG_STATUS0[8]</code> 和各 slot 计数，确认 frame done 与实际写出数量一致。</td></tr>
-            <tr><td><code>REG_IRQ_CTRL[4]</code><br><code>REG_STATUS2[2]</code></td><td>错误中断</td><td>表示至少一个错误源被锁存。后续按 <code>REG_STATUS0[3:7]</code>、<code>REG_STATUS0[9]</code>、<code>REG_STATUS0[12:13]</code> 分类定位。</td></tr>
+            <tr><td><code>REG_IRQ_CTRL[3]</code><br><code>REG_STATUS2[1]</code></td><td>正常完成中断</td><td>表示本帧按硬件定义完成。若该 bit 置 1，应继续读取 <code>REG_STATUS0[8]</code> 和各统计计数，确认 frame done 与实际写出数量一致。</td></tr>
+            <tr><td><code>REG_IRQ_CTRL[4]</code><br><code>REG_STATUS2[2]</code></td><td>错误中断</td><td>表示至少一个错误源被锁存。后续按 <code>REG_STATUS0[3:7]</code>、<code>REG_STATUS0[9]</code> 和 <code>REG_STATUS0[13]</code> 分类定位。</td></tr>
             <tr><td><code>REG_STATUS0[0]</code> <code>enc_idle</code></td><td>ENC 是否空闲</td><td>用于判断清中断或重新配置前流水是否已经停稳。若 frame done 已产生但 idle 长时间为 0，需要检查 AXI 写响应或下游 ready。</td></tr>
             <tr><td><code>REG_STATUS0[1]</code> <code>enc_error</code></td><td>ENC 综合错误</td><td>来自 ENC 内部错误汇总。该 bit 置 1 时，需要结合更细的 OTF、metadata、地址配置和 reset drain 状态继续拆分。</td></tr>
             <tr><td><code>REG_STATUS0[2]</code> <code>otf_to_tile_busy</code></td><td>OTF-to-tile 是否仍在处理</td><td>用于判断输入打包、跨域 FIFO、line-to-tile、tile 输出是否仍有数据在途。若长时间为 1 且计数不再变化，优先看 SRAM/AXI 写侧反压。</td></tr>
@@ -767,15 +812,15 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
             <tr><td><code>REG_STATUS0[4]</code> <code>otf_err_bline</code></td><td>单行像素数量错误</td><td>用于定位输入一行的 <code>de</code> 数与配置宽度不一致。常见原因是上游没有按 active width 送数、行尾 <code>lcnt</code> 异常或 padding/mask 策略不一致。</td></tr>
             <tr><td><code>REG_STATUS0[5]</code> <code>otf_err_bframe</code></td><td>帧行数错误</td><td>用于定位一帧有效行数与配置高度不一致。若该 bit 置 1，检查 <code>REG_OTF_CFG1.height</code>、输入 vsync/lcnt 以及 <code>REG_OTF_LINE_COUNT0/1</code>。</td></tr>
             <tr><td><code>REG_STATUS0[6]</code> <code>meta_err_0</code></td><td>metadata co-buffer overflow</td><td>表示 metadata 输出缓存溢出，只作为错误状态上报。通常说明 metadata 生成快于后级写出，或 metadata AXI 写路径长时间被阻塞。</td></tr>
-            <tr><td><code>REG_STATUS0[7]</code> <code>meta_err_1</code></td><td>metadata tile 顺序错误</td><td>用于定位 tile 坐标、plane 顺序或 metadata 地址递增异常。若只在 YUV420/NV12/P010 出现，优先检查 Y/UV plane 切换、UV pitch 和 slot/fcnt 对齐。</td></tr>
+            <tr><td><code>REG_STATUS0[7]</code> <code>meta_err_1</code></td><td>metadata tile 顺序错误</td><td>用于定位 tile 坐标、plane 顺序或 metadata 地址递增异常。若只在 YUV420/NV12/P010 出现，优先检查 Y/UV plane 切换、UV pitch、fcnt 和 tile 坐标连续性。</td></tr>
             <tr><td><code>REG_STATUS0[8]</code> <code>frame_done</code></td><td>帧完成状态</td><td>正常完成的主判断位。该 bit 不是由统计计数推导，而是由真实 frame done 事件锁存。</td></tr>
-            <tr><td><code>REG_STATUS0[9]</code> <code>addr_cfg_invalid</code></td><td>当前 slot 地址未配置</td><td>硬件按 <code>fcnt[0]</code> 选择 slot0/slot1。若被选 slot 没有地址组，该 bit 置 1。软件应检查每帧地址提交顺序和 <code>start</code> 之前是否至少准备好对应 slot 地址。</td></tr>
-            <tr><td><code>REG_STATUS0[10]</code><br><code>REG_STATUS0[11]</code></td><td>slot0/slot1 地址有效性</td><td>用于判断两个地址 slot 是否已有可用地址组。连续帧调试时，这两个 bit 可确认地址 FIFO 消耗和软件补地址节奏是否匹配。</td></tr>
-            <tr><td><code>REG_STATUS0[12]</code> <code>addr_cfg_overflow</code></td><td>地址 FIFO 溢出</td><td>表示软件提交地址组过快，当前地址组没有进入对应 slot FIFO。发生后必须重新确认软件 buffer 队列与硬件 slot 队列是否错位。</td></tr>
+            <tr><td><code>REG_STATUS0[9]</code> <code>addr_cfg_invalid</code></td><td>唯一地址组无效</td><td>数据链路检查地址时，若最近一次 START 没有锁存完整地址组，该 bit 置 1。软件应完整重写八个地址 word，并以 <code>REG_TILE_BASE_UV_HI</code> 收尾后重新 START。</td></tr>
+            <tr><td><code>REG_STATUS0[14]</code> <code>cfg_valid</code></td><td>最近一次配置提交是否有效</td><td>为 0 时表示格式、尺寸、tile/metadata 参数或唯一地址组不完整，硬件保持 <code>o_otf_ready=0</code>；补齐配置后重新写 START。</td></tr>
+            <tr><td><code>REG_STATUS0[10]</code> <code>addr_cfg_valid</code></td><td>唯一地址组有效性</td><td>为 1 表示最近一次 START 已锁存完整地址组，地址不变时后续帧持续复用。<code>REG_STATUS0[12:11]</code> 为保留位。</td></tr>
             <tr><td><code>REG_STATUS0[13]</code> <code>rst_drain_timeout</code></td><td>soft reset 等待 AXI drain 超时</td><td>用于定位复位期间 AXI write outstanding 长时间不清空。常见原因是外部 AXI slave/interconnect 不返回 ready/response，或 reset 前仍有上游数据持续进入。</td></tr>
             <tr><td><code>REG_STATUS1[7:0]</code> <code>stage_done</code></td><td>阶段完成 bitmap</td><td>用于判断哪一级曾经完成。若 <code>frame_done</code> 没有产生，可结合各计数器判断卡在 OTF-to-tile、tile address、metadata、AXI write 哪一级。</td></tr>
-            <tr><td><code>REG_META_COUNT0/1</code></td><td>metadata tile 数量</td><td>按 slot 统计 metadata 生成数量。用于确认 metadata path 是否随着 tile 输出推进；slot0/slot1 应与当前 <code>fcnt[0]</code> 对应。</td></tr>
-            <tr><td><code>REG_TILEADDR_COUNT0/1</code></td><td>tile address 数量</td><td>按 slot 统计 tile address 生成数量。若 OTF tile 数增长但 tile address 数不增长，问题在 tile address 生成或地址配置。</td></tr>
+            <tr><td><code>REG_META_COUNT0/1</code></td><td>metadata tile 数量</td><td>分别统计 <code>fcnt[0]=0/1</code> 的 metadata 生成数量，与地址选择无关。用于确认 metadata path 是否随着 tile 输出推进。</td></tr>
+            <tr><td><code>REG_TILEADDR_COUNT0/1</code></td><td>tile address 数量</td><td>分别统计 <code>fcnt[0]=0/1</code> 的 tile address 生成数量。若 OTF tile 数增长但 tile address 数不增长，问题在 tile address 生成或地址配置。</td></tr>
             <tr><td><code>REG_OTF_TILE_COUNT0/1</code></td><td>OTF-to-tile 输出 tile 数量</td><td>确认输入数据是否已经被切成 tile。若 DE/line count 增长但 tile count 不增长，重点看 line-to-tile 边界、SRAM 调度和 tile 完整性。</td></tr>
             <tr><td><code>REG_OTF_DE_COUNT0/1</code></td><td>OTF 有效输入 beat 数量</td><td>统计 <code>i_otf_de && o_otf_ready</code>。用于判断上游是否真的把有效像素送进 ENC，以及是否出现 ready 长时间拉低。</td></tr>
             <tr><td><code>REG_OTF_LINE_COUNT0/1</code></td><td>OTF 输入行数量</td><td>用于核对输入有效行数。若 bad frame 置位，该计数是首要定位依据。</td></tr>
@@ -786,13 +831,13 @@ REG_META_ACTIVE_SIZE.height= 1200</code></pre>
           <h4>ENC 错误分类定位流程</h4>
           <table>
             <tr><th>错误分类</th><th>优先读取</th><th>判断方法</th><th>常见处理</th></tr>
-            <tr><td>没有中断或中断不符合预期</td><td><code>REG_IRQ_CTRL[0]</code>、<code>[4:2]</code>、<code>REG_STATUS2[2:0]</code></td><td>先确认中断使能，再区分 correct/error pending。若 pending 已置但外部 IRQ 无输出，检查中断连线；若 pending 未置，继续看 <code>frame_done</code> 与各 stage 计数。</td><td>使能 IRQ；确认 start 已写入；确认输入 vsync/de 到达。</td></tr>
-            <tr><td>地址配置类错误</td><td><code>REG_STATUS0[9:12]</code></td><td><code>addr_cfg_invalid</code> 表示当前帧 slot 没地址；<code>addr_cfg_overflow</code> 表示软件地址组提交过快。<code>addr_cfg_valid0/1</code> 可判断当前两个 slot 是否可用。</td><td>按 META_Y、TILE_Y、META_UV、TILE_UV 顺序写完整地址组；先准备地址再 start；overflow 后重新同步 buffer 队列。</td></tr>
+            <tr><td>没有中断或中断不符合预期</td><td><code>REG_IRQ_CTRL[0]</code>、<code>[4:2]</code>、<code>REG_STATUS0[14]</code>、<code>REG_STATUS2[2:0]</code></td><td>先确认配置提交有效和中断使能，再区分 correct/error pending。若 pending 已置但外部 IRQ 无输出，检查中断连线；若 pending 未置，继续看 <code>frame_done</code> 与各 stage 计数。</td><td>确认 START 已提交有效配置；确认输入 VSYNC/de 到达；使能 IRQ。</td></tr>
+            <tr><td>配置或地址错误</td><td><code>REG_STATUS0[9]</code>、<code>[10]</code>、<code>[14]</code></td><td><code>cfg_valid</code> 表示最近一次 START 提交结果；<code>addr_cfg_valid</code> 表示唯一地址组已锁存；<code>addr_cfg_invalid</code> 表示数据链路曾尝试使用无效地址组。</td><td>按 META_Y、TILE_Y、META_UV、TILE_UV 顺序写完整地址组，以 <code>REG_TILE_BASE_UV_HI</code> 收尾，补齐静态参数后重新写 START。</td></tr>
             <tr><td>OTF 输入格式/行列错误</td><td><code>REG_STATUS0[4:5]</code>、<code>REG_OTF_DE_COUNT0/1</code>、<code>REG_OTF_LINE_COUNT0/1</code></td><td>bad line 对应单行像素数不一致，bad frame 对应有效行数不一致。DE count 和 line count 可反推上游实际送入的 active 区域。</td><td>核对 <code>REG_OTF_CFG1</code>、<code>REG_META_ACTIVE_SIZE</code>、上游 lcnt/vsync/de；确认 NV12/P010 第一行 UV 排列与 RTL 配置一致。</td></tr>
             <tr><td>OTF-to-tile 或 SRAM 调度阻塞</td><td><code>REG_STATUS0[2:3]</code>、<code>REG_OTF_TILE_COUNT0/1</code></td><td>busy 长时间为 1 且 tile count 不动，说明 OTF-to-tile 内部被反压；overflow 置位说明上游仍在送入但内部无法消耗。</td><td>看波形中的 line-to-tile FIFO ready、bank read/write 仲裁、AXI 写 ready；确认 YUV420 UV_A/UV_B 调度没有浪费 SRAM 带宽。</td></tr>
-            <tr><td>metadata 生成错误</td><td><code>REG_STATUS0[6:7]</code>、<code>REG_META_COUNT0/1</code>、<code>REG_META_AXI_W_CNT0/1</code></td><td><code>meta_err_0</code> 偏向 buffer overflow；<code>meta_err_1</code> 偏向坐标/顺序/地址递增错误。meta count 与 meta AXI W count 的差距可判断是生成端还是写出端异常。</td><td>检查 metadata pitch、Y/UV plane 切换、slot/fcnt、tile 坐标和 AXI 写 ready。</td></tr>
+            <tr><td>metadata 生成错误</td><td><code>REG_STATUS0[6:7]</code>、<code>REG_META_COUNT0/1</code>、<code>REG_META_AXI_W_CNT0/1</code></td><td><code>meta_err_0</code> 偏向 buffer overflow；<code>meta_err_1</code> 偏向坐标/顺序/地址递增错误。meta count 与 meta AXI W count 的差距可判断是生成端还是写出端异常。</td><td>检查 metadata pitch、Y/UV plane 切换、fcnt、tile 坐标和 AXI 写 ready。</td></tr>
             <tr><td>AXI 写通路错误或性能不足</td><td><code>REG_TILE_AXI_W_CNT0/1</code>、<code>REG_META_AXI_W_CNT0/1</code>、<code>REG_STATUS0[13]</code></td><td>OTF/tile/meta 计数增长但 AXI W 计数停住，说明写通路被 AXI ready 或 response 阻塞。soft reset 时若 drain timeout 置位，说明 outstanding 长时间无法排空。</td><td>检查 interconnect/slave ready、B response、AXI ID/len/size 配置；复位前尽量停止上游输入并等待 idle。</td></tr>
-            <tr><td>正常完成但输出数据不符合预期</td><td>全部 slot count、<code>frame_done</code></td><td>先确认 correct IRQ 和 frame done，再比对每个 slot 的 OTF DE/line、tile、metadata、tile AXI、meta AXI 数量是否匹配预期。数量匹配但内容错，优先看 base address、pitch、format 配置。</td><td>核对 ubwc_cfg 生成结果、vector ReadMe 中的 stored layout、metadata pitch 和压缩数据地址。</td></tr>
+            <tr><td>正常完成但输出数据不符合预期</td><td>全部 COUNT0/COUNT1、<code>frame_done</code></td><td>先确认 correct IRQ 和 frame done，再按 <code>fcnt[0]</code> 分组比对 OTF DE/line、tile、metadata、tile AXI、meta AXI 数量是否匹配预期。数量匹配但内容错，优先看唯一 base address、pitch、format 配置。</td><td>核对 ubwc_cfg 生成结果、vector ReadMe 中的 stored layout、metadata pitch 和压缩数据地址。</td></tr>
           </table>
 
           <h3 id="enc-ppa">ENC 7. PPA</h3>

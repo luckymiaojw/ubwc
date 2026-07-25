@@ -19,9 +19,8 @@ module ubwc_enc_rst_gen
         input   wire                                        i_otf_rstn                      ,
         input   wire                                        i_vivo_rstn                     ,
         input   wire                                        i_enc_ubwc_en                   ,
-        input   wire                                        i_start_pulse                   ,
-        input   wire                                        i_vsync_reset_en                ,
         input   wire                                        i_otf_vsync                     ,
+        input   wire                                        i_frame_cfg_valid               ,
         input   wire                                        i_axi_idle                      ,
         input   wire                                        i_error_clear                   ,
 
@@ -30,7 +29,9 @@ module ubwc_enc_rst_gen
         output  wire                                        o_vivo_rstn                     ,
         output  wire                                        o_axi_drain_req                 ,
         output  wire                                        o_axi_drain_timeout             ,
-        output  wire                                        o_start_pulse
+        output  wire                                        o_otf_input_enable              ,
+        output  wire                                        o_otf_frame_start_pulse         ,
+        output  wire                                        o_frame_start_pulse
     );
 
     localparam  [2                      :0]         RESET_HOLD_CYCLES              = 3'd3;
@@ -42,6 +43,8 @@ module ubwc_enc_rst_gen
 
     wire                                            start_toggle_sync_otf_pulse     ;
     wire                                            start_toggle_sync_vivo_pulse    ;
+    wire                                            start_release_sync_otf_pulse    ;
+    wire                                            hard_rstn                       ;
     wire                                            enc_ubwc_en_otf                 ;
     wire                                            enc_ubwc_en_vivo                ;
     wire                                            vsync_reset_event_otf           ;
@@ -69,9 +72,17 @@ module ubwc_enc_rst_gen
     reg         [2                      :0]         start_release_cnt               ;
     reg                                             start_pulse_r                   ;
     reg                                             start_toggle_axi_r              ;
+    reg                                             start_release_toggle_axi_r      ;
     reg                                             start_toggle_otf_meta_r         ;
     reg                                             start_toggle_otf_sync_r         ;
     reg                                             start_toggle_otf_sync_d_r       ;
+    reg                                             start_release_otf_meta_r        ;
+    reg                                             start_release_otf_sync_r        ;
+    reg                                             start_release_otf_sync_d_r      ;
+    reg                                             axi_drain_req_otf_meta_r        ;
+    reg                                             axi_drain_req_otf_sync_r        ;
+    reg                                             otf_input_enable_r              ;
+    reg                                             frame_cfg_valid_otf_r           ;
     reg                                             start_toggle_vivo_meta_r        ;
     reg                                             start_toggle_vivo_sync_r        ;
     reg                                             start_toggle_vivo_sync_d_r      ;
@@ -79,8 +90,6 @@ module ubwc_enc_rst_gen
     reg                                             enc_ubwc_en_otf_sync_r          ;
     reg                                             enc_ubwc_en_vivo_meta_r         ;
     reg                                             enc_ubwc_en_vivo_sync_r         ;
-    reg                                             vsync_reset_en_otf_meta_r       ;
-    reg                                             vsync_reset_en_otf_sync_r       ;
     reg                                             otf_vsync_d_r                   ;
     reg                                             vsync_reset_toggle_otf_r        ;
     reg                                             vsync_reset_toggle_axi_meta_r   ;
@@ -93,16 +102,17 @@ module ubwc_enc_rst_gen
 
     assign start_toggle_sync_otf_pulse  = start_toggle_otf_sync_r ^ start_toggle_otf_sync_d_r;
     assign start_toggle_sync_vivo_pulse = start_toggle_vivo_sync_r ^ start_toggle_vivo_sync_d_r;
+    assign start_release_sync_otf_pulse = start_release_otf_sync_r ^ start_release_otf_sync_d_r;
+    assign hard_rstn                     = i_axi_rstn && i_otf_rstn && i_vivo_rstn;
     assign enc_ubwc_en_otf              = enc_ubwc_en_otf_sync_r;
     assign enc_ubwc_en_vivo             = enc_ubwc_en_vivo_sync_r;
-    assign vsync_reset_event_otf        = vsync_reset_en_otf_sync_r &&
-                                          i_otf_vsync && !otf_vsync_d_r;
+    assign vsync_reset_event_otf        = i_otf_vsync && !otf_vsync_d_r;
     assign vsync_reset_pulse_axi        = vsync_reset_toggle_axi_sync_r ^
                                           vsync_reset_toggle_axi_d_r;
-    assign start_req                    = i_start_pulse | vsync_reset_pulse_axi;
+    assign start_req                    = vsync_reset_pulse_axi;
     assign soft_reset_req               = !i_enc_ubwc_en || start_req;
     assign axi_drain_timeout_hit        = (axi_drain_cnt == DRAIN_TIMEOUT_CYCLES);
-    assign axi_drain_done               = i_axi_idle || axi_drain_timeout_hit;
+    assign axi_drain_done               = i_axi_idle;
     assign axi_enter_hold               = (axi_rst_state == AXI_RST_DRAIN) && axi_drain_done;
     assign axi_reset_done               = (axi_rst_state == AXI_RST_RUN) && axi_rstn_r;
     assign all_reset_done               = axi_reset_done &&
@@ -115,10 +125,14 @@ module ubwc_enc_rst_gen
     assign o_vivo_rstn                  = vivo_rstn_r;
     assign o_axi_drain_req              = (axi_rst_state == AXI_RST_DRAIN);
     assign o_axi_drain_timeout          = axi_drain_timeout_r;
-    assign o_start_pulse                = start_pulse_r;
+    assign o_otf_input_enable           = otf_input_enable_r && otf_rstn_r &&
+                                          frame_cfg_valid_otf_r &&
+                                          !vsync_reset_event_otf;
+    assign o_otf_frame_start_pulse      = start_release_sync_otf_pulse;
+    assign o_frame_start_pulse          = start_pulse_r;
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             axi_rst_state <= AXI_RST_HOLD;
         else begin
             case (axi_rst_state)
@@ -141,8 +155,8 @@ module ubwc_enc_rst_gen
         end
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             axi_rst_cnt <= RESET_HOLD_CYCLES;
         else if (axi_enter_hold)
             axi_rst_cnt <= RESET_HOLD_CYCLES;
@@ -152,8 +166,8 @@ module ubwc_enc_rst_gen
             axi_rst_cnt <= axi_rst_cnt - 3'd1;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             axi_drain_cnt <= 16'd0;
         else if (axi_rst_state != AXI_RST_DRAIN)
             axi_drain_cnt <= 16'd0;
@@ -161,16 +175,16 @@ module ubwc_enc_rst_gen
             axi_drain_cnt <= axi_drain_cnt + 16'd1;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             axi_rstn_r <= 1'b0;
         else
             axi_rstn_r <= (axi_rst_state == AXI_RST_RUN) ||
                           (axi_rst_state == AXI_RST_DRAIN);
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             axi_drain_timeout_r <= 1'b0;
         else if (i_error_clear)
             axi_drain_timeout_r <= 1'b0;
@@ -178,8 +192,8 @@ module ubwc_enc_rst_gen
             axi_drain_timeout_r <= 1'b1;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_pending_r <= 1'b0;
         else if (!i_enc_ubwc_en)
             start_pending_r <= 1'b0;
@@ -189,8 +203,8 @@ module ubwc_enc_rst_gen
             start_pending_r <= 1'b0;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_release_cnt <= START_RELEASE_CYCLES;
         else if (!i_enc_ubwc_en)
             start_release_cnt <= START_RELEASE_CYCLES;
@@ -202,134 +216,178 @@ module ubwc_enc_rst_gen
             start_release_cnt <= start_release_cnt - 3'd1;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_toggle_axi_r <= 1'b0;
         else if (axi_enter_hold && start_pending_r)
             start_toggle_axi_r <= ~start_toggle_axi_r;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
+            start_release_toggle_axi_r <= 1'b0;
+        else if (start_fire_ready)
+            start_release_toggle_axi_r <= ~start_release_toggle_axi_r;
+    end
+
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_pulse_r <= 1'b0;
         else
             start_pulse_r <= start_fire_ready;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             otf_rstn_axi_meta_r <= 1'b0;
         else
             otf_rstn_axi_meta_r <= otf_rstn_r;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             otf_rstn_axi_sync_r <= 1'b0;
         else
             otf_rstn_axi_sync_r <= otf_rstn_axi_meta_r;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             vivo_rstn_axi_meta_r <= 1'b0;
         else
             vivo_rstn_axi_meta_r <= vivo_rstn_r;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             vivo_rstn_axi_sync_r <= 1'b0;
         else
             vivo_rstn_axi_sync_r <= vivo_rstn_axi_meta_r;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_toggle_otf_meta_r <= 1'b0;
         else
             start_toggle_otf_meta_r <= start_toggle_axi_r;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_toggle_otf_sync_r <= 1'b0;
         else
             start_toggle_otf_sync_r <= start_toggle_otf_meta_r;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_toggle_otf_sync_d_r <= 1'b0;
         else
             start_toggle_otf_sync_d_r <= start_toggle_otf_sync_r;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
+            start_release_otf_meta_r <= 1'b0;
+        else
+            start_release_otf_meta_r <= start_release_toggle_axi_r;
+    end
+
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
+            start_release_otf_sync_r <= 1'b0;
+        else
+            start_release_otf_sync_r <= start_release_otf_meta_r;
+    end
+
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
+            start_release_otf_sync_d_r <= 1'b0;
+        else
+            start_release_otf_sync_d_r <= start_release_otf_sync_r;
+    end
+
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
+            axi_drain_req_otf_meta_r <= 1'b0;
+        else
+            axi_drain_req_otf_meta_r <= o_axi_drain_req;
+    end
+
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
+            axi_drain_req_otf_sync_r <= 1'b0;
+        else
+            axi_drain_req_otf_sync_r <= axi_drain_req_otf_meta_r;
+    end
+
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
+            otf_input_enable_r <= 1'b0;
+        else if (vsync_reset_event_otf || axi_drain_req_otf_sync_r || !otf_rstn_r)
+            otf_input_enable_r <= 1'b0;
+        else if (start_release_sync_otf_pulse)
+            otf_input_enable_r <= 1'b1;
+    end
+
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
+            frame_cfg_valid_otf_r <= 1'b0;
+        else if (vsync_reset_event_otf)
+            frame_cfg_valid_otf_r <= i_frame_cfg_valid;
+    end
+
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             enc_ubwc_en_otf_meta_r <= 1'b0;
         else
             enc_ubwc_en_otf_meta_r <= axi_rstn_r;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             enc_ubwc_en_otf_sync_r <= 1'b0;
         else
             enc_ubwc_en_otf_sync_r <= enc_ubwc_en_otf_meta_r;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
-            vsync_reset_en_otf_meta_r <= 1'b0;
-        else
-            vsync_reset_en_otf_meta_r <= i_vsync_reset_en;
-    end
-
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
-            vsync_reset_en_otf_sync_r <= 1'b0;
-        else
-            vsync_reset_en_otf_sync_r <= vsync_reset_en_otf_meta_r;
-    end
-
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             otf_vsync_d_r <= 1'b0;
         else
             otf_vsync_d_r <= i_otf_vsync;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             vsync_reset_toggle_otf_r <= 1'b0;
         else if (vsync_reset_event_otf)
             vsync_reset_toggle_otf_r <= ~vsync_reset_toggle_otf_r;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             vsync_reset_toggle_axi_meta_r <= 1'b0;
         else
             vsync_reset_toggle_axi_meta_r <= vsync_reset_toggle_otf_r;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             vsync_reset_toggle_axi_sync_r <= 1'b0;
         else
             vsync_reset_toggle_axi_sync_r <= vsync_reset_toggle_axi_meta_r;
     end
 
-    always @(posedge i_axi_clk or negedge i_axi_rstn) begin
-        if (!i_axi_rstn)
+    always @(posedge i_axi_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             vsync_reset_toggle_axi_d_r <= 1'b0;
         else
             vsync_reset_toggle_axi_d_r <= vsync_reset_toggle_axi_sync_r;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             otf_rst_cnt <= RESET_HOLD_CYCLES;
         else if (!enc_ubwc_en_otf)
             otf_rst_cnt <= RESET_HOLD_CYCLES;
@@ -339,50 +397,50 @@ module ubwc_enc_rst_gen
             otf_rst_cnt <= otf_rst_cnt - 3'd1;
     end
 
-    always @(posedge i_otf_clk or negedge i_otf_rstn) begin
-        if (!i_otf_rstn)
+    always @(posedge i_otf_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             otf_rstn_r <= 1'b0;
         else
             otf_rstn_r <= enc_ubwc_en_otf && (otf_rst_cnt == 3'd0);
     end
 
-    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
-        if (!i_vivo_rstn)
+    always @(posedge i_vivo_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_toggle_vivo_meta_r <= 1'b0;
         else
             start_toggle_vivo_meta_r <= start_toggle_axi_r;
     end
 
-    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
-        if (!i_vivo_rstn)
+    always @(posedge i_vivo_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_toggle_vivo_sync_r <= 1'b0;
         else
             start_toggle_vivo_sync_r <= start_toggle_vivo_meta_r;
     end
 
-    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
-        if (!i_vivo_rstn)
+    always @(posedge i_vivo_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             start_toggle_vivo_sync_d_r <= 1'b0;
         else
             start_toggle_vivo_sync_d_r <= start_toggle_vivo_sync_r;
     end
 
-    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
-        if (!i_vivo_rstn)
+    always @(posedge i_vivo_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             enc_ubwc_en_vivo_meta_r <= 1'b0;
         else
             enc_ubwc_en_vivo_meta_r <= axi_rstn_r;
     end
 
-    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
-        if (!i_vivo_rstn)
+    always @(posedge i_vivo_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             enc_ubwc_en_vivo_sync_r <= 1'b0;
         else
             enc_ubwc_en_vivo_sync_r <= enc_ubwc_en_vivo_meta_r;
     end
 
-    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
-        if (!i_vivo_rstn)
+    always @(posedge i_vivo_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             vivo_rst_cnt <= RESET_HOLD_CYCLES;
         else if (!enc_ubwc_en_vivo)
             vivo_rst_cnt <= RESET_HOLD_CYCLES;
@@ -392,8 +450,8 @@ module ubwc_enc_rst_gen
             vivo_rst_cnt <= vivo_rst_cnt - 3'd1;
     end
 
-    always @(posedge i_vivo_clk or negedge i_vivo_rstn) begin
-        if (!i_vivo_rstn)
+    always @(posedge i_vivo_clk or negedge hard_rstn) begin
+        if (!hard_rstn)
             vivo_rstn_r <= 1'b0;
         else
             vivo_rstn_r <= enc_ubwc_en_vivo && (vivo_rst_cnt == 3'd0);

@@ -16,16 +16,16 @@
         <mxCell id="lane_data" value="主数据路径：OTF video → UBWC compressed buffer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=18;fontStyle=1;fontColor=#334155;align=left;verticalAlign=top;spacingLeft=24;spacingTop=14;" vertex="1" parent="1">
           <mxGeometry x="50" y="335" width="2060" height="800" as="geometry"/>
         </mxCell>
-        <mxCell id="apb" value="&lt;b&gt;ubwc_enc_apb_reg_blk&lt;/b&gt;&lt;br&gt;静态配置 + 每帧地址组&lt;br&gt;IRQ enable / clear" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
+        <mxCell id="apb" value="&lt;b&gt;ubwc_enc_apb_reg_blk&lt;/b&gt;&lt;br&gt;静态配置 + 唯一地址组&lt;br&gt;IRQ enable / clear" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="95" y="188" width="360" height="74" as="geometry"/>
         </mxCell>
         <mxCell id="rst" value="&lt;b&gt;ubwc_enc_rst_mdl&lt;/b&gt;&lt;br&gt;rst_n_sys / rst_n_otf / srst" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#64748b;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="535" y="188" width="305" height="74" as="geometry"/>
         </mxCell>
-        <mxCell id="slot" value="&lt;b&gt;地址 slot 与 fcnt&lt;/b&gt;&lt;br&gt;fcnt[0] 选择 base_addr0/base_addr1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fefce8;strokeColor=#ca8a04;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
+        <mxCell id="slot" value="&lt;b&gt;唯一地址组与 fcnt&lt;/b&gt;&lt;br&gt;START 锁存 base；fcnt 不选择地址" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fefce8;strokeColor=#ca8a04;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="920" y="188" width="385" height="74" as="geometry"/>
         </mxCell>
-        <mxCell id="status" value="&lt;b&gt;ubwc_enc_status / IRQ&lt;/b&gt;&lt;br&gt;correct/error pending、stage_done、frame_done&lt;br&gt;per-slot 统计计数" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef2f2;strokeColor=#dc2626;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
+        <mxCell id="status" value="&lt;b&gt;ubwc_enc_status / IRQ&lt;/b&gt;&lt;br&gt;correct/error pending、stage_done、frame_done&lt;br&gt;per-fcnt 统计计数" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef2f2;strokeColor=#dc2626;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="1390" y="188" width="590" height="74" as="geometry"/>
         </mxCell>
         <mxCell id="otf_in" value="&lt;b&gt;OTF input interface&lt;/b&gt;&lt;br&gt;i_otf_vsync / hsync / de&lt;br&gt;i_otf_data / fcnt / lcnt&lt;br&gt;o_otf_ready" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
@@ -43,7 +43,7 @@
         <mxCell id="vivo" value="&lt;b&gt;ubwc_enc_vivo_top&lt;/b&gt;&lt;br&gt;使用 CI 配置压缩 raw tile&lt;br&gt;输入 rvi_data/rvi_mask/rvi_last&lt;br&gt;输出 enc_cvo_* compressed payload&lt;br&gt;输出 enc_co_* 给地址/metadata 路径" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="955" y="430" width="360" height="180" as="geometry"/>
         </mxCell>
-        <mxCell id="co" value="&lt;b&gt;CO + coord/fcnt 对齐通路&lt;/b&gt;&lt;br&gt;enc_co_valid/alen/pcm + b_tile_x/y/fcnt&lt;br&gt;fcnt[0] 决定 sb 和地址 slot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fefce8;strokeColor=#ca8a04;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
+        <mxCell id="co" value="&lt;b&gt;CO + coord/fcnt 对齐通路&lt;/b&gt;&lt;br&gt;enc_co_valid/alen/pcm + b_tile_x/y/fcnt&lt;br&gt;fcnt[0] 决定 sb 和统计桶，不选择地址" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fefce8;strokeColor=#ca8a04;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="955" y="700" width="360" height="110" as="geometry"/>
         </mxCell>
         <mxCell id="tile_addr" value="&lt;b&gt;ubwc_enc_tile_addr&lt;/b&gt;&lt;br&gt;根据 tile x/y/fcnt/format&lt;br&gt;生成 compressed tile 写地址&lt;br&gt;tile_addr_vld / tile_addr / tile_alen / fcnt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
@@ -64,7 +64,7 @@
         <mxCell id="x2x" value="&lt;b&gt;ubwc_x2x_DW_axi_x2x&lt;/b&gt;&lt;br&gt;AXI width/adapter bridge&lt;br&gt;输出 o_m_axi_aw/w/b" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#64748b;strokeWidth=2;fontSize=14;fontColor=#334155;" vertex="1" parent="1">
           <mxGeometry x="1835" y="1045" width="260" height="112" as="geometry"/>
         </mxCell>
-        <mxCell id="note" value="fcnt 主线：i_otf_fcnt → otf_to_tile → rvi_fcnt / b_tile_fcnt → tile/meta addr → AXI ID；fcnt[0] 选择地址 slot0/slot1。&lt;br&gt;错误/中断：OTF bad line/frame、FIFO overflow、metadata error、VIVO error 与地址无效进入 APB/status；正确中断由 OTF_TO_TILE 在最后一笔有效输出数据完成后产生。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=13;fontColor=#64748b;align=left;verticalAlign=middle;spacingLeft=24;" vertex="1" parent="1">
+        <mxCell id="note" value="fcnt 主线：i_otf_fcnt → otf_to_tile → rvi_fcnt / b_tile_fcnt → tile/meta addr → AXI ID；fcnt[0] 仅用于 sideband 与统计分组，地址来自唯一 START 快照。&lt;br&gt;错误/中断：OTF bad line/frame、FIFO overflow、metadata error、VIVO error 与地址无效进入 APB/status；正确中断由 OTF_TO_TILE 在最后一笔有效输出数据完成后产生。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cbd5e1;fontSize=13;fontColor=#64748b;align=left;verticalAlign=middle;spacingLeft=24;" vertex="1" parent="1">
           <mxGeometry x="50" y="1190" width="2060" height="88" as="geometry"/>
         </mxCell>
 
@@ -118,7 +118,7 @@
         <mxCell id="cfg2" value="CI/UBWC 配置" style="endArrow=block;html=1;rounded=0;strokeWidth=2;dashed=1;strokeColor=#2563eb;fontSize=13;fontStyle=1;fontColor=#2563eb;" edge="1" parent="1" source="apb" target="vivo">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="cfg3" value="base addr / slot valid" style="endArrow=block;html=1;rounded=0;strokeWidth=2;dashed=1;strokeColor=#2563eb;fontSize=13;fontStyle=1;fontColor=#2563eb;" edge="1" parent="1" source="apb" target="tile_addr">
+        <mxCell id="cfg3" value="unique base addr / valid" style="endArrow=block;html=1;rounded=0;strokeWidth=2;dashed=1;strokeColor=#2563eb;fontSize=13;fontStyle=1;fontColor=#2563eb;" edge="1" parent="1" source="apb" target="tile_addr">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
         <mxCell id="cfg4" value="meta base / pitch" style="endArrow=block;html=1;rounded=0;strokeWidth=2;dashed=1;strokeColor=#2563eb;fontSize=13;fontStyle=1;fontColor=#2563eb;" edge="1" parent="1" source="apb" target="meta_addr">

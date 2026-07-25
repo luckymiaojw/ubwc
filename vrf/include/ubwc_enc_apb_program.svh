@@ -20,8 +20,7 @@ task automatic ubwc_enc_apb_program_full(
     input logic [31:0] ci_cfg2,
     input logic [31:0] ci_cfg3,
     input bit irq_enable,
-    input bit do_start,
-    input bit vsync_reset_en = 1'b0
+    input bit do_start
 );
     apb_write(ubwc_enc_cfg_pkg::UBWC_ENC_REG_TILE_CFG1,
               ubwc_enc_cfg_pkg::ubwc_enc_reg_tile_cfg1(format, active_width_px));
@@ -73,7 +72,7 @@ task automatic ubwc_enc_apb_program_full(
     apb_write(ubwc_enc_cfg_pkg::UBWC_ENC_REG_OTF_CFG0,
               ubwc_enc_cfg_pkg::ubwc_enc_reg_otf_cfg0(format));
     apb_write(ubwc_enc_cfg_pkg::UBWC_ENC_REG_IRQ_CTRL,
-              {25'd0, vsync_reset_en, do_start, 3'd0, 1'b0, irq_enable});
+              {26'd0, do_start, 3'd0, 1'b0, irq_enable});
 endtask
 
 task automatic ubwc_enc_apb_program(

@@ -84,5 +84,5 @@
   <path class="flow" d="M 440 528 H 720 V 200"/>
   <text x="470" y="514" class="sig">rd_bank_sel follows safe_for_read</text>
   <path class="flow" d="M 720 528 H 960 V 320"/>
-  <text x="750" y="514" class="sig">addr_cfg_pop_slot[1:0] on frame_done</text>
+  <text x="750" y="514" class="sig">frame_done does not pop address config</text>
 </svg>

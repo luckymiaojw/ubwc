@@ -26,7 +26,10 @@ package ubwc_enc_cfg_pkg;
     localparam logic [15:0] UBWC_ENC_REG_TILE_BASE_UV_HI  = 16'h004c;
     localparam logic [15:0] UBWC_ENC_REG_META_ACTIVE_SIZE = 16'h0050;
     localparam logic [15:0] UBWC_ENC_REG_META_PITCH       = 16'h0054;
+    localparam logic [15:0] UBWC_ENC_REG_STATUS0          = 16'h0058;
     localparam logic [15:0] UBWC_ENC_REG_IRQ_CTRL         = 16'h0060;
+    localparam int unsigned UBWC_ENC_STATUS0_CFG_VALID_BIT = 14;
+    localparam int unsigned UBWC_ENC_IRQ_CTRL_CFG_COMMIT_BIT = 5;
 
     typedef struct packed {
         logic [15:0] addr;

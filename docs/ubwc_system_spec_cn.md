@@ -8,6 +8,12 @@
 
 | 版本 | 日期 | 影响范围 | 修改内容 | 文档/验证状态 |
 | --- | --- | --- | --- | --- |
+| R0.7-dev | 2026-07-24 | ENC APB、wrapper、tile/meta 地址链路、配置工具、系统 spec | ENC 输出地址从 slot0/slot1 双地址队列改为唯一地址组。四个 64-bit base 写完并以 `REG_TILE_BASE_UV_HI` 收尾后，`START` 锁存唯一地址快照；后续 VSYNC 持续复用，直到下一次 START 替换。`fcnt[0]` 只保留帧标识和统计分组语义，不再选择地址。`REG_STATUS0[10]` 改为单一 `addr_cfg_valid`，`[12:11]` 改为保留位。 | APB 配置提交定向测试通过；ENC wrapper Verilator lint 无错误；服务器 VCS case 0055～0058 均完成连续两帧，`stage_done=0xaa`，CVO、tile/meta AXI 写出及最终 memory compare 全部为 0 mismatch。回归命令仍因既有 RVI tiled-uncompressed reference checker 的独立数据重排失配返回非零。 |
+| R0.6-dev | 2026-07-24 | ENC reset、APB config commit、wrapper、配置工具、系统 spec | ENC 帧控制职责拆分：每个输入 VSYNC 上升沿固定触发 AXI drain、全链路帧复位并在复位释放后自动运行；`REG_IRQ_CTRL[5] START` 只校验并锁存工作寄存器和当前地址 slot 快照，不再触发复位或启动帧。配置无效或当前 `fcnt[0]` 对应地址 slot 无效时，`o_otf_ready` 保持为 0；`REG_STATUS0[14] cfg_valid` 反映最近一次 START 的提交结果；原 `IRQ_CTRL[6] vsync_reset_en` 改为保留位。 | START 配置提交定向测试和 VSYNC reset/drain 定向测试通过；ENC 顶层 Verilator lint 无错误；服务器 VCS NV12、RGBA8888、RGBA1010102、P010 均完成连续两帧，CVO、tile/meta AXI 写出及最终 memory compare 全部为 0 mismatch。回归命令仍因既有 RVI tiled-uncompressed reference checker 的独立数据重排失配返回非零。 |
+| R0.5-dev | 2026-07-24 | ENC OTF data packer、系统 spec | ENC fcnt 改为 OTF 域内部生成：`rst_n_otf=0` 时 `otf_fcnt_int/locked_fcnt` 清 0；每个 VSYNC 上升沿将递增前的 `otf_fcnt_int` 锁存为本帧 `locked_fcnt`，同时准备下一帧计数；`din_fcnt` 全程使用 `locked_fcnt`。外部 `i_otf_fcnt` 端口暂时保留兼容，但不再参与 packer 帧号生成。 | ENC 顶层和完整 fake TB Verilator elaboration/lint 无错误；VCS 连续帧回归待执行。 |
+| R0.4-dev | 2026-07-24 | ENC wrapper、OTF-to-tile、验证环境、系统 spec | 回退 ENC 内部自增 fcnt：恢复外部 `i_otf_fcnt[3:0]`；START CDC FIFO 只传启动 token；`ubwc_enc_otf_data_packer` 在 VSYNC 边界锁存本帧 `locked_fcnt`，并将其随像素、tile、metadata 和 AXI ID 数据链路传递。START/soft reset 不再自行分配帧号。 | ENC 顶层 Verilator elaboration/lint 无错误；VCS 多帧回归待执行。 |
+| R0.3-dev | 2026-07-24 | ENC wrapper、验证环境、系统 spec | ENC 内部 4 bit fcnt 纳入 soft reset：进入内部 reset hold 时清 0，复位释放后首个被接受的 START 使用 `fcnt=0`；验证环境分别统计 START 接受总数和 soft reset 后的期望 fcnt，避免跨复位连续递增的旧假设。 | `git diff --check` 通过；ENC 顶层 Verilator elaboration/lint 无错误；VCS 多帧回归待执行。 |
+| R0.2-dev | 2026-07-24 | ENC wrapper、OTF-to-tile、验证环境、系统 spec | ENC frame count 改为硬件内部维护：每次有效 `START` 分配一个 4 bit fcnt，首帧为 0，随后模 16 递增；start token 与 fcnt 作为同一 CDC payload 从 AXI 域送到 OTF 域；删除 ENC 外部 `i_otf_fcnt` 接口，内部继续使用 `fcnt[0]` 选择地址 slot，并使用完整 4 bit fcnt 贯穿 tile/metadata/AXI ID 数据链路。 | Verilator elaboration/lint 无错误；服务器 VCS case 0021 RGBA8888 与 case 0027 NV12 均完成连续 4 帧回归，两个 case 均为 `internal_fcnt_starts=4`、`internal_fcnt_mis=0`；case 0021 另完成连续 18 帧回归，`internal_fcnt_starts=18`、`internal_fcnt_mis=0`，覆盖 `4'hf -> 4'h0` 回绕。 |
 | R0.1-dev | 2026-05-19 | ENC reset、AXI wrapper、寄存器、配置工具、系统 spec | 增加 ENC `IRQ_CTRL[6] vsync_reset_en`，支持输入 `i_otf_vsync` 上升沿触发 AXI-drain soft reset 并重新 arm frame start；`ubwc_cfg`/`vrf` ENC 配置函数增加 `vsync_reset_en` 参数；ENC/DEC 对外 `AXI_LENW` 默认改为 5 bit，支持最大 32 beat；系统 spec 将对外 `AXI_IDW` 默认值按 5 bit 表达，内部低 4 bit 保留 FCNT/ID 语义。 | 文档已同步；ENC APB 寄存器表已更新；本地 lint/单元检查已完成。 |
 | R0 | 2026-05-19 | ENC/DEC wrapper、寄存器、系统 spec、回归基线 | 建立 R0 系统级 spec 结构；整理 ENC/DEC Feature、Interface、Register、Diagram、Work Mode、Debug、PPA；完成连续两帧 RGBA8888、NV12、P010/G016 回归记录。 | R0 release tag：`R0`；回归记录见文末。 |
 
@@ -19,14 +25,15 @@ ENC 将输入 OTF 像素流编码为 UBWC compressed tile 数据和 metadata，�
 
 | 特性 | 说明 |
 | --- | --- |
-| 输入接口 | OTF input，包含 `vsync/hsync/de/data/fcnt/lcnt/ready` |
+| 输入接口 | OTF input，包含 `vsync/hsync/de/data/fcnt/lcnt/ready`；外部 `i_otf_fcnt[3:0]` 随像素、tile、metadata 和内部 AXI ID 链路传递 |
 | 输出接口 | AXI write master，分别写 compressed tile 数据和 metadata |
 | 推荐时钟 | APB/PCLK 100 MHz；AXI/i_axi_clk 500 MHz；Core/i_vivo_clk 200 MHz；OTF/i_otf_clk 320 MHz |
 | 支持格式 | RGBA8888、RGBA1010102、YUV420_8/NV12、YUV420_10/P010、RGBA8888 lossy 2:1 |
 | 支持像素尺寸 | 当前 SRAM/line-buffer 规格按最大有效宽度 4096 px 设计；1440x3200 属于该宽度范围内。实际配置以 OTF width/height 和 layout 计算结果为准 |
 | SRAM | 当前外部工作 SRAM 为 bank0/bank1 两个同规格 bank，单 bank 64 KiB，两 bank 合计 128 KiB。SRAM 容量主要由最大支持图像宽度决定；图像高度只影响行组处理次数，不增加单 bank 容量；小于或等于 4096 px 宽的 RGBA/YUV420 场景复用同一规格 SRAM |
-| 连续帧 | 软件每帧写一组 base address 后写 `IRQ_CTRL[5]=1` 产生 start token；OTF 数据携带 `i_otf_fcnt`。若使能 `IRQ_CTRL[6]`，输入 `i_otf_vsync` 上升沿会触发 ENC soft reset 并在复位释放后重新 arm frame start |
-| 地址 slot | 两组地址 slot，硬件按 `fcnt[0]` 选择 slot0/slot1 |
+| 连续帧 | 每个输入 VSYNC 上升沿采样本帧配置/地址有效性，并触发 AXI drain 和 ENC 帧级全链路复位；复位释放后仅在该次采样有效时自动处理本帧，不依赖 START 启动 |
+| 配置提交 | `REG_IRQ_CTRL[5] START` 只校验并锁存完整配置快照；已提交配置在下一次 START 前保持不变 |
+| 输出地址 | 仅一组 Y/RGBA metadata、Y/RGBA tile、UV metadata、UV tile base；START 锁存后跨帧复用，`fcnt[0]` 不参与地址选择；配置无效时整帧 `o_otf_ready=0` |
 | 中断 | 正确中断在最后有效输出完成后产生；错误中断用于地址未配置、OTF 行/帧错误、FIFO overflow、VIVO/metadata error |
 
 ### ENC 2. Interface
@@ -70,7 +77,7 @@ ENC wrapper port：
 | OTF input | `i_otf_hsync` | input | 1 bit | Input line sync |
 | OTF input | `i_otf_de` | input | 1 bit | Input data enable |
 | OTF input | `i_otf_data` | input | 128 bit | Input pixel data |
-| OTF input | `i_otf_fcnt` | input | 4 bit | Input frame count；参与 AXI ID 和地址 slot 选择 |
+| OTF input | `i_otf_fcnt` | input | 4 bit | 当前帧编号；随像素进入 packer，并贯穿 tile、metadata 和内部 AXI ID 数据路径；`fcnt[0]` 仅用于统计分组和 sideband，不选择地址 |
 | OTF input | `i_otf_lcnt` | input | 12 bit | Input line count |
 | OTF input | `o_otf_ready` | output | 1 bit | ENC 对 OTF 输入的反压 |
 | SRAM bank0 | `o_bank0_en` | output | 1 bit | Bank0 SRAM enable |
@@ -149,14 +156,14 @@ ENC register 总表：
 | `0x0028` | `REG_OTF_CFG2` | RW | `0` | `[19:16]` | `otf_cfg_tile_h` | Tile height。 |
 | `0x002c` | `REG_OTF_CFG3` | RW | `0` | `[15:0]` | `otf_cfg_y_tile_cols` | Y/RGBA plane tile column count。 |
 | `0x002c` | `REG_OTF_CFG3` | RW | `0` | `[31:16]` | `otf_cfg_uv_tile_cols` | UV plane tile column count；RGBA 写 0。 |
-| `0x0030` | `REG_META_BASE_Y_LO` | RW | `0` | `[31:0]` | `meta_y_base_offset_addr[31:0]` | Y/RGBA metadata 存储基地址低 32 bit，每帧配置。 |
-| `0x0034` | `REG_META_BASE_Y_HI` | RW | `0` | `[31:0]` | `meta_y_base_offset_addr[63:32]` | Y/RGBA metadata 存储基地址高 32 bit，每帧配置。 |
-| `0x0038` | `REG_TILE_BASE_Y_LO` | RW | `0` | `[31:0]` | `y_base_offset_addr[31:0]` | Y/RGBA compressed tile 存储基地址低 32 bit，每帧配置。 |
-| `0x003c` | `REG_TILE_BASE_Y_HI` | RW | `0` | `[31:0]` | `y_base_offset_addr[63:32]` | Y/RGBA compressed tile 存储基地址高 32 bit，每帧配置。 |
+| `0x0030` | `REG_META_BASE_Y_LO` | RW | `0` | `[31:0]` | `meta_y_base_offset_addr[31:0]` | 唯一 Y/RGBA metadata 存储基地址低 32 bit；首次或输出 buffer 地址变化时配置。 |
+| `0x0034` | `REG_META_BASE_Y_HI` | RW | `0` | `[31:0]` | `meta_y_base_offset_addr[63:32]` | 唯一 Y/RGBA metadata 存储基地址高 32 bit；首次或输出 buffer 地址变化时配置。 |
+| `0x0038` | `REG_TILE_BASE_Y_LO` | RW | `0` | `[31:0]` | `y_base_offset_addr[31:0]` | 唯一 Y/RGBA compressed tile 存储基地址低 32 bit；首次或输出 buffer 地址变化时配置。 |
+| `0x003c` | `REG_TILE_BASE_Y_HI` | RW | `0` | `[31:0]` | `y_base_offset_addr[63:32]` | 唯一 Y/RGBA compressed tile 存储基地址高 32 bit；首次或输出 buffer 地址变化时配置。 |
 | `0x0040` | `REG_META_BASE_UV_LO` | RW | `0` | `[31:0]` | `meta_uv_base_offset_addr[31:0]` | UV metadata 存储基地址低 32 bit；RGBA 写 0。 |
 | `0x0044` | `REG_META_BASE_UV_HI` | RW | `0` | `[31:0]` | `meta_uv_base_offset_addr[63:32]` | UV metadata 存储基地址高 32 bit；RGBA 写 0。 |
 | `0x0048` | `REG_TILE_BASE_UV_LO` | RW | `0` | `[31:0]` | `uv_base_offset_addr[31:0]` | UV compressed tile 存储基地址低 32 bit；RGBA 写 0。 |
-| `0x004c` | `REG_TILE_BASE_UV_HI` | RW | `0` | `[31:0]` | `uv_base_offset_addr[63:32]` | UV compressed tile 存储基地址高 32 bit；地址组写完后仍需写 start。 |
+| `0x004c` | `REG_TILE_BASE_UV_HI` | RW | `0` | `[31:0]` | `uv_base_offset_addr[63:32]` | UV compressed tile 存储基地址高 32 bit；必须作为八个地址 word 的最后一笔写入，用于标记唯一工作地址组完整，随后写 START 锁存。 |
 | `0x0050` | `REG_META_ACTIVE_SIZE` | RW | `0` | `[15:0]` | `meta_active_width_px` | Metadata 有效图像宽度。 |
 | `0x0050` | `REG_META_ACTIVE_SIZE` | RW | `0` | `[31:16]` | `meta_active_height_px` | Metadata 有效图像高度。 |
 | `0x0054` | `REG_META_PITCH` | RW | `0` | `[31:0]` | `meta_data_plane_pitch` | Metadata plane pitch。 |
@@ -169,36 +176,36 @@ ENC register 总表：
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[6]` | `meta_err_0` | Metadata co-buffer overflow。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[7]` | `meta_err_1` | Metadata tile order error。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[8]` | `frame_done` | Frame done。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[9]` | `addr_cfg_invalid` | 当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 `fcnt[0]` 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 `active_addr_cfg_valid` 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 `fcnt[0]` 对齐后，再写 `REG_IRQ_CTRL[1] irq_clear` 清 sticky 状态；关闭 `enc_ubwc_en` 或硬复位也会清零。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[10]` | `addr_cfg_valid0` | Address slot0 valid。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[11]` | `addr_cfg_valid1` | Address slot1 valid。 |
-| `0x0058` | `REG_STATUS0` | RO | dynamic | `[12]` | `addr_cfg_overflow` | 地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 `REG_TILE_BASE_UV_HI` 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 `REG_IRQ_CTRL[1] irq_clear` 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 `enc_ubwc_en` 后重新配置。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[9]` | `addr_cfg_invalid` | 唯一地址组无效 sticky 状态；数据链路检查地址时，如果最近一次 START 锁存的 META Y、TILE Y、META UV、TILE UV 地址组无效，该 bit 置 1 并保持并参与 error IRQ。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[10]` | `addr_cfg_valid` | 最近一次 START 已锁存完整有效的唯一地址组；后续帧持续复用。 |
+| `0x0058` | `REG_STATUS0` | - | `0` | `[12:11]` | `reserved` | 保留，读回 0。 |
 | `0x0058` | `REG_STATUS0` | RO | dynamic | `[13]` | `rst_drain_timeout` | 软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 `16'hffff` 个 `i_axi_clk` 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 `REG_IRQ_CTRL[1] irq_clear` 或硬复位后清零。 |
+| `0x0058` | `REG_STATUS0` | RO | dynamic | `[14]` | `cfg_valid` | 最近一次 `START` 配置提交结果。格式、尺寸、tile 参数、metadata 参数及唯一地址组均有效时置 1；否则清 0。该 bit 为 0 时 ENC 阻塞 OTF 输入，`o_otf_ready=0`。 |
 | `0x005c` | `REG_STATUS1` | RO | dynamic | `[7:0]` | `stage_done` | ENC stage done bitmap。 |
 | `0x0060` | `REG_IRQ_CTRL` | RW | `0` | `[0]` | `irq_enable` | 中断使能；寄存器复位值为 0，需要中断输出时软件应配置为 1。 |
 | `0x0060` | `REG_IRQ_CTRL` | W1P | `0` | `[1]` | `irq_clear` | 写 1 清 pending/status sticky。 |
 | `0x0060` | `REG_IRQ_CTRL` | RO | dynamic | `[2]` | `irq_pending` | Any IRQ pending。 |
 | `0x0060` | `REG_IRQ_CTRL` | RO | dynamic | `[3]` | `irq_correct_pending` | Correct IRQ pending。 |
 | `0x0060` | `REG_IRQ_CTRL` | RO | dynamic | `[4]` | `irq_error_pending` | Error IRQ pending。 |
-| `0x0060` | `REG_IRQ_CTRL` | W1P | `0` | `[5]` | `start` | 写 1 产生 frame start token。 |
-| `0x0060` | `REG_IRQ_CTRL` | RW | `0` | `[6]` | `vsync_reset_en` | 置 1 后，ENC 输入 `i_otf_vsync` 上升沿通过 AXI-drain reset sequencer 触发整条 ENC 链路 soft reset，并在复位释放后重新 arm frame start。 |
+| `0x0060` | `REG_IRQ_CTRL` | W1P | `0` | `[5]` | `start` | 写 1 校验并锁存完整 ENC 配置快照；不触发帧复位，也不启动 OTF 数据处理。 |
+| `0x0060` | `REG_IRQ_CTRL` | - | `0` | `[6]` | `reserved` | 保留，写入无效，读回 0。 |
 | `0x0064` | `REG_STATUS2` | RO | dynamic | `[0]` | `irq_status_any` | Any IRQ mirror。 |
 | `0x0064` | `REG_STATUS2` | RO | dynamic | `[1]` | `irq_status_correct` | Correct IRQ mirror。 |
 | `0x0064` | `REG_STATUS2` | RO | dynamic | `[2]` | `irq_status_error` | Error IRQ mirror。 |
-| `0x0068` | `REG_META_COUNT0` | RO | dynamic | `[31:0]` | `meta_count0` | slot0 metadata 统计计数。 |
-| `0x006c` | `REG_META_COUNT1` | RO | dynamic | `[31:0]` | `meta_count1` | slot1 metadata 统计计数。 |
-| `0x0070` | `REG_TILEADDR_COUNT0` | RO | dynamic | `[31:0]` | `tileaddr_count0` | slot0 tile address 统计计数。 |
-| `0x0074` | `REG_TILEADDR_COUNT1` | RO | dynamic | `[31:0]` | `tileaddr_count1` | slot1 tile address 统计计数。 |
-| `0x0078` | `REG_OTF_TILE_COUNT0` | RO | dynamic | `[31:0]` | `otf_tile_count0` | slot0 OTF-to-tile tile 统计计数。 |
-| `0x007c` | `REG_OTF_TILE_COUNT1` | RO | dynamic | `[31:0]` | `otf_tile_count1` | slot1 OTF-to-tile tile 统计计数。 |
-| `0x0080` | `REG_OTF_DE_COUNT0` | RO | dynamic | `[31:0]` | `otf_de_count0` | slot0 de && ready 统计计数。 |
-| `0x0084` | `REG_OTF_DE_COUNT1` | RO | dynamic | `[31:0]` | `otf_de_count1` | slot1 de && ready 统计计数。 |
-| `0x0088` | `REG_OTF_LINE_COUNT0` | RO | dynamic | `[31:0]` | `otf_line_count0` | slot0 OTF line 统计计数。 |
-| `0x008c` | `REG_OTF_LINE_COUNT1` | RO | dynamic | `[31:0]` | `otf_line_count1` | slot1 OTF line 统计计数。 |
-| `0x0090` | `REG_TILE_AXI_W_CNT0` | RO | dynamic | `[31:0]` | `tile_axi_w_cnt0` | slot0 tile AXI W 统计计数。 |
-| `0x0094` | `REG_TILE_AXI_W_CNT1` | RO | dynamic | `[31:0]` | `tile_axi_w_cnt1` | slot1 tile AXI W 统计计数。 |
-| `0x0098` | `REG_META_AXI_W_CNT0` | RO | dynamic | `[31:0]` | `meta_axi_w_cnt0` | slot0 metadata AXI W 统计计数。 |
-| `0x009c` | `REG_META_AXI_W_CNT1` | RO | dynamic | `[31:0]` | `meta_axi_w_cnt1` | slot1 metadata AXI W 统计计数。 |
+| `0x0068` | `REG_META_COUNT0` | RO | dynamic | `[31:0]` | `meta_count0` | `fcnt[0]=0` 的 metadata 统计计数，与地址选择无关。 |
+| `0x006c` | `REG_META_COUNT1` | RO | dynamic | `[31:0]` | `meta_count1` | `fcnt[0]=1` 的 metadata 统计计数，与地址选择无关。 |
+| `0x0070` | `REG_TILEADDR_COUNT0` | RO | dynamic | `[31:0]` | `tileaddr_count0` | `fcnt[0]=0` 的 tile address 统计计数。 |
+| `0x0074` | `REG_TILEADDR_COUNT1` | RO | dynamic | `[31:0]` | `tileaddr_count1` | `fcnt[0]=1` 的 tile address 统计计数。 |
+| `0x0078` | `REG_OTF_TILE_COUNT0` | RO | dynamic | `[31:0]` | `otf_tile_count0` | `fcnt[0]=0` 的 OTF-to-tile tile 统计计数。 |
+| `0x007c` | `REG_OTF_TILE_COUNT1` | RO | dynamic | `[31:0]` | `otf_tile_count1` | `fcnt[0]=1` 的 OTF-to-tile tile 统计计数。 |
+| `0x0080` | `REG_OTF_DE_COUNT0` | RO | dynamic | `[31:0]` | `otf_de_count0` | `fcnt[0]=0` 的 `de && ready` 统计计数。 |
+| `0x0084` | `REG_OTF_DE_COUNT1` | RO | dynamic | `[31:0]` | `otf_de_count1` | `fcnt[0]=1` 的 `de && ready` 统计计数。 |
+| `0x0088` | `REG_OTF_LINE_COUNT0` | RO | dynamic | `[31:0]` | `otf_line_count0` | `fcnt[0]=0` 的 OTF line 统计计数。 |
+| `0x008c` | `REG_OTF_LINE_COUNT1` | RO | dynamic | `[31:0]` | `otf_line_count1` | `fcnt[0]=1` 的 OTF line 统计计数。 |
+| `0x0090` | `REG_TILE_AXI_W_CNT0` | RO | dynamic | `[31:0]` | `tile_axi_w_cnt0` | `fcnt[0]=0` 的 tile AXI W 统计计数。 |
+| `0x0094` | `REG_TILE_AXI_W_CNT1` | RO | dynamic | `[31:0]` | `tile_axi_w_cnt1` | `fcnt[0]=1` 的 tile AXI W 统计计数。 |
+| `0x0098` | `REG_META_AXI_W_CNT0` | RO | dynamic | `[31:0]` | `meta_axi_w_cnt0` | `fcnt[0]=0` 的 metadata AXI W 统计计数。 |
+| `0x009c` | `REG_META_AXI_W_CNT1` | RO | dynamic | `[31:0]` | `meta_axi_w_cnt1` | `fcnt[0]=1` 的 metadata AXI W 统计计数。 |
 
 APB 访问规则：
 
@@ -355,7 +362,7 @@ ENC Register 逐项说明：
 
 #### 3.13 Meta/Tile Base 地址组
 
-寄存器范围：`0x0030` 到 `0x004c`，每帧或每个输出 buffer 配置一次。
+寄存器范围：`0x0030` 到 `0x004c`。首次配置或输出 buffer 地址变化时写入；地址不变的连续帧直接复用。
 
 | Register | Address | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -400,7 +407,7 @@ REG_TILE_BASE_UV_LO = tile_uv_base[31:0]
 REG_TILE_BASE_UV_HI = tile_uv_base[63:32]
 ```
 
-说明：`tile_y_pitch_bytes`、`tile_uv_pitch_bytes`、`stored_y_height`、`stored_uv_height` 由格式、pitch 和 UBWC layout 对齐规则计算，必须和 `REG_TILE_CFG1`、`REG_META_ACTIVE_SIZE`、`REG_META_PITCH` 保持一致。地址组写完后，软件仍需写 `REG_IRQ_CTRL[5]=1` 产生 frame start token。
+说明：`tile_y_pitch_bytes`、`tile_uv_pitch_bytes`、`stored_y_height`、`stored_uv_height` 由格式、pitch 和 UBWC layout 对齐规则计算，必须和 `REG_TILE_CFG1`、`REG_META_ACTIVE_SIZE`、`REG_META_PITCH` 保持一致。地址组写完后，软件写 `REG_IRQ_CTRL[5]=1` 校验并锁存完整配置，再读取 `REG_STATUS0[14]` 确认提交有效。
 
 #### 3.14 Meta Active Size
 
@@ -460,13 +467,13 @@ REG_META_ACTIVE_SIZE.height= 1200
 | `[6]` | `meta_err_0` | RO | dynamic | Metadata co-buffer overflow。 |
 | `[7]` | `meta_err_1` | RO | dynamic | Metadata tile order error。 |
 | `[8]` | `frame_done` | RO | dynamic | Frame done。 |
-| `[9]` | `addr_cfg_invalid` | RO | dynamic | 当前 slot 地址未配置错误 sticky 状态；ENC 数据链路按当前帧 `fcnt[0]` 选择 slot0 或 slot1 的地址配置。当硬件检查当前 slot 地址有效性时，如果被选中的地址 FIFO 为空，则 `active_addr_cfg_valid` 为 0，该 bit 置 1 并保持，同时参与 error IRQ。该状态表示当前帧没有可用的 META/TILE 基地址，软件必须先补齐对应 slot 的每帧地址组，确认 buffer 队列与 `fcnt[0]` 对齐后，再写 `REG_IRQ_CTRL[1] irq_clear` 清 sticky 状态；关闭 `enc_ubwc_en` 或硬复位也会清零。 |
-| `[10]` | `addr_cfg_valid0` | RO | dynamic | Address slot0 valid。 |
-| `[11]` | `addr_cfg_valid1` | RO | dynamic | Address slot1 valid。 |
-| `[12]` | `addr_cfg_overflow` | RO | dynamic | 地址配置 FIFO overflow sticky 状态；ENC 每帧地址由 META Y、TILE Y、META UV、TILE UV 四个 64-bit 基地址组成，软件写 `REG_TILE_BASE_UV_HI` 作为一次地址组 commit。APB block 会按 slot0/slot1 轮流把地址组写入对应地址 FIFO，每个 slot FIFO 深度为 4。当 commit 时选中的 slot FIFO 已满，当前地址组不会 push 进 FIFO，该 bit 置 1 并保持，同时参与 error IRQ。软件应停止继续提交地址，等待已有帧消耗地址 FIFO；若已发生 overflow，应写 `REG_IRQ_CTRL[1] irq_clear` 清 sticky 状态，并确认软件 buffer 队列与硬件地址队列重新对齐，必要时关闭 `enc_ubwc_en` 后重新配置。 |
+| `[9]` | `addr_cfg_invalid` | RO | dynamic | 唯一地址组无效 sticky 状态；数据链路检查地址时，如果最近一次 START 锁存的四个 64-bit base 不完整，该 bit 置 1 并保持并参与 error IRQ。 |
+| `[10]` | `addr_cfg_valid` | RO | dynamic | 最近一次 START 已锁存完整有效的唯一地址组；后续帧持续复用。 |
+| `[12:11]` | `reserved` | - | 0 | 保留，读回 0。 |
 | `[13]` | `rst_drain_timeout` | RO | dynamic | 软复位等待 AXI drain 超时 sticky 状态；ENC 进入 soft reset 前会停止发起新的 AXI 写事务，并等待 tile/meta AXI 写通路 outstanding 清空。如果等待超过 `16'hffff` 个 `i_axi_clk` 周期仍未进入 idle，则该 bit 置 1 并保持；软件写 `REG_IRQ_CTRL[1] irq_clear` 或硬复位后清零。 |
+| `[14]` | `cfg_valid` | RO | dynamic | 最近一次 START 提交的配置有效标志；为 0 时 `o_otf_ready` 保持为 0。 |
 
-计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断地址配置、中断来源、OTF 输入异常和软复位 drain 是否异常。`addr_cfg_invalid=1` 表示当前要处理的帧已经到达，但 `fcnt[0]` 对应 slot 没有可用地址配置；软件应补齐地址组并确认帧号/slot 与 buffer 队列没有错位。`addr_cfg_overflow=1` 表示软件提交地址组的速度超过硬件消耗地址组的速度，至少有一次地址组 commit 被拒绝进入 FIFO；软件需要重新确认 buffer 队列和硬件地址队列的对应关系。`rst_drain_timeout=1` 表示本次软复位没有正常等到 AXI 写通路排空，复位 sequencer 已按超时路径继续进入 reset hold；软件应检查外部 AXI slave/interconnect 是否长时间不返回 ready/response，或是否在复位窗口仍有上游数据持续触发写请求。
+计算说明：只读状态由硬件实时或 sticky 产生；软件无需计算，可用于判断配置提交、地址配置、中断来源、OTF 输入异常和复位 drain 是否异常。`cfg_valid=0` 表示最近一次 START 提交未通过完整性检查，硬件会保持 OTF 反压；软件应补齐工作寄存器和唯一地址组后重新写 START。`addr_cfg_valid=1` 表示该地址组已锁存并可跨帧复用。`addr_cfg_invalid=1` 表示数据链路曾尝试使用无效地址组；软件应按顺序重写全部地址、重新 START，再清错误。`rst_drain_timeout=1` 表示本次 VSYNC 帧复位没有正常等到 AXI 写通路排空；软件应检查外部 AXI slave/interconnect 是否长时间不返回 ready/response。
 
 #### 3.17 Status1
 
@@ -489,10 +496,10 @@ REG_META_ACTIVE_SIZE.height= 1200
 | `[2]` | `irq_pending` | RO | dynamic | Any IRQ pending。 |
 | `[3]` | `irq_correct_pending` | RO | dynamic | Correct IRQ pending。 |
 | `[4]` | `irq_error_pending` | RO | dynamic | Error IRQ pending。 |
-| `[5]` | `start` | W1P | 0 | 写 1 产生 frame start token。 |
-| `[6]` | `vsync_reset_en` | RW | 0 | 置 1 后，输入 `i_otf_vsync` 上升沿触发 ENC soft reset；复位前会等待 AXI write drain，复位释放后重新 arm frame start。 |
+| `[5]` | `start` | W1P | 0 | 写 1 校验并锁存 TILE/CI/OTF/META 配置及唯一地址组；不复位、不启动帧。 |
+| `[6]` | `reserved` | - | 0 | 保留，写入无效，读回 0。 |
 
-计算说明：每帧地址配置完成后写 `REG_IRQ_CTRL[5]=1` 启动；中断处理完成后写 `REG_IRQ_CTRL[1]=1` 清除。`REG_IRQ_CTRL[6]` 是可选自动复位模式，适合希望每个输入 VSYNC 重新初始化 ENC 内部流水的系统；软件必须在 VSYNC 到来前保证本帧地址 slot 已配置。
+计算说明：静态配置或地址组更新后写 `REG_IRQ_CTRL[5]=1` 提交配置，并轮询 `REG_STATUS0[14] cfg_valid`。输入 VSYNC 到来时硬件自动执行 AXI drain、帧级全链路复位并在释放后开始接收该帧；START 不参与这一时序。中断处理完成后写 `REG_IRQ_CTRL[1]=1` 清除。
 
 #### 3.19 Status2
 
@@ -512,7 +519,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `meta_count0` | RO | dynamic | Slot0 metadata count。 |
+| `[31:0]` | `meta_count0` | RO | dynamic | `fcnt[0]=0` 的 metadata count，与地址选择无关。 |
 
 计算说明：硬件统计计数，只用于 debug 和吞吐量核对。
 
@@ -522,7 +529,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `meta_count1` | RO | dynamic | Slot1 metadata count。 |
+| `[31:0]` | `meta_count1` | RO | dynamic | `fcnt[0]=1` 的 metadata count，与地址选择无关。 |
 
 计算说明：硬件统计计数，只用于 debug 和吞吐量核对。
 
@@ -532,7 +539,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `tileaddr_count0` | RO | dynamic | Slot0 tile address count。 |
+| `[31:0]` | `tileaddr_count0` | RO | dynamic | `fcnt[0]=0` 的 tile address count。 |
 
 计算说明：硬件统计计数，只用于 debug，不作为 frame done 判断依据。
 
@@ -542,7 +549,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `tileaddr_count1` | RO | dynamic | Slot1 tile address count。 |
+| `[31:0]` | `tileaddr_count1` | RO | dynamic | `fcnt[0]=1` 的 tile address count。 |
 
 计算说明：硬件统计计数，只用于 debug，不作为 frame done 判断依据。
 
@@ -552,7 +559,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `otf_tile_count0` | RO | dynamic | Slot0 OTF-to-tile tile count。 |
+| `[31:0]` | `otf_tile_count0` | RO | dynamic | `fcnt[0]=0` 的 OTF-to-tile tile count。 |
 
 计算说明：硬件统计计数，只用于 debug。
 
@@ -562,7 +569,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `otf_tile_count1` | RO | dynamic | Slot1 OTF-to-tile tile count。 |
+| `[31:0]` | `otf_tile_count1` | RO | dynamic | `fcnt[0]=1` 的 OTF-to-tile tile count。 |
 
 计算说明：硬件统计计数，只用于 debug。
 
@@ -572,7 +579,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `otf_de_count0` | RO | dynamic | Slot0 `i_otf_de && o_otf_ready` count。 |
+| `[31:0]` | `otf_de_count0` | RO | dynamic | `fcnt[0]=0` 的 `i_otf_de && o_otf_ready` count。 |
 
 计算说明：硬件统计 OTF 有效输入 beat，只用于 debug。
 
@@ -582,7 +589,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `otf_de_count1` | RO | dynamic | Slot1 `i_otf_de && o_otf_ready` count。 |
+| `[31:0]` | `otf_de_count1` | RO | dynamic | `fcnt[0]=1` 的 `i_otf_de && o_otf_ready` count。 |
 
 计算说明：硬件统计 OTF 有效输入 beat，只用于 debug。
 
@@ -592,7 +599,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `otf_line_count0` | RO | dynamic | Slot0 OTF line count。 |
+| `[31:0]` | `otf_line_count0` | RO | dynamic | `fcnt[0]=0` 的 OTF line count。 |
 
 计算说明：硬件统计 OTF line，只用于 debug。
 
@@ -602,7 +609,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `otf_line_count1` | RO | dynamic | Slot1 OTF line count。 |
+| `[31:0]` | `otf_line_count1` | RO | dynamic | `fcnt[0]=1` 的 OTF line count。 |
 
 计算说明：硬件统计 OTF line，只用于 debug。
 
@@ -612,7 +619,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `tile_axi_w_cnt0` | RO | dynamic | Slot0 tile AXI W beat count。 |
+| `[31:0]` | `tile_axi_w_cnt0` | RO | dynamic | `fcnt[0]=0` 的 tile AXI W beat count。 |
 
 计算说明：硬件统计 tile AXI W beat，只用于 debug。
 
@@ -622,7 +629,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `tile_axi_w_cnt1` | RO | dynamic | Slot1 tile AXI W beat count。 |
+| `[31:0]` | `tile_axi_w_cnt1` | RO | dynamic | `fcnt[0]=1` 的 tile AXI W beat count。 |
 
 计算说明：硬件统计 tile AXI W beat，只用于 debug。
 
@@ -632,7 +639,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `meta_axi_w_cnt0` | RO | dynamic | Slot0 metadata AXI W beat count。 |
+| `[31:0]` | `meta_axi_w_cnt0` | RO | dynamic | `fcnt[0]=0` 的 metadata AXI W beat count。 |
 
 计算说明：硬件统计 metadata AXI W beat，只用于 debug。
 
@@ -642,7 +649,7 @@ REG_META_ACTIVE_SIZE.height= 1200
 
 | Bit | Field | Access | Reset | 说明 |
 | --- | --- | --- | --- | --- |
-| `[31:0]` | `meta_axi_w_cnt1` | RO | dynamic | Slot1 metadata AXI W beat count。 |
+| `[31:0]` | `meta_axi_w_cnt1` | RO | dynamic | `fcnt[0]=1` 的 metadata AXI W beat count。 |
 
 计算说明：硬件统计 metadata AXI W beat，只用于 debug。
 
@@ -676,15 +683,16 @@ ENC 软件工作流程：
 ```text
 1. 上电后读取 REG_VERSION / REG_DATE。
 2. 图像格式、尺寸或 layout 变化时，配置 TILE_CFG、CI_CFG、OTF_CFG、META_ACTIVE_SIZE、META_PITCH。
-3. 每个输出 buffer 到来时，按顺序写：
+3. 首次配置或输出 buffer 地址变化时，按顺序写唯一地址组：
    REG_META_BASE_Y_LO/HI
    REG_TILE_BASE_Y_LO/HI
    REG_META_BASE_UV_LO/HI
    REG_TILE_BASE_UV_LO/HI
-4. 写 REG_IRQ_CTRL[5]=1 产生本帧 start token；如果需要 VSYNC 自动复位模式，可在初始化时置 `REG_IRQ_CTRL[6]=1`。
-5. 上游按 i_otf_fcnt 输入 OTF frame；在 `REG_IRQ_CTRL[6]=1` 时，`i_otf_vsync` 上升沿会先触发 soft reset，再由 reset sequencer 重新 arm frame start。
-6. 硬件按 fcnt[0] 选择地址 slot，并写出 compressed tile 和 metadata。
-7. 软件处理中断，读 STATUS/COUNT 寄存器定位状态，写 REG_IRQ_CTRL[1]=1 清中断。
+4. 写 REG_IRQ_CTRL[5]=1 提交完整配置；读取 REG_STATUS0[14]，只有 cfg_valid=1 才允许上游送帧。
+5. 上游送入 VSYNC。硬件在该边界采样 cfg_valid，立即停止接收后续像素，等待 AXI write drain，随后复位 AXI/OTF/VIVO 帧级状态；i_otf_fcnt 不参与地址选择。
+6. 复位释放后，仅当 VSYNC 边界采样结果有效时自动拉起 o_otf_ready 并处理像素；若无效，则本帧始终保持 o_otf_ready=0。帧中途补写 START 不会放行本帧，新配置从下一次 VSYNC 生效。
+7. 下一帧继续使用同一配置快照时无需再次写 START；只有静态配置或地址快照需要切换时才重新提交。START 应在目标 VSYNC 前完成，并确认 cfg_valid=1。
+8. 软件处理中断，读 STATUS/COUNT 寄存器定位状态，写 REG_IRQ_CTRL[1]=1 清中断。
 ```
 
 ENC 地址 layout 推荐使用 `ubwc_cfg` 计算：
@@ -709,7 +717,8 @@ ENC debug 入口：
 | 现象 | 建议读取 | 判断方向 |
 | --- | --- | --- |
 | 没有中断 | `REG_IRQ_CTRL[2]`、`REG_STATUS0[8]` | 判断 IRQ pending 和 frame_done 是否产生 |
-| 立即报错 | `REG_STATUS0[9]`、`REG_STATUS0[10:13]` | 检查当前 `fcnt[0]` 对应地址 slot 是否有效、地址 FIFO 是否溢出、软复位 drain 是否超时 |
+| OTF ready 始终为 0 | `REG_STATUS0[14]`、`REG_STATUS0[10]` | 先确认最近一次 START 配置提交有效，再确认唯一地址组已经锁存 |
+| 立即报错 | `REG_STATUS0[9]`、`REG_STATUS0[10]`、`REG_STATUS0[13]` | 检查唯一地址组是否按规定顺序写完整、是否重新 START，以及 VSYNC 帧复位 drain 是否超时 |
 | OTF 输入异常 | `REG_STATUS0[4]`、`REG_STATUS0[5]`、`REG_OTF_DE_COUNT0/1`、`REG_OTF_LINE_COUNT0/1` | 检查输入行像素数和帧行数是否匹配配置 |
 | AXI 写异常 | `REG_TILE_AXI_W_CNT0/1`、`REG_META_AXI_W_CNT0/1`、AXI B response | 区分 tile 数据与 metadata 写路径 |
 | metadata mismatch | `REG_META_COUNT0/1`、`REG_META_AXI_W_CNT0/1` | 检查 metadata 生成和写出数量 |
@@ -718,7 +727,7 @@ ENC debug 入口：
 
 - `STATUS0/IRQ_CTRL` 用于判断错误和 pending。
 - `COUNT0/COUNT1` 只做统计观测，不作为硬件 done 的唯一依据。
-- 连续帧问题优先看 `fcnt[0]`、地址 slot valid、start 写入顺序。
+- 连续帧问题优先看最近一次 START 提交的唯一地址快照、`cfg_valid` 和 AXI drain 状态；`i_otf_fcnt[0]` 只用于帧统计分组。
 
 ### ENC 7. PPA
 

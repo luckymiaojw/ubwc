@@ -51,7 +51,7 @@
 
   <rect x="120" y="145" width="260" height="68" class="box-cfg"/>
   <text x="250" y="173" text-anchor="middle" class="box-title">ubwc_enc_apb_reg_blk</text>
-  <text x="250" y="197" text-anchor="middle" class="box-text">静态配置 / 地址 slot / IRQ / START</text>
+  <text x="250" y="197" text-anchor="middle" class="box-text">静态配置 / 唯一地址组 / IRQ / START</text>
 
   <rect x="500" y="145" width="220" height="68" class="box-cfg"/>
   <text x="610" y="173" text-anchor="middle" class="box-title">ubwc_enc_rst_gen</text>
@@ -101,7 +101,7 @@
   <rect x="220" y="900" width="285" height="92" class="box-axi"/>
   <text x="362" y="932" text-anchor="middle" class="box-title">ubwc_enc_meta_addr_gen</text>
   <text x="362" y="958" text-anchor="middle" class="box-text">CO + coord/fcnt → metadata addr/data</text>
-  <text x="362" y="980" text-anchor="middle" class="box-text">按 Y/UV meta base 与 fcnt slot 选择</text>
+  <text x="362" y="980" text-anchor="middle" class="box-text">按 Y/UV plane 选择唯一 meta base</text>
 
   <rect x="650" y="765" width="300" height="86" class="box-axi"/>
   <text x="800" y="797" text-anchor="middle" class="box-title">ubwc_tile_enc_axi_wcmd_gen</text>
@@ -157,9 +157,9 @@
   <path class="cfg" d="M380 179 C580 235 855 500 930 575"/>
   <text x="690" y="220" class="sig">CI cfg / lossy cfg</text>
   <path class="cfg" d="M380 179 C410 520 330 700 362 765"/>
-  <text x="125" y="690" class="sig">tile base0/1</text>
+  <text x="125" y="690" class="sig">唯一 tile base</text>
   <path class="cfg" d="M380 179 C390 560 320 820 362 900"/>
-  <text x="130" y="855" class="sig">meta base0/1 + pitch</text>
+  <text x="130" y="855" class="sig">唯一 meta base + pitch</text>
   <path class="cfg" d="M720 179 C930 165 1260 165 1460 179"/>
   <text x="940" y="160" class="sig">reset/drain/status control</text>
 
@@ -173,5 +173,5 @@
   <text x="1030" y="830" class="sig">meta axi count/error</text>
 
   <rect x="95" y="1065" width="1650" height="48" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" rx="8"/>
-  <text x="120" y="1094" class="small">说明：fcnt 从 OTF 输入进入 otf_to_tile，随 tile coord/CO/meta/tile write 全链路传递；fcnt[0] 选择地址 slot0/slot1，同时作为统计与 AXI ID 的低位语义。</text>
+  <text x="120" y="1094" class="small">说明：fcnt 从 OTF 输入进入 otf_to_tile，随 tile coord/CO/meta/tile write 全链路传递；fcnt[0] 仅用于统计分组与 sideband，地址来自 START 锁存的唯一地址组。</text>
 </svg>

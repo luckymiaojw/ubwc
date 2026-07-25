@@ -39,14 +39,15 @@ ENC_CONFIG_ROWS = [
     ("0x050", "REG_META_ACTIVE_SIZE", "更改图像格式时配置", "按图像尺寸"),
     ("0x054", "REG_META_PITCH", "更改图像格式时配置", "按格式/宽度计算"),
     ("0x020", "REG_OTF_CFG0: format", "更改图像格式时配置", "0/1/2/3"),
-    ("0x030", "REG_META_BASE_Y_LO", "每次配置", "压缩后 Y metadata 存储基地址低 32 bit；RGBA 使用该槽位"),
-    ("0x034", "REG_META_BASE_Y_HI", "每次配置", "压缩后 Y metadata 存储基地址高 32 bit；RGBA 使用该槽位"),
-    ("0x038", "REG_TILE_BASE_Y_LO", "每次配置", "压缩后 Y 压缩数据存储基地址低 32 bit；RGBA 使用该槽位"),
-    ("0x03C", "REG_TILE_BASE_Y_HI", "每次配置", "压缩后 Y 压缩数据存储基地址高 32 bit；RGBA 使用该槽位"),
-    ("0x040", "REG_META_BASE_UV_LO", "每次配置", "压缩后 UV metadata 存储基地址低 32 bit；RGBA 写 0"),
-    ("0x044", "REG_META_BASE_UV_HI", "每次配置", "压缩后 UV metadata 存储基地址高 32 bit；RGBA 写 0"),
-    ("0x048", "REG_TILE_BASE_UV_LO", "每次配置", "压缩后 UV 压缩数据存储基地址低 32 bit；RGBA 写 0"),
-    ("0x04C", "REG_TILE_BASE_UV_HI", "每次配置", "压缩后 UV 压缩数据存储基地址高 32 bit；最后写入提交本帧地址组"),
+    ("0x030", "REG_META_BASE_Y_LO", "首次或地址变化时配置", "唯一 Y/RGBA metadata 存储基地址低 32 bit"),
+    ("0x034", "REG_META_BASE_Y_HI", "首次或地址变化时配置", "唯一 Y/RGBA metadata 存储基地址高 32 bit"),
+    ("0x038", "REG_TILE_BASE_Y_LO", "首次或地址变化时配置", "唯一 Y/RGBA 压缩数据存储基地址低 32 bit"),
+    ("0x03C", "REG_TILE_BASE_Y_HI", "首次或地址变化时配置", "唯一 Y/RGBA 压缩数据存储基地址高 32 bit"),
+    ("0x040", "REG_META_BASE_UV_LO", "首次或地址变化时配置", "唯一 UV metadata 存储基地址低 32 bit；RGBA 写 0"),
+    ("0x044", "REG_META_BASE_UV_HI", "首次或地址变化时配置", "唯一 UV metadata 存储基地址高 32 bit；RGBA 写 0"),
+    ("0x048", "REG_TILE_BASE_UV_LO", "首次或地址变化时配置", "唯一 UV 压缩数据存储基地址低 32 bit；RGBA 写 0"),
+    ("0x04C", "REG_TILE_BASE_UV_HI", "首次或地址变化时配置", "唯一 UV 压缩数据存储基地址高 32 bit；必须作为地址组最后一笔写入"),
+    ("0x060[5]", "START", "首次、静态配置变化或地址变化时配置", "写 1 校验并锁存完整配置；不直接启动帧"),
 ]
 
 
@@ -78,10 +79,10 @@ CONFIG_HEADERS = ["寄存器地址", "寄存器功能", "配置模式", "默认�
 
 
 ENC_ADDR_ROWS = [
-    ("Y metadata base", "0x030 / 0x034", "低 32 bit / 高 32 bit；RGBA 使用该槽位"),
-    ("Y tile base", "0x038 / 0x03C", "低 32 bit / 高 32 bit；RGBA 使用该槽位"),
+    ("Y/RGBA metadata base", "0x030 / 0x034", "唯一地址，低 32 bit / 高 32 bit"),
+    ("Y/RGBA tile base", "0x038 / 0x03C", "唯一地址，低 32 bit / 高 32 bit"),
     ("UV metadata base", "0x040 / 0x044", "低 32 bit / 高 32 bit；RGBA 写 0"),
-    ("UV tile base", "0x048 / 0x04C", "低 32 bit / 高 32 bit；最后写 0x04C high 提交本帧地址组"),
+    ("UV tile base", "0x048 / 0x04C", "低 32 bit / 高 32 bit；必须最后写 0x04C high 标记工作地址组完整"),
 ]
 
 
@@ -94,8 +95,8 @@ DEC_ADDR_ROWS = [
 
 
 FIRST_NEXT_ROWS = [
-    ("首次配置", "读取 VERSION/DATE；使能中断；配置格式、尺寸、tile layout、CI/VIVO、metadata geometry、DEC OTF timing；写入第一帧 ENC/DEC 地址。"),
-    ("后续帧配置", "如果格式、尺寸、layout、timing 不变，只写新一帧的 base address；ENC 等上游 OTF 输入，DEC 地址写好后硬件按配置自动处理。"),
+    ("首次配置", "读取 VERSION/DATE；使能中断；配置格式、尺寸、tile layout、CI/VIVO、metadata geometry、DEC OTF timing。ENC 写唯一输出地址组并写 START；DEC 写第一帧输入地址。"),
+    ("后续帧配置", "ENC 地址不变时直接复用；地址变化时重写唯一地址组并写 START。DEC 仍按每帧输入 UBWC buffer 配置地址。"),
     ("重新配置静态项", "只有格式、分辨率、layout 或 DEC OTF timing 变化时才重写静态项；应先确认当前帧处理完成，再切换静态配置。"),
 ]
 
@@ -125,7 +126,7 @@ OTF_MARKER_ROWS = [
 
 
 IRQ_ROWS = [
-    ("ENC STATUS0", "0x058", "idle/error/busy/frame_done/addr_cfg_invalid/addr_cfg_valid0/1"),
+    ("ENC STATUS0", "0x058", "idle/error/busy/frame_done/addr_cfg_invalid/addr_cfg_valid/cfg_valid"),
     ("ENC IRQ_CTRL", "0x060", "irq_enable、irq_clear、irq_pending、correct/error pending"),
     ("ENC 统计", "0x068..0x09C", "metadata、tileaddr、OTF、AXI 写计数"),
     ("DEC STATUS0", "0x050", "frame_active、meta/tile/vivo/otf busy、idle 状态"),
@@ -556,7 +557,7 @@ def write_html() -> None:
     <h2>1. 基础约定</h2>
     <p>APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base address 都按低 32 bit、高 32 bit 的顺序写入。</p>
     {html_table(["格式", "编码", "tile_w", "tile_h", "说明"], FORMAT_ROWS)}
-    <div class="callout">连续帧模式下，如果格式、分辨率、tile layout 和 OTF timing 不变，软件通常只需要每帧更新 UBWC buffer base address。</div>
+    <div class="callout">连续帧模式下，ENC 复用最近一次 START 锁存的唯一地址组，地址不变时无需每帧重写；DEC 仍按每帧输入 UBWC buffer 配置地址。</div>
   </section>
 
   <section id="freq">
@@ -567,7 +568,7 @@ def write_html() -> None:
     <h3>2.2 DEC 配置清单</h3>
     {html_table(CONFIG_HEADERS, DEC_CONFIG_ROWS)}
     <h3>2.3 ENC 分辨率参考配置</h3>
-    <p>下面只列 ENC 静态几何相关寄存器，覆盖 RGBA8888、YUV420_8/NV12、YUV420_10/P010。每帧 base address 仍按实际输出 buffer 地址单独写入。</p>
+    <p>下面只列 ENC 静态几何相关寄存器，覆盖 RGBA8888、YUV420_8/NV12、YUV420_10/P010。唯一 base address 组在首次使用或输出地址变化时写入并通过 START 锁存。</p>
     {html_table(["格式", "分辨率", "关键计算", "ENC 写值参考"], ENC_REFERENCE_ROWS)}
     <h4>2.3.1 ENC 地址和 pitch 计算方法</h4>
     <pre>{escape(ENC_PITCH_ADDR_FORMULA)}</pre>
@@ -580,7 +581,7 @@ def write_html() -> None:
 
   <section id="enc">
     <h2>3. ENC 使用流程</h2>
-    <div class="callout warn">ENC 没有 APB start bit。软件先配置好静态参数和输出 buffer 地址，上游 OTF 输入流的 vsync/hsync/de/data 到来后，ENC 自动开始处理。</div>
+    <div class="callout warn">ENC 的 <code>IRQ_CTRL[5] START</code> 用于校验并锁存静态参数和唯一输出地址组，不直接启动帧。软件确认 <code>STATUS0[14] cfg_valid</code> 与 <code>STATUS0[10] addr_cfg_valid</code> 后，再送入 OTF VSYNC 和像素流。</div>
     <h3>3.1 首次或格式变化时配置</h3>
     <pre>read(0x000); // VERSION
 read(0x004); // DATE
@@ -596,11 +597,11 @@ write(0x02C, REG_OTF_CFG3);       // [15:0] y_tile_cols; [31:16] uv_tile_cols，
 write(0x050, REG_META_ACTIVE_SIZE); // [15:0] active_width; [31:16] active_height
 write(0x054, REG_META_PITCH);     // [31:0] meta_data_plane_pitch
 write(0x020, REG_OTF_CFG0);       // [2:0] format</pre>
-    <h3>3.2 每帧地址配置</h3>
+    <h3>3.2 唯一地址组配置</h3>
     {html_table(["地址项", "APB 地址", "说明"], ENC_ADDR_ROWS)}
-    <p><b>写入顺序建议：</b>按 meta Y、tile Y、meta UV、tile UV 顺序写。<code>REG_TILE_BASE_UV_HI @ 0x04C</code> 必须作为本帧地址组最后一笔写入，使本帧四个 base 地址生效。</p>
+    <p><b>写入顺序：</b>按 meta Y、tile Y、meta UV、tile UV 顺序写。<code>REG_TILE_BASE_UV_HI @ 0x04C</code> 必须作为地址组最后一笔写入；随后写 <code>IRQ_CTRL[5] START</code>，并读取 <code>STATUS0[14]</code> 与 <code>STATUS0[10]</code> 确认提交成功。</p>
     <h3>3.3 后续帧配置</h3>
-    <p>如果格式和尺寸不变，后续帧只需要重复 3.2 的每帧地址配置，然后送入下一帧 OTF 输入流。</p>
+    <p>地址不变时，后续帧直接复用已锁存地址组并送入下一帧 OTF 输入流。输出地址变化时，重新执行 3.2 并写 START；<code>fcnt[0]</code> 不参与地址选择。</p>
   </section>
 
   <section id="dec">
@@ -746,7 +747,7 @@ def document_xml() -> str:
     body.append(para("1. 基础约定", "Heading1", True))
     body.append(para("APB 寄存器为 32 bit 宽，地址按 4 byte 对齐。所有 64 bit base address 都按低 32 bit、高 32 bit 的顺序写入。"))
     body.append(table(["格式", "编码", "tile_w", "tile_h", "说明"], FORMAT_ROWS, [2100, 800, 900, 900, 4660]))
-    body.append(para("连续帧模式下，如果格式、分辨率、tile layout 和 OTF timing 不变，软件通常只需要每帧更新 UBWC buffer base address。"))
+    body.append(para("连续帧模式下，ENC 复用最近一次 START 锁存的唯一地址组，地址不变时无需每帧重写；DEC 仍按每帧输入 UBWC buffer 配置地址。"))
 
     body.append(para("2. 首次配置和后续配置", "Heading1", True))
     body.append(table(["场景", "软件动作"], FIRST_NEXT_ROWS, [2200, 7160]))
@@ -755,7 +756,7 @@ def document_xml() -> str:
     body.append(para("2.2 DEC 配置清单", "Heading2", True))
     body.append(table(["寄存器地址", "寄存器功能", "配置模式", "默认配置/说明"], DEC_CONFIG_ROWS, [1350, 2850, 1900, 3260]))
     body.append(para("2.3 ENC 分辨率参考配置", "Heading2", True))
-    body.append(para("下面只列 ENC 静态几何相关寄存器，覆盖 RGBA8888、YUV420_8/NV12、YUV420_10/P010。每帧 base address 仍按实际输出 buffer 地址单独写入。"))
+    body.append(para("下面只列 ENC 静态几何相关寄存器，覆盖 RGBA8888、YUV420_8/NV12、YUV420_10/P010。唯一 base address 组在首次使用或输出地址变化时写入并通过 START 锁存。"))
     body.append(table(["格式", "分辨率", "关键计算", "ENC 写值参考"], ENC_REFERENCE_ROWS, [1350, 1250, 2900, 3860]))
     body.append(para("2.3.1 ENC 地址和 pitch 计算方法", "Heading2", True))
     body.append(code_block(ENC_PITCH_ADDR_FORMULA))
@@ -766,7 +767,7 @@ def document_xml() -> str:
     body.append(code_block(DEC_PITCH_ADDR_FORMULA))
 
     body.append(para("3. ENC 使用流程", "Heading1", True))
-    body.append(para("ENC 没有 APB start bit。软件先配置好静态参数和输出 buffer 地址，上游 OTF 输入流的 vsync/hsync/de/data 到来后，ENC 自动开始处理。"))
+    body.append(para("ENC 的 IRQ_CTRL[5] START 用于校验并锁存静态参数和唯一输出地址组，不直接启动帧。软件确认 STATUS0[14] cfg_valid 与 STATUS0[10] addr_cfg_valid 后，再送入 OTF VSYNC 和像素流。"))
     body.append(para("3.1 首次或格式变化时配置", "Heading2", True))
     body.append(code_block("""read(0x000); // VERSION
 read(0x004); // DATE
@@ -782,11 +783,11 @@ write(0x02C, REG_OTF_CFG3);
 write(0x050, REG_META_ACTIVE_SIZE);
 write(0x054, REG_META_PITCH);
 write(0x020, REG_OTF_CFG0); // format"""))
-    body.append(para("3.2 每帧地址配置", "Heading2", True))
+    body.append(para("3.2 唯一地址组配置", "Heading2", True))
     body.append(table(["地址项", "APB 地址", "说明"], ENC_ADDR_ROWS, [2600, 1900, 4860]))
-    body.append(para("写入顺序建议：按 meta Y、tile Y、meta UV、tile UV 顺序写。REG_TILE_BASE_UV_HI @ 0x04C 必须作为本帧地址组最后一笔写入，使本帧四个 base 地址生效。"))
+    body.append(para("写入顺序：按 meta Y、tile Y、meta UV、tile UV 顺序写。REG_TILE_BASE_UV_HI @ 0x04C 必须作为地址组最后一笔写入；随后写 IRQ_CTRL[5] START，并读取 STATUS0[14] 与 STATUS0[10] 确认提交成功。"))
     body.append(para("3.3 后续帧配置", "Heading2", True))
-    body.append(para("如果格式和尺寸不变，后续帧只需要重复 3.2 的每帧地址配置，然后送入下一帧 OTF 输入流。"))
+    body.append(para("地址不变时，后续帧直接复用已锁存地址组并送入下一帧 OTF 输入流。输出地址变化时，重新执行 3.2 并写 START；fcnt[0] 不参与地址选择。"))
 
     body.append(para("4. DEC 使用流程", "Heading1", True))
     body.append(para("DEC 软件不需要额外写 start。首次配置静态参数和一组输入 UBWC buffer 地址后，硬件会按已配置地址自动处理；后续帧只需要继续写入新的输入 buffer 地址。"))

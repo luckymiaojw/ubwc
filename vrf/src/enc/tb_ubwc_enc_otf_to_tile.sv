@@ -70,6 +70,7 @@ module tb_ubwc_enc_otf_to_tile #(
     logic               clk;
     logic               otf_clk;
     logic               rst_n;
+    logic               frame_start;
 
     logic [2:0]         cfg_format;
     logic [15:0]        cfg_width;
@@ -133,7 +134,9 @@ module tb_ubwc_enc_otf_to_tile #(
     integer upper_data_nonzero_count;
     integer max_tile_x_seen;
     integer max_tile_y_seen;
+    integer fcnt_mismatch_count;
     integer fail_count;
+    logic [3:0] expected_output_fcnt;
 
     ubwc_enc_otf_to_tile #(
         .ADDR_W(ADDR_W)
@@ -144,6 +147,9 @@ module tb_ubwc_enc_otf_to_tile #(
         .rst_n_sys      (rst_n),
         .rst_n_otf      (rst_n),
         .rst_n_vivo     (rst_n),
+        .i_frame_start_pulse(frame_start),
+        .i_otf_frame_start_pulse(frame_start),
+        .i_otf_input_enable(1'b1),
         .i_cfg_format   (cfg_format),
         .i_cfg_width    (cfg_width),
         .i_cfg_height   (cfg_height),
@@ -243,6 +249,7 @@ module tb_ubwc_enc_otf_to_tile #(
             upper_data_nonzero_count<= 0;
             max_tile_x_seen         <= 0;
             max_tile_y_seen         <= 0;
+            fcnt_mismatch_count     <= 0;
         end else if (tile_vld && tile_rdy) begin
             tile_beat_count <= tile_beat_count + 1;
             if (ci_valid)
@@ -264,6 +271,9 @@ module tb_ubwc_enc_otf_to_tile #(
 
             if (tile_y > max_tile_y_seen[15:0])
                 max_tile_y_seen <= tile_y;
+
+            if (tile_fcnt != expected_output_fcnt)
+                fcnt_mismatch_count <= fcnt_mismatch_count + 1;
 
             case (tile_format)
                 5'd0: fmt0_beat_count      <= fmt0_beat_count + 1;
@@ -313,13 +323,15 @@ module tb_ubwc_enc_otf_to_tile #(
             cfg_format      = 3'd0;
             cfg_width       = 16'd0;
             cfg_height      = 16'd0;
-            cfg_active_width  = 16'd0;
+            cfg_active_width = 16'd0;
             cfg_active_height = 16'd0;
             cfg_tile_w      = 16'd0;
             cfg_tile_h      = 4'd0;
             cfg_y_tile_cols = 16'd0;
             cfg_uv_tile_cols = 16'd0;
             err_clear      = 1'b0;
+            frame_start    = 1'b0;
+            expected_output_fcnt = 4'd0;
             otf_vsync       = 1'b0;
             otf_hsync       = 1'b0;
             otf_de          = 1'b0;
@@ -331,6 +343,15 @@ module tb_ubwc_enc_otf_to_tile #(
         end
     endtask
 
+    task automatic issue_frame_start;
+        begin
+            @(negedge clk);
+            frame_start = 1'b1;
+            @(negedge clk);
+            frame_start = 1'b0;
+        end
+    endtask
+
     task automatic do_reset;
         begin
             rst_n = 1'b0;
@@ -338,6 +359,7 @@ module tb_ubwc_enc_otf_to_tile #(
             u_bank0.clear_mem();
             u_bank1.clear_mem();
             repeat (8) @(posedge clk);
+            @(negedge clk);
             rst_n = 1'b1;
             repeat (8) @(posedge clk);
             repeat (4) @(posedge otf_clk);
@@ -377,9 +399,26 @@ module tb_ubwc_enc_otf_to_tile #(
         input [127:0]     beat_data;
         input [3:0]       beat_fcnt;
         input [11:0]      beat_lcnt;
+        integer           ready_wait;
         begin
-            while (otf_ready !== 1'b1)
+            ready_wait = 0;
+            while (otf_ready !== 1'b1) begin
                 @(posedge otf_clk);
+                ready_wait = ready_wait + 1;
+                if (ready_wait > 10000) begin
+                    $display("[TB] ready timeout bank0=%0b/%0b/%0b bank1=%0b/%0b/%0b rd_state=%0d issue/read_data=%0b/%0b",
+                             dut.u_line_to_tile.bank0_meta_vld,
+                             dut.u_line_to_tile.bank0_a_done,
+                             dut.u_line_to_tile.bank0_b_done,
+                             dut.u_line_to_tile.bank1_meta_vld,
+                             dut.u_line_to_tile.bank1_a_done,
+                             dut.u_line_to_tile.bank1_b_done,
+                             dut.u_line_to_tile.rd_state,
+                             dut.u_line_to_tile.issue_read,
+                             dut.u_line_to_tile.read_data_vld);
+                    $fatal(1, "Timeout waiting OTF ready for data line=%0d", beat_lcnt);
+                end
+            end
 
             otf_vsync = beat_vsync;
             otf_hsync = beat_hsync;
@@ -388,6 +427,7 @@ module tb_ubwc_enc_otf_to_tile #(
             otf_fcnt  = beat_fcnt;
             otf_lcnt  = beat_lcnt;
             @(posedge otf_clk);
+            @(negedge otf_clk);
 
             otf_vsync = 1'b0;
             otf_hsync = 1'b0;
@@ -398,14 +438,42 @@ module tb_ubwc_enc_otf_to_tile #(
         end
     endtask
 
+    task automatic drive_otf_sync;
+        input logic       sync_vsync;
+        input [3:0]       sync_fcnt;
+        input [11:0]      sync_lcnt;
+        integer           ready_wait;
+        begin
+            ready_wait = 0;
+            while (otf_ready !== 1'b1) begin
+                @(posedge otf_clk);
+                ready_wait = ready_wait + 1;
+                if (ready_wait > 10000)
+                    $fatal(1, "Timeout waiting OTF ready for sync line=%0d", sync_lcnt);
+            end
+
+            otf_vsync = sync_vsync;
+            otf_hsync = 1'b1;
+            otf_de    = 1'b0;
+            otf_fcnt  = sync_fcnt;
+            otf_lcnt  = sync_lcnt;
+            @(posedge otf_clk);
+            @(negedge otf_clk);
+
+            otf_vsync = 1'b0;
+            otf_hsync = 1'b0;
+        end
+    endtask
+
     task automatic send_rgba_frame;
         integer line_idx;
         integer beat_idx;
         begin
             for (line_idx = 0; line_idx < FRAME_H; line_idx = line_idx + 1) begin
+                drive_otf_sync(line_idx == 0, 4'h1, line_idx[11:0]);
                 for (beat_idx = 0; beat_idx < BEATS_PER_LINE; beat_idx = beat_idx + 1) begin
-                    drive_otf_beat((line_idx == 0) && (beat_idx == 0),
-                                   (beat_idx == 0),
+                    drive_otf_beat(1'b0,
+                                   1'b0,
                                    make_rgba_beat(line_idx, beat_idx),
                                    4'h1,
                                    line_idx[11:0]);
@@ -419,9 +487,10 @@ module tb_ubwc_enc_otf_to_tile #(
         integer beat_idx;
         begin
             for (line_idx = 0; line_idx < FRAME_H; line_idx = line_idx + 1) begin
+                drive_otf_sync(line_idx == 0, 4'h2, line_idx[11:0]);
                 for (beat_idx = 0; beat_idx < BEATS_PER_LINE; beat_idx = beat_idx + 1) begin
-                    drive_otf_beat((line_idx == 0) && (beat_idx == 0),
-                                   (beat_idx == 0),
+                    drive_otf_beat(1'b0,
+                                   1'b0,
                                    make_yuv420_beat(line_idx, beat_idx),
                                    4'h2,
                                    line_idx[11:0]);
@@ -437,6 +506,21 @@ module tb_ubwc_enc_otf_to_tile #(
         begin
             $display("[TB] %0s wait_for_tiles start: tile_count=%0d exp=%0d time=%0t",
                      case_name, tile_count, exp_tile_cnt, $time);
+            $display("[TB] packer stream=%0b input_empty=%0b input_rd=%0b a_vld=%0b b_vld=%0b",
+                     dut.u_otf_data_packer.stream_enable,
+                     dut.u_otf_data_packer.in_fifo_empty,
+                     dut.u_otf_data_packer.in_fifo_rd,
+                     dut.pack_fifo_a_vld,
+                     dut.pack_fifo_b_vld);
+            $display("[TB] line_to_tile bank0 meta/a/b=%0b/%0b/%0b bank1=%0b/%0b/%0b rd_state=%0d resp_vld=%0b",
+                     dut.u_line_to_tile.bank0_meta_vld,
+                     dut.u_line_to_tile.bank0_a_done,
+                     dut.u_line_to_tile.bank0_b_done,
+                     dut.u_line_to_tile.bank1_meta_vld,
+                     dut.u_line_to_tile.bank1_a_done,
+                     dut.u_line_to_tile.bank1_b_done,
+                     dut.u_line_to_tile.rd_state,
+                     dut.u_line_to_tile.resp_fifo_valid);
             timeout_cycles = 0;
             while ((tile_count < exp_tile_cnt) && (timeout_cycles < 3000000)) begin
                 @(posedge clk);
@@ -460,7 +544,7 @@ module tb_ubwc_enc_otf_to_tile #(
             cfg_format      = FMT_RGBA8888;
             cfg_width       = FRAME_W[15:0];
             cfg_height      = FRAME_H[15:0];
-            cfg_active_width  = FRAME_W[15:0];
+            cfg_active_width = FRAME_W[15:0];
             cfg_active_height = FRAME_H[15:0];
             cfg_tile_w      = 16'd16;
             cfg_tile_h      = 4'd4;
@@ -468,6 +552,8 @@ module tb_ubwc_enc_otf_to_tile #(
             cfg_uv_tile_cols = 16'd0;
 
             repeat (8) @(posedge clk);
+            expected_output_fcnt = 4'h1;
+            issue_frame_start();
             send_rgba_frame();
             $display("[TB] RGBA8888 input done at time=%0t tile_count=%0d", $time, tile_count);
             wait_for_tiles("RGBA8888", RGBA_EXPECT_TILES);
@@ -485,6 +571,7 @@ module tb_ubwc_enc_otf_to_tile #(
             expect_equal("RGBA max tile x",      max_tile_x_seen,       TILE_COLS - 1);
             expect_equal("RGBA max tile y",      max_tile_y_seen,       RGBA_TILE_ROWS - 1);
             expect_equal("RGBA beats per tile",  tile_beat_count,       tile_count * 16);
+            expect_equal("RGBA fcnt mismatches", fcnt_mismatch_count,   0);
             expect_zero_flag("RGBA err_bline",   err_bline);
             expect_zero_flag("RGBA err_bframe",  err_bframe);
             expect_zero_flag("RGBA err_fifo_ovf",err_fifo_ovf);
@@ -497,7 +584,7 @@ module tb_ubwc_enc_otf_to_tile #(
             cfg_format      = FMT_YUV420_8;
             cfg_width       = FRAME_W[15:0];
             cfg_height      = FRAME_H[15:0];
-            cfg_active_width  = FRAME_W[15:0];
+            cfg_active_width = FRAME_W[15:0];
             cfg_active_height = FRAME_H[15:0];
             cfg_tile_w      = 16'd16;
             cfg_tile_h      = 4'd8;
@@ -505,6 +592,8 @@ module tb_ubwc_enc_otf_to_tile #(
             cfg_uv_tile_cols = TILE_COLS[15:0];
 
             repeat (8) @(posedge clk);
+            expected_output_fcnt = 4'h2;
+            issue_frame_start();
             send_yuv420_frame();
             $display("[TB] YUV420_8 input done at time=%0t tile_count=%0d", $time, tile_count);
             wait_for_tiles("YUV420_8", YUV_EXPECT_TILES);
@@ -522,6 +611,7 @@ module tb_ubwc_enc_otf_to_tile #(
             expect_equal("YUV max tile x",      max_tile_x_seen,       TILE_COLS - 1);
             expect_equal("YUV max tile y",      max_tile_y_seen,       YUV_TILE_ROWS - 1);
             expect_equal("YUV beats per tile",  tile_beat_count,       tile_count * 16);
+            expect_equal("YUV fcnt mismatches", fcnt_mismatch_count,   0);
             expect_zero_flag("YUV err_bline",   err_bline);
             expect_zero_flag("YUV err_bframe",  err_bframe);
             expect_zero_flag("YUV err_fifo_ovf",err_fifo_ovf);

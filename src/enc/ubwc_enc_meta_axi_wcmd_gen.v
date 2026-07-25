@@ -18,7 +18,7 @@ module ubwc_enc_meta_axi_wcmd_gen
     #(
         parameter                                       AXI_AW                          = 64,
         parameter                                       AXI_DW                          = 256,
-        parameter                                       AXI_LENW                        = 5,
+        parameter                                       AXI_LENW                        = 8,
         parameter                                       AXI_IDW                         = 6,
         parameter                                       META_DW                         = 66,
         parameter                                       IN_FIFO_DEPTH                   = 64,

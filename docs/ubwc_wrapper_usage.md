@@ -39,14 +39,14 @@ The AXI/control, Core/VIVO, and OTF interfaces are independent clock domains. In
 - `ubwc_enc_vivo_top` handles UBWC encoding.
 - Main image data and metadata are output through the AXI write port.
 
-The APB side holds static configuration, per-frame address queues, interrupt control, and an explicit frame `start` token at `REG_IRQ_CTRL[5]`.
+The APB side holds static configuration, one output address set, interrupt control, and a configuration-commit pulse at `REG_IRQ_CTRL[5]`.
 
 ### 1.2 Required Register Groups
 
 - Tile address related:`0x0008 REG_TILE_CFG0`, `0x000c REG_TILE_CFG1`
 - Encoder CI related:`0x0010 REG_ENC_CI_CFG0` ~ `0x001c REG_ENC_CI_CFG3`
 - OTF input related:`0x0020 REG_OTF_CFG0` ~ `0x002c REG_OTF_CFG3`
-- Per-frame output address:`0x0030` ~ `0x004c`
+- Single output address set:`0x0030` ~ `0x004c`
 - Metadata active area:`0x0050 REG_META_ACTIVE_SIZE`
 
 ### 1.3 Recommended Configuration Order
@@ -56,8 +56,8 @@ The current RTL has several designs that emit a valid pulse when a specific regi
 1. Write static format/layout configuration: `REG_TILE_CFG1 (0x000c)`, then `REG_TILE_CFG0 (0x0008)`.
 2. Write `REG_ENC_CI_CFG1/2/3`, then write `REG_ENC_CI_CFG0 (0x0010)`.
 3. Write `REG_OTF_CFG1/2/3`, `REG_META_ACTIVE_SIZE (0x0050)`, `REG_META_PITCH (0x0054)`, then `REG_OTF_CFG0 (0x0020)`.
-4. For each frame/output buffer, write the four 64-bit base addresses from `0x0030` to `0x004c`.
-5. Write `REG_IRQ_CTRL[5]=1` to issue one frame start token.
+4. At initial setup or when the output buffer address changes, write the four 64-bit base addresses from `0x0030` to `0x004c`; write `REG_TILE_BASE_UV_HI` last.
+5. Write `REG_IRQ_CTRL[5]=1` to validate and latch the complete configuration snapshot.
 
 The corresponding testbench uses the same actual order because:
 
@@ -69,16 +69,16 @@ Among them, `tile_addr_gen_cfg_vld` is indeed used inside the wrapper;`o_enc_ci_
 
 ### 1.4 Startup Method
 
-`ubwc_enc_wrapper_top.sv` uses a separate frame start token. Address writes only fill the pending address queues; they do not start a frame by themselves.
+`ubwc_enc_wrapper_top.sv` uses `REG_IRQ_CTRL[5]` as a configuration commit. Address writes update one working address set; they do not start a frame by themselves.
 
 The real startup conditions are:
 
 - Static APB configuration has already been written.
-- The current output address group has been written.
+- The single output address group has been written completely.
 - Software writes `REG_IRQ_CTRL[5]=1`.
 - The upstream source sends the matching OTF frame and handshakes with `o_otf_ready`.
 
-The start token lets the reset/status/address logic prepare the next frame. OTF data still enters only through the normal `i_otf_*` handshake.
+START latches the working configuration and address set. Every later VSYNC can reuse that snapshot until software writes a replacement and issues START again. OTF data enters only through the normal `i_otf_*` handshake.
 
 The minimal flow can be understood as:
 
@@ -116,7 +116,10 @@ write(0x0040, meta_base_uv_lo);
 write(0x0044, meta_base_uv_hi);
 write(0x0048, tile_base_uv_lo);
 write(0x004c, tile_base_uv_hi);
-write(0x0060, irq_enable | (1 << 5));  // start one frame
+write(0x0060, irq_enable | (1 << 5));  // validate and latch configuration
+
+poll_until((read(0x0058) & (1 << 14)) != 0); // cfg_valid
+poll_until((read(0x0058) & (1 << 10)) != 0); // addr_cfg_valid
 
 start_otf_input_stream();
 ```
@@ -135,16 +138,16 @@ Current `ubwc_enc_apb_reg_blk.v` exposes `REG_STATUS0 (0x0058)`:
 - `bit7`: `meta_err_1`, currently tied low
 - `bit8`: `frame_done`
 - `bit9`: `addr_cfg_invalid`
-- `bit10`: `addr_cfg_valid0`
-- `bit11`: `addr_cfg_valid1`
+- `bit10`: `addr_cfg_valid`
+- `bit11..12`: reserved
 
 `REG_STATUS1 (0x005c)` exposes stage-done information, and `IRQ_CTRL (0x0060)` exposes interrupt enable/clear/pending state.
 
 For software:
 
 - Correct IRQ indicates the frame completion point.
-- Error IRQ indicates address-slot missing, OTF bad line/frame, FIFO overflow, VIVO/encoder errors, or metadata errors.
-- `addr_cfg_invalid` means the current `fcnt[0]` selected an address slot that software has not configured.
+- Error IRQ indicates an invalid single address set, OTF bad line/frame, FIFO overflow, VIVO/encoder errors, or metadata errors.
+- `addr_cfg_invalid` means the data path attempted to use a configuration whose single META/TILE address set was not valid.
 - Statistic registers are for debug/visibility and should not be used as the primary frame-done condition.
 
 ## 2. ubwc_dec_wrapper_top Usage Guide
@@ -240,7 +243,7 @@ flowchart TD
     D --> E[Write OTF_CFG0/1/2/3/4]
     E --> F[Write REG_META_BASE_Y/TILE_BASE_Y/META_BASE_UV/TILE_BASE_UV]
     F --> G[Last high-word write completes one frame address set]
-    G --> H[Hardware locks address slot and creates frame_start in AXI clock]
+    G --> H[Hardware locks one address set and creates frame_start in AXI clock]
     H --> I[Metadata AXI read starts]
     H --> J[Tile AXI read starts]
     I --> K[VIVO UBWC decode]
@@ -555,9 +558,9 @@ The following is a concise table based on the **current RTL**; see the detailed 
 | `0x0024` | `REG_OTF_CFG1` | `width`, `height` | Pixel units |
 | `0x0028` | `REG_OTF_CFG2` | `tile_w`, `tile_h` | Pixel units |
 | `0x002c` | `REG_OTF_CFG3` | `y_tile_cols`, `uv_tile_cols` | `RGBA8888` is commonly `y=tile_cols, uv=0` |
-| `0x0030` | `REG_META_BASE_Y_LO` | Low 32 bits of the metadata base address | Current `RGBA8888` uses this slot |
+| `0x0030` | `REG_META_BASE_Y_LO` | Low 32 bits of the metadata base address | Current `RGBA8888` uses this address field |
 | `0x0034` | `REG_META_BASE_Y_HI` | High 32 bits of the metadata base address |  |
-| `0x0038` | `REG_TILE_BASE_Y_LO` | Low 32 bits of the main-image base address | Current `RGBA8888` uses this slot |
+| `0x0038` | `REG_TILE_BASE_Y_LO` | Low 32 bits of the main-image base address | Current `RGBA8888` uses this address field |
 | `0x003c` | `REG_TILE_BASE_Y_HI` | High 32 bits of the main-image base address |  |
 | `0x0040` | `REG_META_BASE_UV_LO` | Low 32 bits of the UV metadata base address | Single-plane `RGBA8888` can write `0` |
 | `0x0044` | `REG_META_BASE_UV_HI` | High 32 bits of the UV metadata base address | Single-plane `RGBA8888` can write `0` |
@@ -598,8 +601,8 @@ The following is a concise table based on the **current RTL**; see the detailed 
 
 ## 5. Summary of Differences Between the Two Wrappers
 
-- `enc`: the APB side provides configuration registers, per-frame output address queues, start token, status and debug counters
+- `enc`: the APB side provides configuration registers, one reusable output address set, a configuration-commit pulse, status and debug counters
 - `dec`: the APB side has both configuration registers and complete `STATUS0/STATUS1` registers
-- `enc` starts after a complete output address set and `IRQ_CTRL[5]` start token, then consumes the matching OTF input frame
+- `enc` latches a complete output address/configuration snapshot on `IRQ_CTRL[5]`; each valid VSYNC then resets and starts frame processing with that reusable snapshot
 - `dec` starts after a complete input UBWC address set and `IRQ_CTRL[5]` start token
 - both wrappers expose correct/error IRQ pending state and frame completion status

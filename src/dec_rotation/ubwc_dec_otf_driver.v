@@ -90,6 +90,7 @@ module otf_driver (
     wire                                            stream_busy                     ;
     wire                                            need_data                       ;
     wire                                            underflow_event                 ;
+    wire        [1                      :0]         phase_out                       ;
     wire                                            p010_last_lower_half            ;
     wire                                            p010_lower_half                 ;
     wire        [9                      :0]         Y0_10                           ;
@@ -125,7 +126,6 @@ module otf_driver (
     reg         [11                     :0]         otf_lcnt_core                   ;
     reg         [127                    :0]         otf_data_comb                   ;
     reg         [1                      :0]         phase                           ;
-    reg         [1                      :0]         otf_phase_core                  ;
     reg         [255                    :0]         compact_data                    ;
     reg         [31                     :0]         cur_y                           ;
     reg         [31                     :0]         cur_u                           ;
@@ -190,8 +190,9 @@ module otf_driver (
     assign o_frame_start_ready        = !stream_started && !frame_start_pending && !frame_start;
     assign o_active_fcnt              = stream_started ? otf_fcnt_core : pending_frame_fcnt;
     assign o_busy                     = stream_busy | fifo_busy | phase_busy;
+    assign phase_out                  = phase - 2'd1;
     assign p010_last_lower_half       = otf_de_core && !is_act && h_act_beats[0];
-    assign p010_lower_half            = (otf_phase_core == 2'd0) || p010_last_lower_half;
+    assign p010_lower_half            = (phase == 2'd1) || p010_last_lower_half;
     assign Y0                         = cur_y[7:0];
     assign Y1                         = cur_y[15:8];
     assign Y2                         = cur_y[23:16];
@@ -378,15 +379,6 @@ module otf_driver (
 
     always @(posedge clk_otf or negedge rst_n) begin
         if (!rst_n)
-            otf_phase_core <= 2'd0;
-        else if (frame_start_idle || !stream_started)
-            otf_phase_core <= 2'd0;
-        else if (otf_step_fire)
-            otf_phase_core <= is_act ? phase : 2'd0;
-    end
-
-    always @(posedge clk_otf or negedge rst_n) begin
-        if (!rst_n)
             compact_data <= 256'd0;
         else if (frame_start_idle || !stream_started)
             compact_data <= 256'd0;
@@ -397,7 +389,7 @@ module otf_driver (
     always @(*) begin
         cur_y = 32'd0;
         if (!is_yuv420_10) begin
-            case (otf_phase_core)
+            case (phase_out)
                 2'd0: cur_y = compact_data[31:0];
                 2'd1: cur_y = compact_data[63:32];
                 2'd2: cur_y = compact_data[95:64];
@@ -409,7 +401,7 @@ module otf_driver (
     always @(*) begin
         cur_u = 32'd0;
         if (!is_yuv420_10) begin
-            case (otf_phase_core)
+            case (phase_out)
                 2'd0: cur_u = compact_data[159:128];
                 2'd1: cur_u = compact_data[191:160];
                 2'd2: cur_u = compact_data[223:192];
@@ -422,7 +414,7 @@ module otf_driver (
         otf_data_comb = 128'h0;
         if (otf_de_core) begin
             case (cfg_format)
-                5'b00000, 5'b00001: otf_data_comb = otf_phase_core[0] ? compact_data[255:128] : compact_data[127:0];
+                5'b00000, 5'b00001: otf_data_comb = phase[0] ? compact_data[127:0] : compact_data[255:128];
                 5'b00011: begin // YUV420 10-bit packed
                     otf_data_comb[19:10]    = Y0_10;
                     otf_data_comb[51:42]    = Y1_10;

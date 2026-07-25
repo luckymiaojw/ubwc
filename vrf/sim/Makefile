@@ -6,6 +6,7 @@ IVERILOG ?= iverilog
 VVP ?= vvp
 VERILATOR ?= verilator
 SRAM_PROFILE ?= 4096
+ENC_FAKE_MODE ?= 1
 
 ifeq ($(strip $(SRAM_PROFILE)),2048)
 SRAM_PROFILE_COM_BUF_AW := 12
@@ -28,7 +29,9 @@ RTL_FLIST_DIR := $(PROJECT_ROOT)/src/flist
 BUILD_ROOT ?= build
 BUILD_VARIANT_SUFFIX :=
 ifneq ($(findstring wrapper_top,$(TOP))$(findstring dec_to_enc_loop,$(TOP)),)
-ifneq ($(findstring +tb_non_fake_mode,$(RUN_ARGS)),)
+ifeq ($(strip $(ENC_FAKE_MODE)),0)
+BUILD_VARIANT_SUFFIX := _realrtl
+else ifneq ($(findstring +tb_non_fake_mode,$(RUN_ARGS)),)
 BUILD_VARIANT_SUFFIX := _nonfake
 else ifneq ($(strip $(TB_REAL_VIVO_MODE)),)
 ifeq ($(strip $(TB_REAL_VIVO_MODE)),1)
@@ -258,6 +261,17 @@ FILELIST_tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12 := $(RTL_FLIST_DIR)/
 DEFAULT_FILELIST := $(RTL_FLIST_DIR)/filelist.f
 FILELIST ?= $(if $(FILELIST_$(TOP)),$(FILELIST_$(TOP)),$(DEFAULT_FILELIST))
 
+FAKE_MODE_VCS_FLAG :=
+FAKE_MODE_IVERILOG_FLAG :=
+FAKE_MODE_VERILATOR_FLAG :=
+ifeq ($(strip $(ENC_FAKE_MODE)),1)
+ifneq ($(filter %/filelist_enc.f %/filelist_encdec.f,$(FILELIST)),)
+FAKE_MODE_VCS_FLAG := +define+FAKE_MODE
+FAKE_MODE_IVERILOG_FLAG := -DFAKE_MODE
+FAKE_MODE_VERILATOR_FLAG := +define+FAKE_MODE
+endif
+endif
+
 ifeq ($(strip $(TB_SRC)),)
 $(error Unsupported TOP '$(TOP)'. Please choose one of: tb_ubwc_dec_meta_data_gen_41x29, tb_ubwc_dec_meta_data_gen, tb_ubwc_dec_meta_data_gen_tajmahal_cases, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_rgba8888, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_rgba1010102, tb_ubwc_dec_meta_data_gen_tajmahal_4096x600_nv12, tb_ubwc_dec_meta, tb_ubwc_dec_axi_rdata_to_sram, tb_ubwc_enc_meta_get_cmd_gen, tb_ubwc_dec_tile_arcmd_gen, tb_ubwc_dec_tile_to_line_path, tb_ubwc_dec_tile_to_line_image_formats, tb_ubwc_dec_tile_to_line_hd_formats, tb_ubwc_dec_tile_to_otf_1080p_rgba, tb_ubwc_dec_tile_to_otf_1920x1080_nv12, tb_ubwc_dec_tile_to_otf_1960x1080_nv12, tb_ubwc_dec_tile_to_otf_tajmahal_cases, tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba8888, tb_ubwc_dec_tile_to_otf_tajmahal_4096x608_rgba1010102, tb_ubwc_dec_tile_to_otf_tajmahal_linear_in_rgba8888, tb_ubwc_dec_tile_to_otf_tajmahal_4096x640_nv12, tb_ubwc_dec_wrapper_top_tajmahal_cases, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba8888, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_rgba1010102, tb_ubwc_dec_wrapper_top_tajmahal_4096x600_nv12, tb_ubwc_dec_wrapper_top_k_outdoor61_4096x600_g016, tb_ubwc_dec_wrapper_top_tajmahal_rgba8888, tb_ubwc_enc_wrapper_top_tajmahal_cases, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba8888, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_rgba1010102, tb_ubwc_enc_wrapper_top_tajmahal_4096x600_nv12, tb_ubwc_enc_wrapper_top_k_outdoor61_4096x600_g016, tb_ubwc_dec_to_enc_loop_tajmahal_cases, tb_ubwc_enc_dec_wrapper_top_tajmahal_4096x600_nv12)
 endif
@@ -335,6 +349,7 @@ VCS_WAVE_FLAGS := +define+WAVES +define+FSDB
 VCS_WARN_FLAGS := +v2k +lint=TFIPC-L +warn=all
 
 VCS_FLAGS := -full64 -sverilog -timescale=1ns/1ps \
+	$(FAKE_MODE_VCS_FLAG) \
 	-F $(FILELIST) \
 	$(TB_SRC) \
 	$(TB_EXTRA_SRC) \
@@ -352,7 +367,7 @@ VCS_FLAGS += -P $(VERDI_HOME)/share/PLI/VCS/LINUX64/novas.tab \
 	$(VERDI_HOME)/share/PLI/VCS/LINUX64/pli.a
 endif
 
-VERDI_FLAGS := -sv -F $(FILELIST) $(TB_SRC) $(TB_EXTRA_SRC) -top $(TOP)
+VERDI_FLAGS := -sv $(FAKE_MODE_VCS_FLAG) -F $(FILELIST) $(TB_SRC) $(TB_EXTRA_SRC) -top $(TOP)
 FILELIST_DIR := $(abspath $(dir $(FILELIST)))
 FILELIST_NAME := $(notdir $(FILELIST))
 FLIST_DEPS := $(PYTHON) $(VRF_SCRIPT_DIR)/flist_deps.py
@@ -362,6 +377,7 @@ FILELIST_INCLUDE_DEPS := $(shell $(FLIST_DEPS) --includes $(FILELIST))
 SIMV_DEPS := $(FILELIST) $(FILELIST_SRC) $(FILELIST_INCLUDE_DEPS) $(TB_SRC) $(TB_EXTRA_SRC) $(MAKEFILE_LIST)
 
 IVERILOG_FLAGS := -g2012 \
+	$(FAKE_MODE_IVERILOG_FLAG) \
 	-s $(TOP) \
 	$(IVERILOG_PARAM_FLAGS) \
 	-o $(abspath $(IVERILOG_SIMV)) \
@@ -370,6 +386,7 @@ IVERILOG_FLAGS := -g2012 \
 	$(TB_EXTRA_SRC)
 
 VERILATOR_FLAGS := --binary --timing -Wno-fatal \
+	$(FAKE_MODE_VERILATOR_FLAG) \
 	-Mdir $(VERILATOR_OBJ_DIR) \
 	-F $(FILELIST) \
 	$(TB_SRC) \

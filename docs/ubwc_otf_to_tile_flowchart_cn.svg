@@ -55,7 +55,7 @@
 
   <rect x="1240" y="168" width="250" height="132" class="box4"/>
   <text x="1268" y="198" class="text">OTF 统计 / 正确中断</text>
-  <text x="1268" y="224" class="small">按 fcnt[0] 分 slot0/1</text>
+  <text x="1268" y="224" class="small">按 fcnt[0]=0/1 分统计桶</text>
   <text x="1268" y="246" class="small">de_count / line_count</text>
   <text x="1268" y="268" class="small">最后有效数据 correct_irq</text>
 

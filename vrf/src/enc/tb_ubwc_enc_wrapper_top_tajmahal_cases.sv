@@ -592,7 +592,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
     localparam integer AXI_LENW        = 8;
     localparam integer AXI_IDW         = 4;
     localparam integer COM_BUF_DW      = 128;
-    localparam integer SB_WIDTH        = 1;
+    localparam integer SB_WIDTH        = 36;
     localparam [63:0]  META_BYTE_CMP_MASK = 64'h1f1f_1f1f_1f1f_1f1f;
 
     localparam [63:0]  CFG_RGBA_TILE_BASE_Y_ADDR_Z  = {32'd0, CFG_RGBA_TILE_BASE_Y_ADDR[31:0]};
@@ -2380,7 +2380,6 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
     task automatic pulse_start_otf;
         begin
-            wait (o_otf_ready == 1'b1);
             @(posedge otf_clk);
             start_otf = 1'b1;
             repeat (2) @(posedge otf_clk);
@@ -2449,28 +2448,21 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                          ci_cmd_fire_w, rvi_mon_fire_w, dut.enc_axi_awvalid, dut.enc_axi_wvalid,
                          dut.meta_axi_awvalid, dut.meta_axi_wvalid, active_cmd_valid, rvi_active_cmd_valid,
                          main_burst_active, meta_burst_active);
-                $display("[TB][ERROR] meta path state: data_vld=%0b data_rdy=%0b addr_vld=%0b addr_rdy=%0b data=0x%016x last_x=%0d",
+                $display("[TB][ERROR] meta path state: data_vld=%0b data_rdy=%0b addr_vld=%0b addr_rdy=%0b data=0x%016x",
                          dut.meta_data_valid,
                          dut.meta_data_ready,
                          dut.meta_addr_valid,
                          dut.meta_addr_ready,
-                         dut.meta_data,
-                         dut.meta_last_xcoord);
+                         dut.meta_data);
                 $display("[TB][ERROR] meta path stall: enc_co_valid=%0b b_co_valid=%0b stall_cnt=%0d",
                          dut.enc_co_valid,
                          mon_b_co_valid,
                          meta_path_stall_count);
-                $display("[TB][ERROR] addr cfg state: active=%0b invalid=%0b slot=%0b co_ready=%0b cfg0_valid=%0b cfg1_valid=%0b cfg0_cnt=%0d cfg1_cnt=%0d pop_sel=%0b push_sel=%0b",
-                         dut.active_addr_cfg_valid,
+                $display("[TB][ERROR] addr cfg state: valid=%0b invalid=%0b co_ready=%0b work_valid=%0b",
+                         dut.enc_addr_cfg_valid,
                          dut.addr_cfg_invalid,
-                         dut.b_tile_slot,
                          dut.enc_co_ready,
-                         dut.ubwc_enc_apb_reg_blk.addr_cfg0_valid,
-                         dut.ubwc_enc_apb_reg_blk.addr_cfg1_valid,
-                         dut.ubwc_enc_apb_reg_blk.addr_cfg0_count,
-                         dut.ubwc_enc_apb_reg_blk.addr_cfg1_count,
-                         dut.ubwc_enc_apb_reg_blk.addr_cfg_pop_sel,
-                         dut.ubwc_enc_apb_reg_blk.addr_cfg_push_sel);
+                         dut.ubwc_enc_apb_reg_blk.addr_cfg_work_valid_r);
                 if (first_meta_path_stall_seen) begin
                     $display("[TB][ERROR] first meta path stall: fmt=%0d x=%0d y=%0d",
                              first_meta_path_stall_fmt,
@@ -2597,6 +2589,26 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         end
     endtask
 
+    task automatic apb_read;
+        input  [APB_AW-1:0] addr;
+        output [APB_DW-1:0] data;
+        begin
+            @(posedge pclk);
+            PSEL    <= 1'b1;
+            PENABLE <= 1'b0;
+            PWRITE  <= 1'b0;
+            PADDR   <= addr;
+            @(posedge pclk);
+            PENABLE <= 1'b1;
+            @(posedge pclk);
+            #1;
+            data    = PRDATA;
+            PSEL    <= 1'b0;
+            PENABLE <= 1'b0;
+            PADDR   <= {APB_AW{1'b0}};
+        end
+    endtask
+
     task automatic program_addr_cfg_once;
         begin
             apb_write(16'h0030, CASE_META_BASE_Y_ADDR[31:0]);
@@ -2623,7 +2635,6 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         reg [31:0] reg11_data;
         reg [31:0] reg20_data;
         reg [31:0] reg21_data;
-        integer addr_cfg_idx;
         begin
             reg2_data = 32'd0;
             reg2_data[0]     = 1'b1;
@@ -2676,11 +2687,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
             apb_write(16'h000c, reg3_data);
             apb_write(16'h0008, reg2_data);
-            for (addr_cfg_idx = 0;
-                 addr_cfg_idx < ((tb_frame_repeat < 8) ? tb_frame_repeat : 8);
-                 addr_cfg_idx = addr_cfg_idx + 1) begin
-                program_addr_cfg_once();
-            end
+            program_addr_cfg_once();
             apb_write(16'h0014, reg5_data);
             apb_write(16'h0018, reg6_data);
             apb_write(16'h001c, reg7_data);
@@ -2694,9 +2701,25 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         end
     endtask
 
-    task automatic program_frame_start;
+    task automatic commit_frame_config;
         begin
             apb_write(16'h0060, 32'h0000_0021);
+        end
+    endtask
+
+    task automatic wait_cfg_commit;
+        reg [31:0] status0_data;
+        integer    cfg_wait_count;
+        begin
+            status0_data = 32'd0;
+            cfg_wait_count = 0;
+            while (!status0_data[14]) begin
+                apb_read(16'h0058, status0_data);
+                cfg_wait_count = cfg_wait_count + 1;
+                if (cfg_wait_count > 100)
+                    $fatal(1, "ENC configuration commit did not become valid before VSYNC");
+            end
+            repeat (4) @(posedge otf_clk);
         end
     endtask
 
@@ -2811,7 +2834,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         .meta_addr_valid          (dut.meta_addr_valid),
         .meta_addr_ready          (dut.meta_addr_ready),
         .meta_addr                (dut.meta_addr),
-        .meta_uv_base_offset_addr (dut.meta_uv_base_offset_addr0),
+        .meta_uv_base_offset_addr (dut.meta_uv_base_offset_addr),
         .meta_axi_awvalid         (dut.meta_axi_awvalid),
         .meta_axi_awready         (dut.meta_axi_awready),
         .meta_axi_awaddr          (dut.meta_axi_awaddr),
@@ -3354,7 +3377,6 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
 
     initial begin
         integer frame_idx;
-        integer addr_cfg_programmed;
         $display("[TB] encoder wrapper bench start, CASE_ID=%0d", CASE_ID);
         PSEL     = 1'b0;
         PENABLE  = 1'b0;
@@ -3454,7 +3476,7 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             tb_frame_repeat = 1;
         if (tb_frame_repeat > MAX_FRAME_REPEAT)
             $fatal(1, "tb_frame_repeat=%0d exceeds MAX_FRAME_REPEAT=%0d", tb_frame_repeat, MAX_FRAME_REPEAT);
-        expected_stage_done = (tb_frame_repeat > 1) ? 8'hff : 8'h55;
+        expected_stage_done = ((tb_frame_repeat - 1) & 1) ? 8'haa : 8'h55;
         expected_tiles_total = CASE_ACTIVE_EXPECTED_TILES * tb_frame_repeat;
         expected_beats_total = CASE_EXPECTED_BEATS * tb_frame_repeat;
         expected_rvi_beats_total = CASE_EXPECTED_BEATS * tb_frame_repeat;
@@ -3670,22 +3692,17 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
         rst_n = 1'b1;
         repeat (4) @(posedge clk);
         program_wrapper_regs();
-        addr_cfg_programmed = (tb_frame_repeat < 8) ? tb_frame_repeat : 8;
         repeat (64) @(posedge clk);
         frames_started = 1;
-        program_frame_start();
+        commit_frame_config();
+        wait_cfg_commit();
         pulse_start_otf();
         for (frame_idx = 1; frame_idx < tb_frame_repeat; frame_idx = frame_idx + 1) begin
             wait_frame_idle(frame_idx);
             frames_completed = frame_idx;
             $display("[TB] frame %0d / %0d complete, scheduling next frame.", frame_idx, tb_frame_repeat);
-            if (addr_cfg_programmed < tb_frame_repeat) begin
-                program_addr_cfg_once();
-                addr_cfg_programmed = addr_cfg_programmed + 1;
-            end
             repeat (8) @(posedge clk);
             frames_started = frame_idx + 1;
-            program_frame_start();
             pulse_start_otf();
         end
     end
@@ -4451,8 +4468,8 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
                     if (!first_meta_aw_seen) begin
                         first_meta_aw_seen        <= 1'b1;
                         first_meta_aw_addr        <= dut.meta_axi_awaddr;
-                        first_meta_aw_y_base      <= dut.meta_y_base_offset_addr0;
-                        first_meta_aw_uv_base     <= dut.meta_uv_base_offset_addr0;
+                        first_meta_aw_y_base      <= dut.meta_y_base_offset_addr;
+                        first_meta_aw_uv_base     <= dut.meta_uv_base_offset_addr;
                         first_meta_aw_sel_uv      <= mon_meta_aw_sel_uv;
                         first_meta_aw_y_meta_addr <= mon_meta_aw_y_addr;
                         first_meta_aw_uv_meta_addr<= mon_meta_aw_uv_addr;
@@ -4662,7 +4679,6 @@ module tb_ubwc_enc_wrapper_top_tajmahal_core #(
             fail_count = fail_count + 1;
             $display("[TB][ERROR] encoder irq did not assert.");
         end
-
         if (tb_fake_mode_en) begin
             if (coord_count != expected_tiles_total) begin
                 fail_count = fail_count + 1;

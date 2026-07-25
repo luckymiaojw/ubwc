@@ -15,7 +15,6 @@ module ubwc_enc_apb_reg_blk
         parameter                                       AW                              = 16,
         parameter                                       DW                              = 32,
         parameter                                       NREG                            = 64,
-        parameter                                       SB_WIDTH                        = 1,
         parameter                                       TW_DW                           = 8
     )(
         input   wire                                        PCLK                            ,
@@ -74,18 +73,12 @@ module ubwc_enc_apb_reg_blk
         output  wire                                        o_4line_format                  ,
         output  wire                                        o_is_lossy_rgba_2_1_format      ,
         output  wire    [11                     :0]         o_tile_pitch                    ,
-        output  wire    [63                     :0]         o_y_base_offset_addr0           ,
-        output  wire    [63                     :0]         o_uv_base_offset_addr0          ,
-        output  wire    [63                     :0]         o_meta_y_base_offset_addr0      ,
-        output  wire    [63                     :0]         o_meta_uv_base_offset_addr0     ,
-        output  wire    [63                     :0]         o_y_base_offset_addr1           ,
-        output  wire    [63                     :0]         o_uv_base_offset_addr1          ,
-        output  wire    [63                     :0]         o_meta_y_base_offset_addr1      ,
-        output  wire    [63                     :0]         o_meta_uv_base_offset_addr1     ,
-        output  wire    [1                      :0]         o_addr_cfg_valid                ,
-        input   wire                                        i_addr_cfg_slot                 ,
+        output  wire    [63                     :0]         o_y_base_offset_addr            ,
+        output  wire    [63                     :0]         o_uv_base_offset_addr           ,
+        output  wire    [63                     :0]         o_meta_y_base_offset_addr       ,
+        output  wire    [63                     :0]         o_meta_uv_base_offset_addr      ,
+        output  wire                                        o_addr_cfg_valid                ,
         input   wire                                        i_addr_cfg_check_valid          ,
-        output  wire                                        o_active_addr_cfg_valid         ,
         output  wire                                        o_addr_cfg_invalid              ,
         output  wire                                        o_error_irq_event               ,
 
@@ -97,7 +90,6 @@ module ubwc_enc_apb_reg_blk
         input   wire                                        i_meta_err_1                    ,
         input   wire                                        i_rst_drain_timeout             ,
         input   wire                                        i_frame_done                    ,
-        input   wire                                        i_addr_cfg_pop_toggle           ,
         input   wire    [7                      :0]         i_stage_done                    ,
         input   wire                                        i_irq_pending                   ,
         input   wire                                        i_irq_correct_pending           ,
@@ -116,10 +108,9 @@ module ubwc_enc_apb_reg_blk
         input   wire    [31                     :0]         i_tile_axi_w_count1             ,
         input   wire    [31                     :0]         i_meta_axi_w_count0             ,
         input   wire    [31                     :0]         i_meta_axi_w_count1             ,
-        output  wire                                        o_start_pulse                   ,
+        output  wire                                        o_cfg_valid                     ,
         output  wire                                        o_irq_enable                    ,
-        output  wire                                        o_irq_clear_pulse               ,
-        output  wire                                        o_vsync_reset_en
+        output  wire                                        o_irq_clear_pulse
     );
 
     localparam  [DW                  -1 :0]         REG_VERSION                     = 32'h0001_0000;
@@ -166,15 +157,30 @@ module ubwc_enc_apb_reg_blk
     localparam  integer                             REG_META_AXI_W_CNT0             = 38;
     localparam  integer                             REG_META_AXI_W_CNT1             = 39;
     localparam  integer                             IRQ_CTRL_START_BIT              = 5;
-    localparam  integer                             IRQ_CTRL_VSYNC_RESET_EN_BIT     = 6;
     localparam  integer                             REG_IDX_W                       = $clog2(NREG);
-    localparam  integer                             ADDR_CFG_FIFO_DEPTH             = 4;
-    localparam  integer                             ADDR_CFG_FIFO_PTR_W             = 2;
-    localparam  integer                             ADDR_CFG_FIFO_CNT_W             = 3;
     localparam  integer                             ADDR_CFG_W                      = 256;
+    localparam  [2                      :0]         FMT_RGBA8888                    = 3'd0;
+    localparam  [2                      :0]         FMT_RGBA10                      = 3'd1;
+    localparam  [2                      :0]         FMT_YUV420_8                    = 3'd2;
+    localparam  [2                      :0]         FMT_YUV420_10                   = 3'd3;
 
     reg         [DW                  -1 :0]         regs [0:NREG-1]                 ;
     reg         [DW                  -1 :0]         r_prdata                        ;
+    reg         [DW                  -1 :0]         cfg_tile_cfg0_r                 ;
+    reg         [DW                  -1 :0]         cfg_tile_cfg1_r                 ;
+    reg         [DW                  -1 :0]         cfg_enc_ci_cfg0_r               ;
+    reg         [DW                  -1 :0]         cfg_enc_ci_cfg1_r               ;
+    reg         [DW                  -1 :0]         cfg_enc_ci_cfg2_r               ;
+    reg         [DW                  -1 :0]         cfg_enc_ci_cfg3_r               ;
+    reg         [DW                  -1 :0]         cfg_otf_cfg0_r                  ;
+    reg         [DW                  -1 :0]         cfg_otf_cfg1_r                  ;
+    reg         [DW                  -1 :0]         cfg_otf_cfg2_r                  ;
+    reg         [DW                  -1 :0]         cfg_otf_cfg3_r                  ;
+    reg         [DW                  -1 :0]         cfg_meta_active_size_r          ;
+    reg         [DW                  -1 :0]         cfg_meta_pitch_r                ;
+    reg         [ADDR_CFG_W          -1 :0]         cfg_addr_r                      ;
+    reg                                             cfg_addr_valid_r                ;
+    reg                                             cfg_valid_r                     ;
     reg                                             start_toggle_pclk               ;
     reg                                             start_sync_ff1                  ;
     reg                                             start_sync_ff2                  ;
@@ -183,8 +189,10 @@ module ubwc_enc_apb_reg_blk
     reg                                             irq_enable_sync_ff2             ;
     reg                                             irq_clear_sync_ff1              ;
     reg                                             irq_clear_sync_ff2              ;
-    reg                                             vsync_reset_en_sync_ff1         ;
-    reg                                             vsync_reset_en_sync_ff2         ;
+    reg                                             cfg_valid_pclk_ff1              ;
+    reg                                             cfg_valid_pclk_ff2              ;
+    reg                                             cfg_addr_valid_pclk_ff1         ;
+    reg                                             cfg_addr_valid_pclk_ff2         ;
     reg                                             irq_pending_pclk_ff1            ;
     reg                                             irq_pending_pclk_ff2            ;
     reg                                             irq_correct_pclk_ff1            ;
@@ -222,22 +230,9 @@ module ubwc_enc_apb_reg_blk
     reg                                             enc_ubwc_en_axi_ff1             ;
     reg                                             enc_ubwc_en_axi_ff2             ;
     reg                                             addr_cfg_invalid_r              ;
-    reg                                             addr_cfg_overflow_r             ;
-    reg                                             addr_cfg_overflow_axi_ff1       ;
-    reg                                             addr_cfg_overflow_axi_ff2       ;
-    reg                                             addr_cfg_pop_pclk_ff1           ;
-    reg                                             addr_cfg_pop_pclk_ff2           ;
-    reg                                             addr_cfg_pop_pclk_ff3           ;
-    reg                                             addr_cfg_push_sel               ;
-    reg                                             addr_cfg_pop_sel                ;
-    reg         [ADDR_CFG_FIFO_PTR_W -1 :0]         addr_cfg0_wr_ptr                ;
-    reg         [ADDR_CFG_FIFO_PTR_W -1 :0]         addr_cfg0_rd_ptr                ;
-    reg         [ADDR_CFG_FIFO_CNT_W -1 :0]         addr_cfg0_count                 ;
-    reg         [ADDR_CFG_FIFO_PTR_W -1 :0]         addr_cfg1_wr_ptr                ;
-    reg         [ADDR_CFG_FIFO_PTR_W -1 :0]         addr_cfg1_rd_ptr                ;
-    reg         [ADDR_CFG_FIFO_CNT_W -1 :0]         addr_cfg1_count                 ;
-    reg         [ADDR_CFG_W          -1 :0]         addr_cfg_fifo0 [0:ADDR_CFG_FIFO_DEPTH-1];
-    reg         [ADDR_CFG_W          -1 :0]         addr_cfg_fifo1 [0:ADDR_CFG_FIFO_DEPTH-1];
+    reg                                             addr_cfg_work_valid_r           ;
+    reg                                             addr_cfg_work_valid_axi_ff1     ;
+    reg                                             addr_cfg_work_valid_axi_ff2     ;
 
     wire                                            apb_access                      ;
 
@@ -254,33 +249,24 @@ module ubwc_enc_apb_reg_blk
     wire        [DW                  -1 :0]         status0                         ;
     wire        [DW                  -1 :0]         status1                         ;
     wire        [DW                  -1 :0]         status2                         ;
-    wire                                            addr_cfg_push                   ;
-    wire                                            addr_cfg_pop                    ;
-    wire                                            addr_cfg0_push                  ;
-    wire                                            addr_cfg1_push                  ;
-    wire                                            addr_cfg0_pop                   ;
-    wire                                            addr_cfg1_pop                   ;
-    wire                                            addr_cfg0_overflow              ;
-    wire                                            addr_cfg1_overflow              ;
-    wire                                            addr_cfg_overflow               ;
-    wire                                            addr_cfg0_full                  ;
-    wire                                            addr_cfg1_full                  ;
-    wire                                            addr_cfg0_valid                 ;
-    wire                                            addr_cfg1_valid                 ;
-    wire                                            active_addr_cfg_valid           ;
+    wire                                            addr_cfg_reg_write              ;
     wire                                            addr_cfg_invalid                ;
     wire                                            error_irq_event                 ;
     wire                                            enc_ubwc_en                     ;
     wire                                            enc_ubwc_en_axi                 ;
     wire                                            enc_irq_clear_pulse             ;
     wire                                            irq_clear_pulse_axi             ;
-    wire        [63                     :0]         addr_cfg_push_y_base            ;
-    wire        [63                     :0]         addr_cfg_push_uv_base           ;
-    wire        [63                     :0]         addr_cfg_push_meta_y_base       ;
-    wire        [63                     :0]         addr_cfg_push_meta_uv_base      ;
-    wire        [ADDR_CFG_W          -1 :0]         addr_cfg_push_data              ;
-    wire        [ADDR_CFG_W          -1 :0]         addr_cfg0_head                  ;
-    wire        [ADDR_CFG_W          -1 :0]         addr_cfg1_head                  ;
+    wire                                            start_pulse_axi                 ;
+    wire                                            cfg_format_supported            ;
+    wire                                            cfg_is_yuv420                   ;
+    wire                                            cfg_geometry_valid              ;
+    wire                                            cfg_address_valid               ;
+    wire                                            cfg_commit_valid                ;
+    wire        [63                     :0]         addr_cfg_y_base                 ;
+    wire        [63                     :0]         addr_cfg_uv_base                ;
+    wire        [63                     :0]         addr_cfg_meta_y_base            ;
+    wire        [63                     :0]         addr_cfg_meta_uv_base           ;
+    wire        [ADDR_CFG_W          -1 :0]         addr_cfg_work_data              ;
 
     integer i;
 
@@ -298,14 +284,13 @@ module ubwc_enc_apb_reg_blk
                 else if (i == REG_IRQ_CTRL)
                     regs[i] <= {{(DW-1){1'b0}}, 1'b1};
                 else if (i == REG_ENC_CI_CFG3)
-                    regs[i] <= {12'd0, 4'd7, 16'd0};
+                    regs[i] <= {12'd0,4'd7,16'd0};
                 else
                     regs[i] <= {DW{1'b0}};
             end
         end else if (apb_write) begin
             if (reg_addr == REG_IRQ_CTRL[AW-3:0])
-                regs[REG_IRQ_CTRL] <= {{(DW-7){1'b0}}, PWDATA[IRQ_CTRL_VSYNC_RESET_EN_BIT],
-                                       5'd0, PWDATA[0]};
+                regs[REG_IRQ_CTRL] <= {{(DW-1){1'b0}}, PWDATA[0]};
             else if ((reg_addr > REG_DATE_IDX[AW-3:0]) && (reg_addr < NREG) &&
                 (reg_addr != REG_STATUS0[AW-3:0]) &&
                 (reg_addr != REG_STATUS1[AW-3:0]))
@@ -330,112 +315,9 @@ module ubwc_enc_apb_reg_blk
 
     always @(posedge PCLK or negedge PRESETn) begin
         if (!PRESETn)
-            addr_cfg_pop_pclk_ff1 <= 1'b0;
-        else
-            addr_cfg_pop_pclk_ff1 <= i_addr_cfg_pop_toggle;
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg_pop_pclk_ff2 <= 1'b0;
-        else
-            addr_cfg_pop_pclk_ff2 <= addr_cfg_pop_pclk_ff1;
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg_pop_pclk_ff3 <= 1'b0;
-        else
-            addr_cfg_pop_pclk_ff3 <= addr_cfg_pop_pclk_ff2;
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg_push_sel <= 1'b0;
-        else if (addr_cfg_push && ((~addr_cfg_push_sel && !addr_cfg0_full) ||
-                                   ( addr_cfg_push_sel && !addr_cfg1_full)))
-            addr_cfg_push_sel <= ~addr_cfg_push_sel;
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg_pop_sel <= 1'b0;
-        else if (addr_cfg_pop && ((~addr_cfg_pop_sel && addr_cfg0_valid) ||
-                                  ( addr_cfg_pop_sel && addr_cfg1_valid)))
-            addr_cfg_pop_sel <= ~addr_cfg_pop_sel;
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn) begin
-            for (i = 0; i < ADDR_CFG_FIFO_DEPTH; i = i + 1)
-                addr_cfg_fifo0[i] <= {ADDR_CFG_W{1'b0}};
-        end else if (addr_cfg0_push) begin
-            addr_cfg_fifo0[addr_cfg0_wr_ptr] <= addr_cfg_push_data;
-        end
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg0_wr_ptr <= {ADDR_CFG_FIFO_PTR_W{1'b0}};
-        else if (addr_cfg0_push)
-            addr_cfg0_wr_ptr <= addr_cfg0_wr_ptr + {{(ADDR_CFG_FIFO_PTR_W-1){1'b0}}, 1'b1};
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg0_rd_ptr <= {ADDR_CFG_FIFO_PTR_W{1'b0}};
-        else if (addr_cfg0_pop)
-            addr_cfg0_rd_ptr <= addr_cfg0_rd_ptr + {{(ADDR_CFG_FIFO_PTR_W-1){1'b0}}, 1'b1};
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg0_count <= {ADDR_CFG_FIFO_CNT_W{1'b0}};
-        else
-            addr_cfg0_count <= addr_cfg0_count +
-                               {{(ADDR_CFG_FIFO_CNT_W-1){1'b0}}, addr_cfg0_push} -
-                               {{(ADDR_CFG_FIFO_CNT_W-1){1'b0}}, addr_cfg0_pop};
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn) begin
-            for (i = 0; i < ADDR_CFG_FIFO_DEPTH; i = i + 1)
-                addr_cfg_fifo1[i] <= {ADDR_CFG_W{1'b0}};
-        end else if (addr_cfg1_push) begin
-            addr_cfg_fifo1[addr_cfg1_wr_ptr] <= addr_cfg_push_data;
-        end
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg1_wr_ptr <= {ADDR_CFG_FIFO_PTR_W{1'b0}};
-        else if (addr_cfg1_push)
-            addr_cfg1_wr_ptr <= addr_cfg1_wr_ptr + {{(ADDR_CFG_FIFO_PTR_W-1){1'b0}}, 1'b1};
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg1_rd_ptr <= {ADDR_CFG_FIFO_PTR_W{1'b0}};
-        else if (addr_cfg1_pop)
-            addr_cfg1_rd_ptr <= addr_cfg1_rd_ptr + {{(ADDR_CFG_FIFO_PTR_W-1){1'b0}}, 1'b1};
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg1_count <= {ADDR_CFG_FIFO_CNT_W{1'b0}};
-        else
-            addr_cfg1_count <= addr_cfg1_count +
-                               {{(ADDR_CFG_FIFO_CNT_W-1){1'b0}}, addr_cfg1_push} -
-                               {{(ADDR_CFG_FIFO_CNT_W-1){1'b0}}, addr_cfg1_pop};
-    end
-
-    always @(posedge PCLK or negedge PRESETn) begin
-        if (!PRESETn)
-            addr_cfg_overflow_r <= 1'b0;
-        else if (!enc_ubwc_en || (apb_write && (reg_addr == REG_IRQ_CTRL[AW-3:0]) && PWDATA[1]))
-            addr_cfg_overflow_r <= 1'b0;
-        else if (addr_cfg_overflow)
-            addr_cfg_overflow_r <= 1'b1;
+            addr_cfg_work_valid_r <= 1'b0;
+        else if (addr_cfg_reg_write)
+            addr_cfg_work_valid_r <= (reg_addr == REG_TILE_BASE_UV_HI[AW-3:0]);
     end
 
     always @(posedge PCLK or negedge PRESETn) begin
@@ -691,6 +573,42 @@ module ubwc_enc_apb_reg_blk
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn) begin
+            cfg_tile_cfg0_r        <= {DW{1'b0}};
+            cfg_tile_cfg1_r        <= {DW{1'b0}};
+            cfg_enc_ci_cfg0_r      <= {DW{1'b0}};
+            cfg_enc_ci_cfg1_r      <= {DW{1'b0}};
+            cfg_enc_ci_cfg2_r      <= {DW{1'b0}};
+            cfg_enc_ci_cfg3_r      <= {DW{1'b0}};
+            cfg_otf_cfg0_r         <= {DW{1'b0}};
+            cfg_otf_cfg1_r         <= {DW{1'b0}};
+            cfg_otf_cfg2_r         <= {DW{1'b0}};
+            cfg_otf_cfg3_r         <= {DW{1'b0}};
+            cfg_meta_active_size_r <= {DW{1'b0}};
+            cfg_meta_pitch_r       <= {DW{1'b0}};
+            cfg_addr_r             <= {ADDR_CFG_W{1'b0}};
+            cfg_addr_valid_r       <= 1'b0;
+            cfg_valid_r            <= 1'b0;
+        end else if (start_pulse_axi) begin
+            cfg_tile_cfg0_r        <= regs[REG_TILE_CFG0];
+            cfg_tile_cfg1_r        <= regs[REG_TILE_CFG1];
+            cfg_enc_ci_cfg0_r      <= regs[REG_ENC_CI_CFG0];
+            cfg_enc_ci_cfg1_r      <= regs[REG_ENC_CI_CFG1];
+            cfg_enc_ci_cfg2_r      <= regs[REG_ENC_CI_CFG2];
+            cfg_enc_ci_cfg3_r      <= regs[REG_ENC_CI_CFG3];
+            cfg_otf_cfg0_r         <= regs[REG_OTF_CFG0];
+            cfg_otf_cfg1_r         <= regs[REG_OTF_CFG1];
+            cfg_otf_cfg2_r         <= regs[REG_OTF_CFG2];
+            cfg_otf_cfg3_r         <= regs[REG_OTF_CFG3];
+            cfg_meta_active_size_r <= regs[REG_META_ACTIVE_SIZE];
+            cfg_meta_pitch_r       <= regs[REG_META_PITCH];
+            cfg_addr_r             <= addr_cfg_work_data;
+            cfg_addr_valid_r       <= cfg_address_valid;
+            cfg_valid_r            <= cfg_commit_valid;
+        end
+    end
+
+    always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
             irq_enable_sync_ff1 <= 1'b1;
         else
@@ -720,20 +638,6 @@ module ubwc_enc_apb_reg_blk
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
-            vsync_reset_en_sync_ff1 <= 1'b0;
-        else
-            vsync_reset_en_sync_ff1 <= regs[REG_IRQ_CTRL][IRQ_CTRL_VSYNC_RESET_EN_BIT];
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn)
-            vsync_reset_en_sync_ff2 <= 1'b0;
-        else
-            vsync_reset_en_sync_ff2 <= vsync_reset_en_sync_ff1;
-    end
-
-    always @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn)
             enc_ubwc_en_axi_ff1 <= 1'b0;
         else
             enc_ubwc_en_axi_ff1 <= enc_ubwc_en;
@@ -748,16 +652,16 @@ module ubwc_enc_apb_reg_blk
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
-            addr_cfg_overflow_axi_ff1 <= 1'b0;
+            addr_cfg_work_valid_axi_ff1 <= 1'b0;
         else
-            addr_cfg_overflow_axi_ff1 <= addr_cfg_overflow_r;
+            addr_cfg_work_valid_axi_ff1 <= addr_cfg_work_valid_r;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)
-            addr_cfg_overflow_axi_ff2 <= 1'b0;
+            addr_cfg_work_valid_axi_ff2 <= 1'b0;
         else
-            addr_cfg_overflow_axi_ff2 <= addr_cfg_overflow_axi_ff1;
+            addr_cfg_work_valid_axi_ff2 <= addr_cfg_work_valid_axi_ff1;
     end
 
     always @(posedge i_clk or negedge i_rstn) begin
@@ -769,14 +673,41 @@ module ubwc_enc_apb_reg_blk
             addr_cfg_invalid_r <= 1'b1;
     end
 
+    always @(posedge PCLK or negedge PRESETn) begin
+        if (!PRESETn)
+            cfg_valid_pclk_ff1 <= 1'b0;
+        else
+            cfg_valid_pclk_ff1 <= cfg_valid_r;
+    end
+
+    always @(posedge PCLK or negedge PRESETn) begin
+        if (!PRESETn)
+            cfg_valid_pclk_ff2 <= 1'b0;
+        else
+            cfg_valid_pclk_ff2 <= cfg_valid_pclk_ff1;
+    end
+
+    always @(posedge PCLK or negedge PRESETn) begin
+        if (!PRESETn)
+            cfg_addr_valid_pclk_ff1 <= 1'b0;
+        else
+            cfg_addr_valid_pclk_ff1 <= cfg_addr_valid_r;
+    end
+
+    always @(posedge PCLK or negedge PRESETn) begin
+        if (!PRESETn)
+            cfg_addr_valid_pclk_ff2 <= 1'b0;
+        else
+            cfg_addr_valid_pclk_ff2 <= cfg_addr_valid_pclk_ff1;
+    end
+
     always @(*) begin
         if (reg_addr == REG_STATUS0[AW-3:0])
             r_prdata = status0;
         else if (reg_addr == REG_STATUS1[AW-3:0])
             r_prdata = status1;
         else if (reg_addr == REG_IRQ_CTRL[AW-3:0])
-            r_prdata = {{(DW-7){1'b0}}, regs[REG_IRQ_CTRL][IRQ_CTRL_VSYNC_RESET_EN_BIT],
-                        1'b0, irq_error_pclk_ff2, irq_correct_pclk_ff2,
+            r_prdata = {{(DW-5){1'b0}}, irq_error_pclk_ff2, irq_correct_pclk_ff2,
                         irq_pending_pclk_ff2, 1'b0, regs[REG_IRQ_CTRL][0]};
         else if (reg_addr == REG_STATUS2[AW-3:0])
             r_prdata = status2;
@@ -814,10 +745,11 @@ module ubwc_enc_apb_reg_blk
             r_prdata = {DW{1'b0}};
     end
 
-    assign status0                    = {{(DW-14){1'b0}},
+    assign status0                    = {{(DW-15){1'b0}},
+                                         cfg_valid_pclk_ff2,
                                          i_rst_drain_timeout,
-                                         addr_cfg_overflow_r,
-                                         o_addr_cfg_valid,
+                                         2'b00,
+                                         cfg_addr_valid_pclk_ff2,
                                          addr_cfg_invalid_r,
                                          i_frame_done,
                                          i_meta_err_1,
@@ -832,99 +764,99 @@ module ubwc_enc_apb_reg_blk
     assign status2                    = {{(DW-3){1'b0}}, irq_error_pclk_ff2,
                                          irq_correct_pclk_ff2, irq_pending_pclk_ff2};
 
-    assign o_enc_ci_input_type         = regs[REG_ENC_CI_CFG0][0];
-    assign o_enc_ci_alen               = regs[REG_ENC_CI_CFG0][10:8];
+    assign o_enc_ci_input_type         = cfg_enc_ci_cfg0_r[0];
+    assign o_enc_ci_alen               = cfg_enc_ci_cfg0_r[10:8];
 
-    assign o_enc_ci_lossy              = regs[REG_ENC_CI_CFG1][16];
+    assign o_enc_ci_lossy              = cfg_enc_ci_cfg1_r[16];
 
-    assign o_enc_ci_ubwc_cfg_0         = regs[REG_ENC_CI_CFG2][0  +: 3];
-    assign o_enc_ci_ubwc_cfg_1         = regs[REG_ENC_CI_CFG2][3  +: 3];
-    assign o_enc_ci_ubwc_cfg_2         = regs[REG_ENC_CI_CFG2][6  +: 4];
-    assign o_enc_ci_ubwc_cfg_3         = regs[REG_ENC_CI_CFG2][10 +: 4];
-    assign o_enc_ci_ubwc_cfg_4         = regs[REG_ENC_CI_CFG2][14 +: 4];
-    assign o_enc_ci_ubwc_cfg_5         = regs[REG_ENC_CI_CFG2][18 +: 4];
-    assign o_enc_ci_ubwc_cfg_6         = regs[REG_ENC_CI_CFG2][22 +: 2];
-    assign o_enc_ci_ubwc_cfg_7         = regs[REG_ENC_CI_CFG2][24 +: 2];
-    assign o_enc_ci_ubwc_cfg_8         = regs[REG_ENC_CI_CFG2][26 +: 2];
-    assign o_enc_ci_ubwc_cfg_9         = regs[REG_ENC_CI_CFG2][28 +: 3];
-    assign o_enc_ci_ubwc_cfg_10        = regs[REG_ENC_CI_CFG3][0  +: 6];
-    assign o_enc_ci_ubwc_cfg_11        = regs[REG_ENC_CI_CFG3][8  +: 6];
-    assign o_enc_ci_ubwc_ver           = regs[REG_ENC_CI_CFG3][16 +: 4];
+    assign o_enc_ci_ubwc_cfg_0         = cfg_enc_ci_cfg2_r[0  +: 3];
+    assign o_enc_ci_ubwc_cfg_1         = cfg_enc_ci_cfg2_r[3  +: 3];
+    assign o_enc_ci_ubwc_cfg_2         = cfg_enc_ci_cfg2_r[6  +: 4];
+    assign o_enc_ci_ubwc_cfg_3         = cfg_enc_ci_cfg2_r[10 +: 4];
+    assign o_enc_ci_ubwc_cfg_4         = cfg_enc_ci_cfg2_r[14 +: 4];
+    assign o_enc_ci_ubwc_cfg_5         = cfg_enc_ci_cfg2_r[18 +: 4];
+    assign o_enc_ci_ubwc_cfg_6         = cfg_enc_ci_cfg2_r[22 +: 2];
+    assign o_enc_ci_ubwc_cfg_7         = cfg_enc_ci_cfg2_r[24 +: 2];
+    assign o_enc_ci_ubwc_cfg_8         = cfg_enc_ci_cfg2_r[26 +: 2];
+    assign o_enc_ci_ubwc_cfg_9         = cfg_enc_ci_cfg2_r[28 +: 3];
+    assign o_enc_ci_ubwc_cfg_10        = cfg_enc_ci_cfg3_r[0  +: 6];
+    assign o_enc_ci_ubwc_cfg_11        = cfg_enc_ci_cfg3_r[8  +: 6];
+    assign o_enc_ci_ubwc_ver           = cfg_enc_ci_cfg3_r[16 +: 4];
 
     assign enc_ubwc_en                 = regs[REG_TILE_CFG0][0];
     assign enc_ubwc_en_axi             = enc_ubwc_en_axi_ff2;
-    assign o_enc_ubwc_en               = enc_ubwc_en;
-    assign o_lvl1_bank_swizzle_en      = regs[REG_TILE_CFG0][1];
-    assign o_lvl2_bank_swizzle_en      = regs[REG_TILE_CFG0][2];
-    assign o_lvl3_bank_swizzle_en      = regs[REG_TILE_CFG0][3];
-    assign o_highest_bank_bit          = regs[REG_TILE_CFG0][8  +: 5];
-    assign o_bank_spread_en            = regs[REG_TILE_CFG0][16];
-    assign o_4line_format              = regs[REG_TILE_CFG1][0];
-    assign o_is_lossy_rgba_2_1_format  = regs[REG_TILE_CFG1][1];
-    assign o_tile_pitch                = {1'b0, regs[REG_TILE_CFG1][16 +: 11]};
-    assign addr_cfg_push               = apb_write && (reg_addr == REG_TILE_BASE_UV_HI[AW-3:0]);
-    assign addr_cfg_pop                = addr_cfg_pop_pclk_ff2 ^ addr_cfg_pop_pclk_ff3;
-    assign addr_cfg0_full              = (addr_cfg0_count == ADDR_CFG_FIFO_DEPTH[ADDR_CFG_FIFO_CNT_W-1:0]);
-    assign addr_cfg1_full              = (addr_cfg1_count == ADDR_CFG_FIFO_DEPTH[ADDR_CFG_FIFO_CNT_W-1:0]);
-    assign addr_cfg0_valid             = (addr_cfg0_count != {ADDR_CFG_FIFO_CNT_W{1'b0}});
-    assign addr_cfg1_valid             = (addr_cfg1_count != {ADDR_CFG_FIFO_CNT_W{1'b0}});
-    assign addr_cfg0_overflow          = addr_cfg_push && !addr_cfg_push_sel && addr_cfg0_full;
-    assign addr_cfg1_overflow          = addr_cfg_push &&  addr_cfg_push_sel && addr_cfg1_full;
-    assign addr_cfg_overflow           = addr_cfg0_overflow | addr_cfg1_overflow;
-    assign addr_cfg0_push              = addr_cfg_push && !addr_cfg_push_sel && !addr_cfg0_full;
-    assign addr_cfg1_push              = addr_cfg_push &&  addr_cfg_push_sel && !addr_cfg1_full;
-    assign addr_cfg0_pop               = addr_cfg_pop && !addr_cfg_pop_sel && addr_cfg0_valid;
-    assign addr_cfg1_pop               = addr_cfg_pop &&  addr_cfg_pop_sel && addr_cfg1_valid;
-    assign addr_cfg_push_y_base        = {regs[REG_TILE_BASE_Y_HI],   regs[REG_TILE_BASE_Y_LO]};
-    assign addr_cfg_push_uv_base       = {PWDATA,                     regs[REG_TILE_BASE_UV_LO]};
-    assign addr_cfg_push_meta_y_base   = {regs[REG_META_BASE_Y_HI],   regs[REG_META_BASE_Y_LO]};
-    assign addr_cfg_push_meta_uv_base  = {regs[REG_META_BASE_UV_HI],  regs[REG_META_BASE_UV_LO]};
-    assign addr_cfg_push_data          = {addr_cfg_push_meta_uv_base,
-                                          addr_cfg_push_meta_y_base,
-                                          addr_cfg_push_uv_base,
-                                          addr_cfg_push_y_base};
-    assign addr_cfg0_head              = addr_cfg_fifo0[addr_cfg0_rd_ptr];
-    assign addr_cfg1_head              = addr_cfg_fifo1[addr_cfg1_rd_ptr];
-    assign active_addr_cfg_valid       = i_addr_cfg_slot ? addr_cfg1_valid : addr_cfg0_valid;
-    assign addr_cfg_invalid            = i_addr_cfg_check_valid & ~active_addr_cfg_valid;
+    assign o_enc_ubwc_en               = cfg_tile_cfg0_r[0];
+    assign o_lvl1_bank_swizzle_en      = cfg_tile_cfg0_r[1];
+    assign o_lvl2_bank_swizzle_en      = cfg_tile_cfg0_r[2];
+    assign o_lvl3_bank_swizzle_en      = cfg_tile_cfg0_r[3];
+    assign o_highest_bank_bit          = cfg_tile_cfg0_r[8  +: 5];
+    assign o_bank_spread_en            = cfg_tile_cfg0_r[16];
+    assign o_4line_format              = cfg_tile_cfg1_r[0];
+    assign o_is_lossy_rgba_2_1_format  = cfg_tile_cfg1_r[1];
+    assign o_tile_pitch                = {1'b0, cfg_tile_cfg1_r[16 +: 11]};
+    assign addr_cfg_reg_write          = apb_write &&
+                                         (reg_addr >= REG_META_BASE_Y_LO[AW-3:0]) &&
+                                         (reg_addr <= REG_TILE_BASE_UV_HI[AW-3:0]);
+    assign addr_cfg_y_base             = {regs[REG_TILE_BASE_Y_HI],  regs[REG_TILE_BASE_Y_LO]};
+    assign addr_cfg_uv_base            = {regs[REG_TILE_BASE_UV_HI], regs[REG_TILE_BASE_UV_LO]};
+    assign addr_cfg_meta_y_base        = {regs[REG_META_BASE_Y_HI],  regs[REG_META_BASE_Y_LO]};
+    assign addr_cfg_meta_uv_base       = {regs[REG_META_BASE_UV_HI], regs[REG_META_BASE_UV_LO]};
+    assign addr_cfg_work_data          = {addr_cfg_meta_uv_base,
+                                          addr_cfg_meta_y_base,
+                                          addr_cfg_uv_base,
+                                          addr_cfg_y_base};
+    assign addr_cfg_invalid            = i_addr_cfg_check_valid & ~cfg_addr_valid_r;
     assign error_irq_event             = addr_cfg_invalid | i_otf_to_tile_overflow |
                                          i_otf_err_bline | i_otf_err_bframe |
                                          i_meta_err_0 | i_meta_err_1 |
-                                         addr_cfg_overflow_axi_ff2 |
                                          i_rst_drain_timeout | i_enc_error;
-    assign o_y_base_offset_addr0       = addr_cfg0_valid ? addr_cfg0_head[0   +: 64] : 64'd0;
-    assign o_uv_base_offset_addr0      = addr_cfg0_valid ? addr_cfg0_head[64  +: 64] : 64'd0;
-    assign o_meta_y_base_offset_addr0  = addr_cfg0_valid ? addr_cfg0_head[128 +: 64] : 64'd0;
-    assign o_meta_uv_base_offset_addr0 = addr_cfg0_valid ? addr_cfg0_head[192 +: 64] : 64'd0;
-    assign o_y_base_offset_addr1       = addr_cfg1_valid ? addr_cfg1_head[0   +: 64] : 64'd0;
-    assign o_uv_base_offset_addr1      = addr_cfg1_valid ? addr_cfg1_head[64  +: 64] : 64'd0;
-    assign o_meta_y_base_offset_addr1  = addr_cfg1_valid ? addr_cfg1_head[128 +: 64] : 64'd0;
-    assign o_meta_uv_base_offset_addr1 = addr_cfg1_valid ? addr_cfg1_head[192 +: 64] : 64'd0;
-    assign o_addr_cfg_valid            = {addr_cfg1_valid, addr_cfg0_valid};
-    assign o_active_addr_cfg_valid     = active_addr_cfg_valid;
+    assign o_y_base_offset_addr        = cfg_addr_valid_r ? cfg_addr_r[0   +: 64] : 64'd0;
+    assign o_uv_base_offset_addr       = cfg_addr_valid_r ? cfg_addr_r[64  +: 64] : 64'd0;
+    assign o_meta_y_base_offset_addr   = cfg_addr_valid_r ? cfg_addr_r[128 +: 64] : 64'd0;
+    assign o_meta_uv_base_offset_addr  = cfg_addr_valid_r ? cfg_addr_r[192 +: 64] : 64'd0;
+    assign o_addr_cfg_valid            = cfg_addr_valid_r;
     assign o_addr_cfg_invalid          = addr_cfg_invalid;
     assign o_error_irq_event           = error_irq_event;
-    assign o_meta_data_plane_pitch     = regs[REG_META_PITCH];
-    assign o_start_pulse               = start_sync_ff1 ^ start_sync_ff2;
+    assign o_meta_data_plane_pitch     = cfg_meta_pitch_r;
+    assign start_pulse_axi             = start_sync_ff1 ^ start_sync_ff2;
+    assign cfg_format_supported        = (regs[REG_OTF_CFG0][2:0] == FMT_RGBA8888) ||
+                                         (regs[REG_OTF_CFG0][2:0] == FMT_RGBA10)   ||
+                                         (regs[REG_OTF_CFG0][2:0] == FMT_YUV420_8) ||
+                                         (regs[REG_OTF_CFG0][2:0] == FMT_YUV420_10);
+    assign cfg_is_yuv420               = (regs[REG_OTF_CFG0][2:0] == FMT_YUV420_8) ||
+                                         (regs[REG_OTF_CFG0][2:0] == FMT_YUV420_10);
+    assign cfg_geometry_valid          = (regs[REG_OTF_CFG1][15:0]  != 16'd0) &&
+                                         (regs[REG_OTF_CFG1][31:16] != 16'd0) &&
+                                         (regs[REG_OTF_CFG2][15:0]  != 16'd0) &&
+                                         (regs[REG_OTF_CFG2][19:16] != 4'd0)  &&
+                                         (regs[REG_OTF_CFG3][15:0]  != 16'd0) &&
+                                         (!cfg_is_yuv420 || (regs[REG_OTF_CFG3][31:16] != 16'd0)) &&
+                                         (regs[REG_META_ACTIVE_SIZE][15:0]  != 16'd0) &&
+                                         (regs[REG_META_ACTIVE_SIZE][31:16] != 16'd0) &&
+                                         (regs[REG_META_PITCH] != {DW{1'b0}}) &&
+                                         (regs[REG_TILE_CFG1][26:16] != 11'd0);
+    assign cfg_address_valid           = addr_cfg_work_valid_axi_ff2;
+    assign cfg_commit_valid            = enc_ubwc_en && cfg_format_supported &&
+                                         cfg_geometry_valid && cfg_address_valid;
+    assign o_cfg_valid                 = cfg_valid_r;
 
-    assign o_otf_cfg_format            = regs[REG_OTF_CFG0][0  +: 3];
-    assign o_otf_cfg_width             = regs[REG_OTF_CFG1][0  +: 16];
-    assign o_otf_cfg_height            = regs[REG_OTF_CFG1][16 +: 16];
-    assign o_otf_cfg_tile_w            = regs[REG_OTF_CFG2][0  +: 16];
-    assign o_otf_cfg_tile_h            = regs[REG_OTF_CFG2][16 +: 4];
-    assign o_otf_cfg_y_tile_cols       = regs[REG_OTF_CFG3][0  +: 16];
-    assign o_otf_cfg_uv_tile_cols       = regs[REG_OTF_CFG3][16 +: 16];
+    assign o_otf_cfg_format            = cfg_otf_cfg0_r[0  +: 3];
+    assign o_otf_cfg_width             = cfg_otf_cfg1_r[0  +: 16];
+    assign o_otf_cfg_height            = cfg_otf_cfg1_r[16 +: 16];
+    assign o_otf_cfg_tile_w            = cfg_otf_cfg2_r[0  +: 16];
+    assign o_otf_cfg_tile_h            = cfg_otf_cfg2_r[16 +: 4];
+    assign o_otf_cfg_y_tile_cols       = cfg_otf_cfg3_r[0  +: 16];
+    assign o_otf_cfg_uv_tile_cols      = cfg_otf_cfg3_r[16 +: 16];
     assign total_x_units               = (o_otf_cfg_y_tile_cols >= o_otf_cfg_uv_tile_cols) ? o_otf_cfg_y_tile_cols : o_otf_cfg_uv_tile_cols;
     assign o_meta_last_xcoord          = (total_x_units == 16'd0) ? {TW_DW{1'b0}} :
                                          (total_x_units[TW_DW-1:0] - {{(TW_DW-1){1'b0}}, 1'b1});
-    assign meta_active_width_px        = regs[REG_META_ACTIVE_SIZE][15:0];
-    assign meta_active_height_px       = regs[REG_META_ACTIVE_SIZE][31:16];
+    assign meta_active_width_px        = cfg_meta_active_size_r[15:0];
+    assign meta_active_height_px       = cfg_meta_active_size_r[31:16];
     assign o_meta_active_width_px      = meta_active_width_px;
     assign o_meta_active_height_px     = meta_active_height_px;
     assign irq_clear_pulse_axi         = irq_clear_sync_ff1 ^ irq_clear_sync_ff2;
     assign enc_irq_clear_pulse         = irq_clear_pulse_axi;
     assign o_irq_enable                = irq_enable_sync_ff2;
     assign o_irq_clear_pulse           = irq_clear_pulse_axi;
-    assign o_vsync_reset_en            = vsync_reset_en_sync_ff2;
 
 endmodule

@@ -130,5 +130,5 @@
 
   <rect class="idle" x="95" y="1080" width="1610" height="58"/>
   <text class="small" x="115" y="1107">核心原则：任一时刻，一个 bank 只承担写或读中的一种角色。写侧以 line group 为单位填充；读侧以 tile 顺序输出。fcnt 随 group 锁存，后续一路跟随到 tile、CI、coord。</text>
-  <text class="small" x="115" y="1129">连续帧时 slot 使用 fcnt[0] 区分，地址配置释放由最后一个 coord 消费后的 addr_cfg_done_pulse 驱动。</text>
+  <text class="small" x="115" y="1129">连续帧使用 fcnt[0] 分组统计；地址不随 bank 释放，所有帧持续复用 START 锁存的唯一地址组。</text>
 </svg>

@@ -79,7 +79,7 @@
   <text x="1328" y="362" class="sig">m_axi_awaddr[63:0], wdata[63:0]</text>
 
   <path class="cfg" d="M 180 640 H 450 V 332"/>
-  <text x="202" y="628" class="sig">base_y/uv/meta[63:0], addr_cfg_valid[1:0]</text>
+  <text x="202" y="628" class="sig">single base_y/uv/meta[63:0], addr_cfg_valid</text>
   <path class="err" d="M 990 340 V 640 H 280"/>
   <text x="692" y="628" class="sig">write_err[3:0], irq_pending[0]</text>
 </svg>

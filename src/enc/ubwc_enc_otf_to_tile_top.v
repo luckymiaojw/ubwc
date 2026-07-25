@@ -24,7 +24,7 @@ module ubwc_enc_otf_to_tile
         parameter                                       CI_FIFO_DEPTH                   = 16,
         parameter                                       DATA_FIFO_AF_LEVEL              = DATA_FIFO_DEPTH - 1,
         parameter                                       COORD_FIFO_DEPTH                = 32,
-        parameter                                       SB_WIDTH                        = 1,
+        parameter                                       SB_WIDTH                        = 36,
         parameter                                       TH_DW                           = 13,
         parameter                                       TW_DW                           = 8
     )(
@@ -34,7 +34,9 @@ module ubwc_enc_otf_to_tile
         input   wire                                        rst_n_sys                       ,
         input   wire                                        rst_n_otf                       ,
         input   wire                                        rst_n_vivo                      ,
-        input   wire                                        i_start_pulse                   ,
+        input   wire                                        i_frame_start_pulse             ,
+        input   wire                                        i_otf_frame_start_pulse         ,
+        input   wire                                        i_otf_input_enable              ,
 
     // static config
         input   wire    [3                   -1 :0]         i_cfg_format                    ,
@@ -84,13 +86,13 @@ module ubwc_enc_otf_to_tile
         output  wire    [255                    :0]         o_tile_data                     ,
         output  wire    [31                     :0]         o_tile_keep                     ,
         output  wire                                        o_tile_last                     ,
-        output  wire                                        o_tile_stat_valid               ,
-        output  wire                                        o_tile_stat_last                ,
-        output  wire                                        o_tile_stat_slot                ,
         output  wire    [15                     :0]         o_rvi_tile_x                    ,
         output  wire    [15                     :0]         o_rvi_tile_y                    ,
         output  wire    [3                      :0]         o_rvi_tile_fcnt                 ,
         output  wire    [4                      :0]         o_rvi_tile_format               ,
+        output  wire                                        o_tile_stat_valid               ,
+        output  wire                                        o_tile_stat_last                ,
+        output  wire                                        o_tile_stat_slot                ,
 
         output  wire                                        o_ci_valid                      ,
         input   wire                                        i_ci_ready                      ,
@@ -109,8 +111,6 @@ module ubwc_enc_otf_to_tile
         output  wire    [4                      :0]         o_co_tile_format                ,
         output  wire                                        o_coord_fifo_wr_en              ,
         output  wire                                        o_coord_fifo_rd_en              ,
-        output  wire                                        o_addr_cfg_done_pulse           ,
-        output  wire                                        o_addr_cfg_done_slot            ,
 
         output  wire                                        o_correct_irq_pulse             ,
         output  wire                                        o_correct_irq_slot              ,
@@ -127,6 +127,7 @@ module ubwc_enc_otf_to_tile
     localparam  integer                             DATA_FIFO_W                     = 4 + 5 + 16 + 16 + 256 + 32 + 1;
     localparam  integer                             CI_FIFO_W                       = 1 + 16 + 16 + 4 + 5;
     localparam  integer                             COORD_FIFO_W                    = 4 + 5 + TH_DW + TW_DW;
+    localparam  integer                             CI_SB_CONTEXT_W                 = 5 + 4 + TH_DW + TW_DW;
     localparam  integer                             DATA_FIFO_PROG_DEPTH            = DATA_FIFO_DEPTH - DATA_FIFO_AF_LEVEL;
     localparam  integer                             DATA_FIFO_DEPTH_BITS            = (DATA_FIFO_DEPTH <= 2)  ? 1 : $clog2(DATA_FIFO_DEPTH);
     localparam  integer                             CI_FIFO_DEPTH_BITS              = (CI_FIFO_DEPTH <= 2)    ? 1 : $clog2(CI_FIFO_DEPTH);
@@ -162,11 +163,6 @@ module ubwc_enc_otf_to_tile
     wire        [CI_FIFO_W           -1 :0]         ci_fifo_din                     ;
     wire                                            ci_fifo_wr_en                   ;
     wire                                            ci_fifo_rd_en                   ;
-    wire                                            start_fifo_full                 ;
-    wire                                            start_fifo_empty                ;
-    wire                                            start_fifo_valid                ;
-    wire                                            start_fifo_wr_en                ;
-    wire                                            start_fifo_rd_en                ;
     wire                                            ci_tile_forced_pcm              ;
     wire        [4                      :0]         ci_tile_format                  ;
     wire        [3                      :0]         ci_tile_fcnt                    ;
@@ -202,8 +198,6 @@ module ubwc_enc_otf_to_tile
     wire                                            line_is_uv_plane                ;
     wire        [15                     :0]         plane_active_height_px          ;
     wire        [15                     :0]         line_y_group_count              ;
-    wire        [15                     :0]         line_last_y_group_lines         ;
-    wire        [15                     :0]         line_last_uv_group_lines        ;
     wire        [15                     :0]         active_tile_cols                ;
     wire        [15                     :0]         active_tile_rows                ;
     wire                                            active_width_partial            ;
@@ -211,29 +205,6 @@ module ubwc_enc_otf_to_tile
     wire                                            partial_right_tile              ;
     wire                                            partial_bottom_tile             ;
     wire                                            line_tile_forced_pcm            ;
-    wire                                            line_is_rgba_format             ;
-    wire                                            line_is_yuv8_format             ;
-    wire                                            line_is_p010_format             ;
-    wire        [3                      :0]         line_tile_word_idx              ;
-    wire        [15                     :0]         line_right_valid_px_full        ;
-    wire        [15                     :0]         line_right_valid_px_rem         ;
-    wire        [15                     :0]         line_right_valid_px             ;
-    wire        [15                     :0]         line_word_base_px               ;
-    wire        [15                     :0]         line_word_span_px               ;
-    wire        [15                     :0]         line_word_rem_px                ;
-    wire        [4                      :0]         line_word_valid_px              ;
-    wire        [4                      :0]         line_valid_bytes_rgba           ;
-    wire        [4                      :0]         line_valid_bytes_yuv8_uv        ;
-    wire        [4                      :0]         line_valid_bytes_p010_y         ;
-    wire        [4                      :0]         line_valid_bytes_p010_uv        ;
-    wire        [4                      :0]         line_word_valid_bytes           ;
-    wire        [15                     :0]         line_bottom_valid_rows_full     ;
-    wire        [15                     :0]         line_bottom_valid_rows_rem      ;
-    wire        [15                     :0]         line_bottom_valid_rows          ;
-    wire        [15                     :0]         line_word_row                   ;
-    wire                                            line_word_row_valid             ;
-    wire        [15                     :0]         line_keep_from_bytes            ;
-    wire        [15                     :0]         line_tile_keep_eff              ;
     wire                                            data_push_ready                 ;
     wire                                            ci_push_ready                   ;
     wire                                            line_tile_fire                  ;
@@ -243,8 +214,6 @@ module ubwc_enc_otf_to_tile
     wire                                            flush_half_only                 ;
     wire                                            ci_push_needed                  ;
     wire                                            half_valid_clear                ;
-    wire                                            packer_frame_done               ;
-    wire                                            otf_input_enable                ;
     wire                                            otf_vsync_gated                 ;
     wire                                            otf_hsync_gated                 ;
     wire                                            otf_de_gated                    ;
@@ -270,9 +239,6 @@ module ubwc_enc_otf_to_tile
     reg         [15                     :0]         half_y_r                        ;
     reg                                             tile_first_word_r               ;
     reg                                             tile_cmd_sent_r                 ;
-    reg         [3                      :0]         line_tile_word_idx_r            ;
-    reg                                             otf_frame_active                ;
-    reg                                             otf_vsync_d                     ;
     reg                                             otf_hsync_d                     ;
     reg         [31                     :0]         otf_de_count0_r                 ;
     reg         [31                     :0]         otf_de_count1_r                 ;
@@ -343,20 +309,11 @@ module ubwc_enc_otf_to_tile
     assign line_is_uv_plane           = (line_tile_format == 5'd9)  || (line_tile_format == 5'd11) ||
                                         (line_tile_format == 5'd13) || (line_tile_format == 5'd15);
     assign plane_active_height_px     = (line_is_yuv420 && line_is_uv_plane) ? ((active_height_px + 16'd1) >> 1) : active_height_px;
-    assign line_y_group_count         = (i_cfg_format == FMT_YUV420_8) ? ({3'd0, active_height_px[15:3]} +
-                                                                          {15'd0, |active_height_px[2:0]}) :
-                                        ((i_cfg_format == FMT_RGBA8888) ||
-                                         (i_cfg_format == FMT_RGBA10) ||
-                                         (i_cfg_format == FMT_YUV420_10)) ? ({2'd0, active_height_px[15:2]} +
-                                                                            {15'd0, |active_height_px[1:0]}) :
-                                                                            16'd0;
-    assign line_last_y_group_lines    = (i_cfg_format == FMT_YUV420_8) ?
-                                        ((|active_height_px[2:0]) ? {13'd0, active_height_px[2:0]} : 16'd8) :
-                                        ((|active_height_px[1:0]) ? {14'd0, active_height_px[1:0]} : 16'd4);
-    assign line_last_uv_group_lines   = ((i_cfg_format == FMT_YUV420_8) ||
-                                         (i_cfg_format == FMT_YUV420_10)) ? ({1'b0, line_last_y_group_lines[15:1]} +
-                                                                           {15'd0, line_last_y_group_lines[0]}) :
-                                                                            16'd0;
+    assign line_y_group_count         = (i_cfg_format == FMT_YUV420_10) ? ({2'd0, active_height_px[15:2]} +
+                                                                           {15'd0, |active_height_px[1:0]}) :
+                                        (i_cfg_format == FMT_YUV420_8)  ? ({3'd0, active_height_px[15:3]} +
+                                                                           {15'd0, |active_height_px[2:0]}) :
+                                                                          16'd0;
     assign active_tile_cols           = active_tile_cols_div;
     assign active_tile_rows           = active_tile_rows_div;
     assign active_width_partial       = active_width_rem;
@@ -368,84 +325,6 @@ module ubwc_enc_otf_to_tile
                                         (active_tile_rows != 16'd0) &&
                                         (line_tile_y == active_tile_rows - 16'd1);
     assign line_tile_forced_pcm       = partial_right_tile || partial_bottom_tile;
-    assign line_is_rgba_format        = (line_tile_format == 5'd0) ||
-                                        (line_tile_format == 5'd1);
-    assign line_is_yuv8_format        = (line_tile_format == 5'd8) ||
-                                        (line_tile_format == 5'd9);
-    assign line_is_p010_format        = (line_tile_format == 5'd14) ||
-                                        (line_tile_format == 5'd15);
-    assign line_tile_word_idx         = line_tile_word_idx_r;
-    assign line_right_valid_px_full   = line_is_rgba_format ? 16'd16 : 16'd32;
-    assign line_right_valid_px_rem    = line_is_rgba_format ? {12'd0, active_width_px[3:0]} :
-                                                              {11'd0, active_width_px[4:0]};
-    assign line_right_valid_px        = !partial_right_tile ? line_right_valid_px_full :
-                                        (line_right_valid_px_rem != 16'd0) ? line_right_valid_px_rem :
-                                                                             line_right_valid_px_full;
-    assign line_word_base_px          = line_is_rgba_format ? {12'd0, line_tile_word_idx[1:0], 2'd0} :
-                                        line_is_yuv8_format ? {11'd0, line_tile_word_idx[0], 4'd0} :
-                                                              {11'd0, line_tile_word_idx[1:0], 3'd0};
-    assign line_word_span_px          = line_is_rgba_format ? 16'd4  :
-                                        line_is_yuv8_format ? 16'd16 :
-                                                              16'd8;
-    assign line_word_rem_px           = (line_right_valid_px > line_word_base_px) ?
-                                        (line_right_valid_px - line_word_base_px) :
-                                        16'd0;
-    assign line_word_valid_px         = (line_word_rem_px >= line_word_span_px) ?
-                                        line_word_span_px[4:0] : line_word_rem_px[4:0];
-    assign line_valid_bytes_rgba      = (line_word_valid_px == 5'd0) ? 5'd0  :
-                                        (line_word_valid_px == 5'd1) ? 5'd4  :
-                                        (line_word_valid_px == 5'd2) ? 5'd8  :
-                                        (line_word_valid_px == 5'd3) ? 5'd12 :
-                                                                       5'd16;
-    assign line_valid_bytes_yuv8_uv   = (line_word_valid_px == 5'd0)  ? 5'd0  :
-                                        (line_word_valid_px <= 5'd2)  ? 5'd2  :
-                                        (line_word_valid_px <= 5'd4)  ? 5'd4  :
-                                        (line_word_valid_px <= 5'd6)  ? 5'd6  :
-                                        (line_word_valid_px <= 5'd8)  ? 5'd8  :
-                                        (line_word_valid_px <= 5'd10) ? 5'd10 :
-                                        (line_word_valid_px <= 5'd12) ? 5'd12 :
-                                        (line_word_valid_px <= 5'd14) ? 5'd14 :
-                                                                        5'd16;
-    assign line_valid_bytes_p010_y    = {line_word_valid_px[3:0], 1'b0};
-    assign line_valid_bytes_p010_uv   = (line_word_valid_px == 5'd0) ? 5'd0  :
-                                        (line_word_valid_px <= 5'd2) ? 5'd4  :
-                                        (line_word_valid_px <= 5'd4) ? 5'd8  :
-                                        (line_word_valid_px <= 5'd6) ? 5'd12 :
-                                                                       5'd16;
-    assign line_word_valid_bytes      = !line_word_row_valid ? 5'd0 :
-                                        line_is_rgba_format  ? line_valid_bytes_rgba :
-                                        line_is_yuv8_format  ? (line_is_uv_plane ? line_valid_bytes_yuv8_uv :
-                                                                                   line_word_valid_px) :
-                                        line_is_p010_format  ? (line_is_uv_plane ? line_valid_bytes_p010_uv :
-                                                                                   line_valid_bytes_p010_y) :
-                                                               5'd0;
-    assign line_bottom_valid_rows_full = line_is_yuv8_format ? 16'd8 : 16'd4;
-    assign line_bottom_valid_rows_rem  = line_is_yuv8_format ? {13'd0, plane_active_height_px[2:0]} :
-                                                               {14'd0, plane_active_height_px[1:0]};
-    assign line_bottom_valid_rows      = !partial_bottom_tile ? line_bottom_valid_rows_full :
-                                         (line_bottom_valid_rows_rem != 16'd0) ? line_bottom_valid_rows_rem :
-                                                                                 line_bottom_valid_rows_full;
-    assign line_word_row               = line_is_yuv8_format ? {13'd0, line_tile_word_idx[3:1]} :
-                                                               {14'd0, line_tile_word_idx[3:2]};
-    assign line_word_row_valid         = (line_word_row < line_bottom_valid_rows);
-    assign line_keep_from_bytes        = (line_word_valid_bytes == 5'd0)  ? 16'h0000 :
-                                         (line_word_valid_bytes == 5'd1)  ? 16'h0001 :
-                                         (line_word_valid_bytes == 5'd2)  ? 16'h0003 :
-                                         (line_word_valid_bytes == 5'd3)  ? 16'h0007 :
-                                         (line_word_valid_bytes == 5'd4)  ? 16'h000f :
-                                         (line_word_valid_bytes == 5'd5)  ? 16'h001f :
-                                         (line_word_valid_bytes == 5'd6)  ? 16'h003f :
-                                         (line_word_valid_bytes == 5'd7)  ? 16'h007f :
-                                         (line_word_valid_bytes == 5'd8)  ? 16'h00ff :
-                                         (line_word_valid_bytes == 5'd9)  ? 16'h01ff :
-                                         (line_word_valid_bytes == 5'd10) ? 16'h03ff :
-                                         (line_word_valid_bytes == 5'd11) ? 16'h07ff :
-                                         (line_word_valid_bytes == 5'd12) ? 16'h0fff :
-                                         (line_word_valid_bytes == 5'd13) ? 16'h1fff :
-                                         (line_word_valid_bytes == 5'd14) ? 16'h3fff :
-                                         (line_word_valid_bytes == 5'd15) ? 16'h7fff :
-                                                                            16'hffff;
-    assign line_tile_keep_eff          = line_tile_keep & line_keep_from_bytes;
     assign data_push_ready            = !data_fifo_full;
     assign ci_push_ready              = !ci_fifo_full;
     assign line_tile_fire             = line_tile_vld && line_tile_rdy;
@@ -455,15 +334,12 @@ module ubwc_enc_otf_to_tile
     assign flush_half_only            = half_valid_r && half_last_r && data_push_ready;
     assign ci_push_needed             = tile_first_word_r && !tile_cmd_sent_r;
     assign half_valid_clear           = flush_half_only || pack_second_fire;
-    assign start_fifo_wr_en           = i_start_pulse && !start_fifo_full;
-    assign start_fifo_rd_en           = otf_frame_start;
-    assign otf_input_enable           = start_fifo_valid || otf_frame_active;
-    assign otf_vsync_gated            = otf_input_enable ? i_otf_vsync : 1'b0;
-    assign otf_hsync_gated            = otf_input_enable ? i_otf_hsync : 1'b0;
-    assign otf_de_gated               = otf_input_enable ? i_otf_de    : 1'b0;
+    assign otf_vsync_gated            = i_otf_input_enable ? i_otf_vsync : 1'b0;
+    assign otf_hsync_gated            = i_otf_input_enable ? i_otf_hsync : 1'b0;
+    assign otf_de_gated               = i_otf_input_enable ? i_otf_de    : 1'b0;
     assign data_fifo_din              = flush_half_only ?
                                                           {half_fcnt_r, half_format_r, half_y_r, half_x_r, 1'b1, {16'd0, half_keep_r}, {128'd0, half_data_r}} :
-                                                          {half_fcnt_r, half_format_r, half_y_r, half_x_r, line_tile_last, {line_tile_keep_eff, half_keep_r}, {line_tile_data, half_data_r}};
+                                                          {half_fcnt_r, half_format_r, half_y_r, half_x_r, line_tile_last, {line_tile_keep, half_keep_r}, {line_tile_data, half_data_r}};
     assign data_fifo_wr_en            = flush_half_only || pack_second_fire;
     assign data_fifo_rd_en            = data_fifo_valid && i_tile_rdy;
     assign ci_fifo_din                = {line_tile_forced_pcm, line_tile_format, line_tile_fcnt, line_tile_y, line_tile_x};
@@ -489,7 +365,13 @@ module ubwc_enc_otf_to_tile
     assign ci_tile_format             = ci_fifo_dout[36 +: 5];
     assign ci_tile_forced_pcm         = ci_fifo_dout[CI_FIFO_W-1];
     assign o_ci_forced_pcm            = ci_tile_forced_pcm;
-    assign o_ci_sb                    = {{(SB_WIDTH-1){1'b0}}, ci_tile_fcnt[0]};
+    assign o_ci_sb                    = {
+                                          {(SB_WIDTH-CI_SB_CONTEXT_W){1'b0}},
+                                          ci_tile_format,
+                                          ci_tile_fcnt,
+                                          ci_tile_y[TH_DW-1:0],
+                                          ci_tile_x[TW_DW-1:0]
+                                      };
     assign o_tile_format              = ci_tile_format;
     assign o_tile_y                   = ci_tile_y;
     assign o_tile_x                   = ci_tile_x;
@@ -534,12 +416,10 @@ module ubwc_enc_otf_to_tile
     assign coord_frame_last           = coord_last_col &&
                                         ((!coord_is_yuv420 && coord_last_row) ||
                                          coord_yuv_last_uv);
-    assign o_addr_cfg_done_pulse      = coord_fifo_rd_en && coord_frame_last;
-    assign o_addr_cfg_done_slot       = o_co_tile_fcnt[0];
-    assign otf_frame_start            = i_otf_vsync & ~otf_vsync_d &
-                                        start_fifo_valid & packer_otf_ready;
-    assign otf_line_fire              = i_otf_hsync & ~otf_hsync_d & o_otf_ready;
-    assign otf_de_fire                = i_otf_de & o_otf_ready;
+    assign otf_frame_start            = i_otf_frame_start_pulse;
+    assign otf_line_fire              = otf_hsync_gated & ~otf_hsync_d &
+                                        packer_otf_ready;
+    assign otf_de_fire                = otf_de_gated & packer_otf_ready;
     assign otf_slot                   = i_otf_fcnt[0];
     assign otf_count_snapshot_event   = otf_frame_start;
     assign otf_count_snapshot_pulse   = otf_count_snap_toggle_sync[2] ^
@@ -556,26 +436,19 @@ module ubwc_enc_otf_to_tile
     assign otf_line_count1_snap_data  = (otf_line_fire && otf_slot) ?
                                         (otf_line_count1_r + 32'd1) :
                                                                       otf_line_count1_r;
-    assign o_correct_irq_pulse        = o_addr_cfg_done_pulse;
-    assign o_correct_irq_slot         = o_addr_cfg_done_slot;
+    assign o_correct_irq_pulse        = coord_fifo_rd_en && coord_frame_last;
+    assign o_correct_irq_slot         = o_co_tile_fcnt[0];
     assign o_otf_de_count0            = otf_de_count0_clk;
     assign o_otf_de_count1            = otf_de_count1_clk;
     assign o_otf_line_count0          = otf_line_count0_clk;
     assign o_otf_line_count1          = otf_line_count1_clk;
-    assign o_otf_ready                = otf_input_enable && packer_otf_ready;
-
-    always @(posedge i_otf_clk or negedge rst_n_otf) begin
-        if (!rst_n_otf)
-            otf_vsync_d <= 1'b0;
-        else
-            otf_vsync_d <= i_otf_vsync;
-    end
+    assign o_otf_ready                = i_otf_input_enable && packer_otf_ready;
 
     always @(posedge i_otf_clk or negedge rst_n_otf) begin
         if (!rst_n_otf)
             otf_hsync_d <= 1'b0;
         else
-            otf_hsync_d <= i_otf_hsync;
+            otf_hsync_d <= otf_hsync_gated;
     end
 
     always @(posedge i_otf_clk or negedge rst_n_otf) begin
@@ -701,7 +574,7 @@ module ubwc_enc_otf_to_tile
 
     always @(posedge clk) begin
         if (pack_first_fire)
-            half_keep_r <= line_tile_keep_eff;
+            half_keep_r <= line_tile_keep;
     end
 
     always @(posedge clk) begin
@@ -744,52 +617,6 @@ module ubwc_enc_otf_to_tile
         else if (ci_fifo_wr_en)
             tile_cmd_sent_r <= 1'b1;
     end
-
-    always @(posedge clk or negedge rst_n_sys) begin
-        if (!rst_n_sys)
-            line_tile_word_idx_r <= 4'd0;
-        else if (line_tile_fire && line_tile_last)
-            line_tile_word_idx_r <= 4'd0;
-        else if (line_tile_fire)
-            line_tile_word_idx_r <= line_tile_word_idx_r + 4'd1;
-    end
-
-    always @(posedge i_otf_clk or negedge rst_n_otf) begin
-        if (!rst_n_otf)
-            otf_frame_active <= 1'b0;
-        else if (packer_frame_done)
-            otf_frame_active <= 1'b0;
-        else if ((i_otf_vsync & ~otf_vsync_d) && otf_frame_active && !start_fifo_valid)
-            otf_frame_active <= 1'b0;
-        else if (otf_frame_start)
-            otf_frame_active <= 1'b1;
-    end
-
-    mg_async_fifo
-    #(
-        .AF                         ( 1                             ),
-        .DATA_BITS                  ( 1                             ),
-        .DEPTH_BITS                 ( 3                             ),
-        .SHOW_AHEAD                 ( 1                             )
-    )
-    u_start_fifo
-    (
-        .wr_clk                     ( clk                           ),
-        .wr_rstn                    ( rst_n_sys                     ),
-        .wr_en                      ( start_fifo_wr_en              ),
-        .din                        ( 1'b1                          ),
-        .wr_data_count              (                               ),
-        .prog_full                  (                               ),
-        .full                       ( start_fifo_full               ),
-        .rd_clk                     ( i_otf_clk                     ),
-        .rd_rstn                    ( rst_n_otf                     ),
-        .rd_en                      ( start_fifo_rd_en              ),
-        .dout                       (                               ),
-        .valid                      ( start_fifo_valid              ),
-        .rd_data_count              (                               ),
-        .pre_empty                  (                               ),
-        .empty                      ( start_fifo_empty              )
-    );
 
     mg_async_fifo
     #(
@@ -875,12 +702,11 @@ module ubwc_enc_otf_to_tile
         .i_clk                      ( clk                           ),
         .rst_n_sys                  ( rst_n_sys                     ),
         .rst_n_otf                  ( rst_n_otf                     ),
+        .i_frame_start              ( i_frame_start_pulse           ),
 
         .cfg_format                 ( i_cfg_format                  ),
-        .cfg_width                  ( i_cfg_width                   ),
-        .cfg_height                 ( i_cfg_height                  ),
-        .cfg_active_width           ( active_width_px               ),
-        .cfg_active_height          ( active_height_px              ),
+        .cfg_width                  ( active_width_px               ),
+        .cfg_height                 ( active_height_px              ),
         .err_bline                  ( o_err_bline                   ),
         .err_bframe                 ( o_err_bframe                  ),
         .err_fifo_ovf               ( o_err_fifo_ovf                ),
@@ -893,7 +719,7 @@ module ubwc_enc_otf_to_tile
         .otf_fcnt                   ( i_otf_fcnt                    ),
         .otf_lcnt                   ( i_otf_lcnt                    ),
         .otf_ready                  ( packer_otf_ready              ),
-        .otf_frame_done             ( packer_frame_done             ),
+        .otf_frame_done             (                               ),
 
         .fifo_a_vld                 ( pack_fifo_a_vld               ),
         .fifo_a_rdy                 ( pack_fifo_a_rdy               ),
@@ -916,8 +742,6 @@ module ubwc_enc_otf_to_tile
         .cfg_y_tile_cols            ( i_cfg_y_tile_cols             ),
         .cfg_uv_tile_cols           ( i_cfg_uv_tile_cols            ),
         .cfg_y_group_count          ( line_y_group_count            ),
-        .cfg_last_y_lines           ( line_last_y_group_lines       ),
-        .cfg_last_uv_lines          ( line_last_uv_group_lines      ),
 
         .fifo_a_vld                 ( pack_fifo_a_vld               ),
         .fifo_a_rdy                 ( pack_fifo_a_rdy               ),
