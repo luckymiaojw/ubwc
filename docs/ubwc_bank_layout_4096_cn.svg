@@ -64,8 +64,8 @@
   </g>
 
   <rect class="panel" x="50" y="450" width="1380" height="410" rx="14"/>
-  <text class="head" x="80" y="488">2. YUV420_8：4096 宽时，Y 固定区 + UV_A/UV_B 双区交替</text>
-  <text class="subtitle" x="80" y="514">每个 bank 存储 8 行 Y 和 4 行 UV；Y 固定使用 0..2048，UV_A 为 2048..3072，UV_B 为 3072..4096。</text>
+  <text class="head" x="80" y="488">2. YUV420（NV12 / P010）：4096 宽时，Y 固定区 + UV_A/UV_B 双区交替</text>
+  <text class="subtitle" x="80" y="514">每个 bank：Y 区为 word 0..2047，UV_A 为 2048..3071，UV_B 为 3072..4095；各格式按自身每像素字节数映射行。</text>
   <text class="subtitle" x="80" y="540">UV_A 读出按 tile 进行，需要 BANK0.UV_A 与 BANK1.UV_A 配对同时读；UV_B 写入在两个 bank 间交替推进。</text>
 
   <g transform="translate(80 585)">
@@ -81,7 +81,7 @@
     <rect class="uv-slot" x="960" y="0" width="320" height="78"/>
 
     <text class="label" x="284" y="28">Y</text>
-    <text class="mono" x="254" y="52">row 0..7</text>
+    <text class="mono" x="242" y="52">current Y row group</text>
     <text class="mono" x="292" y="70">2048w</text>
     <text class="label" x="752" y="28">UV_A</text>
     <text class="mono" x="714" y="52">BANK0/1 pair read</text>
@@ -109,7 +109,7 @@
     <rect class="uv" x="960" y="0" width="320" height="78"/>
 
     <text class="label" x="284" y="28">Y</text>
-    <text class="mono" x="248" y="52">next 8 rows</text>
+    <text class="mono" x="244" y="52">next Y row group</text>
     <text class="mono" x="292" y="70">2048w</text>
     <text class="label" x="752" y="32">UV_A</text>
     <text class="mono" x="710" y="58">tile read pair</text>
@@ -126,8 +126,8 @@
 
   <rect class="panel" x="50" y="895" width="1380" height="150" rx="14"/>
   <text class="head" x="80" y="933">3. 读图说明</text>
-  <text class="subtitle" x="80" y="966">YUV420_8 下，UV 读出按 tile 粒度配对访问两个 bank；UV 写入按行组在两个 bank 的 UV_A/UV_B 区域交替推进。</text>
+  <text class="subtitle" x="80" y="966">NV12/P010 下，UV 读出按 tile 粒度配对访问两个 bank；UV 写入按行组在两个 bank 的 UV_A/UV_B 区域交替推进。</text>
   <text class="subtitle" x="80" y="994">软件不需要配置 UV_A/UV_B，只需要配置每帧 UBWC base address；配对读和交替写由硬件 line_to_otf / SRAM 调度完成。</text>
   <rect class="note" x="80" y="1015" width="1320" height="28" rx="10"/>
-  <text class="small" x="100" y="1035">备注：ENC/DEC 内部调度细节不同，但外部 SRAM 容量边界一致：单 bank 64 KiB，两个 bank 合计 128 KiB，支持最大 4096 px 宽度。</text>
+  <text class="small" x="100" y="1035">备注：本图描述 DEC 非旋转路径；单 bank 64 KiB，两个 bank 合计 128 KiB，支持最大 4096 px 输入宽度。</text>
 </svg>

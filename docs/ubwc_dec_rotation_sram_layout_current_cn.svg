@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1660" height="920" viewBox="0 0 1660 920">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 L0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2563eb"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 32px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #475569; }
+      .section { font-size: 21px; font-weight: 700; }
+      .box-title { font-size: 17px; font-weight: 700; }
+      .box-text { font-size: 13px; fill: #334155; }
+      .small { font-size: 12px; fill: #475569; }
+      .note { font-size: 14px; fill: #334155; }
+      .bank { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 10; }
+      .y { fill: #dcfce7; stroke: #16a34a; stroke-width: 2; }
+      .uv { fill: #fed7aa; stroke: #ea580c; stroke-width: 2; }
+      .reserved { fill: #f1f5f9; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 5 4; }
+      .write { fill: #ecfdf5; stroke: #059669; stroke-width: 2; rx: 8; }
+      .read { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 8; }
+      .idle { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; rx: 8; }
+      .flow { fill: none; stroke: #334155; stroke-width: 2.4; marker-end: url(#arrow); }
+      .data { fill: none; stroke: #2563eb; stroke-width: 2.6; marker-end: url(#arrow-blue); }
+    </style>
+  </defs>
+
+  <rect width="1660" height="920" fill="#f8fafc"/>
+  <rect width="1660" height="920" fill="url(#grid)" opacity="0.55"/>
+
+  <text x="52" y="58" class="title">DEC NV12 Rotation 共享 SRAM 布局与 Ping-Pong 调度</text>
+  <text x="52" y="88" class="subtitle">当前 RTL：rotation 与 non-rotation 通过 mux 共用外部 bank0/bank1；每个 bank 为 4096 x 128-bit（64 KiB），rotation 不增加整帧 SRAM。</text>
+
+  <text x="70" y="140" class="section">1. 单个 Bank 的 Rotation Stripe 布局</text>
+  <rect x="70" y="165" width="1520" height="205" class="bank"/>
+  <text x="95" y="198" class="box-title">bank0 / bank1 均采用相同布局</text>
+  <text x="95" y="222" class="box-text">ROT_LINE_STRIDE_WORDS = 85；一个 bank 保存一组转置后的 Y + UV stripe。</text>
+
+  <rect x="95" y="252" width="990" height="74" class="y"/>
+  <text x="590" y="281" text-anchor="middle" class="box-title">Rotated Y Stripe</text>
+  <text x="590" y="306" text-anchor="middle" class="box-text">word 0..2719 = 32 output lines x 85 word/line</text>
+
+  <rect x="1085" y="252" width="495" height="74" class="uv"/>
+  <text x="1332" y="281" text-anchor="middle" class="box-title">Rotated UV Stripe</text>
+  <text x="1332" y="306" text-anchor="middle" class="box-text">word 2720..4079 = 16 lines x 85 word/line</text>
+
+  <rect x="1532" y="252" width="48" height="74" class="reserved"/>
+  <text x="1556" y="344" text-anchor="middle" class="small">4080..4095 reserved</text>
+
+  <line x1="95" y1="338" x2="1580" y2="338" stroke="#334155" stroke-width="1.5"/>
+  <text x="95" y="358" class="small">0</text>
+  <text x="1085" y="358" text-anchor="middle" class="small">2720</text>
+  <text x="1532" y="358" text-anchor="middle" class="small">4080</text>
+  <text x="1580" y="358" text-anchor="end" class="small">4095</text>
+
+  <text x="70" y="430" class="section">2. Bank0 / Bank1 Ping-Pong</text>
+
+  <text x="115" y="482" class="box-title">阶段</text>
+  <text x="330" y="482" class="box-title">bank0</text>
+  <text x="845" y="482" class="box-title">bank1</text>
+  <text x="1370" y="482" class="box-title">OTF</text>
+
+  <rect x="70" y="505" width="150" height="82" class="idle"/>
+  <text x="145" y="537" text-anchor="middle" class="box-title">T0</text>
+  <text x="145" y="562" text-anchor="middle" class="box-text">预填充</text>
+  <rect x="270" y="505" width="470" height="82" class="write"/>
+  <text x="505" y="537" text-anchor="middle" class="box-title">WRITE stripe N</text>
+  <text x="505" y="562" text-anchor="middle" class="box-text">Y + UV 写入同一个 bank</text>
+  <rect x="785" y="505" width="470" height="82" class="idle"/>
+  <text x="1020" y="550" text-anchor="middle" class="box-title">IDLE</text>
+  <rect x="1300" y="505" width="290" height="82" class="idle"/>
+  <text x="1445" y="550" text-anchor="middle" class="box-title">等待首组有效</text>
+
+  <rect x="70" y="607" width="150" height="82" class="idle"/>
+  <text x="145" y="639" text-anchor="middle" class="box-title">T1</text>
+  <text x="145" y="664" text-anchor="middle" class="box-text">并行阶段</text>
+  <rect x="270" y="607" width="470" height="82" class="read"/>
+  <text x="505" y="639" text-anchor="middle" class="box-title">READ stripe N</text>
+  <text x="505" y="664" text-anchor="middle" class="box-text">按 rotated output line 顺序读</text>
+  <rect x="785" y="607" width="470" height="82" class="write"/>
+  <text x="1020" y="639" text-anchor="middle" class="box-title">WRITE stripe N+1</text>
+  <text x="1020" y="664" text-anchor="middle" class="box-text">Y + UV 写入同一个 bank</text>
+  <rect x="1300" y="607" width="290" height="82" class="read"/>
+  <text x="1445" y="639" text-anchor="middle" class="box-title">输出 stripe N</text>
+  <text x="1445" y="664" text-anchor="middle" class="box-text">Y / UV 逐行组合</text>
+
+  <rect x="70" y="709" width="150" height="82" class="idle"/>
+  <text x="145" y="741" text-anchor="middle" class="box-title">T2</text>
+  <text x="145" y="766" text-anchor="middle" class="box-text">角色交换</text>
+  <rect x="270" y="709" width="470" height="82" class="write"/>
+  <text x="505" y="741" text-anchor="middle" class="box-title">WRITE stripe N+2</text>
+  <text x="505" y="766" text-anchor="middle" class="box-text">bank0 再次成为写 bank</text>
+  <rect x="785" y="709" width="470" height="82" class="read"/>
+  <text x="1020" y="741" text-anchor="middle" class="box-title">READ stripe N+1</text>
+  <text x="1020" y="766" text-anchor="middle" class="box-text">bank1 成为读 bank</text>
+  <rect x="1300" y="709" width="290" height="82" class="read"/>
+  <text x="1445" y="741" text-anchor="middle" class="box-title">输出 stripe N+1</text>
+  <text x="1445" y="766" text-anchor="middle" class="box-text">流水连续推进</text>
+
+  <path class="data" d="M740 648 H785"/>
+  <path class="data" d="M1255 648 H1300"/>
+  <path class="data" d="M740 750 H785"/>
+  <path class="data" d="M1255 750 H1300"/>
+
+  <rect x="70" y="835" width="1520" height="50" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" rx="8"/>
+  <text x="95" y="866" class="note">约束：rotation 仅支持 NV12；输入宽度 ≤ 2048、输入高度 ≤ 1360。ROT90/ROT270 仅改变 stripe 扫描与行读出方向，不改变 SRAM 容量。</text>
+</svg>
